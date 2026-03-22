@@ -1,33 +1,33 @@
 # Improvement Roadmap
 
-This document focuses on practical ways to improve the repo from its current MVP state.
+This page is about the shortest path from promising prototype to useful debugger.
 
 ## Core Principle
 
-Do not optimize for more features first. Optimize for a coherent path from event capture to persistence to UI.
+Do not chase more features first. Make the core path work cleanly from trace capture to persistence to UI.
 
 ## Highest-Leverage Improvements
 
 ### 1. Unify the runtime path
 
-Best next steps:
+The best next steps are:
 
 1. create sessions in the database, not only in memory
 2. persist emitted events as they arrive
 3. persist checkpoints alongside events
 4. make list/query endpoints read from the same source that live tracing writes to
 
-This is the single biggest structural fix.
+This is the biggest structural fix in the whole project.
 
 ### 2. Make session state authoritative
 
 Choose one source of truth for session lifecycle.
 
-For this project, the database-backed repository should be authoritative, with any in-memory manager acting only as a cache or helper layer.
+For this project, that should be the database-backed repository. Any in-memory session manager should be a helper, not the truth.
 
 ### 3. Align frontend and backend contracts
 
-The frontend should consume the exact response shapes the backend returns.
+The frontend should consume the exact response shapes the backend actually returns.
 
 That means:
 
@@ -38,14 +38,14 @@ That means:
 
 ### 4. Build one complete debugger slice
 
-The best near-term UI outcome is:
+The best near-term UI milestone is:
 
 1. session list
 2. timeline
 3. event detail panel
 4. decision tree
 
-That is enough to make the product genuinely useful before replay is finished.
+That is enough to make the product useful before replay is fully built.
 
 ### 5. Improve event richness
 
@@ -60,7 +60,7 @@ Add more debugging value to each event:
 
 ### 6. Make replay real
 
-Replay only becomes meaningful when checkpoints are designed as a first-class execution primitive.
+Replay only becomes real when checkpoints are treated as a first-class part of execution, not just metadata.
 
 Needed steps:
 
@@ -106,4 +106,4 @@ If only one engineering task is chosen next, it should be this:
 
 - make a traced agent run appear in both live SSE and persisted history using one coherent session lifecycle
 
-Once that works, the rest of the product gets much easier to build.
+If that works, the rest of the product gets much easier.

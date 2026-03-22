@@ -1,10 +1,10 @@
 # Architecture
 
-This document describes the intended system shape and the most important current implementation details.
+This page describes the system shape without pretending the whole thing is finished. It covers both the design and the parts that are already real in code.
 
 ## High-Level Layers
 
-The system is organized into five layers:
+The project falls into five layers:
 
 1. SDK layer
 2. collection layer
@@ -81,7 +81,7 @@ Responsibilities:
 - expose real-time event streaming
 - initialize application wiring
 
-Important note:
+Important:
 
 - the live transport currently implemented is SSE, not WebSocket
 
@@ -99,38 +99,38 @@ Responsibilities:
 
 Current state:
 
-- conceptually scaffolded
-- not yet assembled into a finished debugger UI
+- the pieces are scaffolded
+- the full debugger UI is not assembled yet
 
 ## Data Flow
 
-The current live flow is:
+The live path today is:
 
 `agent code -> TraceContext/decorators/adapters -> EventBuffer -> SSE endpoint -> frontend`
 
-The intended persistent flow is:
+The intended durable path is:
 
 `agent code -> repository/database -> query endpoints -> frontend`
 
-Right now, those two flows are not fully unified.
+Those two paths do not fully meet yet, which is one of the main architectural problems in the project.
 
 ## Architectural Strengths
 
-- strong event schema
-- clear separation between generic SDK and framework-specific adapters
-- simple live streaming model
-- repository abstraction ready for more durable usage
+- The event schema is strong enough to support multiple debugger views.
+- The core SDK is cleanly separated from framework-specific adapters.
+- The live streaming model is simple and easy to reason about.
+- The repository layer is ready to become the long-term source of truth.
 
 ## Architectural Gaps
 
-- session lifecycle is split between memory and persistence
-- event persistence is not the single source of truth yet
-- replay is modeled but not closed end to end
-- frontend is not fully aligned with backend contracts yet
+- Session lifecycle is split between memory and persistence.
+- Event persistence is not the single source of truth yet.
+- Replay is represented in the model, but not finished end to end.
+- Frontend contracts still need to line up with backend responses.
 
 ## Design Direction
 
-The best architectural direction for this repo is:
+The clearest direction from here is:
 
 1. make the repository the source of truth for sessions and history
 2. keep the in-memory buffer as a live fan-out layer, not the main record

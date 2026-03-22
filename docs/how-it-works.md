@@ -1,19 +1,19 @@
 # How It Works
 
-This document explains what the repo is trying to build, how the current implementation behaves, and where the current boundaries are.
+This page explains how the system works today, not just how it is supposed to work on paper.
 
 ## What This Repo Is
 
 `agent_debugger` is an instrumentation and observability MVP for AI agents.
 
-At a high level, it wants to do four things:
+At a high level, it is trying to do four things:
 
 1. Capture agent execution as structured events.
 2. Preserve parent/child relationships between events so a run can be reconstructed as a tree.
 3. Stream those events live to a UI for debugging.
 4. Persist sessions, events, and checkpoints so runs can be replayed later.
 
-Instead of relying on plain logs, the repo records semantic events such as:
+Instead of relying on plain logs, it records events such as:
 
 - agent start and end
 - decisions
@@ -22,34 +22,34 @@ Instead of relying on plain logs, the repo records semantic events such as:
 - errors
 - checkpoints
 
-Those event types live in `agent_debugger_sdk/core/events.py`.
+Those event types are defined in `agent_debugger_sdk/core/events.py`.
 
 ## Main Mental Model
 
-The main runtime path is:
+The current live path looks like this:
 
 `agent code -> TraceContext/decorators/adapters -> EventBuffer -> API/SSE -> UI`
 
-There is also an intended durable history path:
+There is also a second path for durable history:
 
 `agent code -> persistence layer -> repository/database -> query endpoints`
 
-That second path is not fully connected yet. The strongest part of the current repo is the event model; the weakest part is the consistency of persistence and product integration.
+That second path is not fully connected yet. The event model is in decent shape. The integration between live tracing, persistence, and the product surface is where things are still uneven.
 
 ## Current Runtime Flow
 
 ### 1. Event model
 
-The SDK revolves around `TraceEvent` and specialized event types.
+Everything starts with `TraceEvent` and a handful of more specific event types.
 
-Important properties:
+Each event has a few fields that matter a lot:
 
 - every event has `session_id`
 - every event can have `parent_id`
 - every event has `event_type`, `data`, `metadata`, and `importance`
 - every event can be serialized through `to_dict()`
 
-This is a strong base abstraction because most debugger views can be derived from it:
+That turns out to be enough to drive most debugger views:
 
 - timeline from timestamps
 - tree from `parent_id`
@@ -60,15 +60,15 @@ This is a strong base abstraction because most debugger views can be derived fro
 
 `TraceContext` in `agent_debugger_sdk/core/context.py` is the core runtime primitive.
 
-When a traced run starts:
+When a traced run starts, `TraceContext`:
 
-1. it creates or accepts a `session_id`
-2. it sets async-local state with `contextvars`
-3. it emits an `agent_start` event
-4. it records later decisions, tool results, errors, and checkpoints
-5. it emits an `agent_end` event on exit
+1. creates or accepts a `session_id`
+2. sets async-local state with `contextvars`
+3. emits an `agent_start` event
+4. records later decisions, tool results, errors, and checkpoints
+5. emits an `agent_end` event on exit
 
-Why this design works:
+This design works for three reasons:
 
 - async-safe state
 - hierarchical traces through the current parent ID
@@ -81,7 +81,7 @@ There are two integration layers:
 - decorators in `agent_debugger_sdk/core/decorators.py`
 - adapters in `agent_debugger_sdk/adapters/`
 
-Decorators are the simplest starting point:
+Decorators are the simplest place to start:
 
 - `@trace_agent`
 - `@trace_tool`
@@ -92,15 +92,15 @@ Adapters cover framework-specific integrations:
 - `PydanticAIAdapter`
 - `LangChainTracingHandler`
 
-This separation is good. Generic tracing stays reusable, while framework specifics stay isolated.
+That split is sensible. The core tracing logic stays generic, and framework-specific behavior stays off to the side.
 
 ### 4. Live event pipeline
 
-On FastAPI startup, `api/main.py` connects the SDK to the collector with:
+On FastAPI startup, `api/main.py` wires the SDK to the collector with:
 
 - `configure_event_pipeline(get_event_buffer())`
 
-That causes emitted SDK events to be published into the global `EventBuffer` from `collector/buffer.py`.
+From that point on, emitted SDK events are published into the global `EventBuffer` from `collector/buffer.py`.
 
 `EventBuffer` currently does three jobs:
 
@@ -108,7 +108,7 @@ That causes emitted SDK events to be published into the global `EventBuffer` fro
 - lets subscribers receive live events through `asyncio.Queue`
 - applies basic memory bounds
 
-This is the piece that powers live debugging.
+This is the piece that makes live debugging work.
 
 ### 5. API and streaming
 
@@ -118,14 +118,14 @@ The backend exposes:
 - collector ingest routes in `collector/server.py`
 - SSE streaming at `/api/sessions/{session_id}/stream`
 
-The live stream path is:
+The live stream path is straightforward:
 
 1. client subscribes to a session stream
 2. API subscribes to the in-memory buffer
 3. new events are emitted as server-sent events
 4. keepalive comments are sent periodically
 
-This is one of the cleanest parts of the MVP.
+This is one of the cleaner parts of the current implementation.
 
 ### 6. Storage layer
 
@@ -135,17 +135,17 @@ This is one of the cleanest parts of the MVP.
 - events
 - checkpoints
 
-This is the right long-term direction, but it is not yet the single source of truth for all runtime activity.
+This is the right direction, but it is not yet the single source of truth for all runtime activity.
 
 ### 7. Frontend status
 
-The frontend already has the right concepts:
+The frontend already points in the right direction:
 
 - session loading
 - SSE subscription
 - timeline/tree/inspector components
 
-But the assembled debugger experience is still incomplete. The app shell in `frontend/src/App.tsx` is still placeholder-level.
+What it does not have yet is a finished debugger experience. The shell in `frontend/src/App.tsx` is still a placeholder.
 
 ## What Is Already Good
 
@@ -160,14 +160,14 @@ But the assembled debugger experience is still incomplete. The app shell in `fro
 
 ### Persistence is not fully wired into runtime
 
-The largest gap is that live events flow into `EventBuffer`, while most query endpoints rely on the repository/database path.
+The biggest gap is simple: live events go into `EventBuffer`, while most query endpoints rely on the repository/database path.
 
-That creates two paths:
+So there are really two systems at the moment:
 
 - live path in memory
 - historical path in persistent storage
 
-The bridge between those paths still needs to be completed.
+The bridge between them still needs to be built properly.
 
 ### Session handling is split
 
@@ -176,11 +176,11 @@ Session lifecycle exists in two places:
 - in-memory `SessionManager`
 - database-backed `TraceRepository`
 
-That should be unified.
+That should be one system, not two.
 
 ### Docs and runtime still have some drift
 
-The architecture doc historically referenced WebSocket, but the implemented live transport is SSE.
+The docs have already improved, but there are still places where the older intended design and the current implementation do not line up perfectly. A good example is the old WebSocket framing versus the current SSE implementation.
 
 ### Frontend and backend contracts need alignment
 
@@ -188,4 +188,4 @@ Some frontend expectations do not yet match the backend response shapes exactly.
 
 ## Bottom Line
 
-The repo already contains a solid event model and a workable live tracing pipeline. The next level of maturity comes from making persistence, session lifecycle, and frontend contracts coherent end to end.
+The core idea is sound. The event model is useful, and the live tracing path already works. The next real step is to make persistence, session lifecycle, and frontend contracts line up end to end.

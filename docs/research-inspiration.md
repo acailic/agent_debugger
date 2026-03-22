@@ -1,6 +1,6 @@
 # Research Inspiration
 
-This repo is informed by recent work around neural debugging, replay, evidence-grounded reasoning, agent safety, and multi-agent control.
+These papers are here because they push on the same problems this project is trying to solve: debugging, replay, evidence, safety, and control in agent systems.
 
 ## Papers
 
@@ -26,7 +26,7 @@ For repo-oriented notes on each paper, see [Paper Notes](./papers/README.md).
 
 ## How To Use These Papers In This Repo
 
-These papers are best used as design pressure, not as implementation theater.
+Use these papers as design pressure, not as decoration.
 
 Practical examples:
 
@@ -42,4 +42,4 @@ Read the papers at two levels:
 1. what capability or discipline the paper demonstrates
 2. what minimum version of that capability belongs in this repo
 
-That keeps the docs useful. The goal is not to import paper vocabulary into the product. The goal is to turn research into better event design, better replay, and better debugging workflows.
+That keeps the docs grounded. The goal is not to import paper vocabulary into the product. The goal is to turn research into better event design, better replay, and better debugging workflows.
