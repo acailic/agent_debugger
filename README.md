@@ -20,7 +20,7 @@ This repo is informed by recent work around neural debugging, replay, evidence-g
 ### 1. Start the API Server
 
 ```bash
-cd ai_working/agent_debugger
+cd agent_debugger
 
 # Install dependencies (if not already in main amplifier project)
 pip install fastapi uvicorn sqlalchemy aiosqlite pydantic
@@ -124,7 +124,7 @@ async with adapter.trace_session() as session_id:
 ### 6. Run Tests
 
 ```bash
-cd ai_working/agent_debugger
+cd agent_debugger
 uv run python test_integration.py
 ```
 
