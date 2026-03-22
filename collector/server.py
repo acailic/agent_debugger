@@ -12,7 +12,6 @@ from agent_debugger_sdk.core.events import EventType
 from agent_debugger_sdk.core.events import TraceEvent
 from agent_debugger_sdk.core.session import get_session_manager
 from fastapi import APIRouter
-from fastapi import FastAPI
 from fastapi import HTTPException
 from fastapi import status
 from pydantic import BaseModel
@@ -64,12 +63,6 @@ class HealthResponse(BaseModel):
 
     status: str
 
-
-app = FastAPI(
-    title="Agent Debugger Collector",
-    description="Trace collection service for agent debugging",
-    version="1.0.0",
-)
 
 router = APIRouter(
     prefix="/api",
@@ -168,6 +161,3 @@ async def health_check() -> HealthResponse:
         HealthResponse with status
     """
     return HealthResponse(status="ok")
-
-
-app.include_router(router)

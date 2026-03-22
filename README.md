@@ -2,6 +2,19 @@
 
 Visual debugging tool for AI agents that captures execution traces, visualizes decision trees, enables time-travel debugging, and provides real-time monitoring.
 
+For project documentation, start in [docs/README.md](./docs/README.md). The root [LEARNING.md](./LEARNING.md) now points to the focused docs pages.
+
+## Research Inspiration
+
+This repo is informed by recent work around neural debugging, replay, evidence-grounded reasoning, agent safety, and multi-agent control:
+
+- [Towards a Neural Debugger for Python](https://arxiv.org/abs/2603.09951v1) - neural debugger interactions, breakpoint-style execution, and execution-conditioned reasoning
+- [MSSR: Memory-Aware Adaptive Replay for Continual LLM Fine-Tuning](https://arxiv.org/abs/2603.09892v1) - adaptive replay and retention-aware trace prioritization
+- [CXReasonAgent: Evidence-Grounded Diagnostic Reasoning Agent for Chest X-rays](https://arxiv.org/abs/2602.23276v1) - evidence-grounded multi-step reasoning and verifiability in high-stakes settings
+- [NeuroSkill(tm): Proactive Real-Time Agentic System Capable of Modeling Human State of Mind](https://arxiv.org/abs/2603.03212v1) - real-time agent loops and state-aware interaction design
+- [Learning When to Act or Refuse: Guarding Agentic Reasoning Models for Safe Multi-Step Tool Use](https://arxiv.org/abs/2603.03205v1) - safe tool use, explicit checks, and refusal-aware agent traces
+- [Influencing LLM Multi-Agent Dialogue via Policy-Parameterized Prompts](https://arxiv.org/abs/2603.09890v1) - controllable multi-agent behavior and policy-like prompt instrumentation
+
 ## Quick Start
 
 ### 1. Start the API Server

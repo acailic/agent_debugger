@@ -10,6 +10,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from dataclasses import field
+from datetime import UTC
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
@@ -62,7 +63,7 @@ class TraceEvent:
     session_id: str = ""
     parent_id: str | None = None
     event_type: EventType = EventType.AGENT_START
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     name: str = ""
     data: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -329,7 +330,7 @@ class Session:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     agent_name: str = ""
     framework: str = ""
-    started_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     ended_at: datetime | None = None
     status: str = "running"
     total_tokens: int = 0
@@ -383,7 +384,7 @@ class Checkpoint:
     sequence: int = 0
     state: dict[str, Any] = field(default_factory=dict)
     memory: dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     importance: float = 0.5
 
     def to_dict(self) -> dict[str, Any]:

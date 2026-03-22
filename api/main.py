@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from contextlib import asynccontextmanager
 from typing import Any
 
+from agent_debugger_sdk.core.context import configure_event_pipeline
 from collector.buffer import get_event_buffer
 from collector.server import router as collector_router
 from fastapi import Depends
@@ -72,7 +74,7 @@ class DeleteResponse(BaseModel):
     session_id: str
 
 
-DATABASE_URL = "sqlite+aiosqlite:///./agent_debugger.db"
+DATABASE_URL = os.environ.get("AGENT_DEBUGGER_DB_URL", "sqlite+aiosqlite:///./agent_debugger.db")
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -106,6 +108,9 @@ async def lifespan(app: FastAPI):
 
     Handles startup and shutdown events for the FastAPI application.
     """
+    # Configure event pipeline to connect SDK to EventBuffer
+    configure_event_pipeline(get_event_buffer())
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
@@ -150,9 +155,10 @@ def create_app() -> FastAPI:
             SessionListResponse with paginated sessions
         """
         sessions = await repo.list_sessions(limit=limit, offset=offset)
+        total = await repo.count_sessions()
         return SessionListResponse(
             sessions=[s.to_dict() for s in sessions],
-            total=len(sessions),
+            total=total,
             limit=limit,
             offset=offset,
         )

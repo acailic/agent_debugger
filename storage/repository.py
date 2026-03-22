@@ -6,10 +6,13 @@ on session management, event queries, checkpoint management, and search function
 
 from __future__ import annotations
 
+from datetime import UTC
 from datetime import datetime
 from typing import Any
 
 from agent_debugger_sdk.core.events import Checkpoint
+from agent_debugger_sdk.core.events import DecisionEvent
+from agent_debugger_sdk.core.events import ErrorEvent
 from agent_debugger_sdk.core.events import EventType
 from agent_debugger_sdk.core.events import LLMRequestEvent
 from agent_debugger_sdk.core.events import LLMResponseEvent
@@ -21,6 +24,7 @@ from sqlalchemy import JSON
 from sqlalchemy import Float
 from sqlalchemy import ForeignKey
 from sqlalchemy import String
+from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase
@@ -44,7 +48,7 @@ class SessionModel(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     agent_name: Mapped[str] = mapped_column(String(255))
     framework: Mapped[str] = mapped_column(String(100))
-    started_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    started_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     ended_at: Mapped[datetime | None] = mapped_column(nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="running")
     total_tokens: Mapped[int] = mapped_column(default=0)
@@ -68,7 +72,7 @@ class EventModel(Base):
     session_id: Mapped[str] = mapped_column(String(36), ForeignKey("sessions.id"), index=True)
     parent_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     event_type: Mapped[str] = mapped_column(String(32), index=True)
-    timestamp: Mapped[datetime] = mapped_column(default=datetime.utcnow, index=True)
+    timestamp: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), index=True)
     name: Mapped[str] = mapped_column(String(255))
     data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     event_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
@@ -89,7 +93,7 @@ class CheckpointModel(Base):
     sequence: Mapped[int] = mapped_column(default=0)
     state: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     memory: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    timestamp: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    timestamp: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     importance: Mapped[float] = mapped_column(Float, default=0.5)
 
     session: Mapped[SessionModel] = relationship(back_populates="checkpoints")
@@ -168,6 +172,15 @@ class TraceRepository:
         )
         return [self._orm_to_session(db) for db in result.scalars()]
 
+    async def count_sessions(self) -> int:
+        """Count total number of sessions.
+
+        Returns:
+            Total count of sessions in the database
+        """
+        result = await self.session.execute(select(func.count()).select_from(SessionModel))
+        return result.scalar_one()
+
     async def update_session(self, session_id: str, **updates: Any) -> Session | None:
         """Update a session with the given field values.
 
@@ -236,6 +249,20 @@ class TraceRepository:
         self.session.add(db_event)
         await self.session.commit()
         return self._orm_to_event(db_event)
+
+    async def add_events_batch(self, events: list[TraceEvent]) -> list[TraceEvent]:
+        """Add multiple events to the database in a single transaction.
+
+        Args:
+            events: List of TraceEvent instances to persist
+
+        Returns:
+            List of created TraceEvent instances
+        """
+        db_events = [self._event_to_orm(event) for event in events]
+        self.session.add_all(db_events)
+        await self.session.commit()
+        return [self._orm_to_event(db) for db in db_events]
 
     async def get_event(self, event_id: str) -> TraceEvent | None:
         """Retrieve an event by ID.
@@ -412,6 +439,16 @@ class TraceRepository:
             data["usage"] = event.usage
             data["cost_usd"] = event.cost_usd
             data["duration_ms"] = event.duration_ms
+        elif isinstance(event, DecisionEvent):
+            data["reasoning"] = event.reasoning
+            data["confidence"] = event.confidence
+            data["evidence"] = event.evidence
+            data["alternatives"] = event.alternatives
+            data["chosen_action"] = event.chosen_action
+        elif isinstance(event, ErrorEvent):
+            data["error_type"] = event.error_type
+            data["error_message"] = event.error_message
+            data["stack_trace"] = event.stack_trace
 
         return EventModel(
             id=event.id,
@@ -421,7 +458,7 @@ class TraceRepository:
             timestamp=event.timestamp,
             name=event.name,
             data=data,
-            metadata=event.metadata,
+            event_metadata=event.metadata,
             importance=event.importance,
         )
 
@@ -434,8 +471,21 @@ class TraceRepository:
         Returns:
             Appropriate TraceEvent subclass instance
         """
-        data = db_event.data
+        data = dict(db_event.data)  # Make a copy to avoid modifying original
         event_type = EventType(db_event.event_type) if db_event.event_type else EventType.AGENT_START
+
+        # Fields to strip from data for each event type to avoid duplication
+        system_fields_by_type: dict[EventType, list[str]] = {
+            EventType.TOOL_CALL: ["tool_name", "arguments"],
+            EventType.TOOL_RESULT: ["tool_name", "result", "error", "duration_ms"],
+            EventType.LLM_REQUEST: ["model", "messages", "tools", "settings"],
+            EventType.LLM_RESPONSE: ["model", "content", "tool_calls", "usage", "cost_usd", "duration_ms"],
+            EventType.DECISION: ["reasoning", "confidence", "evidence", "alternatives", "chosen_action"],
+            EventType.ERROR: ["error_type", "error_message", "stack_trace"],
+        }
+
+        # Strip system fields from data to prevent duplication
+        cleaned_data = {k: v for k, v in data.items() if k not in system_fields_by_type.get(event_type, [])}
 
         base_kwargs = {
             "id": db_event.id,
@@ -444,8 +494,8 @@ class TraceRepository:
             "event_type": event_type,
             "timestamp": db_event.timestamp,
             "name": db_event.name,
-            "data": data,
-            "metadata": db_event.metadata,
+            "data": cleaned_data,
+            "metadata": db_event.event_metadata,
             "importance": db_event.importance,
         }
 
@@ -480,6 +530,22 @@ class TraceRepository:
                 usage=data.get("usage", {"input_tokens": 0, "output_tokens": 0}),
                 cost_usd=data.get("cost_usd", 0.0),
                 duration_ms=data.get("duration_ms", 0.0),
+            )
+        if event_type == EventType.DECISION:
+            return DecisionEvent(
+                **base_kwargs,
+                reasoning=data.get("reasoning", ""),
+                confidence=data.get("confidence", 0.5),
+                evidence=data.get("evidence", []),
+                alternatives=data.get("alternatives", []),
+                chosen_action=data.get("chosen_action", ""),
+            )
+        if event_type == EventType.ERROR:
+            return ErrorEvent(
+                **base_kwargs,
+                error_type=data.get("error_type", ""),
+                error_message=data.get("error_message", ""),
+                stack_trace=data.get("stack_trace"),
             )
         return TraceEvent(**base_kwargs)
 

@@ -175,7 +175,8 @@ def trace_tool(
                 )
                 await ctx.__aenter__()
 
-            assert ctx is not None
+            if ctx is None:
+                raise RuntimeError("TraceContext is None - this should not happen")
 
             tool_call_event = ToolCallEvent(
                 session_id=ctx.session_id,
@@ -268,7 +269,8 @@ def trace_llm(
                 )
                 await ctx.__aenter__()
 
-            assert ctx is not None
+            if ctx is None:
+                raise RuntimeError("TraceContext is None - this should not happen")
 
             messages = _extract_messages(args, kwargs)
 

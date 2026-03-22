@@ -13,20 +13,38 @@ import uuid
 from contextvars import ContextVar
 from datetime import UTC
 from datetime import datetime
+from typing import TYPE_CHECKING
 from typing import Any
 
 from .events import Checkpoint
 from .events import DecisionEvent
 from .events import ErrorEvent
 from .events import EventType
+from .events import LLMResponseEvent
 from .events import Session
 from .events import ToolResultEvent
 from .events import TraceEvent
+
+if TYPE_CHECKING:
+    from collector.buffer import EventBuffer
 
 _current_session_id: ContextVar[str | None] = ContextVar("current_session_id", default=None)
 _current_parent_id: ContextVar[str | None] = ContextVar("current_parent_id", default=None)
 _event_sequence: ContextVar[int] = ContextVar("event_sequence", default=0)
 _current_context: ContextVar[TraceContext | None] = ContextVar("current_context", default=None)
+_default_event_buffer: ContextVar[EventBuffer | None] = ContextVar("default_event_buffer", default=None)
+
+
+def configure_event_pipeline(buffer: EventBuffer | None) -> None:
+    """Configure the default event buffer for the event pipeline.
+
+    This connects the SDK's TraceContext to the collector's EventBuffer,
+    enabling real-time event streaming and persistence.
+
+    Args:
+        buffer: The EventBuffer to use for publishing events, or None to disconnect.
+    """
+    _default_event_buffer.set(buffer)
 
 
 class TraceContext:
@@ -52,7 +70,8 @@ class TraceContext:
         session_id: Unique identifier for this tracing session
         collector_endpoint: Optional endpoint for trace collection
         session: Session metadata object
-        _event_queue: Async queue for buffering events
+        _events: List for buffering events
+        _events_lock: Async lock for thread-safe event access
     """
 
     def __init__(
@@ -63,6 +82,7 @@ class TraceContext:
         framework: str = "",
         config: dict[str, Any] | None = None,
         tags: list[str] | None = None,
+        event_buffer: EventBuffer | None = None,
     ) -> None:
         """Initialize the trace context.
 
@@ -75,11 +95,15 @@ class TraceContext:
             framework: Framework being used (pydantic_ai, langchain, autogen).
             config: Agent configuration settings.
             tags: Tags for categorizing this session.
+            event_buffer: Optional EventBuffer for real-time event publishing.
+                If not provided, uses the default configured via configure_event_pipeline().
         """
         self.session_id = session_id or str(uuid.uuid4())
         self.collector_endpoint = collector_endpoint
-        self._event_queue: asyncio.Queue[TraceEvent | Checkpoint] = asyncio.Queue()
+        self._events: list[TraceEvent | Checkpoint] = []
+        self._events_lock: asyncio.Lock = asyncio.Lock()
         self._checkpoint_sequence = 0
+        self._event_buffer = event_buffer if event_buffer is not None else _default_event_buffer.get()
 
         self.session = Session(
             id=self.session_id,
@@ -374,7 +398,8 @@ class TraceContext:
             importance=max(0.0, min(1.0, importance)),
         )
 
-        await self._event_queue.put(checkpoint)
+        async with self._events_lock:
+            self._events.append(checkpoint)
 
         event = TraceEvent(
             id=str(uuid.uuid4()),
@@ -437,46 +462,27 @@ class TraceContext:
     async def get_events(self) -> list[TraceEvent | Checkpoint]:
         """Get all queued events from this context.
 
-        Non-destructively retrieves all events currently in the queue.
-        Events remain in the queue after this call.
+        Non-destructively retrieves all events currently stored.
+        Events remain in the list after this call.
 
         Returns:
-            List of all queued events and checkpoints.
+            List of all stored events and checkpoints.
         """
-        events: list[TraceEvent | Checkpoint] = []
-        temp_list: list[TraceEvent | Checkpoint] = []
-
-        while True:
-            try:
-                event = self._event_queue.get_nowait()
-                events.append(event)
-                temp_list.append(event)
-            except asyncio.QueueEmpty:
-                break
-
-        for event in temp_list:
-            await self._event_queue.put(event)
-
-        return events
+        async with self._events_lock:
+            return list(self._events)
 
     async def drain_events(self) -> list[TraceEvent | Checkpoint]:
         """Drain and return all queued events.
 
-        Destructively retrieves all events, clearing the queue.
+        Destructively retrieves all events, clearing the list.
 
         Returns:
-            List of all queued events and checkpoints.
+            List of all stored events and checkpoints.
         """
-        events: list[TraceEvent | Checkpoint] = []
-
-        while True:
-            try:
-                event = self._event_queue.get_nowait()
-                events.append(event)
-            except asyncio.QueueEmpty:
-                break
-
-        return events
+        async with self._events_lock:
+            events = list(self._events)
+            self._events.clear()
+            return events
 
     def _check_entered(self) -> None:
         """Check that the context has been entered.
@@ -490,9 +496,10 @@ class TraceContext:
             )
 
     async def _emit_event(self, event: TraceEvent) -> None:
-        """Emit an event to the queue.
+        """Emit an event to the internal list and optionally to the event buffer.
 
-        Increments the event sequence and queues the event for collection.
+        Increments the event sequence and stores the event locally.
+        If an event buffer is configured, also publishes to it for real-time streaming.
 
         Args:
             event: The event to emit.
@@ -502,13 +509,18 @@ class TraceContext:
 
         event.metadata["sequence"] = current_seq + 1
 
-        await self._event_queue.put(event)
+        async with self._events_lock:
+            self._events.append(event)
 
-        if event.event_type == EventType.LLM_RESPONSE:
-            usage = event.data.get("usage", {})
+        if isinstance(event, LLMResponseEvent):
+            usage = event.usage
             self.session.total_tokens += usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
-            self.session.total_cost_usd += event.data.get("cost_usd", 0.0)
+            self.session.total_cost_usd += event.cost_usd
             self.session.llm_calls += 1
+
+        # Publish to event buffer for real-time streaming if configured
+        if self._event_buffer is not None:
+            await self._event_buffer.publish(self.session_id, event)
 
 
 def get_current_context() -> TraceContext | None:

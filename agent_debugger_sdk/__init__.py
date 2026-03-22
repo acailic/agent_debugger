@@ -1,6 +1,7 @@
 """Agent Debugger SDK - Core types and interfaces for tracing agent execution."""
 
 from agent_debugger_sdk.core.context import TraceContext
+from agent_debugger_sdk.core.context import configure_event_pipeline
 from agent_debugger_sdk.core.context import get_current_context
 from agent_debugger_sdk.core.decorators import trace_agent
 from agent_debugger_sdk.core.decorators import trace_llm
@@ -31,6 +32,7 @@ __all__ = [
     # Context
     "TraceContext",
     "get_current_context",
+    "configure_event_pipeline",
     # Decorators
     "trace_agent",
     "trace_tool",

@@ -22,6 +22,17 @@ From `@ai_context/MODULAR_DESIGN_PHILOSOPHY.md`:
 - **Contract-first**: Define interfaces before implementation
 - **Regeneration-ready**: Structure allows rebuilding individual modules
 
+### Research Inspiration
+
+The architecture is also informed by the following recent papers:
+
+- [Towards a Neural Debugger for Python](https://arxiv.org/abs/2603.09951v1): motivates debugger-native interaction patterns such as breakpoint-oriented inspection, step controls, and execution-state modeling.
+- [MSSR: Memory-Aware Adaptive Replay for Continual LLM Fine-Tuning](https://arxiv.org/abs/2603.09892v1): motivates importance scoring, adaptive replay, and retention-aware sampling for stored traces.
+- [CXReasonAgent: Evidence-Grounded Diagnostic Reasoning Agent for Chest X-rays](https://arxiv.org/abs/2602.23276v1): reinforces evidence-grounded reasoning, tool-backed verification, and auditability for agent decisions.
+- [NeuroSkill(tm): Proactive Real-Time Agentic System Capable of Modeling Human State of Mind](https://arxiv.org/abs/2603.03212v1): informs real-time, state-aware agent monitoring patterns.
+- [Learning When to Act or Refuse: Guarding Agentic Reasoning Models for Safe Multi-Step Tool Use](https://arxiv.org/abs/2603.03205v1): informs explicit safety checks, refusal states, and stepwise tool-use traceability.
+- [Influencing LLM Multi-Agent Dialogue via Policy-Parameterized Prompts](https://arxiv.org/abs/2603.09890v1): informs multi-agent observability and prompt/policy instrumentation for dialogue control.
+
 ---
 
 ## 1. System Architecture

@@ -76,7 +76,7 @@ class ImportanceScorer:
 
         if event.event_type == EventType.DECISION:
             confidence = event.data.get("confidence", 0.5)
-            score += self.decision_weight * (1 - abs(0.5 - confidence) * 2)
+            score += self.decision_weight * abs(0.5 - confidence) * 2
 
         return min(score, 1.0)
 

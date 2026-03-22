@@ -125,16 +125,15 @@ class PersistenceManager:
 
         Args:
             session_id: The session identifier
-            events: List of BufferedEvent objects to write
+            events: List of TraceEvent objects to write
         """
         file_path = self.storage_path / f"{session_id}.json"
         lines = []
 
-        for buffered_event in events:
-            event_dict = buffered_event.event.to_dict()
+        for event in events:
+            event_dict = event.to_dict()
             event_dict["_meta"] = {
-                "session_id": buffered_event.session_id,
-                "sequence": buffered_event.sequence,
+                "session_id": session_id,
                 "flushed_at": datetime.now(UTC).isoformat(),
             }
             lines.append(json.dumps(event_dict, ensure_ascii=False))
