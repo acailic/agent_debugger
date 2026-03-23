@@ -47,15 +47,18 @@ class TraceRepository:
     """Data access layer for sessions, events, and checkpoints.
 
     Provides async methods for CRUD operations using SQLAlchemy async session.
+    All queries are scoped to a specific tenant_id for multi-tenant isolation.
     """
 
-    def __init__(self, session: AsyncSession):
-        """Initialize the repository with an async session.
+    def __init__(self, session: AsyncSession, tenant_id: str = "local"):
+        """Initialize the repository with an async session and tenant_id.
 
         Args:
             session: SQLAlchemy AsyncSession instance
+            tenant_id: Tenant identifier for data isolation (default: "local")
         """
         self.session = session
+        self.tenant_id = tenant_id
 
     async def create_session(self, session: Session) -> Session:
         """Create a new session record.
@@ -68,6 +71,7 @@ class TraceRepository:
         """
         db_session = SessionModel(
             id=session.id,
+            tenant_id=self.tenant_id,
             agent_name=session.agent_name,
             framework=session.framework,
             started_at=session.started_at,
@@ -94,7 +98,12 @@ class TraceRepository:
         Returns:
             Session if found, None otherwise
         """
-        result = await self.session.execute(select(SessionModel).where(SessionModel.id == session_id))
+        result = await self.session.execute(
+            select(SessionModel).where(
+                SessionModel.id == session_id,
+                SessionModel.tenant_id == self.tenant_id,
+            )
+        )
         db_session = result.scalar_one_or_none()
         if db_session is None:
             return None
@@ -111,7 +120,11 @@ class TraceRepository:
             List of Session instances
         """
         result = await self.session.execute(
-            select(SessionModel).order_by(SessionModel.started_at.desc()).offset(offset).limit(limit)
+            select(SessionModel)
+            .where(SessionModel.tenant_id == self.tenant_id)
+            .order_by(SessionModel.started_at.desc())
+            .offset(offset)
+            .limit(limit)
         )
         return [self._orm_to_session(db) for db in result.scalars()]
 
@@ -119,9 +132,13 @@ class TraceRepository:
         """Count total number of sessions.
 
         Returns:
-            Total count of sessions in the database
+            Total count of sessions in the database for the current tenant
         """
-        result = await self.session.execute(select(func.count()).select_from(SessionModel))
+        result = await self.session.execute(
+            select(func.count())
+            .select_from(SessionModel)
+            .where(SessionModel.tenant_id == self.tenant_id)
+        )
         return result.scalar_one()
 
     async def update_session(self, session_id: str, **updates: Any) -> Session | None:
@@ -151,7 +168,12 @@ class TraceRepository:
         if not filtered_updates:
             return await self.get_session(session_id)
 
-        result = await self.session.execute(select(SessionModel).where(SessionModel.id == session_id))
+        result = await self.session.execute(
+            select(SessionModel).where(
+                SessionModel.id == session_id,
+                SessionModel.tenant_id == self.tenant_id,
+            )
+        )
         db_session = result.scalar_one_or_none()
         if db_session is None:
             return None
@@ -170,7 +192,12 @@ class TraceRepository:
         Returns:
             True if deleted, False if not found
         """
-        result = await self.session.execute(select(SessionModel).where(SessionModel.id == session_id))
+        result = await self.session.execute(
+            select(SessionModel).where(
+                SessionModel.id == session_id,
+                SessionModel.tenant_id == self.tenant_id,
+            )
+        )
         db_session = result.scalar_one_or_none()
         if db_session is None:
             return False
@@ -232,8 +259,16 @@ class TraceRepository:
         Returns:
             List of TraceEvent instances
         """
+        # Join with SessionModel to ensure tenant isolation
         result = await self.session.execute(
-            select(EventModel).where(EventModel.session_id == session_id).order_by(EventModel.timestamp).limit(limit)
+            select(EventModel)
+            .join(SessionModel, EventModel.session_id == SessionModel.id)
+            .where(
+                SessionModel.tenant_id == self.tenant_id,
+                EventModel.session_id == session_id,
+            )
+            .order_by(EventModel.timestamp)
+            .limit(limit)
         )
         return [self._orm_to_event(db) for db in result.scalars()]
 
@@ -248,8 +283,15 @@ class TraceRepository:
         Returns:
             List of TraceEvent instances ordered by timestamp
         """
+        # Join with SessionModel to ensure tenant isolation
         result = await self.session.execute(
-            select(EventModel).where(EventModel.session_id == session_id).order_by(EventModel.timestamp)
+            select(EventModel)
+            .join(SessionModel, EventModel.session_id == SessionModel.id)
+            .where(
+                SessionModel.tenant_id == self.tenant_id,
+                EventModel.session_id == session_id,
+            )
+            .order_by(EventModel.timestamp)
         )
         return [self._orm_to_event(db) for db in result.scalars()]
 
@@ -305,10 +347,15 @@ class TraceRepository:
         Returns:
             List of Checkpoint instances ordered by timestamp
         """
+        # Join with SessionModel to ensure tenant isolation
         result = await self.session.execute(
             select(CheckpointModel)
+            .join(SessionModel, CheckpointModel.session_id == SessionModel.id)
             .options(selectinload(CheckpointModel.event))
-            .where(CheckpointModel.session_id == session_id)
+            .where(
+                SessionModel.tenant_id == self.tenant_id,
+                CheckpointModel.session_id == session_id,
+            )
             .order_by(CheckpointModel.timestamp)
         )
         return [self._orm_to_checkpoint(db) for db in result.scalars()]
@@ -323,11 +370,16 @@ class TraceRepository:
         Returns:
             List of high-importance Checkpoint instances
         """
+        # Join with SessionModel to ensure tenant isolation
         result = await self.session.execute(
             select(CheckpointModel)
+            .join(SessionModel, CheckpointModel.session_id == SessionModel.id)
             .options(selectinload(CheckpointModel.event))
-            .where(CheckpointModel.session_id == session_id)
-            .where(CheckpointModel.importance >= 0.8)
+            .where(
+                SessionModel.tenant_id == self.tenant_id,
+                CheckpointModel.session_id == session_id,
+                CheckpointModel.importance >= 0.8,
+            )
             .order_by(CheckpointModel.importance.desc())
             .limit(limit)
         )
@@ -353,8 +405,12 @@ class TraceRepository:
             List of matching TraceEvent instances
         """
         search_term = f"%{query}%"
+
+        # Join with SessionModel to ensure tenant isolation
         stmt = (
             select(EventModel)
+            .join(SessionModel, EventModel.session_id == SessionModel.id)
+            .where(SessionModel.tenant_id == self.tenant_id)
             .where(
                 or_(
                     EventModel.name.ilike(search_term),

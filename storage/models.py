@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import JSON
 from sqlalchemy import Float
 from sqlalchemy import ForeignKey
+from sqlalchemy import Index
 from sqlalchemy import String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase
@@ -29,6 +30,7 @@ class SessionModel(Base):
     __tablename__ = "sessions"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), nullable=False, default="local", index=True)
     agent_name: Mapped[str] = mapped_column(String(255))
     framework: Mapped[str] = mapped_column(String(100))
     started_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
@@ -52,6 +54,7 @@ class EventModel(Base):
     __tablename__ = "events"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), nullable=False, default="local", index=True)
     session_id: Mapped[str] = mapped_column(String(36), ForeignKey("sessions.id"), index=True)
     parent_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     event_type: Mapped[str] = mapped_column(String(32), index=True)
@@ -64,6 +67,10 @@ class EventModel(Base):
 
     session: Mapped[SessionModel] = relationship(back_populates="events")
 
+    __table_args__ = (
+        Index("ix_events_tenant_session", "tenant_id", "session_id"),
+    )
+
 
 class CheckpointModel(Base):
     """SQLAlchemy ORM model for Checkpoint dataclass."""
@@ -71,6 +78,7 @@ class CheckpointModel(Base):
     __tablename__ = "checkpoints"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), nullable=False, default="local", index=True)
     session_id: Mapped[str] = mapped_column(String(36), ForeignKey("sessions.id"), index=True)
     event_id: Mapped[str] = mapped_column(String(36), ForeignKey("events.id"))
     sequence: Mapped[int] = mapped_column(default=0)
