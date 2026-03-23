@@ -308,6 +308,11 @@ def create_app() -> FastAPI:
 
     app.include_router(collector_router)
 
+    @app.get("/health")
+    async def health_check():
+        """Health check endpoint."""
+        return {"status": "healthy"}
+
     @app.get("/api/sessions", response_model=SessionListResponse)
     async def list_sessions(
         limit: int = Query(default=50, ge=1, le=1000),
