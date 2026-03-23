@@ -352,8 +352,7 @@ def test_event_model_round_trip(event, expected_type, field_name, field_value):
     assert isinstance(round_tripped, expected_type)
     assert getattr(round_tripped, field_name) == field_value
     assert round_tripped.upstream_event_ids == event.upstream_event_ids
-    if expected_type is not TraceEvent:
-        assert "upstream_event_ids" in round_tripped.metadata
+    # upstream_event_ids is now a first-class field, not stored in metadata
 
 
 def test_session_and_checkpoint_orm_converters():
