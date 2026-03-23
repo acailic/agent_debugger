@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Peaky Peek — Agent Debugger</title>
+  <meta name="description" content="Debug AI agents like distributed systems. Capture decisions, tool calls, and LLM interactions as a queryable event timeline.">
+  <meta property="og:title" content="Peaky Peek — Agent Debugger">
+  <meta property="og:description" content="Local-first AI agent debugger. Inspect live, replay from checkpoints, search across sessions.">
+  <meta property="og:url" content="https://acailic.github.io/agent_debugger/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://acailic.github.io/agent_debugger/assets/screenshot-full-ui.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://acailic.github.io/agent_debugger/assets/screenshot-full-ui.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <h1 class="hero__headline">Debug AI agents like distributed systems<br>— not black boxes.</h1>
+    <p class="hero__sub">Capture every decision, tool call, and LLM interaction as a queryable event timeline. Inspect live, replay from checkpoints, search across sessions.</p>
+
+    <div class="hero__badges">
+      <a href="https://github.com/acailic/agent_debugger/actions/workflows/ci.yml"><img src="https://github.com/acailic/agent_debugger/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+      <img src="https://img.shields.io/pypi/v/peaky-peek.svg?label=peaky-peek" alt="PyPI peaky-peek">
+      <img src="https://img.shields.io/pypi/v/peaky-peek-server.svg?label=peaky-peek-server" alt="PyPI peaky-peek-server">
+      <img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+">
+      <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License MIT">
+      <img src="https://img.shields.io/pypi/dm/peaky-peek" alt="Downloads">
+    </div>
+
+    <div class="hero__cta">
+      <div class="install-block">
+        <pre class="install-block__pre"><code>pip install peaky-peek-server</code></pre>
+        <button class="copy-btn" onclick="copyInstall(this)" aria-label="Copy install command">Copy</button>
+      </div>
+      <a href="https://github.com/acailic/agent_debugger" class="btn btn--outline">★ GitHub</a>
+    </div>
+  </div>
+</section>
+
+<!-- WHY -->
+<section class="section">
+  <div class="container">
+    <h2 class="section__title">Why Peaky Peek?</h2>
+    <p class="section__sub">Traditional observability tools weren't built for agent-native debugging.</p>
+
+    <div class="why-grid">
+      <div class="why-card">
+        <div class="why-card__icon">🏠</div>
+        <div class="why-card__title">Local-first by default</div>
+        <p class="why-card__body">No external telemetry. No SaaS lock-in. Your agent data stays on your machine unless you explicitly configure cloud mode.</p>
+      </div>
+      <div class="why-card">
+        <div class="why-card__icon">🧠</div>
+        <div class="why-card__title">Agent-decision-aware</div>
+        <p class="why-card__body">Captures the causal chain behind every action — reasoning steps, confidence, evidence, and chosen action — not just function calls.</p>
+      </div>
+      <div class="why-card">
+        <div class="why-card__icon">⏪</div>
+        <div class="why-card__title">Interactive replay</div>
+        <p class="why-card__body">Time-travel through any session. Play, pause, step, and seek to any checkpoint. Replay the exact state before a failure occurred.</p>
+      </div>
+    </div>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Tool</th>
+          <th>Focus</th>
+          <th>Limitation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>LangSmith</td>
+          <td>LLM tracing</td>
+          <td>SaaS-first, no local-first option</td>
+        </tr>
+        <tr>
+          <td>OpenTelemetry</td>
+          <td>Infra observability</td>
+          <td>Not agent-decision-aware</td>
+        </tr>
+        <tr>
+          <td>Sentry</td>
+          <td>Error tracking</td>
+          <td>No reasoning-level insight</td>
+        </tr>
+        <tr class="compare-table--highlight">
+          <td><strong>Peaky Peek</strong></td>
+          <td>Agent-native debugging</td>
+          <td>✓ Local-first &amp; open source</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section section--alt">
+  <div class="container">
+    <h2 class="section__title">Feature Highlights</h2>
+    <p class="section__sub">Everything you need to understand why your agent did what it did.</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <img class="feature-card__img" src="assets/screenshot-decision-tree.png" alt="Decision Tree Visualization" loading="lazy">
+        <div class="feature-card__body-wrap">
+          <div class="feature-card__title">Decision Tree Visualization</div>
+          <p class="feature-card__body">Navigate agent reasoning as an interactive tree. Click nodes to inspect events and trace the causal chain from policy to tool call.</p>
+        </div>
+      </div>
+      <div class="feature-card">
+        <img class="feature-card__img" src="assets/screenshot-checkpoint-replay.png" alt="Checkpoint Replay" loading="lazy">
+        <div class="feature-card__body-wrap">
+          <div class="feature-card__title">Checkpoint Replay</div>
+          <p class="feature-card__body">Time-travel through agent execution. Play, pause, step, and seek to any point. Checkpoints ranked by restore value.</p>
+        </div>
+      </div>
+      <div class="feature-card">
+        <img class="feature-card__img" src="assets/screenshot-search.png" alt="Trace Search" loading="lazy">
+        <div class="feature-card__body-wrap">
+          <div class="feature-card__title">Trace Search</div>
+          <p class="feature-card__body">Find specific events across all sessions. Search by keyword, filter by event type, and jump directly to results.</p>
+        </div>
+      </div>
+      <div class="feature-card">
+        <img class="feature-card__img" src="assets/screenshot-failure-cluster.png" alt="Failure Clustering" loading="lazy">
+        <div class="feature-card__body-wrap">
+          <div class="feature-card__title">Failure Clustering</div>
+          <p class="feature-card__body">Adaptive analysis groups similar failures. Surface highest-severity, highest-novelty events. Click a cluster to focus the timeline.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- QUICK INSTALL -->
+<section class="section">
+  <div class="container">
+    <h2 class="section__title">Get Started in 2 Steps</h2>
+    <p class="section__sub">Requires Python 3.10+ and a cloned repo. No config files needed to start.</p>
+
+    <div class="install-steps">
+      <p class="install-steps__label">Step 1 — Install</p>
+      <pre><code>pip install peaky-peek-server</code></pre>
+
+      <p class="install-steps__label">Step 2 — Run (from repo root after cloning)</p>
+      <pre><code>git clone https://github.com/acailic/agent_debugger
+cd agent_debugger
+uvicorn api.main:app --reload --port 8000</code></pre>
+
+      <p class="install-steps__note">
+        API available at <code>http://localhost:8000</code> &middot;
+        <a href="https://github.com/acailic/agent_debugger/blob/main/docs/README.md">Full documentation →</a>
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container">
+    <nav class="footer__links" aria-label="Footer links">
+      <a href="https://github.com/acailic/agent_debugger">GitHub</a>
+      <a href="https://github.com/acailic/agent_debugger/blob/main/docs/README.md">Docs</a>
+      <a href="https://github.com/acailic/agent_debugger/blob/main/CONTRIBUTING.md">Contributing</a>
+      <a href="https://github.com/acailic/agent_debugger/blob/main/LICENSE">License</a>
+      <a href="https://pypi.org/project/peaky-peek/">PyPI peaky-peek</a>
+      <a href="https://pypi.org/project/peaky-peek-server/">PyPI peaky-peek-server</a>
+    </nav>
+    <p class="footer__legal">Released under the MIT License &middot; <a href="https://github.com/acailic/agent_debugger">acailic/agent_debugger</a></p>
+  </div>
+</footer>
+
+<script>
+function copyInstall(btn) {
+  var text = btn.previousElementSibling.textContent.trim();
+  navigator.clipboard.writeText(text).then(function() {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(function() {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    }, 2000);
+  }).catch(function() {
+    // Silent fail — user can select text manually
+  });
+}
+</script>
+
+</body>
+</html>
