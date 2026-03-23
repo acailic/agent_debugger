@@ -1,0 +1,1 @@
+from redaction.pipeline import RedactionPipeline
