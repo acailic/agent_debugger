@@ -1,18 +1,27 @@
 # Agent Debugger & Visualizer
 
+[![PyPI peaky-peek](https://img.shields.io/pypi/v/peaky-peek.svg?label=peaky-peek)](https://pypi.org/project/peaky-peek/)
+[![PyPI peaky-peek-server](https://img.shields.io/pypi/v/peaky-peek-server.svg?label=peaky-peek-server)](https://pypi.org/project/peaky-peek-server/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 
 Agent-native debugger for AI agents. Capture execution traces as structured events, inspect them live, and query or replay them later.
 
+| Package | Install | What you get |
+|---|---|---|
+| [`peaky-peek`](https://pypi.org/project/peaky-peek/) | `pip install peaky-peek` | Tracing SDK — `TraceContext`, decorators, LangChain/CrewAI/PydanticAI adapters |
+| [`peaky-peek-server`](https://pypi.org/project/peaky-peek-server/) | `pip install peaky-peek-server` | Full stack — SDK + FastAPI server + SQLite storage + SSE + React UI |
+
 ## Quick Start
 
-### 1. Clone and set up
+### 1. Install
 
 ```bash
-git clone https://github.com/acailic/agent_debugger
-cd agent_debugger
-pip install -e ".[server]"
+# SDK only (instrument your agents)
+pip install peaky-peek
+
+# Full self-hosted stack
+pip install peaky-peek-server
 ```
 
 ### 2. Start the local API
@@ -118,10 +127,10 @@ curl "http://localhost:8000/api/traces/search?query=weather&event_type=decision&
 ## Development
 
 ```bash
-# Clone and install
+# Clone and install for development
 git clone https://github.com/acailic/agent_debugger
 cd agent_debugger
-pip install -e ".[server]"
+pip install -e ".[server]"  # or: pip install peaky-peek-server
 
 # Run tests
 python -m pytest -q
