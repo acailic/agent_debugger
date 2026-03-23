@@ -7,9 +7,12 @@ and visualization.
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from typing import Any
+
+logger = logging.getLogger("agent_debugger")
 
 from agent_debugger_sdk.core.context import TraceContext
 from agent_debugger_sdk.core.events import EventType
@@ -101,34 +104,37 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             metadata: Additional metadata.
             **kwargs: Additional keyword arguments.
         """
-        if not self._context:
-            return
+        try:
+            if not self._context:
+                return
 
-        run_id_str = str(run_id)
-        self._start_times[run_id_str] = time.time()
+            run_id_str = str(run_id)
+            self._start_times[run_id_str] = time.time()
 
-        invocation_params = kwargs.get("invocation_params", {})
-        model = invocation_params.get("model", invocation_params.get("model_name", "unknown"))
+            invocation_params = kwargs.get("invocation_params", {})
+            model = invocation_params.get("model", invocation_params.get("model_name", "unknown"))
 
-        messages = [{"role": "user", "content": prompt} for prompt in prompts]
+            messages = [{"role": "user", "content": prompt} for prompt in prompts]
 
-        event = LLMRequestEvent(
-            session_id=self.session_id,
-            parent_id=self._run_map.get(str(parent_run_id)) if parent_run_id else None,
-            model=model,
-            messages=messages,
-            tools=kwargs.get("tools", []),
-            settings={
-                "temperature": invocation_params.get("temperature"),
-                "max_tokens": invocation_params.get("max_tokens"),
-                "top_p": invocation_params.get("top_p"),
-            },
-            name=f"llm_start_{model}",
-            importance=0.3,
-        )
+            event = LLMRequestEvent(
+                session_id=self.session_id,
+                parent_id=self._run_map.get(str(parent_run_id)) if parent_run_id else None,
+                model=model,
+                messages=messages,
+                tools=kwargs.get("tools", []),
+                settings={
+                    "temperature": invocation_params.get("temperature"),
+                    "max_tokens": invocation_params.get("max_tokens"),
+                    "top_p": invocation_params.get("top_p"),
+                },
+                name=f"llm_start_{model}",
+                importance=0.3,
+            )
 
-        await self._context._emit_event(event)
-        self._run_map[run_id_str] = event.id
+            await self._context._emit_event(event)
+            self._run_map[run_id_str] = event.id
+        except Exception:
+            logger.warning("LangChain callback on_llm_start failed", exc_info=True)
 
     async def on_llm_end(
         self,
@@ -148,44 +154,47 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             tags: Tags associated with this run.
             **kwargs: Additional keyword arguments.
         """
-        if not self._context:
-            return
+        try:
+            if not self._context:
+                return
 
-        run_id_str = str(run_id)
-        start_time = self._start_times.pop(run_id_str, time.time())
-        duration_ms = (time.time() - start_time) * 1000
+            run_id_str = str(run_id)
+            start_time = self._start_times.pop(run_id_str, time.time())
+            duration_ms = (time.time() - start_time) * 1000
 
-        parent_id = self._run_map.get(run_id_str)
+            parent_id = self._run_map.get(run_id_str)
 
-        content = ""
-        if response.generations and response.generations[0]:
-            content = response.generations[0][0].text
+            content = ""
+            if response.generations and response.generations[0]:
+                content = response.generations[0][0].text
 
-        usage = {}
-        cost_usd = 0.0
-        if response.llm_output:
-            token_usage = response.llm_output.get("token_usage", {})
-            usage = {
-                "input_tokens": token_usage.get("prompt_tokens", 0),
-                "output_tokens": token_usage.get("completion_tokens", 0),
-            }
+            usage = {}
+            cost_usd = 0.0
+            if response.llm_output:
+                token_usage = response.llm_output.get("token_usage", {})
+                usage = {
+                    "input_tokens": token_usage.get("prompt_tokens", 0),
+                    "output_tokens": token_usage.get("completion_tokens", 0),
+                }
 
-        model = kwargs.get("invocation_params", {}).get("model", "unknown")
+            model = kwargs.get("invocation_params", {}).get("model", "unknown")
 
-        event = LLMResponseEvent(
-            session_id=self.session_id,
-            parent_id=parent_id,
-            model=model,
-            content=content,
-            tool_calls=[],
-            usage=usage,
-            cost_usd=cost_usd,
-            duration_ms=duration_ms,
-            name=f"llm_end_{model}",
-            importance=0.5,
-        )
+            event = LLMResponseEvent(
+                session_id=self.session_id,
+                parent_id=parent_id,
+                model=model,
+                content=content,
+                tool_calls=[],
+                usage=usage,
+                cost_usd=cost_usd,
+                duration_ms=duration_ms,
+                name=f"llm_end_{model}",
+                importance=0.5,
+            )
 
-        await self._context._emit_event(event)
+            await self._context._emit_event(event)
+        except Exception:
+            logger.warning("LangChain callback on_llm_end failed", exc_info=True)
 
     async def on_llm_error(
         self,
@@ -205,18 +214,21 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             tags: Tags associated with this run.
             **kwargs: Additional keyword arguments.
         """
-        if not self._context:
-            return
+        try:
+            if not self._context:
+                return
 
-        run_id_str = str(run_id)
-        self._start_times.pop(run_id_str, None)
-        self._run_map.pop(run_id_str, None)
+            run_id_str = str(run_id)
+            self._start_times.pop(run_id_str, None)
+            self._run_map.pop(run_id_str, None)
 
-        await self._context.record_error(
-            error_type=type(error).__name__,
-            error_message=str(error),
-            name=f"llm_error_{run_id_str[:8]}",
-        )
+            await self._context.record_error(
+                error_type=type(error).__name__,
+                error_message=str(error),
+                name=f"llm_error_{run_id_str[:8]}",
+            )
+        except Exception:
+            logger.warning("LangChain callback on_llm_error failed", exc_info=True)
 
     async def on_tool_start(
         self,
@@ -240,29 +252,32 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             metadata: Additional metadata.
             **kwargs: Additional keyword arguments.
         """
-        if not self._context:
-            return
+        try:
+            if not self._context:
+                return
 
-        run_id_str = str(run_id)
-        self._start_times[run_id_str] = time.time()
+            run_id_str = str(run_id)
+            self._start_times[run_id_str] = time.time()
 
-        tool_name = serialized.get("name", kwargs.get("name", "unknown"))
+            tool_name = serialized.get("name", kwargs.get("name", "unknown"))
 
-        arguments = {"input": input_str}
-        if isinstance(input_str, dict):
-            arguments = input_str
+            arguments = {"input": input_str}
+            if isinstance(input_str, dict):
+                arguments = input_str
 
-        event = ToolCallEvent(
-            session_id=self.session_id,
-            parent_id=self._run_map.get(str(parent_run_id)) if parent_run_id else None,
-            tool_name=tool_name,
-            arguments=arguments,
-            name=f"tool_start_{tool_name}",
-            importance=0.4,
-        )
+            event = ToolCallEvent(
+                session_id=self.session_id,
+                parent_id=self._run_map.get(str(parent_run_id)) if parent_run_id else None,
+                tool_name=tool_name,
+                arguments=arguments,
+                name=f"tool_start_{tool_name}",
+                importance=0.4,
+            )
 
-        await self._context._emit_event(event)
-        self._run_map[run_id_str] = event.id
+            await self._context._emit_event(event)
+            self._run_map[run_id_str] = event.id
+        except Exception:
+            logger.warning("LangChain callback on_tool_start failed", exc_info=True)
 
     async def on_tool_end(
         self,
@@ -282,26 +297,29 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             tags: Tags associated with this run.
             **kwargs: Additional keyword arguments.
         """
-        if not self._context:
-            return
+        try:
+            if not self._context:
+                return
 
-        run_id_str = str(run_id)
-        start_time = self._start_times.pop(run_id_str, time.time())
-        self._run_map.pop(run_id_str, None)
-        duration_ms = (time.time() - start_time) * 1000
+            run_id_str = str(run_id)
+            start_time = self._start_times.pop(run_id_str, time.time())
+            self._run_map.pop(run_id_str, None)
+            duration_ms = (time.time() - start_time) * 1000
 
-        tool_name = kwargs.get("name", "unknown")
+            tool_name = kwargs.get("name", "unknown")
 
-        result = output
-        if not isinstance(output, str | dict | list | None):
-            result = str(output)
+            result = output
+            if not isinstance(output, str | dict | list | None):
+                result = str(output)
 
-        await self._context.record_tool_result(
-            tool_name=tool_name,
-            result=result,
-            duration_ms=duration_ms,
-            name=f"tool_end_{tool_name}",
-        )
+            await self._context.record_tool_result(
+                tool_name=tool_name,
+                result=result,
+                duration_ms=duration_ms,
+                name=f"tool_end_{tool_name}",
+            )
+        except Exception:
+            logger.warning("LangChain callback on_tool_end failed", exc_info=True)
 
     async def on_tool_error(
         self,
@@ -321,22 +339,25 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             tags: Tags associated with this run.
             **kwargs: Additional keyword arguments.
         """
-        if not self._context:
-            return
+        try:
+            if not self._context:
+                return
 
-        run_id_str = str(run_id)
-        start_time = self._start_times.pop(run_id_str, time.time())
-        duration_ms = (time.time() - start_time) * 1000
+            run_id_str = str(run_id)
+            start_time = self._start_times.pop(run_id_str, time.time())
+            duration_ms = (time.time() - start_time) * 1000
 
-        tool_name = kwargs.get("name", "unknown")
+            tool_name = kwargs.get("name", "unknown")
 
-        await self._context.record_tool_result(
-            tool_name=tool_name,
-            result=None,
-            error=str(error),
-            duration_ms=duration_ms,
-            name=f"tool_error_{tool_name}",
-        )
+            await self._context.record_tool_result(
+                tool_name=tool_name,
+                result=None,
+                error=str(error),
+                duration_ms=duration_ms,
+                name=f"tool_error_{tool_name}",
+            )
+        except Exception:
+            logger.warning("LangChain callback on_tool_error failed", exc_info=True)
 
     async def on_chain_start(
         self,
@@ -360,25 +381,28 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             metadata: Additional metadata.
             **kwargs: Additional keyword arguments.
         """
-        if not self._context:
-            return
+        try:
+            if not self._context:
+                return
 
-        run_id_str = str(run_id)
-        self._start_times[run_id_str] = time.time()
+            run_id_str = str(run_id)
+            self._start_times[run_id_str] = time.time()
 
-        chain_name = serialized.get("name", kwargs.get("name", "chain"))
+            chain_name = serialized.get("name", kwargs.get("name", "chain"))
 
-        event = TraceEvent(
-            session_id=self.session_id,
-            parent_id=self._run_map.get(str(parent_run_id)) if parent_run_id else None,
-            event_type=EventType.AGENT_START,
-            name=f"chain_start_{chain_name}",
-            data={"inputs": inputs, "chain_type": serialized.get("id", ["unknown"])[-1]},
-            importance=0.3,
-        )
+            event = TraceEvent(
+                session_id=self.session_id,
+                parent_id=self._run_map.get(str(parent_run_id)) if parent_run_id else None,
+                event_type=EventType.AGENT_START,
+                name=f"chain_start_{chain_name}",
+                data={"inputs": inputs, "chain_type": serialized.get("id", ["unknown"])[-1]},
+                importance=0.3,
+            )
 
-        await self._context._emit_event(event)
-        self._run_map[run_id_str] = event.id
+            await self._context._emit_event(event)
+            self._run_map[run_id_str] = event.id
+        except Exception:
+            logger.warning("LangChain callback on_chain_start failed", exc_info=True)
 
     async def on_chain_end(
         self,
@@ -398,25 +422,28 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             tags: Tags associated with this run.
             **kwargs: Additional keyword arguments.
         """
-        if not self._context:
-            return
+        try:
+            if not self._context:
+                return
 
-        run_id_str = str(run_id)
-        start_time = self._start_times.pop(run_id_str, time.time())
-        duration_ms = (time.time() - start_time) * 1000
+            run_id_str = str(run_id)
+            start_time = self._start_times.pop(run_id_str, time.time())
+            duration_ms = (time.time() - start_time) * 1000
 
-        parent_id = self._run_map.get(run_id_str)
+            parent_id = self._run_map.get(run_id_str)
 
-        event = TraceEvent(
-            session_id=self.session_id,
-            parent_id=parent_id,
-            event_type=EventType.AGENT_END,
-            name="chain_end",
-            data={"outputs": outputs, "duration_ms": duration_ms},
-            importance=0.3,
-        )
+            event = TraceEvent(
+                session_id=self.session_id,
+                parent_id=parent_id,
+                event_type=EventType.AGENT_END,
+                name="chain_end",
+                data={"outputs": outputs, "duration_ms": duration_ms},
+                importance=0.3,
+            )
 
-        await self._context._emit_event(event)
+            await self._context._emit_event(event)
+        except Exception:
+            logger.warning("LangChain callback on_chain_end failed", exc_info=True)
 
     async def on_chain_error(
         self,
@@ -436,17 +463,20 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             tags: Tags associated with this run.
             **kwargs: Additional keyword arguments.
         """
-        if not self._context:
-            return
+        try:
+            if not self._context:
+                return
 
-        run_id_str = str(run_id)
-        self._start_times.pop(run_id_str, None)
+            run_id_str = str(run_id)
+            self._start_times.pop(run_id_str, None)
 
-        await self._context.record_error(
-            error_type=type(error).__name__,
-            error_message=str(error),
-            name=f"chain_error_{run_id_str[:8]}",
-        )
+            await self._context.record_error(
+                error_type=type(error).__name__,
+                error_message=str(error),
+                name=f"chain_error_{run_id_str[:8]}",
+            )
+        except Exception:
+            logger.warning("LangChain callback on_chain_error failed", exc_info=True)
 
 
 class LangChainAdapter:
@@ -540,3 +570,25 @@ class LangChainAdapter:
             List containing the tracing handler.
         """
         return [self.handler]
+
+
+def register_auto_patch() -> None:
+    """Patch LangChain's default callback manager to include our handler.
+
+    This function is called by the auto-instrumentation system to automatically
+    patch LangChain for tracing without requiring code changes.
+
+    The patching strategy:
+    1. Wraps LangChain's callback manager to automatically include tracing
+    2. Preserves existing callbacks while adding our handler
+    3. Works with LangChain's existing callback mechanisms
+
+    Note:
+        This is a placeholder for future auto-patching implementation.
+        Currently, users must manually add the handler to their callbacks.
+    """
+    # TODO: Implement auto-patching logic
+    # This would involve patching LangChain's callback manager
+    # to automatically include LangChainTracingHandler
+    pass
+
