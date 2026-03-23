@@ -1,8 +1,8 @@
 """Background persistence for trace events.
 
 This module provides a PersistenceManager that periodically flushes
-buffered events to storage. For MVP, events are written to JSON files
-organized by session.
+buffered events to storage. In this repo it remains a lightweight
+NDJSON fallback for file-based persistence and debugging.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ class PersistenceManager:
     """Background writer that flushes buffered events to storage.
 
     Manages a background task that periodically flushes events from the
-    EventBuffer to persistent storage. For MVP, storage is JSON files
+    EventBuffer to persistent storage. Storage is newline-delimited JSON
     organized by session.
 
     Attributes:
@@ -98,18 +98,18 @@ class PersistenceManager:
     async def flush(self) -> None:
         """Flush all pending events to storage.
 
-        For MVP, writes events to JSON files per session:
+        Writes events to JSON files per session:
         - Each session gets its own file: {storage_path}/{session_id}.json
         - Files are appended to on each flush
         - Events are written as newline-delimited JSON (NDJSON)
         """
-        session_ids = await self.buffer.get_session_ids()
+        session_ids = self.buffer.get_session_ids()
 
         if not session_ids:
             return
 
         for session_id in session_ids:
-            events = await self.buffer.flush(session_id)
+            events = self.buffer.flush(session_id)
             if not events:
                 continue
 

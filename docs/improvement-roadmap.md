@@ -1,96 +1,89 @@
 # Improvement Roadmap
 
-This page is about the shortest path from promising prototype to useful debugger.
+This page is about the shortest path from working debugger core to research-grade product.
 
 ## Core Principle
 
-Do not chase more features first. Make the core path work cleanly from trace capture to persistence to UI.
+Do not re-open solved contract problems. Build on the now-coherent core path from trace capture to persistence to UI.
 
 ## Highest-Leverage Improvements
 
-### 1. Unify the runtime path
+### 1. Deepen replay from trace playback to execution restoration
 
-The best next steps are:
+The current replay path can start from the nearest checkpoint and expose useful slices of a run. The next step is to restore meaningful agent state, not just replay stored events.
 
-1. create sessions in the database, not only in memory
-2. persist emitted events as they arrive
-3. persist checkpoints alongside events
-4. make list/query endpoints read from the same source that live tracing writes to
+Best next steps:
 
-This is the biggest structural fix in the whole project.
+1. standardize what checkpoint state must contain for each adapter
+2. support deterministic restore hooks per framework
+3. record state-drift markers when replay diverges from the original run
+4. expose replay provenance and restore boundaries in the UI
 
-### 2. Make session state authoritative
+### 2. Strengthen adaptive trace intelligence
 
-Choose one source of truth for session lifecycle.
+The current ranking model is useful, but still local and heuristic.
 
-For this project, that should be the database-backed repository. Any in-memory session manager should be a helper, not the truth.
+Best next steps:
 
-### 3. Align frontend and backend contracts
+1. cluster failures across sessions, not only within one run
+2. add recurrence windows for repeated loops and flaky tool behavior
+3. score traces using richer signals such as retry churn, latency spikes, and policy escalation
+4. surface one-click representative traces for each cluster
 
-The frontend should consume the exact response shapes the backend actually returns.
+### 3. Expand research benchmarks into a reusable corpus
 
-That means:
+The repo now has benchmark-style tests, but it needs a larger, reusable corpus for regression testing and demos.
 
-- verify session list responses
-- verify trace list responses
-- verify tree response shapes
-- verify SSE event payloads
+Best next steps:
 
-### 4. Build one complete debugger slice
+1. add benchmark seeds for prompt injection, evidence-grounded tool use, prompt-policy shifts, multi-agent debate, loop detection, and replay determinism
+2. persist demo sessions into the local database for UI smoke testing
+3. track expected rankings, clusters, and breakpoint hits as regression assertions
+4. add fixtures that mimic both safe and unsafe tool-use paths
 
-The best near-term UI milestone is:
+### 4. Make the debugger easier to operate at scale
 
-1. session list
-2. timeline
-3. event detail panel
-4. decision tree
+Best next steps:
 
-That is enough to make the product useful before replay is fully built.
+1. auth and tenant separation
+2. retention and compaction policies
+3. redaction for prompts, tool payloads, and sensitive evidence
+4. PostgreSQL support and migrations
+5. backpressure handling for high-volume live streams
 
-### 5. Improve event richness
+### 5. Expand the product surface around the current core
 
-Add more debugging value to each event:
+The current UI is coherent, but still narrow.
 
-- consistent token accounting
-- cost tracking
-- model/provider metadata
-- retry metadata
-- latency breakdowns
-- safe serialization for tool inputs and outputs
+Best next steps:
 
-### 6. Make replay real
-
-Replay only becomes real when checkpoints are treated as a first-class part of execution, not just metadata.
-
-Needed steps:
-
-1. define what state must be serializable
-2. checkpoint at meaningful execution boundaries
-3. restore from checkpoint plus event suffix
-4. expose replay controls in the UI
+1. side-by-side run comparison
+2. search over traces, clusters, and safety outcomes
+3. saved debugger views and pinned failures
+4. richer drill-down for provenance chains and evidence links
 
 ## Suggested Delivery Phases
 
-### Phase 1: reliability
+### Phase 1: replay depth
 
-- unify session persistence
-- unify event persistence
-- align frontend/backend contracts
-- add end-to-end tests for trace capture, storage, and streaming
+- standardize checkpoint contents
+- add restore semantics per adapter
+- detect replay divergence
+- test focused and failure replay paths end to end
 
-### Phase 2: usability
+### Phase 2: intelligence
 
-- build the session list
-- build the timeline view
-- build event detail inspection
-- build event filtering
+- expand ranking signals
+- add cross-session failure clustering
+- strengthen loop and anomaly detection
+- add representative trace surfacing
 
-### Phase 3: power features
+### Phase 3: benchmark corpus
 
-- checkpoint-driven replay
-- run comparison
-- search over traces
-- anomaly highlighting
+- add reusable benchmark fixtures
+- add seeded demo sessions
+- run benchmark assertions in CI
+- add benchmark docs for expected debugger behavior
 
 ### Phase 4: production hardening
 
@@ -104,6 +97,6 @@ Needed steps:
 
 If only one engineering task is chosen next, it should be this:
 
-- make a traced agent run appear in both live SSE and persisted history using one coherent session lifecycle
+- build a reusable benchmark seed pipeline and use it to validate replay, ranking, clustering, and safety behavior end to end
 
-If that works, the rest of the product gets much easier.
+That work improves tests, demos, and the product surface at the same time.

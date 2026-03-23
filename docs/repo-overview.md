@@ -4,9 +4,9 @@ This page explains the repository in plain language: what it is, what is inside 
 
 ## What This Repo Is
 
-`agent_debugger` is an MVP for tracing and debugging AI agent runs.
+`agent_debugger` is a working trace debugger for AI agent runs.
 
-The idea is simple: instead of relying on logs alone, record a run as structured events. Once a run is captured that way, you can stream it live, store it, query it later, and eventually replay it.
+The idea is simple: instead of relying on logs alone, record a run as structured events. Once a run is captured that way, you can stream it live, store it, query it later, analyze it, and replay it from checkpoints.
 
 ## Main Goal
 
@@ -41,13 +41,25 @@ It matters because it defines the event model and how application code plugs int
 
 This is the collection layer.
 
-It currently handles:
+It handles:
 
 - event ingestion
 - importance scoring
 - in-memory buffering for live updates
+- replay helpers
+- adaptive trace intelligence
 
 This is what makes live streaming possible right now.
+
+### `benchmarks/`
+
+This is the reusable scenario layer for regression tests and demo data.
+
+It contains:
+
+- seeded benchmark sessions
+- reusable scenario runners for tests
+- stable session IDs for local demo seeding
 
 ### `storage/`
 
@@ -58,7 +70,7 @@ It contains:
 - SQLAlchemy models
 - repository logic for sessions, events, and checkpoints
 
-This is the right long-term home for session history, even though the runtime path is not fully unified around it yet.
+This is the durable source of truth for session history.
 
 ### `api/`
 
@@ -66,21 +78,32 @@ This is the FastAPI application.
 
 It is responsible for:
 
-- session and trace endpoints
+- session, trace, analysis, and replay endpoints
 - SSE streaming
 - startup wiring between the SDK and the event buffer
+- startup wiring between the SDK and database-backed persistence
 
 ### `frontend/`
 
 This is the UI layer for the debugger.
 
-It already contains:
+It contains:
 
-- initial hooks for loading traces
-- SSE subscription logic
-- placeholder visualization components
+- session loading
+- replay controls
+- timeline and tree views
+- tool and LLM inspectors
+- event detail and analysis views
 
-It is still early. The pieces exist, but they are not assembled into a complete product yet.
+It is still early as a product, but it is no longer a placeholder shell.
+
+### `scripts/`
+
+This is the operational helper layer.
+
+It currently includes:
+
+- `scripts/seed_demo_sessions.py` for populating the local database with benchmark sessions
 
 ## What Works Today
 
@@ -91,39 +114,42 @@ The strongest parts of the repo today are:
 - decorator-based instrumentation
 - framework adapter scaffolding
 - live SSE event streaming
-- repository models for persistent history
+- repository-backed persistent history
+- adaptive event ranking and failure clustering
+- checkpoint-aware replay endpoints
+- a usable frontend debugger surface
 
 ## What Is Still In Progress
 
 The main gaps are:
 
-- live events and persistent history are not fully unified
-- session lifecycle exists in both memory and persistence
-- the frontend is scaffolded but not assembled into a complete debugger
-- replay is represented conceptually more than operationally
+- execution restoration is shallower than the replay model suggests
+- cross-session clustering is still limited
+- auth, retention, privacy, and deployment hardening are still missing
+- docs and legacy helper modules still need periodic cleanup
 
 ## What This Repo Is Good For Right Now
 
 Right now, this codebase is strongest as:
 
-- a tracing model
-- a debugging architecture prototype
-- a base for building a real agent debugger
+- a local debugger for agent traces
+- a research-informed observability surface
+- a base for deeper replay and adaptive evaluation
 
 It is weaker as:
 
-- a finished developer product
-- a fully integrated replay system
+- a production multi-tenant platform
+- a fully restorable execution debugger
 - a production-grade observability platform
 
 ## What The Repo Needs Next
 
-The next step is not adding more isolated features. It is making the core path coherent:
+The next step is not redoing the contract layer. It is deepening the product around the working core:
 
 1. trace a run
 2. stream the run live
 3. persist the run
 4. query the same run later
-5. inspect it in one UI
+5. analyze and replay it in one UI
 
-Once that flow works reliably, everything else gets easier.
+That flow is now real. The next leverage is benchmark coverage, richer clustering, stronger replay semantics, and production hardening.

@@ -1,7 +1,9 @@
 # Agent Debugger & Visualizer - Architecture Design
 
-**Version**: 1.0 (MVP)
-**Date**: 2026-03-20
+**Version**: 1.1
+**Date**: 2026-03-23
+
+This file is a broader design document. For the current implementation shape, prefer [docs/architecture.md](./docs/architecture.md) and [docs/how-it-works.md](./docs/how-it-works.md).
 
 ---
 
@@ -13,7 +15,7 @@ A visual debugging tool for AI agents that captures execution traces, visualizes
 
 From `@ai_context/IMPLEMENTATION_PHILOSOPHY.md`:
 - **Ruthless simplicity**: Every abstraction must justify itself
-- **Start minimal**: MVP focuses on core debugging flows
+- **Start minimal**: keep the core path coherent before adding product depth
 - **Direct integration**: Minimal wrappers around frameworks
 - **80/20 principle**: High-value features first
 
@@ -49,13 +51,13 @@ The architecture is also informed by the following recent papers:
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
 │  │                     React Frontend (Vite + TypeScript)                 │  │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────────────┐ │  │
-│  │  │    D3.js    │  │  WebSocket  │  │    State Management (Zustand)   │ │  │
+│  │  │    D3.js    │  │ REST + SSE  │  │   Local Component State         │ │  │
 │  │  │   (Trees)   │  │   Client    │  │                                 │ │  │
 │  │  └─────────────┘  └─────────────┘  └─────────────────────────────────┘ │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
-                                      │ REST + WebSocket
+                                      │ REST + SSE
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                                API LAYER                                     │
@@ -134,11 +136,11 @@ agent_debugger_sdk/
 │   ├── base.py              # Protocol for adapters
 │   ├── pydantic_ai.py       # PydanticAI instrumentation
 │   ├── langchain.py         # LangChain/LangGraph instrumentation
-│   └── autogen.py           # AutoGen instrumentation (stub for MVP)
+│   └── autogen.py           # AutoGen instrumentation placeholder
 └── collector/
     ├── __init__.py
     ├── client.py            # TraceCollectorClient
-    └── transport.py         # HTTP/WebSocket transport
+    └── transport.py         # HTTP/SSE transport helpers
 ```
 
 **Module Contracts**:
@@ -218,11 +220,6 @@ frontend/
 │   │   ├── LLMViewer.tsx        # Prompt/response viewer
 │   │   ├── SessionReplay.tsx    # Time-travel controls
 │   │   └── TraceTimeline.tsx    # Event timeline
-│   ├── hooks/
-│   │   ├── useWebSocket.ts      # Real-time updates
-│   │   └── useTrace.ts          # Trace fetching
-│   ├── stores/
-│   │   └── sessionStore.ts      # Zustand state
 │   └── api/
 │       └── client.ts            # API client
 ├── package.json
@@ -384,20 +381,7 @@ POST   /api/traces                      # Ingest trace event (from SDK)
 GET    /api/traces/search               # Search traces across sessions
 ```
 
-### 4.2 WebSocket Events
-
-**Client → Server**:
-```typescript
-{
-  "type": "subscribe",
-  "session_id": "uuid"
-}
-
-{
-  "type": "unsubscribe",
-  "session_id": "uuid"
-}
-```
+### 4.2 Real-time Event Shapes
 
 **Server → Client**:
 ```typescript
@@ -413,6 +397,8 @@ GET    /api/traces/search               # Search traces across sessions
   "summary": SessionSummary
 }
 ```
+
+These payloads represent the event shape, even though the implemented transport is SSE rather than WebSocket frames.
 
 ### 4.3 SSE for Real-time Updates
 
@@ -936,9 +922,9 @@ class TraceCollectorClient:
 
 ---
 
-## 11. MVP Scope
+## 11. Current Scope
 
-### In Scope (Phase 1)
+### In Scope
 
 - [x] SDK core decorators and context
 - [x] PydanticAI adapter
@@ -948,14 +934,18 @@ class TraceCollectorClient:
 - [x] Decision tree visualization
 - [x] Tool call inspector
 - [x] LLM request/response viewer
-- [x] Basic time-travel (checkpoint-based)
+- [x] Checkpoint-aware replay
 - [x] Real-time SSE updates
+- [x] Safety, refusal, prompt-policy, multi-agent, and behavior-alert events
+- [x] Adaptive session analysis and failure clustering
+- [x] Seeded benchmark sessions for tests and demos
 
-### Out of Scope (Future Phases)
+### Out of Scope Or In Progress
 
 - [ ] AutoGen adapter (Phase 2)
-- [ ] Conditional breakpoints (Phase 2)
-- [ ] Neural debugger integration (Phase 2+)
+- [ ] Full execution restoration from checkpoints
+- [ ] Cross-session comparison views
+- [ ] Neural debugger integration (future)
 - [ ] Multi-agent comparison view
 - [ ] Cost optimization suggestions
 - [ ] Export to external tools (LangSmith, etc.)

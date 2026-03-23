@@ -11,11 +11,17 @@ from datetime import datetime
 from typing import Any
 
 from agent_debugger_sdk.core.events import Checkpoint
+from agent_debugger_sdk.core.events import AgentTurnEvent
+from agent_debugger_sdk.core.events import BehaviorAlertEvent
 from agent_debugger_sdk.core.events import DecisionEvent
 from agent_debugger_sdk.core.events import ErrorEvent
 from agent_debugger_sdk.core.events import EventType
 from agent_debugger_sdk.core.events import LLMRequestEvent
 from agent_debugger_sdk.core.events import LLMResponseEvent
+from agent_debugger_sdk.core.events import PolicyViolationEvent
+from agent_debugger_sdk.core.events import PromptPolicyEvent
+from agent_debugger_sdk.core.events import RefusalEvent
+from agent_debugger_sdk.core.events import SafetyCheckEvent
 from agent_debugger_sdk.core.events import Session
 from agent_debugger_sdk.core.events import ToolCallEvent
 from agent_debugger_sdk.core.events import ToolResultEvent
@@ -24,7 +30,9 @@ from sqlalchemy import JSON
 from sqlalchemy import Float
 from sqlalchemy import ForeignKey
 from sqlalchemy import String
+from sqlalchemy import cast
 from sqlalchemy import func
+from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase
@@ -390,21 +398,44 @@ class TraceRepository:
         )
         return [self._orm_to_checkpoint(db) for db in result.scalars()]
 
-    async def search_events(self, query: str, session_id: str | None = None) -> list[TraceEvent]:
+    async def search_events(
+        self,
+        query: str,
+        session_id: str | None = None,
+        *,
+        event_type: str | None = None,
+        limit: int = 100,
+    ) -> list[TraceEvent]:
         """Search events by name or data content.
 
         Args:
             query: Search string to match against event name
             session_id: Optional session ID to filter by
+            event_type: Optional event type to filter by
+            limit: Maximum number of results to return
 
         Returns:
             List of matching TraceEvent instances
         """
         search_term = f"%{query}%"
-        stmt = select(EventModel).where(EventModel.name.ilike(search_term))
+        stmt = (
+            select(EventModel)
+            .where(
+                or_(
+                    EventModel.name.ilike(search_term),
+                    EventModel.event_type.ilike(search_term),
+                    cast(EventModel.data, String).ilike(search_term),
+                    cast(EventModel.event_metadata, String).ilike(search_term),
+                )
+            )
+            .order_by(EventModel.timestamp.desc())
+            .limit(limit)
+        )
 
         if session_id:
             stmt = stmt.where(EventModel.session_id == session_id)
+        if event_type:
+            stmt = stmt.where(EventModel.event_type == event_type)
 
         result = await self.session.execute(stmt)
         return [self._orm_to_event(db) for db in result.scalars()]
@@ -443,12 +474,51 @@ class TraceRepository:
             data["reasoning"] = event.reasoning
             data["confidence"] = event.confidence
             data["evidence"] = event.evidence
+            data["evidence_event_ids"] = event.evidence_event_ids
             data["alternatives"] = event.alternatives
             data["chosen_action"] = event.chosen_action
+        elif isinstance(event, SafetyCheckEvent):
+            data["policy_name"] = event.policy_name
+            data["outcome"] = event.outcome
+            data["risk_level"] = event.risk_level
+            data["rationale"] = event.rationale
+            data["blocked_action"] = event.blocked_action
+            data["evidence"] = event.evidence
+        elif isinstance(event, RefusalEvent):
+            data["reason"] = event.reason
+            data["policy_name"] = event.policy_name
+            data["risk_level"] = event.risk_level
+            data["blocked_action"] = event.blocked_action
+            data["safe_alternative"] = event.safe_alternative
+        elif isinstance(event, PolicyViolationEvent):
+            data["policy_name"] = event.policy_name
+            data["severity"] = event.severity
+            data["violation_type"] = event.violation_type
+            data["details"] = event.details
+        elif isinstance(event, PromptPolicyEvent):
+            data["template_id"] = event.template_id
+            data["policy_parameters"] = event.policy_parameters
+            data["speaker"] = event.speaker
+            data["state_summary"] = event.state_summary
+            data["goal"] = event.goal
+        elif isinstance(event, AgentTurnEvent):
+            data["agent_id"] = event.agent_id
+            data["speaker"] = event.speaker
+            data["turn_index"] = event.turn_index
+            data["goal"] = event.goal
+            data["content"] = event.content
+        elif isinstance(event, BehaviorAlertEvent):
+            data["alert_type"] = event.alert_type
+            data["severity"] = event.severity
+            data["signal"] = event.signal
+            data["related_event_ids"] = event.related_event_ids
         elif isinstance(event, ErrorEvent):
             data["error_type"] = event.error_type
             data["error_message"] = event.error_message
             data["stack_trace"] = event.stack_trace
+
+        event_metadata = dict(event.metadata)
+        event_metadata["upstream_event_ids"] = list(event.upstream_event_ids)
 
         return EventModel(
             id=event.id,
@@ -458,7 +528,7 @@ class TraceRepository:
             timestamp=event.timestamp,
             name=event.name,
             data=data,
-            event_metadata=event.metadata,
+            event_metadata=event_metadata,
             importance=event.importance,
         )
 
@@ -480,7 +550,33 @@ class TraceRepository:
             EventType.TOOL_RESULT: ["tool_name", "result", "error", "duration_ms"],
             EventType.LLM_REQUEST: ["model", "messages", "tools", "settings"],
             EventType.LLM_RESPONSE: ["model", "content", "tool_calls", "usage", "cost_usd", "duration_ms"],
-            EventType.DECISION: ["reasoning", "confidence", "evidence", "alternatives", "chosen_action"],
+            EventType.DECISION: [
+                "reasoning",
+                "confidence",
+                "evidence",
+                "evidence_event_ids",
+                "alternatives",
+                "chosen_action",
+            ],
+            EventType.SAFETY_CHECK: [
+                "policy_name",
+                "outcome",
+                "risk_level",
+                "rationale",
+                "blocked_action",
+                "evidence",
+            ],
+            EventType.REFUSAL: [
+                "reason",
+                "policy_name",
+                "risk_level",
+                "blocked_action",
+                "safe_alternative",
+            ],
+            EventType.POLICY_VIOLATION: ["policy_name", "severity", "violation_type", "details"],
+            EventType.PROMPT_POLICY: ["template_id", "policy_parameters", "speaker", "state_summary", "goal"],
+            EventType.AGENT_TURN: ["agent_id", "speaker", "turn_index", "goal", "content"],
+            EventType.BEHAVIOR_ALERT: ["alert_type", "severity", "signal", "related_event_ids"],
             EventType.ERROR: ["error_type", "error_message", "stack_trace"],
         }
 
@@ -497,6 +593,7 @@ class TraceRepository:
             "data": cleaned_data,
             "metadata": db_event.event_metadata,
             "importance": db_event.importance,
+            "upstream_event_ids": db_event.event_metadata.get("upstream_event_ids", []),
         }
 
         if event_type == EventType.TOOL_CALL:
@@ -537,8 +634,62 @@ class TraceRepository:
                 reasoning=data.get("reasoning", ""),
                 confidence=data.get("confidence", 0.5),
                 evidence=data.get("evidence", []),
+                evidence_event_ids=data.get("evidence_event_ids", []),
                 alternatives=data.get("alternatives", []),
                 chosen_action=data.get("chosen_action", ""),
+            )
+        if event_type == EventType.SAFETY_CHECK:
+            return SafetyCheckEvent(
+                **base_kwargs,
+                policy_name=data.get("policy_name", ""),
+                outcome=data.get("outcome", "pass"),
+                risk_level=data.get("risk_level", "low"),
+                rationale=data.get("rationale", ""),
+                blocked_action=data.get("blocked_action"),
+                evidence=data.get("evidence", []),
+            )
+        if event_type == EventType.REFUSAL:
+            return RefusalEvent(
+                **base_kwargs,
+                reason=data.get("reason", ""),
+                policy_name=data.get("policy_name", ""),
+                risk_level=data.get("risk_level", "medium"),
+                blocked_action=data.get("blocked_action"),
+                safe_alternative=data.get("safe_alternative"),
+            )
+        if event_type == EventType.POLICY_VIOLATION:
+            return PolicyViolationEvent(
+                **base_kwargs,
+                policy_name=data.get("policy_name", ""),
+                severity=data.get("severity", "medium"),
+                violation_type=data.get("violation_type", ""),
+                details=data.get("details", {}),
+            )
+        if event_type == EventType.PROMPT_POLICY:
+            return PromptPolicyEvent(
+                **base_kwargs,
+                template_id=data.get("template_id", ""),
+                policy_parameters=data.get("policy_parameters", {}),
+                speaker=data.get("speaker", ""),
+                state_summary=data.get("state_summary", ""),
+                goal=data.get("goal", ""),
+            )
+        if event_type == EventType.AGENT_TURN:
+            return AgentTurnEvent(
+                **base_kwargs,
+                agent_id=data.get("agent_id", ""),
+                speaker=data.get("speaker", ""),
+                turn_index=data.get("turn_index", 0),
+                goal=data.get("goal", ""),
+                content=data.get("content", ""),
+            )
+        if event_type == EventType.BEHAVIOR_ALERT:
+            return BehaviorAlertEvent(
+                **base_kwargs,
+                alert_type=data.get("alert_type", ""),
+                severity=data.get("severity", "medium"),
+                signal=data.get("signal", ""),
+                related_event_ids=data.get("related_event_ids", []),
             )
         if event_type == EventType.ERROR:
             return ErrorEvent(

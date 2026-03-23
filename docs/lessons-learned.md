@@ -1,6 +1,6 @@
 # Lessons Learned
 
-This page is about what building this MVP has actually taught so far, not just what the original design said.
+This page is about what building the debugger has actually taught so far, not just what the original design said.
 
 ## 1. Event Design Comes First
 
@@ -42,12 +42,12 @@ Without good context management, events lose their session identity or parent re
 
 Getting live events into an in-memory buffer is relatively easy.
 
-What is harder is making the live path and the historical path agree. This project shows that very clearly:
+What is harder is making the live path and the historical path agree. This project showed that very clearly:
 
 - live event streaming can work before persistence is fully solved
 - but a debugger product feels incomplete if streamed events and queried history are not the same truth
 
-This is one of the most important implementation lessons in the codebase.
+That lesson has now been applied: the buffer is the live fan-out path and the repository is the durable truth.
 
 ## 5. One Source Of Truth Matters
 
@@ -57,7 +57,7 @@ The lesson is simple:
 
 - a debugging session should have one authoritative lifecycle
 
-When session creation lives in one place and historical lookup lives in another, the whole system becomes harder to reason about.
+When session creation lives in one place and historical lookup lives in another, the whole system becomes harder to reason about. The database-backed repository is the right authority here; in-memory helpers should stay helpers.
 
 ## 6. Replay Is Mostly A State Problem
 
@@ -76,17 +76,17 @@ The repo already has the right instinct that checkpoints matter. The lesson from
 
 A debugger UI only works well when backend data contracts are clear and stable.
 
-This repo shows that even when the UI ideas are good, the product still feels unfinished if:
+This repo showed that even when the UI ideas are good, the product still feels unfinished if:
 
 - response shapes drift
 - live and historical views disagree
 - event payloads are not rich enough
 
-The learning is that frontend progress depends on backend coherence.
+The learning is that frontend progress depends on backend coherence. Once the contract layer was normalized, the UI became much easier to assemble into a real debugger surface.
 
-## 8. The MVP Already Reveals The Right Product Shape
+## 8. The Core Debugger Shape Was Right Early
 
-Even with the current gaps, the product shape is already visible:
+Even before the stack was fully coherent, the product shape was already visible:
 
 - session list
 - live trace timeline
@@ -94,7 +94,7 @@ Even with the current gaps, the product shape is already visible:
 - event detail panel
 - replay from checkpoints
 
-That matters because the project does not need a completely different concept. It needs stronger execution on the same concept.
+That mattered because the project did not need a different concept. It needed stronger execution on the same concept.
 
 ## 9. Research Is Most Useful When It Changes Product Decisions
 
@@ -112,16 +112,16 @@ The lesson is to convert research into product behavior, not just references.
 
 ## 10. The Right Next Step Is Integration, Not Expansion
 
-The biggest practical lesson so far is:
+The biggest practical lesson was:
 
 - the repo does not primarily need more concepts
 - it needs tighter integration of the concepts it already has
 
-The highest-value next move is still:
+That integration work is mostly done now. The highest-value next move is:
 
-1. unify session lifecycle
-2. unify live and persistent event flow
-3. align backend contracts with the frontend
-4. finish one complete debugger workflow
+1. deepen replay from trace slicing into stronger state restoration
+2. expand benchmark corpora and demo seed data
+3. improve clustering, ranking, and cross-session comparison
+4. harden the product for auth, retention, and redaction
 
-That is still the shortest path from promising prototype to useful tool.
+That is now the shortest path from working debugger core to research-grade tool.

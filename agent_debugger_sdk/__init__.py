@@ -7,11 +7,17 @@ from agent_debugger_sdk.core.decorators import trace_agent
 from agent_debugger_sdk.core.decorators import trace_llm
 from agent_debugger_sdk.core.decorators import trace_tool
 from agent_debugger_sdk.core.events import Checkpoint
+from agent_debugger_sdk.core.events import AgentTurnEvent
+from agent_debugger_sdk.core.events import BehaviorAlertEvent
 from agent_debugger_sdk.core.events import DecisionEvent
 from agent_debugger_sdk.core.events import ErrorEvent
 from agent_debugger_sdk.core.events import EventType
 from agent_debugger_sdk.core.events import LLMRequestEvent
 from agent_debugger_sdk.core.events import LLMResponseEvent
+from agent_debugger_sdk.core.events import PolicyViolationEvent
+from agent_debugger_sdk.core.events import PromptPolicyEvent
+from agent_debugger_sdk.core.events import RefusalEvent
+from agent_debugger_sdk.core.events import SafetyCheckEvent
 from agent_debugger_sdk.core.events import Session
 from agent_debugger_sdk.core.events import ToolCallEvent
 from agent_debugger_sdk.core.events import ToolResultEvent
@@ -27,6 +33,12 @@ __all__ = [
     "LLMResponseEvent",
     "DecisionEvent",
     "ErrorEvent",
+    "SafetyCheckEvent",
+    "RefusalEvent",
+    "PolicyViolationEvent",
+    "PromptPolicyEvent",
+    "AgentTurnEvent",
+    "BehaviorAlertEvent",
     "Session",
     "Checkpoint",
     # Context

@@ -11,8 +11,6 @@ import time
 import uuid
 from typing import Any
 
-from collector.buffer import get_event_buffer
-
 from agent_debugger_sdk.core.context import TraceContext
 from agent_debugger_sdk.core.events import EventType
 from agent_debugger_sdk.core.events import LLMRequestEvent
@@ -132,9 +130,6 @@ class LangChainTracingHandler(AsyncCallbackHandler):
         await self._context._emit_event(event)
         self._run_map[run_id_str] = event.id
 
-        buffer = get_event_buffer()
-        await buffer.publish(self.session_id, event)
-
     async def on_llm_end(
         self,
         response: LLMResult,
@@ -191,9 +186,6 @@ class LangChainTracingHandler(AsyncCallbackHandler):
         )
 
         await self._context._emit_event(event)
-
-        buffer = get_event_buffer()
-        await buffer.publish(self.session_id, event)
 
     async def on_llm_error(
         self,
@@ -271,9 +263,6 @@ class LangChainTracingHandler(AsyncCallbackHandler):
 
         await self._context._emit_event(event)
         self._run_map[run_id_str] = event.id
-
-        buffer = get_event_buffer()
-        await buffer.publish(self.session_id, event)
 
     async def on_tool_end(
         self,
@@ -391,9 +380,6 @@ class LangChainTracingHandler(AsyncCallbackHandler):
         await self._context._emit_event(event)
         self._run_map[run_id_str] = event.id
 
-        buffer = get_event_buffer()
-        await buffer.publish(self.session_id, event)
-
     async def on_chain_end(
         self,
         outputs: dict[str, Any],
@@ -431,9 +417,6 @@ class LangChainTracingHandler(AsyncCallbackHandler):
         )
 
         await self._context._emit_event(event)
-
-        buffer = get_event_buffer()
-        await buffer.publish(self.session_id, event)
 
     async def on_chain_error(
         self,

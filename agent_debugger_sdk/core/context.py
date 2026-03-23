@@ -15,13 +15,25 @@ from datetime import UTC
 from datetime import datetime
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import Awaitable
+from typing import Callable
 
+from collector.buffer import get_event_buffer
+from collector.scorer import get_importance_scorer
 from .events import Checkpoint
+from .events import AgentTurnEvent
+from .events import BehaviorAlertEvent
 from .events import DecisionEvent
 from .events import ErrorEvent
 from .events import EventType
+from .events import LLMRequestEvent
 from .events import LLMResponseEvent
+from .events import PolicyViolationEvent
+from .events import PromptPolicyEvent
+from .events import RefusalEvent
+from .events import SafetyCheckEvent
 from .events import Session
+from .events import ToolCallEvent
 from .events import ToolResultEvent
 from .events import TraceEvent
 
@@ -33,9 +45,32 @@ _current_parent_id: ContextVar[str | None] = ContextVar("current_parent_id", def
 _event_sequence: ContextVar[int] = ContextVar("event_sequence", default=0)
 _current_context: ContextVar[TraceContext | None] = ContextVar("current_context", default=None)
 _default_event_buffer: ContextVar[EventBuffer | None] = ContextVar("default_event_buffer", default=None)
+_default_event_persister: ContextVar[Callable[[TraceEvent], Awaitable[None]] | None] = ContextVar(
+    "default_event_persister",
+    default=None,
+)
+_default_checkpoint_persister: ContextVar[Callable[[Checkpoint], Awaitable[None]] | None] = ContextVar(
+    "default_checkpoint_persister",
+    default=None,
+)
+_default_session_start_hook: ContextVar[Callable[[Session], Awaitable[None]] | None] = ContextVar(
+    "default_session_start_hook",
+    default=None,
+)
+_default_session_update_hook: ContextVar[Callable[[Session], Awaitable[None]] | None] = ContextVar(
+    "default_session_update_hook",
+    default=None,
+)
 
 
-def configure_event_pipeline(buffer: EventBuffer | None) -> None:
+def configure_event_pipeline(
+    buffer: EventBuffer | None,
+    *,
+    persist_event: Callable[[TraceEvent], Awaitable[None]] | None = None,
+    persist_checkpoint: Callable[[Checkpoint], Awaitable[None]] | None = None,
+    persist_session_start: Callable[[Session], Awaitable[None]] | None = None,
+    persist_session_update: Callable[[Session], Awaitable[None]] | None = None,
+) -> None:
     """Configure the default event buffer for the event pipeline.
 
     This connects the SDK's TraceContext to the collector's EventBuffer,
@@ -43,8 +78,16 @@ def configure_event_pipeline(buffer: EventBuffer | None) -> None:
 
     Args:
         buffer: The EventBuffer to use for publishing events, or None to disconnect.
+        persist_event: Optional async callback used to persist each emitted event.
+        persist_checkpoint: Optional async callback used to persist each checkpoint.
+        persist_session_start: Optional async callback used to create a session.
+        persist_session_update: Optional async callback used to update a session.
     """
     _default_event_buffer.set(buffer)
+    _default_event_persister.set(persist_event)
+    _default_checkpoint_persister.set(persist_checkpoint)
+    _default_session_start_hook.set(persist_session_start)
+    _default_session_update_hook.set(persist_session_update)
 
 
 class TraceContext:
@@ -103,7 +146,15 @@ class TraceContext:
         self._events: list[TraceEvent | Checkpoint] = []
         self._events_lock: asyncio.Lock = asyncio.Lock()
         self._checkpoint_sequence = 0
-        self._event_buffer = event_buffer if event_buffer is not None else _default_event_buffer.get()
+        self._event_buffer = (
+            event_buffer
+            if event_buffer is not None
+            else _default_event_buffer.get() or get_event_buffer()
+        )
+        self._event_persister = _default_event_persister.get()
+        self._checkpoint_persister = _default_checkpoint_persister.get()
+        self._session_start_hook = _default_session_start_hook.get()
+        self._session_update_hook = _default_session_update_hook.get()
 
         self.session = Session(
             id=self.session_id,
@@ -130,6 +181,8 @@ class TraceContext:
         _current_context.set(self)
 
         self._entered = True
+        if self._session_start_hook is not None:
+            await self._session_start_hook(self.session)
 
         start_event = TraceEvent(
             session_id=self.session_id,
@@ -187,6 +240,8 @@ class TraceContext:
         self.session.ended_at = datetime.now(UTC)
 
         await self._emit_event(end_event)
+        if self._session_update_hook is not None:
+            await self._session_update_hook(self.session)
 
         _current_session_id.set(None)
         _current_parent_id.set(None)
@@ -200,6 +255,8 @@ class TraceContext:
         confidence: float,
         evidence: list[dict[str, Any]],
         chosen_action: str,
+        evidence_event_ids: list[str] | None = None,
+        upstream_event_ids: list[str] | None = None,
         alternatives: list[dict[str, Any]] | None = None,
         name: str = "decision",
     ) -> str:
@@ -245,9 +302,37 @@ class TraceContext:
             reasoning=reasoning,
             confidence=confidence,
             evidence=evidence,
+            evidence_event_ids=evidence_event_ids or [],
             alternatives=alternatives or [],
             chosen_action=chosen_action,
             importance=0.7,
+            upstream_event_ids=upstream_event_ids or [],
+        )
+
+        await self._emit_event(event)
+        return event.id
+
+    async def record_tool_call(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+        *,
+        upstream_event_ids: list[str] | None = None,
+        parent_id: str | None = None,
+        name: str | None = None,
+    ) -> str:
+        """Record that the agent invoked a tool."""
+        self._check_entered()
+
+        event = ToolCallEvent(
+            session_id=self.session_id,
+            parent_id=parent_id if parent_id is not None else _current_parent_id.get(),
+            event_type=EventType.TOOL_CALL,
+            name=name or f"{tool_name}_call",
+            tool_name=tool_name,
+            arguments=arguments,
+            importance=0.4,
+            upstream_event_ids=upstream_event_ids or [],
         )
 
         await self._emit_event(event)
@@ -259,6 +344,8 @@ class TraceContext:
         result: Any,
         error: str | None = None,
         duration_ms: float = 0,
+        upstream_event_ids: list[str] | None = None,
+        parent_id: str | None = None,
         name: str | None = None,
     ) -> str:
         """Record the result of a tool call.
@@ -293,7 +380,7 @@ class TraceContext:
 
         event = ToolResultEvent(
             session_id=self.session_id,
-            parent_id=_current_parent_id.get(),
+            parent_id=parent_id if parent_id is not None else _current_parent_id.get(),
             event_type=EventType.TOOL_RESULT,
             name=name or f"{tool_name}_result",
             tool_name=tool_name,
@@ -301,9 +388,74 @@ class TraceContext:
             error=error,
             duration_ms=duration_ms,
             importance=importance,
+            upstream_event_ids=upstream_event_ids or [],
         )
 
         self.session.tool_calls += 1
+        await self._emit_event(event)
+        return event.id
+
+    async def record_llm_request(
+        self,
+        model: str,
+        messages: list[dict[str, Any]],
+        *,
+        tools: list[dict[str, Any]] | None = None,
+        settings: dict[str, Any] | None = None,
+        upstream_event_ids: list[str] | None = None,
+        parent_id: str | None = None,
+        name: str | None = None,
+    ) -> str:
+        """Record an outbound LLM request."""
+        self._check_entered()
+
+        event = LLMRequestEvent(
+            session_id=self.session_id,
+            parent_id=parent_id if parent_id is not None else _current_parent_id.get(),
+            event_type=EventType.LLM_REQUEST,
+            name=name or f"llm_request_{model}",
+            model=model,
+            messages=messages,
+            tools=tools or [],
+            settings=settings or {},
+            importance=0.35,
+            upstream_event_ids=upstream_event_ids or [],
+        )
+
+        await self._emit_event(event)
+        return event.id
+
+    async def record_llm_response(
+        self,
+        model: str,
+        content: str,
+        *,
+        tool_calls: list[dict[str, Any]] | None = None,
+        usage: dict[str, int] | None = None,
+        cost_usd: float = 0.0,
+        duration_ms: float = 0.0,
+        upstream_event_ids: list[str] | None = None,
+        parent_id: str | None = None,
+        name: str | None = None,
+    ) -> str:
+        """Record an inbound LLM response."""
+        self._check_entered()
+
+        event = LLMResponseEvent(
+            session_id=self.session_id,
+            parent_id=parent_id if parent_id is not None else _current_parent_id.get(),
+            event_type=EventType.LLM_RESPONSE,
+            name=name or f"llm_response_{model}",
+            model=model,
+            content=content,
+            tool_calls=tool_calls or [],
+            usage=usage or {"input_tokens": 0, "output_tokens": 0},
+            cost_usd=cost_usd,
+            duration_ms=duration_ms,
+            importance=0.5,
+            upstream_event_ids=upstream_event_ids or [],
+        )
+
         await self._emit_event(event)
         return event.id
 
@@ -356,6 +508,172 @@ class TraceContext:
         await self._emit_event(event)
         return event.id
 
+    async def record_safety_check(
+        self,
+        policy_name: str,
+        outcome: str,
+        risk_level: str,
+        rationale: str,
+        *,
+        blocked_action: str | None = None,
+        evidence: list[dict[str, Any]] | None = None,
+        upstream_event_ids: list[str] | None = None,
+        name: str | None = None,
+    ) -> str:
+        """Record an explicit safety check event."""
+        self._check_entered()
+        event = SafetyCheckEvent(
+            session_id=self.session_id,
+            parent_id=_current_parent_id.get(),
+            name=name or f"safety_check_{policy_name}",
+            policy_name=policy_name,
+            outcome=outcome,
+            risk_level=risk_level,
+            rationale=rationale,
+            blocked_action=blocked_action,
+            evidence=evidence or [],
+            upstream_event_ids=upstream_event_ids or [],
+            importance=0.8 if outcome != "pass" else 0.55,
+        )
+        await self._emit_event(event)
+        return event.id
+
+    async def record_refusal(
+        self,
+        reason: str,
+        policy_name: str,
+        *,
+        risk_level: str = "medium",
+        blocked_action: str | None = None,
+        safe_alternative: str | None = None,
+        upstream_event_ids: list[str] | None = None,
+        name: str | None = None,
+    ) -> str:
+        """Record an intentional refusal event."""
+        self._check_entered()
+        event = RefusalEvent(
+            session_id=self.session_id,
+            parent_id=_current_parent_id.get(),
+            name=name or f"refusal_{policy_name}",
+            reason=reason,
+            policy_name=policy_name,
+            risk_level=risk_level,
+            blocked_action=blocked_action,
+            safe_alternative=safe_alternative,
+            upstream_event_ids=upstream_event_ids or [],
+            importance=0.85,
+        )
+        await self._emit_event(event)
+        return event.id
+
+    async def record_policy_violation(
+        self,
+        policy_name: str,
+        violation_type: str,
+        *,
+        severity: str = "medium",
+        details: dict[str, Any] | None = None,
+        upstream_event_ids: list[str] | None = None,
+        name: str | None = None,
+    ) -> str:
+        """Record a policy violation event."""
+        self._check_entered()
+        event = PolicyViolationEvent(
+            session_id=self.session_id,
+            parent_id=_current_parent_id.get(),
+            name=name or f"policy_violation_{violation_type}",
+            policy_name=policy_name,
+            severity=severity,
+            violation_type=violation_type,
+            details=details or {},
+            upstream_event_ids=upstream_event_ids or [],
+            importance=0.9,
+        )
+        await self._emit_event(event)
+        return event.id
+
+    async def record_prompt_policy(
+        self,
+        template_id: str,
+        policy_parameters: dict[str, Any],
+        *,
+        speaker: str = "",
+        state_summary: str = "",
+        goal: str = "",
+        upstream_event_ids: list[str] | None = None,
+        name: str | None = None,
+    ) -> str:
+        """Record prompt-policy state for prompt-as-action traces."""
+        self._check_entered()
+        event = PromptPolicyEvent(
+            session_id=self.session_id,
+            parent_id=_current_parent_id.get(),
+            name=name or f"prompt_policy_{template_id}",
+            template_id=template_id,
+            policy_parameters=policy_parameters,
+            speaker=speaker,
+            state_summary=state_summary,
+            goal=goal,
+            upstream_event_ids=upstream_event_ids or [],
+            importance=0.65,
+        )
+        await self._emit_event(event)
+        return event.id
+
+    async def record_agent_turn(
+        self,
+        agent_id: str,
+        speaker: str,
+        turn_index: int,
+        *,
+        goal: str = "",
+        content: str = "",
+        upstream_event_ids: list[str] | None = None,
+        name: str | None = None,
+    ) -> str:
+        """Record a multi-agent turn event."""
+        self._check_entered()
+        event = AgentTurnEvent(
+            session_id=self.session_id,
+            parent_id=_current_parent_id.get(),
+            name=name or f"agent_turn_{turn_index}",
+            agent_id=agent_id,
+            speaker=speaker,
+            turn_index=turn_index,
+            goal=goal,
+            content=content,
+            upstream_event_ids=upstream_event_ids or [],
+            importance=0.6,
+        )
+        await self._emit_event(event)
+        return event.id
+
+    async def record_behavior_alert(
+        self,
+        alert_type: str,
+        signal: str,
+        *,
+        severity: str = "medium",
+        related_event_ids: list[str] | None = None,
+        upstream_event_ids: list[str] | None = None,
+        name: str | None = None,
+    ) -> str:
+        """Record a behavior anomaly event."""
+        self._check_entered()
+        event = BehaviorAlertEvent(
+            session_id=self.session_id,
+            parent_id=_current_parent_id.get(),
+            name=name or f"behavior_alert_{alert_type}",
+            alert_type=alert_type,
+            severity=severity,
+            signal=signal,
+            related_event_ids=related_event_ids or [],
+            upstream_event_ids=upstream_event_ids or [],
+            importance=0.82,
+        )
+        await self._emit_event(event)
+        return event.id
+
     async def create_checkpoint(
         self,
         state: dict[str, Any],
@@ -400,6 +718,8 @@ class TraceContext:
 
         async with self._events_lock:
             self._events.append(checkpoint)
+        if self._checkpoint_persister is not None:
+            await self._checkpoint_persister(checkpoint)
 
         event = TraceEvent(
             id=str(uuid.uuid4()),
@@ -508,6 +828,7 @@ class TraceContext:
         _event_sequence.set(current_seq + 1)
 
         event.metadata["sequence"] = current_seq + 1
+        event.importance = get_importance_scorer().score(event)
 
         async with self._events_lock:
             self._events.append(event)
@@ -517,6 +838,12 @@ class TraceContext:
             self.session.total_tokens += usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
             self.session.total_cost_usd += event.cost_usd
             self.session.llm_calls += 1
+
+        if self._event_persister is not None:
+            await self._event_persister(event)
+
+        if self._session_update_hook is not None:
+            await self._session_update_hook(self.session)
 
         # Publish to event buffer for real-time streaming if configured
         if self._event_buffer is not None:

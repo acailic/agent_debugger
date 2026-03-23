@@ -47,12 +47,16 @@ Responsibilities:
 - accept events
 - score importance
 - buffer events for live consumers
+- compute replay slices
+- compute session-level ranking and clustering
 
 Key modules:
 
 - `server.py`
 - `buffer.py`
 - `scorer.py`
+- `replay.py`
+- `intelligence.py`
 
 ### Storage layer
 
@@ -77,7 +81,7 @@ Location:
 
 Responsibilities:
 
-- expose session and trace endpoints
+- expose session, trace, analysis, and replay endpoints
 - expose real-time event streaming
 - initialize application wiring
 
@@ -94,13 +98,14 @@ Location:
 Responsibilities:
 
 - load sessions and traces
-- subscribe to live updates
+- render replay and analysis controls
 - render tree, timeline, and event detail views
+- inspect tool, LLM, and provenance data
 
 Current state:
 
-- the pieces are scaffolded
-- the full debugger UI is not assembled yet
+- the debugger shell is working
+- the UI still needs deeper workflows and product hardening
 
 ## Data Flow
 
@@ -108,31 +113,33 @@ The live path today is:
 
 `agent code -> TraceContext/decorators/adapters -> EventBuffer -> SSE endpoint -> frontend`
 
-The intended durable path is:
+The durable path today is:
 
-`agent code -> repository/database -> query endpoints -> frontend`
+`agent code -> TraceContext persistence hooks -> repository/database -> query endpoints -> frontend`
 
-Those two paths do not fully meet yet, which is one of the main architectural problems in the project.
+Those two paths now meet at `TraceContext`, which publishes live events and persists the same session data.
 
 ## Architectural Strengths
 
 - The event schema is strong enough to support multiple debugger views.
 - The core SDK is cleanly separated from framework-specific adapters.
 - The live streaming model is simple and easy to reason about.
-- The repository layer is ready to become the long-term source of truth.
+- The repository layer is the durable source of truth for session history.
+- Replay and analysis are shared helpers rather than frontend-only logic.
 
 ## Architectural Gaps
 
-- Session lifecycle is split between memory and persistence.
-- Event persistence is not the single source of truth yet.
-- Replay is represented in the model, but not finished end to end.
-- Frontend contracts still need to line up with backend responses.
+- Checkpoints are useful but not yet full execution restoration points.
+- Cross-session analysis and search are still shallow.
+- Live streaming depends on local memory rather than durable fan-out infrastructure.
+- Product hardening features such as auth, tenancy, and redaction are still missing.
 
 ## Design Direction
 
 The clearest direction from here is:
 
-1. make the repository the source of truth for sessions and history
+1. keep the repository as the source of truth for sessions and history
 2. keep the in-memory buffer as a live fan-out layer, not the main record
-3. build the UI directly from the event schema instead of inventing extra backend abstractions
-4. treat checkpoints as a real replay primitive, not just metadata
+3. deepen checkpoints into restoreable execution boundaries
+4. expand ranking and clustering across benchmark corpora and real runs
+5. harden the current local debugger into a multi-user product

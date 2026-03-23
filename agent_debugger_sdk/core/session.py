@@ -1,7 +1,8 @@
 """Session management utilities for agent debugging.
 
 This module provides session lifecycle management for tracking agent
-execution sessions. Sessions are stored in memory for MVP simplicity.
+execution sessions. The database-backed repository is the authoritative
+runtime path now; this module remains as an in-memory compatibility helper.
 """
 
 from __future__ import annotations
@@ -19,7 +20,8 @@ class SessionManager:
     """Manages agent debugging sessions.
 
     Handles creation, tracking, and lifecycle of debugging sessions.
-    Sessions are stored in memory for the MVP implementation.
+    Sessions are stored in memory and are not the source of truth used by
+    the API or trace persistence pipeline.
 
     Example:
         >>> manager = SessionManager()

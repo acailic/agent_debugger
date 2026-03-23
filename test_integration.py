@@ -11,6 +11,8 @@ import asyncio
 import sys
 from pathlib import Path
 
+import pytest
+
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -20,6 +22,9 @@ from agent_debugger_sdk import trace_agent
 from agent_debugger_sdk import trace_tool
 from collector.buffer import get_event_buffer
 from collector.scorer import get_importance_scorer
+
+
+pytestmark = pytest.mark.asyncio
 
 
 async def test_basic_tracing():
@@ -41,8 +46,17 @@ async def test_basic_tracing():
         # Simulate tool execution
         await asyncio.sleep(0.05)
 
-        # Record tool result (the context only tracks results, not calls)
-        await ctx.record_tool_result("weather_api", {"temp": 72, "conditions": "sunny"}, duration_ms=100)
+        tool_call_id = await ctx.record_tool_call(
+            "weather_api",
+            {"location": "Seattle"},
+        )
+        await ctx.record_tool_result(
+            "weather_api",
+            {"temp": 72, "conditions": "sunny"},
+            duration_ms=100,
+            upstream_event_ids=[tool_call_id],
+            parent_id=tool_call_id,
+        )
 
         # Get events from context before it closes
         events = await ctx.get_events()
@@ -56,6 +70,7 @@ async def test_basic_tracing():
     # Verify expected events (AGENT_END is emitted on context exit, so not in this list)
     event_types = [e.event_type for e in events if hasattr(e, "event_type")]
     assert EventType.AGENT_START in event_types, "Missing AGENT_START"
+    assert EventType.TOOL_CALL in event_types, "Missing TOOL_CALL"
     assert EventType.TOOL_RESULT in event_types, "Missing TOOL_RESULT"
     assert EventType.DECISION in event_types, "Missing DECISION"
 

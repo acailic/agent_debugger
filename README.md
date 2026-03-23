@@ -115,17 +115,35 @@ async with adapter.trace_session() as session_id:
 | `POST` | `/api/sessions` | Create session |
 | `GET` | `/api/sessions` | List sessions |
 | `GET` | `/api/sessions/{id}` | Get session details |
+| `GET` | `/api/sessions/{id}/trace` | Normalized trace bundle for frontend |
 | `GET` | `/api/sessions/{id}/traces` | Get all traces |
 | `GET` | `/api/sessions/{id}/tree` | Get decision tree |
 | `GET` | `/api/sessions/{id}/checkpoints` | List checkpoints |
+| `GET` | `/api/sessions/{id}/analysis` | Adaptive trace analysis |
+| `GET` | `/api/sessions/{id}/replay` | Checkpoint-aware replay |
 | `GET` | `/api/sessions/{id}/stream` | **SSE real-time stream** |
+| `GET` | `/api/traces/search` | Search trace events across sessions |
 | `POST` | `/api/traces` | Ingest trace event |
+
+Search example:
+
+```bash
+curl "http://localhost:8000/api/traces/search?query=Belgrade&event_type=decision&limit=10"
+```
 
 ### 6. Run Tests
 
 ```bash
 cd agent_debugger
-uv run python test_integration.py
+venv/bin/python -m pytest -q
+cd frontend && npm run build
+```
+
+### 7. Seed Demo Sessions
+
+```bash
+cd agent_debugger
+venv/bin/python scripts/seed_demo_sessions.py
 ```
 
 ## Architecture
@@ -171,10 +189,10 @@ uv run python test_integration.py
 | Storage | ✅ Complete |
 | API | ✅ Complete |
 | Adapters | ✅ Complete |
-| Frontend | ⚠️ Placeholder (needs implementation) |
+| Frontend | ✅ Working debugger UI |
 
 ## Next Steps
 
-1. **Build Frontend** - React components for visualization
-2. **Add more tests** - Unit tests for each module
-3. **Deploy** - Package and distribute the tool
+1. **Add auth + multi-user tenancy** for shared trace workspaces
+2. **Add richer benchmark corpora** for safety and replay regressions
+3. **Deploy** the API and frontend as one packaged debugger product

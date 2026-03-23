@@ -37,6 +37,12 @@ class EventType(StrEnum):
     DECISION = "decision"
     ERROR = "error"
     CHECKPOINT = "checkpoint"
+    SAFETY_CHECK = "safety_check"
+    REFUSAL = "refusal"
+    POLICY_VIOLATION = "policy_violation"
+    PROMPT_POLICY = "prompt_policy"
+    AGENT_TURN = "agent_turn"
+    BEHAVIOR_ALERT = "behavior_alert"
 
 
 @dataclass(kw_only=True)
@@ -68,6 +74,7 @@ class TraceEvent:
     data: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
     importance: float = 0.5
+    upstream_event_ids: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the event to a dictionary.
@@ -88,6 +95,7 @@ class TraceEvent:
             "data": self.data,
             "metadata": self.metadata,
             "importance": self.importance,
+            "upstream_event_ids": self.upstream_event_ids,
         }
 
 
@@ -254,6 +262,7 @@ class DecisionEvent(TraceEvent):
     reasoning: str = ""
     confidence: float = 0.5
     evidence: list[dict[str, Any]] = field(default_factory=list)
+    evidence_event_ids: list[str] = field(default_factory=list)
     alternatives: list[dict[str, Any]] = field(default_factory=list)
     chosen_action: str = ""
 
@@ -265,8 +274,163 @@ class DecisionEvent(TraceEvent):
                 "reasoning": self.reasoning,
                 "confidence": self.confidence,
                 "evidence": self.evidence,
+                "evidence_event_ids": self.evidence_event_ids,
                 "alternatives": self.alternatives,
                 "chosen_action": self.chosen_action,
+            }
+        )
+        return base
+
+
+@dataclass(kw_only=True)
+class SafetyCheckEvent(TraceEvent):
+    """Event representing an explicit guard or safety evaluation."""
+
+    event_type: EventType = EventType.SAFETY_CHECK
+    policy_name: str = ""
+    outcome: str = "pass"
+    risk_level: str = "low"
+    rationale: str = ""
+    blocked_action: str | None = None
+    evidence: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the safety check event to a dictionary."""
+        base = super().to_dict()
+        base.update(
+            {
+                "policy_name": self.policy_name,
+                "outcome": self.outcome,
+                "risk_level": self.risk_level,
+                "rationale": self.rationale,
+                "blocked_action": self.blocked_action,
+                "evidence": self.evidence,
+            }
+        )
+        return base
+
+
+@dataclass(kw_only=True)
+class RefusalEvent(TraceEvent):
+    """Event representing an intentional refusal."""
+
+    event_type: EventType = EventType.REFUSAL
+    reason: str = ""
+    policy_name: str = ""
+    risk_level: str = "medium"
+    blocked_action: str | None = None
+    safe_alternative: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the refusal event to a dictionary."""
+        base = super().to_dict()
+        base.update(
+            {
+                "reason": self.reason,
+                "policy_name": self.policy_name,
+                "risk_level": self.risk_level,
+                "blocked_action": self.blocked_action,
+                "safe_alternative": self.safe_alternative,
+            }
+        )
+        return base
+
+
+@dataclass(kw_only=True)
+class PolicyViolationEvent(TraceEvent):
+    """Event representing a policy violation or prompt injection signal."""
+
+    event_type: EventType = EventType.POLICY_VIOLATION
+    policy_name: str = ""
+    severity: str = "medium"
+    violation_type: str = ""
+    details: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the policy violation event to a dictionary."""
+        base = super().to_dict()
+        base.update(
+            {
+                "policy_name": self.policy_name,
+                "severity": self.severity,
+                "violation_type": self.violation_type,
+                "details": self.details,
+            }
+        )
+        return base
+
+
+@dataclass(kw_only=True)
+class PromptPolicyEvent(TraceEvent):
+    """Event describing prompt policy or prompt-as-action state."""
+
+    event_type: EventType = EventType.PROMPT_POLICY
+    template_id: str = ""
+    policy_parameters: dict[str, Any] = field(default_factory=dict)
+    speaker: str = ""
+    state_summary: str = ""
+    goal: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the prompt policy event to a dictionary."""
+        base = super().to_dict()
+        base.update(
+            {
+                "template_id": self.template_id,
+                "policy_parameters": self.policy_parameters,
+                "speaker": self.speaker,
+                "state_summary": self.state_summary,
+                "goal": self.goal,
+            }
+        )
+        return base
+
+
+@dataclass(kw_only=True)
+class AgentTurnEvent(TraceEvent):
+    """Event representing a single turn in a multi-agent session."""
+
+    event_type: EventType = EventType.AGENT_TURN
+    agent_id: str = ""
+    speaker: str = ""
+    turn_index: int = 0
+    goal: str = ""
+    content: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the agent turn event to a dictionary."""
+        base = super().to_dict()
+        base.update(
+            {
+                "agent_id": self.agent_id,
+                "speaker": self.speaker,
+                "turn_index": self.turn_index,
+                "goal": self.goal,
+                "content": self.content,
+            }
+        )
+        return base
+
+
+@dataclass(kw_only=True)
+class BehaviorAlertEvent(TraceEvent):
+    """Event representing detected suspicious or unstable behavior."""
+
+    event_type: EventType = EventType.BEHAVIOR_ALERT
+    alert_type: str = ""
+    severity: str = "medium"
+    signal: str = ""
+    related_event_ids: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the behavior alert event to a dictionary."""
+        base = super().to_dict()
+        base.update(
+            {
+                "alert_type": self.alert_type,
+                "severity": self.severity,
+                "signal": self.signal,
+                "related_event_ids": self.related_event_ids,
             }
         )
         return base

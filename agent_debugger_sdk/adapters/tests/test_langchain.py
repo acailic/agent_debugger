@@ -301,7 +301,7 @@ class TestLangChainTracingHandler:
             buffer = get_event_buffer()
             events = buffer.get_events("test-chain-start")
 
-            chain_events = [e for e in events if e.event_type == EventType.AGENT_START]
+            chain_events = [e for e in events if e.name.startswith("chain_start_")]
             assert len(chain_events) == 1
             assert "chain" in chain_events[0].name
 
@@ -338,7 +338,7 @@ class TestLangChainTracingHandler:
             buffer = get_event_buffer()
             events = buffer.get_events("test-chain-end")
 
-            chain_end_events = [e for e in events if e.event_type == EventType.AGENT_END]
+            chain_end_events = [e for e in events if e.name == "chain_end"]
             assert len(chain_end_events) == 1
 
     @pytest.mark.asyncio

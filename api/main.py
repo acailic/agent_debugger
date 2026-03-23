@@ -13,8 +13,15 @@ import os
 from contextlib import asynccontextmanager
 from typing import Any
 
+from agent_debugger_sdk.core.events import Checkpoint
+from agent_debugger_sdk.core.events import Session
+from agent_debugger_sdk.core.events import TraceEvent
 from agent_debugger_sdk.core.context import configure_event_pipeline
 from collector.buffer import get_event_buffer
+from collector.intelligence import TraceIntelligence
+from collector.replay import build_replay
+from collector.replay import build_tree
+from collector.server import configure_storage
 from collector.server import router as collector_router
 from fastapi import Depends
 from fastapi import FastAPI
@@ -74,10 +81,59 @@ class DeleteResponse(BaseModel):
     session_id: str
 
 
+class TraceBundleResponse(BaseModel):
+    """Response model for a normalized session trace bundle."""
+
+    session: dict[str, Any]
+    events: list[dict[str, Any]]
+    checkpoints: list[dict[str, Any]]
+    tree: dict[str, Any] | None
+    analysis: dict[str, Any]
+
+
+class ReplayResponse(BaseModel):
+    """Response model for replay requests."""
+
+    session_id: str
+    mode: str
+    focus_event_id: str | None
+    start_index: int
+    events: list[dict[str, Any]]
+    checkpoints: list[dict[str, Any]]
+    nearest_checkpoint: dict[str, Any] | None
+    breakpoints: list[dict[str, Any]]
+    failure_event_ids: list[str]
+
+
+class AnalysisResponse(BaseModel):
+    """Response model for trace analysis."""
+
+    session_id: str
+    analysis: dict[str, Any]
+
+
+class LiveSummaryResponse(BaseModel):
+    """Response model for live monitoring summaries."""
+
+    session_id: str
+    live_summary: dict[str, Any]
+
+
+class TraceSearchResponse(BaseModel):
+    """Response model for trace search results."""
+
+    query: str
+    session_id: str | None
+    event_type: str | None
+    total: int
+    results: list[dict[str, Any]]
+
+
 DATABASE_URL = os.environ.get("AGENT_DEBUGGER_DB_URL", "sqlite+aiosqlite:///./agent_debugger.db")
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+trace_intelligence = TraceIntelligence()
 
 
 async def get_db_session() -> AsyncSession:
@@ -102,14 +158,74 @@ def get_repository(session: AsyncSession = Depends(get_db_session)) -> TraceRepo
     return TraceRepository(session)
 
 
+async def _persist_session_start(session: Session) -> None:
+    async with async_session_maker() as db_session:
+        repo = TraceRepository(db_session)
+        existing = await repo.get_session(session.id)
+        if existing is None:
+            await repo.create_session(session)
+
+
+async def _persist_session_update(session: Session) -> None:
+    async with async_session_maker() as db_session:
+        repo = TraceRepository(db_session)
+        await repo.update_session(
+            session.id,
+            agent_name=session.agent_name,
+            framework=session.framework,
+            ended_at=session.ended_at,
+            status=session.status,
+            total_tokens=session.total_tokens,
+            total_cost_usd=session.total_cost_usd,
+            tool_calls=session.tool_calls,
+            llm_calls=session.llm_calls,
+            errors=session.errors,
+            config=session.config,
+            tags=session.tags,
+        )
+
+
+async def _persist_event(event: TraceEvent) -> None:
+    async with async_session_maker() as db_session:
+        repo = TraceRepository(db_session)
+        await repo.add_event(event)
+
+
+async def _persist_checkpoint(checkpoint: Checkpoint) -> None:
+    async with async_session_maker() as db_session:
+        repo = TraceRepository(db_session)
+        await repo.create_checkpoint(checkpoint)
+
+
+def _normalize_session(session: Session, analysis_summary: dict[str, Any] | None = None) -> dict[str, Any]:
+    normalized = session.to_dict()
+    if analysis_summary:
+        normalized.update(analysis_summary)
+    return normalized
+
+
+def _normalize_event(event: TraceEvent) -> dict[str, Any]:
+    return event.to_dict()
+
+
+def _normalize_checkpoint(checkpoint: Checkpoint) -> dict[str, Any]:
+    return checkpoint.to_dict()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan context manager.
 
     Handles startup and shutdown events for the FastAPI application.
     """
-    # Configure event pipeline to connect SDK to EventBuffer
-    configure_event_pipeline(get_event_buffer())
+    configure_storage(async_session_maker)
+    configure_event_pipeline(
+        get_event_buffer(),
+        persist_event=_persist_event,
+        persist_checkpoint=_persist_checkpoint,
+        persist_session_start=_persist_session_start,
+        persist_session_update=_persist_session_update,
+    )
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -142,6 +258,7 @@ def create_app() -> FastAPI:
     async def list_sessions(
         limit: int = Query(default=50, ge=1, le=1000),
         offset: int = Query(default=0, ge=0),
+        sort_by: str = Query(default="started_at", pattern="^(started_at|replay_value)$"),
         repo: TraceRepository = Depends(get_repository),
     ) -> SessionListResponse:
         """List debugging sessions with pagination.
@@ -154,10 +271,40 @@ def create_app() -> FastAPI:
         Returns:
             SessionListResponse with paginated sessions
         """
-        sessions = await repo.list_sessions(limit=limit, offset=offset)
         total = await repo.count_sessions()
+        if sort_by == "replay_value":
+            sessions = await repo.list_sessions(limit=total, offset=0)
+            ranked_sessions: list[dict[str, Any]] = []
+            for session in sessions:
+                events = await repo.get_event_tree(session.id)
+                checkpoints = await repo.list_checkpoints(session.id)
+                analysis = trace_intelligence.analyze_session(events, checkpoints)
+                ranked_sessions.append(
+                    _normalize_session(
+                        session,
+                        {
+                            "replay_value": analysis["session_replay_value"],
+                            "retention_tier": analysis["retention_tier"],
+                            "failure_count": analysis["session_summary"]["failure_count"],
+                            "behavior_alert_count": analysis["session_summary"]["behavior_alert_count"],
+                            "representative_event_id": analysis["representative_failure_ids"][0] if analysis["representative_failure_ids"] else None,
+                        },
+                    )
+                )
+            ranked_sessions.sort(
+                key=lambda session_data: (
+                    session_data.get("replay_value") or 0.0,
+                    session_data["started_at"],
+                ),
+                reverse=True,
+            )
+            paginated_sessions = ranked_sessions[offset : offset + limit]
+        else:
+            sessions = await repo.list_sessions(limit=limit, offset=offset)
+            paginated_sessions = [_normalize_session(session) for session in sessions]
+
         return SessionListResponse(
-            sessions=[s.to_dict() for s in sessions],
+            sessions=paginated_sessions,
             total=total,
             limit=limit,
             offset=offset,
@@ -243,6 +390,30 @@ def create_app() -> FastAPI:
         return TraceListResponse(
             traces=[t.to_dict() for t in traces],
             session_id=session_id,
+        )
+
+    @app.get("/api/sessions/{session_id}/trace", response_model=TraceBundleResponse)
+    async def get_trace_bundle(
+        session_id: str,
+        repo: TraceRepository = Depends(get_repository),
+    ) -> TraceBundleResponse:
+        """Return a normalized trace bundle used by the frontend."""
+        session = await repo.get_session(session_id)
+        if session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Session {session_id} not found",
+            )
+
+        events = await repo.get_event_tree(session_id)
+        checkpoints = await repo.list_checkpoints(session_id)
+        analysis = trace_intelligence.analyze_session(events, checkpoints)
+        return TraceBundleResponse(
+            session=_normalize_session(session),
+            events=[_normalize_event(event) for event in events],
+            checkpoints=[_normalize_checkpoint(checkpoint) for checkpoint in checkpoints],
+            tree=build_tree(events),
+            analysis=analysis,
         )
 
     @app.get("/api/sessions/{session_id}/tree", response_model=DecisionTreeResponse)
@@ -341,6 +512,126 @@ def create_app() -> FastAPI:
                 "Connection": "keep-alive",
                 "X-Accel-Buffering": "no",
             },
+        )
+
+    @app.get("/api/sessions/{session_id}/analysis", response_model=AnalysisResponse)
+    async def get_session_analysis(
+        session_id: str,
+        repo: TraceRepository = Depends(get_repository),
+    ) -> AnalysisResponse:
+        """Analyze a session for replay value, recurrence, and behavior signals."""
+        session = await repo.get_session(session_id)
+        if session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Session {session_id} not found",
+            )
+
+        events = await repo.get_event_tree(session_id)
+        checkpoints = await repo.list_checkpoints(session_id)
+        return AnalysisResponse(
+            session_id=session_id,
+            analysis=trace_intelligence.analyze_session(events, checkpoints),
+        )
+
+    @app.get("/api/sessions/{session_id}/live", response_model=LiveSummaryResponse)
+    async def get_session_live_summary(
+        session_id: str,
+        repo: TraceRepository = Depends(get_repository),
+    ) -> LiveSummaryResponse:
+        """Return a live monitoring summary for the current persisted session state."""
+        session = await repo.get_session(session_id)
+        if session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Session {session_id} not found",
+            )
+
+        events = await repo.get_event_tree(session_id)
+        checkpoints = await repo.list_checkpoints(session_id)
+        return LiveSummaryResponse(
+            session_id=session_id,
+            live_summary=trace_intelligence.build_live_summary(events, checkpoints),
+        )
+
+    @app.get("/api/traces/search", response_model=TraceSearchResponse)
+    async def search_traces(
+        query: str = Query(min_length=1),
+        session_id: str | None = Query(default=None),
+        event_type: str | None = Query(default=None),
+        limit: int = Query(default=50, ge=1, le=500),
+        repo: TraceRepository = Depends(get_repository),
+    ) -> TraceSearchResponse:
+        """Search trace events across sessions or within a single session."""
+        results = await repo.search_events(
+            query,
+            session_id=session_id,
+            event_type=event_type,
+            limit=limit,
+        )
+        return TraceSearchResponse(
+            query=query,
+            session_id=session_id,
+            event_type=event_type,
+            total=len(results),
+            results=[_normalize_event(event) for event in results],
+        )
+
+    @app.get("/api/sessions/{session_id}/replay", response_model=ReplayResponse)
+    async def replay_session(
+        session_id: str,
+        mode: str = Query(default="full", pattern="^(full|focus|failure)$"),
+        focus_event_id: str | None = Query(default=None),
+        breakpoint_event_types: str | None = Query(default=None),
+        breakpoint_tool_names: str | None = Query(default=None),
+        breakpoint_confidence_below: float | None = Query(default=None, ge=0.0, le=1.0),
+        breakpoint_safety_outcomes: str | None = Query(default=None),
+        repo: TraceRepository = Depends(get_repository),
+    ) -> ReplayResponse:
+        """Replay a session from the nearest checkpoint plus suffix."""
+        session = await repo.get_session(session_id)
+        if session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Session {session_id} not found",
+            )
+
+        events = await repo.get_event_tree(session_id)
+        checkpoints = await repo.list_checkpoints(session_id)
+        if not events:
+            return ReplayResponse(
+                session_id=session_id,
+                mode=mode,
+                focus_event_id=focus_event_id,
+                start_index=0,
+                events=[],
+                checkpoints=[],
+                nearest_checkpoint=None,
+                breakpoints=[],
+                failure_event_ids=[],
+            )
+
+        replay_data = build_replay(
+            events,
+            checkpoints,
+            mode=mode,
+            focus_event_id=focus_event_id,
+            breakpoint_event_types={item for item in (breakpoint_event_types or "").split(",") if item},
+            breakpoint_tool_names={item for item in (breakpoint_tool_names or "").split(",") if item},
+            breakpoint_confidence_below=breakpoint_confidence_below,
+            breakpoint_safety_outcomes={item for item in (breakpoint_safety_outcomes or "").split(",") if item},
+        )
+
+        return ReplayResponse(
+            session_id=session_id,
+            mode=replay_data["mode"],
+            focus_event_id=replay_data["focus_event_id"],
+            start_index=replay_data["start_index"],
+            events=replay_data["events"],
+            checkpoints=replay_data["checkpoints"],
+            nearest_checkpoint=replay_data["nearest_checkpoint"],
+            breakpoints=replay_data["breakpoints"],
+            failure_event_ids=replay_data["failure_event_ids"],
         )
 
     return app
