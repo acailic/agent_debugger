@@ -9,7 +9,7 @@
 
 Capture every decision, tool call, and LLM interaction as a queryable event timeline. Inspect live, replay from checkpoints, search across sessions.
 
-![Decision Tree demo](./docs/demos/decision-tree.gif)
+![Agent Debugger UI](./docs/assets/screenshot-full-ui.png)
 
 ## Why This Exists
 
@@ -108,39 +108,51 @@ Session → Trace → Event → Decision → Tool Call → Checkpoint
 
 ### Decision Tree Visualization
 
-![Decision Tree demo](./docs/demos/decision-tree.gif)
+![Decision Tree view](./docs/assets/screenshot-decision-tree.png)
 
-Navigate agent reasoning as an interactive tree. Click nodes to inspect events, zoom to explore complex flows, and double-click to collapse branches.
+Navigate agent reasoning as an interactive tree. Click nodes to inspect events, zoom to explore complex flows, and trace the causal chain from policy to tool call to safety check.
 
-### Session Replay
+### Checkpoint Replay
 
-![Session Replay demo](./docs/demos/session-replay.gif)
+![Checkpoint replay](./docs/assets/screenshot-checkpoint-state.png)
 
-Time-travel through agent execution with checkpoint-aware playback. Play, pause, step, and seek to any point in the trace.
+Time-travel through agent execution with checkpoint-aware playback. Play, pause, step, and seek to any point in the trace. Checkpoints are ranked by restore value so you jump to the most useful state.
 
 ### Trace Search
 
-![Trace Search demo](./docs/demos/trace-search.gif)
+![Trace search](./docs/assets/screenshot-search.png)
 
-Find specific events across all sessions. Search by keyword, filter by event type, and jump directly to results.
+Find specific events across all sessions. Search by keyword, filter by event type, and jump directly to results. Cross-session search finds the same failure pattern wherever it occurs.
 
-### Live Streaming
+### Safety Audit Trail
 
-![Live Streaming demo](./docs/demos/live-streaming.gif)
+![Refusal detail](./docs/assets/screenshot-refusal-detail.png)
 
-Watch agent execution in real-time. Events stream live via SSE as your agent runs.
+Full safety trail from policy → tool guard → block → policy violation → refusal. Filter by Safety checks, Policy violations, or Refusals to audit agent behaviour.
 
 ### Failure Clustering
 
-![Failure Clustering demo](./docs/demos/failure-clustering.gif)
+![Failure clustering](./docs/assets/screenshot-failure-cluster.png)
 
-Adaptive analysis groups similar failures. Click a cluster to jump to the representative failure event.
+Adaptive analysis groups similar failures. Representative failures surface the highest-severity, highest-novelty events. Click a cluster to focus the timeline on matching events.
+
+### Multi-Agent Coordination
+
+![Multi-agent coordination](./docs/assets/screenshot-multi-agent-coord.png)
+
+Inspect planner/critic debates, speaker topology, and prompt policy parameters. Each agent turn captures goal, content, and the policy that governed it.
 
 ### Session Comparison
 
-![Session Comparison demo](./docs/demos/session-comparison.gif)
+![Session comparison](./docs/assets/screenshot-session-comparison.png)
 
-Compare two agent runs side-by-side. Identify differences in decisions, tool calls, and outcomes.
+Compare two agent runs side-by-side. See diffs in turn count, speaker topology, policies, stance shifts, escalations, and grounded decisions.
+
+### Loop Detection
+
+![Loop detection](./docs/assets/screenshot-loop-detection.png)
+
+Live heuristics detect tool loops and guardrail pressure in real-time. The live alert timeline highlights the exact sequence that triggered the anomaly.
 
 ## Use Cases
 
