@@ -17,6 +17,8 @@ from agent_debugger_sdk.core.events import Checkpoint
 from agent_debugger_sdk.core.events import Session
 from agent_debugger_sdk.core.events import TraceEvent
 from agent_debugger_sdk.core.context import configure_event_pipeline
+from agent_debugger_sdk.config import get_config
+from auth.middleware import get_tenant_from_api_key
 from collector.buffer import get_event_buffer
 from collector.intelligence import TraceIntelligence
 from collector.replay import build_replay
@@ -27,6 +29,7 @@ from fastapi import Depends
 from fastapi import FastAPI
 from fastapi import HTTPException
 from fastapi import Query
+from fastapi import Request
 from fastapi import status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -145,16 +148,36 @@ async def get_db_session() -> AsyncSession:
         yield session
 
 
-def get_repository(session: AsyncSession = Depends(get_db_session)) -> TraceRepository:
+async def get_tenant_id(request: Request, db: AsyncSession = Depends(get_db_session)) -> str:
+    """Get tenant_id — from API key in cloud mode, 'local' in local mode.
+
+    Args:
+        request: The FastAPI request object
+        db: Database session for API key validation
+
+    Returns:
+        The tenant_id for the current request
+    """
+    config = get_config()
+    if config.mode == "local":
+        return "local"
+    return await get_tenant_from_api_key(request, db)
+
+
+def get_repository(
+    session: AsyncSession = Depends(get_db_session),
+    tenant_id: str = Depends(get_tenant_id),
+) -> TraceRepository:
     """Dependency to get TraceRepository instance.
 
     Args:
         session: Database session from dependency
+        tenant_id: Tenant ID from auth dependency
 
     Returns:
-        TraceRepository instance
+        TraceRepository instance scoped to tenant_id
     """
-    return TraceRepository(session)
+    return TraceRepository(session, tenant_id=tenant_id)
 
 
 async def _persist_session_start(session: Session) -> None:

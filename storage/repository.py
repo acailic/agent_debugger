@@ -135,7 +135,7 @@ class TraceRepository:
             Total count of sessions in the database for the current tenant
         """
         result = await self.session.execute(
-            select(func.count())
+            select(func.count(SessionModel.id))
             .select_from(SessionModel)
             .where(SessionModel.tenant_id == self.tenant_id)
         )

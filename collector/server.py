@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from agent_debugger_sdk.config import get_config
 from agent_debugger_sdk.core.events import AgentTurnEvent
 from agent_debugger_sdk.core.events import BehaviorAlertEvent
 from agent_debugger_sdk.core.events import DecisionEvent
@@ -24,8 +25,11 @@ from agent_debugger_sdk.core.events import Session
 from agent_debugger_sdk.core.events import ToolCallEvent
 from agent_debugger_sdk.core.events import ToolResultEvent
 from agent_debugger_sdk.core.events import TraceEvent
+from auth.middleware import get_tenant_from_api_key
 from fastapi import APIRouter
+from fastapi import Depends
 from fastapi import HTTPException
+from fastapi import Request
 from fastapi import status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -96,13 +100,29 @@ def configure_storage(session_maker: async_sessionmaker[AsyncSession] | None) ->
     _session_maker = session_maker
 
 
-async def _persist_event_if_configured(event: TraceEvent) -> None:
+async def _get_tenant_id(request: Request, db: AsyncSession) -> str:
+    """Get tenant_id — from API key in cloud mode, 'local' in local mode.
+
+    Args:
+        request: The FastAPI request object
+        db: Database session for API key validation
+
+    Returns:
+        The tenant_id for the current request
+    """
+    config = get_config()
+    if config.mode == "local":
+        return "local"
+    return await get_tenant_from_api_key(request, db)
+
+
+async def _persist_event_if_configured(event: TraceEvent, tenant_id: str = "local") -> None:
     """Persist an ingested event when storage is configured."""
     if _session_maker is None:
         return
 
     async with _session_maker() as session:
-        repo = TraceRepository(session)
+        repo = TraceRepository(session, tenant_id=tenant_id)
         existing = await repo.get_session(event.session_id)
         if existing is None:
             raise HTTPException(
@@ -262,13 +282,17 @@ def _build_event(event_data: TraceEventIngest, event_type: EventType) -> TraceEv
 
 
 @router.post("/traces", response_model=TraceEventResponse, status_code=status.HTTP_202_ACCEPTED)
-async def ingest_trace(event_data: TraceEventIngest) -> TraceEventResponse:
+async def ingest_trace(
+    event_data: TraceEventIngest,
+    request: Request,
+) -> TraceEventResponse:
     """Ingest a trace event.
 
     Queues the event for processing and returns immediately with 202 Accepted.
 
     Args:
         event_data: Trace event data to ingest
+        request: FastAPI request object for auth
 
     Returns:
         TraceEventResponse with event ID and status
@@ -282,18 +306,29 @@ async def ingest_trace(event_data: TraceEventIngest) -> TraceEventResponse:
 
     event.importance = scorer.score(event)
 
-    await _persist_event_if_configured(event)
+    # Get tenant_id for persistence
+    if _session_maker is not None:
+        async with _session_maker() as db:
+            tenant_id = await _get_tenant_id(request, db)
+            await _persist_event_if_configured(event, tenant_id=tenant_id)
+    else:
+        await _persist_event_if_configured(event)
+
     await buffer.publish(event.session_id, event)
 
     return TraceEventResponse(event_id=event.id, status="queued")
 
 
 @router.post("/sessions", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
-async def create_session(session_data: SessionCreate) -> SessionResponse:
+async def create_session(
+    session_data: SessionCreate,
+    request: Request,
+) -> SessionResponse:
     """Create a new debugging session.
 
     Args:
         session_data: Session creation parameters
+        request: FastAPI request object for auth
 
     Returns:
         SessionResponse with session details
@@ -306,7 +341,8 @@ async def create_session(session_data: SessionCreate) -> SessionResponse:
     )
     if _session_maker is not None:
         async with _session_maker() as db_session:
-            repo = TraceRepository(db_session)
+            tenant_id = await _get_tenant_id(request, db_session)
+            repo = TraceRepository(db_session, tenant_id=tenant_id)
             session = await repo.create_session(session)
 
     return SessionResponse(

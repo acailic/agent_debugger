@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
+from fastapi import Request
 from fastapi.routing import APIRoute
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine
+
+import pytest
 
 import api.main as api_main
 from agent_debugger_sdk.core.context import configure_event_pipeline
@@ -28,6 +30,24 @@ def _get_route_endpoint(path: str, method: str):
         if isinstance(route, APIRoute) and route.path == path and method.upper() in route.methods:
             return route.endpoint
     raise AssertionError(f"Route {method} {path} not found")
+
+
+def _create_mock_request():
+    """Create a mock Request object for testing."""
+    # Create a minimal mock request
+    class MockRequest:
+        def __init__(self):
+            self.headers = {}
+            self.method = "POST"
+            self.url = "http://test"
+            self.query_params = {}
+            self.path_params = {}
+            self.body = b""
+
+        async def body(self):
+            return b""
+
+    return MockRequest()
 
 
 @pytest.fixture
@@ -128,8 +148,10 @@ def test_replay_endpoint_keeps_checkpoint_and_safety_breakpoints(api_repo_factor
 
 def test_ingest_trace_preserves_upstream_event_ids(api_repo_factory):
     async def run():
+        mock_request = _create_mock_request()
         session = await create_session(
-            SessionCreate(agent_name="collector_test", framework="pytest", tags=["api"])
+            SessionCreate(agent_name="collector_test", framework="pytest", tags=["api"]),
+            mock_request,
         )
         response = await ingest_trace(
             TraceEventIngest(
@@ -145,7 +167,8 @@ def test_ingest_trace_preserves_upstream_event_ids(api_repo_factory):
                     "alternatives": [],
                     "chosen_action": "answer",
                 },
-            )
+            ),
+            mock_request,
         )
         assert response.status == "queued"
 
