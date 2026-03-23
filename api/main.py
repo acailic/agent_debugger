@@ -40,6 +40,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from storage.engine import create_db_engine, create_session_maker
 from storage import Base
 from storage import TraceRepository
+from redaction.pipeline import RedactionPipeline
 
 
 class SessionListResponse(BaseModel):
@@ -207,7 +208,21 @@ async def _persist_session_update(session: Session) -> None:
         )
 
 
+def _get_redaction_pipeline() -> RedactionPipeline:
+    """Get redaction pipeline based on config."""
+    from agent_debugger_sdk.config import get_config
+    config = get_config()
+    return RedactionPipeline(
+        redact_prompts=config.redact_prompts,
+        redact_pii=False,  # Could be another config option
+        max_payload_kb=config.max_payload_kb,
+    )
+
+
 async def _persist_event(event: TraceEvent) -> None:
+    # Apply redaction before storage
+    pipeline = _get_redaction_pipeline()
+    event = pipeline.apply(event)
     async with async_session_maker() as db_session:
         repo = TraceRepository(db_session)
         await repo.add_event(event)
@@ -240,17 +255,26 @@ async def lifespan(app: FastAPI):
 
     Handles startup and shutdown events for the FastAPI application.
     """
-    configure_storage(async_session_maker)
+    # Database — config-driven
+    from storage.engine import get_database_url
+    if "sqlite" in get_database_url():
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+    # Buffer — config-driven
+    from collector import create_buffer
+    buffer_backend = "redis" if os.environ.get("REDIS_URL") else "memory"
+    buffer = create_buffer(backend=buffer_backend)
+
+    # Wire pipeline
     configure_event_pipeline(
-        get_event_buffer(),
+        buffer,
         persist_event=_persist_event,
         persist_checkpoint=_persist_checkpoint,
         persist_session_start=_persist_session_start,
         persist_session_update=_persist_session_update,
     )
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     yield
 
 
@@ -260,6 +284,14 @@ def create_app() -> FastAPI:
     Returns:
         Configured FastAPI application instance
     """
+    from agent_debugger_sdk.config import get_config
+    config = get_config()
+
+    # Database — config-driven
+    from storage.engine import create_db_engine, create_session_maker
+    engine = create_db_engine()
+    session_maker = create_session_maker(engine)
+
     app = FastAPI(
         lifespan=lifespan,
         title="Agent Debugger API",

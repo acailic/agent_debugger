@@ -36,6 +36,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from storage import TraceRepository
+from redaction.pipeline import RedactionPipeline
 
 from .buffer import get_event_buffer
 from .scorer import get_importance_scorer
@@ -116,10 +117,25 @@ async def _get_tenant_id(request: Request, db: AsyncSession) -> str:
     return await get_tenant_from_api_key(request, db)
 
 
+def _get_redaction_pipeline() -> RedactionPipeline:
+    """Get redaction pipeline based on config."""
+    from agent_debugger_sdk.config import get_config
+    config = get_config()
+    return RedactionPipeline(
+        redact_prompts=config.redact_prompts,
+        redact_pii=False,  # Could be another config option
+        max_payload_kb=config.max_payload_kb,
+    )
+
+
 async def _persist_event_if_configured(event: TraceEvent, tenant_id: str = "local") -> None:
     """Persist an ingested event when storage is configured."""
     if _session_maker is None:
         return
+
+    # Apply redaction before storage
+    pipeline = _get_redaction_pipeline()
+    event = pipeline.apply(event)
 
     async with _session_maker() as session:
         repo = TraceRepository(session, tenant_id=tenant_id)
