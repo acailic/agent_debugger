@@ -18,7 +18,7 @@ class TenantModel(Base):
     name: Mapped[str] = mapped_column(String(256))
     plan: Mapped[str] = mapped_column(String(32), default="free")  # free, developer, team, business
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, default=lambda: datetime.datetime.now(datetime.UTC)
+        DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc)
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -35,7 +35,7 @@ class APIKeyModel(Base):
     environment: Mapped[str] = mapped_column(String(8))  # live, test
     name: Mapped[str] = mapped_column(String(256), default="")
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, default=lambda: datetime.datetime.now(datetime.UTC)
+        DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc)
     )
     last_used_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

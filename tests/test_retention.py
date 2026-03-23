@@ -16,7 +16,7 @@ def test_retention_days_by_plan():
 
 def test_find_expired_sessions():
     """Sessions older than retention period should be flagged."""
-    now = datetime.datetime.now(datetime.UTC)
+    now = datetime.datetime.now(datetime.timezone.utc)
     sessions = [
         {"id": "old", "started_at": now - datetime.timedelta(days=40), "plan": "developer"},
         {"id": "new", "started_at": now - datetime.timedelta(days=5), "plan": "developer"},

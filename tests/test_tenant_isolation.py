@@ -32,7 +32,7 @@ async def test_list_sessions_filters_by_tenant(db_session):
     repo = TraceRepository(db_session, tenant_id="tenant_a")
     session_a = Session(
         id="sess-a", agent_name="agent", framework="test",
-        started_at=datetime.datetime.now(datetime.UTC),
+        started_at=datetime.datetime.now(datetime.timezone.utc),
         ended_at=None, status="running", total_tokens=0,
         total_cost_usd=0.0, tool_calls=0, llm_calls=0,
         errors=0, config={}, tags=[],

@@ -20,7 +20,7 @@ def find_expired_sessions(
     sessions: list[dict[str, Any]],
     now: datetime.datetime | None = None,
 ) -> list[dict[str, Any]]:
-    now = now or datetime.datetime.now(datetime.UTC)
+    now = now or datetime.datetime.now(datetime.timezone.utc)
     expired = []
     for s in sessions:
         plan = s.get("plan", "free")
