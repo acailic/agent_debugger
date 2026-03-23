@@ -50,4 +50,9 @@ packages = ["agent_debugger_sdk"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests"]
+testpaths = ["tests", "agent_debugger_sdk/adapters/tests"]
+
+[tool.coverage.report]
+omit = [
+    "*/tests/*",
+]

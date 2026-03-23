@@ -1,5 +1,8 @@
 """Tests for package metadata and imports."""
 
+from importlib.metadata import version
+
+
 def test_package_importable():
     import agent_debugger_sdk
     assert hasattr(agent_debugger_sdk, "init")
@@ -10,4 +13,4 @@ def test_package_importable():
 def test_version_exists():
     import agent_debugger_sdk
     assert hasattr(agent_debugger_sdk, "__version__")
-    assert agent_debugger_sdk.__version__ == "0.1.0"
+    assert agent_debugger_sdk.__version__ == version("peaky-peek")

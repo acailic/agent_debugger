@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from auth.api_keys import generate_api_key, hash_key
 from auth.models import APIKeyModel
+from api.main import get_db_session, get_tenant_id
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -39,8 +40,8 @@ class KeyListItem(BaseModel):
 @router.post("/keys", response_model=CreateKeyResponse, status_code=201)
 async def create_key(
     request: CreateKeyRequest,
-    db: AsyncSession = Depends(),
-    tenant_id: str = Depends(),
+    db: AsyncSession = Depends(get_db_session),
+    tenant_id: str = Depends(get_tenant_id),
 ):
     """Create a new API key for the current tenant."""
     raw_key = generate_api_key(environment=request.environment)
@@ -65,8 +66,8 @@ async def create_key(
 
 @router.get("/keys", response_model=list[KeyListItem])
 async def list_keys(
-    db: AsyncSession = Depends(),
-    tenant_id: str = Depends(),
+    db: AsyncSession = Depends(get_db_session),
+    tenant_id: str = Depends(get_tenant_id),
 ):
     """List all active API keys for the current tenant."""
     result = await db.execute(
@@ -89,8 +90,8 @@ async def list_keys(
 @router.delete("/keys/{key_id}", status_code=204)
 async def revoke_key(
     key_id: str,
-    db: AsyncSession = Depends(),
-    tenant_id: str = Depends(),
+    db: AsyncSession = Depends(get_db_session),
+    tenant_id: str = Depends(get_tenant_id),
 ):
     """Revoke (deactivate) an API key."""
     result = await db.execute(

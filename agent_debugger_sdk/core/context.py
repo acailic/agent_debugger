@@ -67,6 +67,24 @@ _default_session_update_hook: ContextVar[Callable[[Session], Awaitable[None]] | 
 )
 
 
+def _get_default_event_buffer() -> EventBufferLike | None:
+    """Resolve the shared event buffer lazily.
+
+    Importing collector modules at SDK import time creates a package-level cycle.
+    Resolve the singleton only when a context is instantiated and only when no
+    explicit/default buffer has already been configured.
+    """
+    configured = _default_event_buffer.get()
+    if configured is not None:
+        return configured
+
+    try:
+        from collector.buffer import get_event_buffer
+    except ImportError:
+        return None
+    return get_event_buffer()
+
+
 def configure_event_pipeline(
     buffer: EventBufferLike | None,
     *,
@@ -150,7 +168,7 @@ class TraceContext:
         self._events: list[TraceEvent | Checkpoint] = []
         self._events_lock: asyncio.Lock = asyncio.Lock()
         self._checkpoint_sequence = 0
-        self._event_buffer = event_buffer if event_buffer is not None else _default_event_buffer.get()
+        self._event_buffer = event_buffer if event_buffer is not None else _get_default_event_buffer()
         self._event_persister = _default_event_persister.get()
         self._checkpoint_persister = _default_checkpoint_persister.get()
         self._session_start_hook = _default_session_start_hook.get()
