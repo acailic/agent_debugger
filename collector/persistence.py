@@ -103,13 +103,13 @@ class PersistenceManager:
         - Files are appended to on each flush
         - Events are written as newline-delimited JSON (NDJSON)
         """
-        session_ids = await self.buffer.get_session_ids()
+        session_ids = self.buffer.get_session_ids()
 
         if not session_ids:
             return
 
         for session_id in session_ids:
-            events = await self.buffer.flush(session_id)
+            events = self.buffer.flush(session_id)
             if not events:
                 continue
 

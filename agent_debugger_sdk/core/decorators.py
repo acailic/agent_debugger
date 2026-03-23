@@ -84,53 +84,16 @@ def trace_agent(
             )
 
             async with ctx:
-                start_event = TraceEvent(
-                    session_id=ctx.session_id,
-                    event_type=EventType.AGENT_START,
-                    name=f"{name}_start",
-                    data={
-                        "agent_name": name,
-                        "framework": framework,
-                        "function": func.__name__,
-                    },
-                    importance=0.3,
-                )
-                await ctx._emit_event(start_event)
-                ctx.set_parent(start_event.id)
-
-                error: Exception | None = None
-                result: T | None = None
+                # Use the session start event's ID as the parent for child events
+                if ctx._session_start_event:
+                    ctx.set_parent(ctx._session_start_event.id)
 
                 try:
                     result = await func(*args, **kwargs)
                     return result
                 except Exception as e:
-                    error = e
-                    error_event = ErrorEvent(
-                        session_id=ctx.session_id,
-                        parent_id=ctx.get_current_parent(),
-                        event_type=EventType.ERROR,
-                        name=f"{name}_error",
-                        error_type=type(e).__name__,
-                        error_message=str(e),
-                        stack_trace=traceback.format_exc(),
-                        importance=0.9,
-                    )
-                    await ctx._emit_event(error_event)
+                    # Error is already recorded by TraceContext.__aexit__
                     raise
-                finally:
-                    end_event = TraceEvent(
-                        session_id=ctx.session_id,
-                        parent_id=None,
-                        event_type=EventType.AGENT_END,
-                        name=f"{name}_end",
-                        data={
-                            "success": error is None,
-                            "error_type": type(error).__name__ if error else None,
-                        },
-                        importance=0.3,
-                    )
-                    await ctx._emit_event(end_event)
 
         return async_wrapper
 
@@ -217,7 +180,11 @@ def trace_tool(
                 await ctx._emit_event(tool_result_event)
 
                 if own_context:
-                    await ctx.__aexit__(None, None, None)
+                    # Pass actual exception info to __aexit__ when error occurred
+                    if error is not None:
+                        await ctx.__aexit__(type(error), error, error.__traceback__)
+                    else:
+                        await ctx.__aexit__(None, None, None)
 
         return async_wrapper
 
@@ -325,7 +292,11 @@ def trace_llm(
                 await ctx._emit_event(llm_response_event)
 
                 if own_context:
-                    await ctx.__aexit__(None, None, None)
+                    # Pass actual exception info to __aexit__ when error occurred
+                    if error is not None:
+                        await ctx.__aexit__(type(error), error, error.__traceback__)
+                    else:
+                        await ctx.__aexit__(None, None, None)
 
         return async_wrapper
 

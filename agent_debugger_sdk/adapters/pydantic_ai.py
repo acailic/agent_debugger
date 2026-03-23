@@ -17,8 +17,6 @@ from typing import Any
 from typing import Generic
 from typing import TypeVar
 
-from collector.buffer import get_event_buffer
-
 from agent_debugger_sdk.core.context import TraceContext
 from agent_debugger_sdk.core.events import LLMRequestEvent
 from agent_debugger_sdk.core.events import LLMResponseEvent
@@ -161,14 +159,11 @@ class PydanticAIAdapter(Generic[T]):
             tags=tags or self.tags,
         )
 
-        buffer = get_event_buffer()
-
         async with self._context as ctx:
             _pydantic_run_context.set(
                 {
                     "session_id": self.session_id,
                     "context": ctx,
-                    "buffer": buffer,
                 }
             )
 
@@ -210,8 +205,6 @@ class PydanticAIAdapter(Generic[T]):
         if not self._context:
             return
 
-        buffer = get_event_buffer()
-
         if hasattr(message, "parts"):
             for part in message.parts:
                 if isinstance(part, ToolCallPart):
@@ -224,7 +217,6 @@ class PydanticAIAdapter(Generic[T]):
                         importance=0.4,
                     )
                     await self._context._emit_event(event)
-                    await buffer.publish(self.session_id, event)
 
     async def record_llm_request(
         self,
@@ -259,9 +251,6 @@ class PydanticAIAdapter(Generic[T]):
         )
 
         await self._context._emit_event(event)
-
-        buffer = get_event_buffer()
-        await buffer.publish(self.session_id, event)
 
         return event.id
 
@@ -305,9 +294,6 @@ class PydanticAIAdapter(Generic[T]):
 
         await self._context._emit_event(event)
 
-        buffer = get_event_buffer()
-        await buffer.publish(self.session_id, event)
-
         return event.id
 
     async def record_tool_call(
@@ -337,9 +323,6 @@ class PydanticAIAdapter(Generic[T]):
         )
 
         await self._context._emit_event(event)
-
-        buffer = get_event_buffer()
-        await buffer.publish(self.session_id, event)
 
         return event.id
 
@@ -422,9 +405,6 @@ class PydanticAIInstrumentor:
 
         await self._context._emit_event(event)
 
-        buffer = get_event_buffer()
-        await buffer.publish(self.session_id, event)
-
     async def on_model_response(self, data: dict[str, Any]) -> None:
         """Handle model response event.
 
@@ -453,9 +433,6 @@ class PydanticAIInstrumentor:
 
         await self._context._emit_event(event)
 
-        buffer = get_event_buffer()
-        await buffer.publish(self.session_id, event)
-
     async def on_tool_call(self, data: dict[str, Any]) -> None:
         """Handle tool call event.
 
@@ -475,9 +452,6 @@ class PydanticAIInstrumentor:
         )
 
         await self._context._emit_event(event)
-
-        buffer = get_event_buffer()
-        await buffer.publish(self.session_id, event)
 
     async def on_tool_result(self, data: dict[str, Any]) -> None:
         """Handle tool result event.
