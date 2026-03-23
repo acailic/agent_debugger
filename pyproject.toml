@@ -3,20 +3,20 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "peaky-peek"
-version = "0.1.0"
-description = "Lightweight tracing SDK for AI agents. Capture decisions, tool calls, and LLM events with one context manager."
-readme = "SDK_README.md"
+name = "peaky-peek-server"
+version = "0.1.1"
+description = "Self-hosted server for Agent Debugger — FastAPI backend, SQLite/Postgres storage, SSE streaming, and React UI."
+readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
+license = "Apache-2.0"
 authors = [
     { name = "acailic", email = "acailic@users.noreply.github.com" },
 ]
-keywords = ["ai", "agents", "debugging", "tracing", "observability", "langchain", "crewai", "pydantic-ai"]
+keywords = ["ai", "agents", "debugging", "tracing", "fastapi", "server", "observability"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -26,18 +26,21 @@ classifiers = [
 ]
 
 dependencies = [
-    "pydantic>=2.0",
-    "httpx>=0.24",
+    "peaky-peek>=0.1.0",
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.20",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.19",
+    "alembic>=1.12",
+    "aiofiles>=23.0",
+    "bcrypt>=4.0",
 ]
 
 [project.optional-dependencies]
-langchain = ["langchain-core>=0.2"]
-crewai = ["crewai>=0.40"]
-pydantic-ai = ["pydantic-ai>=0.0.10"]
-all = [
-    "langchain-core>=0.2",
-    "crewai>=0.40",
-    "pydantic-ai>=0.0.10",
+cloud = [
+    "asyncpg>=0.28",
+    "redis[hiredis]>=5.0",
+    "aiobotocore>=2.7",
 ]
 
 [project.urls]
@@ -46,7 +49,7 @@ Repository = "https://github.com/acailic/agent_debugger"
 Issues = "https://github.com/acailic/agent_debugger/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["agent_debugger_sdk"]
+packages = ["agent_debugger_sdk", "api", "auth", "collector", "redaction", "storage"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
