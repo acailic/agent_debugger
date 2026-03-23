@@ -7,6 +7,7 @@ from fastapi.routing import APIRoute
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import api.main as api_main
+from api import services as api_services
 from agent_debugger_sdk.core.context import configure_event_pipeline
 from benchmarks import run_evidence_grounding_session, run_failure_cluster_session, run_safety_escalation_session
 from collector.buffer import get_event_buffer
@@ -62,10 +63,10 @@ def api_repo_factory(tmp_path, monkeypatch):
     configure_storage(session_maker)
     configure_event_pipeline(
         buffer,
-        persist_event=api_main._persist_event,
-        persist_checkpoint=api_main._persist_checkpoint,
-        persist_session_start=api_main._persist_session_start,
-        persist_session_update=api_main._persist_session_update,
+        persist_event=api_services.persist_event,
+        persist_checkpoint=api_services.persist_checkpoint,
+        persist_session_start=api_services.persist_session_start,
+        persist_session_update=api_services.persist_session_update,
     )
 
     yield session_maker

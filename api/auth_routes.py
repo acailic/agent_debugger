@@ -10,29 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_db_session, get_tenant_id
 from api.schemas import CreateKeyRequest, CreateKeyResponse, KeyListItem
-from auth.api_keys import generate_api_key as _default_generate_api_key
-from auth.api_keys import hash_key as _default_hash_key
+from auth.api_keys import generate_api_key, hash_key
 from auth.models import APIKeyModel
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-generate_api_key = _default_generate_api_key
-hash_key = _default_hash_key
-
-
-def _auth_key_helpers():
-    from api import main as api_main
-
-    generate = (
-        generate_api_key
-        if generate_api_key is not _default_generate_api_key
-        else getattr(api_main, "generate_api_key", generate_api_key)
-    )
-    hash_fn = (
-        hash_key
-        if hash_key is not _default_hash_key
-        else getattr(api_main, "hash_key", hash_key)
-    )
-    return generate, hash_fn
 
 
 @router.post("/keys", response_model=CreateKeyResponse, status_code=201)
@@ -42,12 +23,11 @@ async def create_key(
     tenant_id: str = Depends(get_tenant_id),
 ):
     """Create a new API key for the current tenant."""
-    generate, hash_fn = _auth_key_helpers()
-    raw_key = generate(environment=request.environment)
+    raw_key = generate_api_key(environment=request.environment)
     key_model = APIKeyModel(
         id=str(uuid.uuid4()),
         tenant_id=tenant_id,
-        key_hash=hash_fn(raw_key),
+        key_hash=hash_key(raw_key),
         key_prefix=raw_key[:12] + "...",
         environment=request.environment,
         name=request.name,

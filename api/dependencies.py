@@ -5,6 +5,8 @@ from __future__ import annotations
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agent_debugger_sdk.config import get_config
+from auth.middleware import get_tenant_from_api_key
 from storage import TraceRepository
 
 
@@ -21,12 +23,10 @@ async def get_tenant_id(
     db: AsyncSession = Depends(get_db_session),
 ) -> str:
     """Resolve the current tenant from config mode and request auth."""
-    from api import main as api_main
-
-    config = api_main.get_config()
+    config = get_config()
     if config.mode == "local":
         return "local"
-    return await api_main.get_tenant_from_api_key(request, db)
+    return await get_tenant_from_api_key(request, db)
 
 
 def get_repository(

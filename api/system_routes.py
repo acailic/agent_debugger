@@ -7,6 +7,8 @@ import os
 from fastapi import APIRouter
 from sqlalchemy import text
 
+from agent_debugger_sdk.config import get_config
+
 router = APIRouter(tags=["system"])
 
 
@@ -15,7 +17,7 @@ async def health():
     """Health check endpoint with dependency connectivity verification."""
     from api import main as api_main
 
-    config = api_main.get_config()
+    config = get_config()
     checks = {"status": "ok", "mode": config.mode}
 
     try:

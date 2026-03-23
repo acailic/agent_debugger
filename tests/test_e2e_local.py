@@ -15,11 +15,11 @@ async def test_full_local_flow():
     buffer = EventBuffer()
 
     # Configure the event pipeline for local mode persistence
-    from api.main import _persist_event, _persist_session_start
+    from api.services import persist_event, persist_session_start
     configure_event_pipeline(
         buffer,
-        persist_event=_persist_event,
-        persist_session_start=_persist_session_start,
+        persist_event=persist_event,
+        persist_session_start=persist_session_start,
     )
 
     # Import app after init

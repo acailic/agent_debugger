@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from api.dependencies import get_repository
 from api.schemas import ReplayResponse
 from api.services import load_session_artifacts, require_session
+from collector.replay import build_replay
 from storage import TraceRepository
 
 router = APIRouter(tags=["replay"])
@@ -23,8 +24,6 @@ async def replay_session(
     breakpoint_safety_outcomes: str | None = Query(default=None),
     repo: TraceRepository = Depends(get_repository),
 ) -> ReplayResponse:
-    from api import main as api_main
-
     await require_session(repo, session_id)
     events, checkpoints = await load_session_artifacts(repo, session_id)
 
@@ -41,7 +40,7 @@ async def replay_session(
             failure_event_ids=[],
         )
 
-    replay_data = api_main.build_replay(
+    replay_data = build_replay(
         events,
         checkpoints,
         mode=mode,

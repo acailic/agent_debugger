@@ -1,4 +1,4 @@
-"""FastAPI application factory and shared API runtime exports."""
+"""FastAPI application factory and shared runtime state."""
 
 from __future__ import annotations
 
@@ -10,57 +10,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from agent_debugger_sdk.config import get_config
 from agent_debugger_sdk.core.context import configure_event_pipeline
+from api import services as _services
 from api.auth_routes import router as auth_router
-from api.dependencies import get_db_session, get_repository, get_tenant_id
 from api.replay_routes import router as replay_router
-from api.schemas import (
-    AnalysisResponse,
-    CheckpointListResponse,
-    CreateKeyRequest,
-    CreateKeyResponse,
-    DecisionTreeResponse,
-    DeleteResponse,
-    KeyListItem,
-    LiveSummaryResponse,
-    ReplayResponse,
-    SessionDetailResponse,
-    SessionListResponse,
-    SessionUpdateRequest,
-    TraceBundleResponse,
-    TraceListResponse,
-    TraceSearchResponse,
-)
-from api.services import (
-    event_generator as _event_generator,
-)
-from api.services import (
-    normalize_checkpoint as _normalize_checkpoint,
-)
-from api.services import (
-    normalize_event as _normalize_event,
-)
-from api.services import (
-    normalize_session as _normalize_session,
-)
-from api.services import (
-    persist_checkpoint as _persist_checkpoint,
-)
-from api.services import (
-    persist_event as _persist_event,
-)
-from api.services import (
-    persist_session_start as _persist_session_start,
-)
-from api.services import (
-    persist_session_update as _persist_session_update,
-)
 from api.session_routes import router as session_router
 from api.system_routes import router as system_router
 from api.trace_routes import router as trace_router
-from auth.api_keys import generate_api_key, hash_key
-from auth.middleware import get_tenant_from_api_key
 from collector.intelligence import TraceIntelligence
-from collector.replay import build_replay, build_tree
 from collector.server import configure_storage
 from collector.server import router as collector_router
 from redaction.pipeline import RedactionPipeline
@@ -70,48 +26,6 @@ from storage.engine import create_db_engine, create_session_maker
 engine = create_db_engine()
 async_session_maker = create_session_maker(engine)
 trace_intelligence = TraceIntelligence()
-
-__all__ = [
-    "AnalysisResponse",
-    "CheckpointListResponse",
-    "CreateKeyRequest",
-    "CreateKeyResponse",
-    "DecisionTreeResponse",
-    "DeleteResponse",
-    "KeyListItem",
-    "LiveSummaryResponse",
-    "ReplayResponse",
-    "SessionDetailResponse",
-    "SessionListResponse",
-    "SessionUpdateRequest",
-    "TraceBundleResponse",
-    "TraceListResponse",
-    "TraceSearchResponse",
-    "_event_generator",
-    "_get_redaction_pipeline",
-    "_normalize_checkpoint",
-    "_normalize_event",
-    "_normalize_session",
-    "_persist_checkpoint",
-    "_persist_event",
-    "_persist_session_start",
-    "_persist_session_update",
-    "app",
-    "async_session_maker",
-    "build_replay",
-    "build_tree",
-    "create_app",
-    "engine",
-    "generate_api_key",
-    "get_config",
-    "get_db_session",
-    "get_repository",
-    "get_tenant_from_api_key",
-    "get_tenant_id",
-    "hash_key",
-    "lifespan",
-    "trace_intelligence",
-]
 
 
 def _get_redaction_pipeline() -> RedactionPipeline:
@@ -135,10 +49,10 @@ async def lifespan(app: FastAPI):
     configure_storage(async_session_maker)
     configure_event_pipeline(
         buffer,
-        persist_event=_persist_event,
-        persist_checkpoint=_persist_checkpoint,
-        persist_session_start=_persist_session_start,
-        persist_session_update=_persist_session_update,
+        persist_event=_services.persist_event,
+        persist_checkpoint=_services.persist_checkpoint,
+        persist_session_start=_services.persist_session_start,
+        persist_session_update=_services.persist_session_update,
     )
 
     yield

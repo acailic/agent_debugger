@@ -16,7 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 import api.main as api_main
 from agent_debugger_sdk.core.events import Checkpoint, Session, ToolCallEvent
-from api.main import CreateKeyRequest
+from api import dependencies as api_dependencies
+from api import services as api_services
+from api.schemas import CreateKeyRequest, SessionUpdateRequest
 from storage import Base, TraceRepository
 
 
@@ -52,10 +54,10 @@ async def test_get_tenant_id_uses_local_mode_without_api_lookup():
     request = SimpleNamespace(headers={})
     db = MagicMock()
 
-    with patch("api.main.get_config", return_value=SimpleNamespace(mode="local")), patch(
-        "api.main.get_tenant_from_api_key", new=AsyncMock()
+    with patch("api.dependencies.get_config", return_value=SimpleNamespace(mode="local")), patch(
+        "api.dependencies.get_tenant_from_api_key", new=AsyncMock()
     ) as get_tenant_from_api_key:
-        tenant_id = await api_main.get_tenant_id(request, db)
+        tenant_id = await api_dependencies.get_tenant_id(request, db)
 
     assert tenant_id == "local"
     get_tenant_from_api_key.assert_not_awaited()
@@ -66,10 +68,10 @@ async def test_get_tenant_id_uses_api_key_lookup_in_cloud_mode():
     request = SimpleNamespace(headers={"authorization": "Bearer test"})
     db = MagicMock()
 
-    with patch("api.main.get_config", return_value=SimpleNamespace(mode="cloud")), patch(
-        "api.main.get_tenant_from_api_key", new=AsyncMock(return_value="tenant-cloud")
+    with patch("api.dependencies.get_config", return_value=SimpleNamespace(mode="cloud")), patch(
+        "api.dependencies.get_tenant_from_api_key", new=AsyncMock(return_value="tenant-cloud")
     ) as get_tenant_from_api_key:
-        tenant_id = await api_main.get_tenant_id(request, db)
+        tenant_id = await api_dependencies.get_tenant_id(request, db)
 
     assert tenant_id == "tenant-cloud"
     get_tenant_from_api_key.assert_awaited_once_with(request, db)
@@ -77,7 +79,7 @@ async def test_get_tenant_id_uses_api_key_lookup_in_cloud_mode():
 
 def test_get_repository_scopes_to_tenant():
     session = MagicMock()
-    repo = api_main.get_repository(session, "tenant-a")
+    repo = api_dependencies.get_repository(session, "tenant-a")
     assert isinstance(repo, TraceRepository)
     assert repo.session is session
     assert repo.tenant_id == "tenant-a"
@@ -85,7 +87,7 @@ def test_get_repository_scopes_to_tenant():
 
 @pytest.mark.asyncio
 async def test_get_db_session_yields_session_from_factory(api_repo_factory):
-    generator = api_main.get_db_session()
+    generator = api_dependencies.get_db_session()
     session = await anext(generator)
     assert isinstance(session, AsyncSession)
     await generator.aclose()
@@ -101,12 +103,12 @@ def test_normalizers_include_analysis_summary():
     event = ToolCallEvent(session_id=session.id, tool_name="search", arguments={"q": "Belgrade"})
     checkpoint = Checkpoint(session_id=session.id, event_id=event.id, sequence=1)
 
-    normalized_session = api_main._normalize_session(session, {"replay_value": 0.9})
+    normalized_session = api_services.normalize_session(session, {"replay_value": 0.9})
 
     assert normalized_session["id"] == "session-normalize"
     assert normalized_session["replay_value"] == 0.9
-    assert api_main._normalize_event(event)["tool_name"] == "search"
-    assert api_main._normalize_checkpoint(checkpoint)["sequence"] == 1
+    assert api_services.normalize_event(event)["tool_name"] == "search"
+    assert api_services.normalize_checkpoint(checkpoint)["sequence"] == 1
 
 
 @pytest.mark.asyncio
@@ -164,14 +166,14 @@ async def test_persist_helpers_store_session_event_and_checkpoint(api_repo_facto
     pipeline = SimpleNamespace(apply=MagicMock(side_effect=lambda value: value))
 
     with patch("api.main._get_redaction_pipeline", return_value=pipeline):
-        await api_main._persist_session_start(session)
-        await api_main._persist_session_start(session)
+        await api_services.persist_session_start(session)
+        await api_services.persist_session_start(session)
 
         session.status = "completed"
         session.ended_at = datetime(2026, 3, 23, 11, 0, tzinfo=timezone.utc)
-        await api_main._persist_session_update(session)
-        await api_main._persist_event(event)
-        await api_main._persist_checkpoint(checkpoint)
+        await api_services.persist_session_update(session)
+        await api_services.persist_event(event)
+        await api_services.persist_checkpoint(checkpoint)
 
     async with api_repo_factory() as db_session:
         repo = TraceRepository(db_session)
@@ -246,8 +248,8 @@ async def test_auth_routes_create_list_and_revoke_keys(api_repo_factory):
     revoke_key = _get_route_endpoint("/api/auth/keys/{key_id}", "DELETE")
 
     async with api_repo_factory() as db_session:
-        with patch("api.main.generate_api_key", return_value="ad_live_example_secret"), patch(
-            "api.main.hash_key", return_value="hashed-secret"
+        with patch("api.auth_routes.generate_api_key", return_value="ad_live_example_secret"), patch(
+            "api.auth_routes.hash_key", return_value="hashed-secret"
         ):
             created = await create_key(
                 CreateKeyRequest(name="primary", environment="live"),
@@ -309,7 +311,7 @@ async def test_session_routes_return_persisted_data(api_repo_factory):
             sessions_response = await list_sessions(limit=10, offset=0, sort_by="started_at", repo=repo)
             updated_response = await update_session(
                 session_id=session.id,
-                update=api_main.SessionUpdateRequest(status="completed", tags=["updated"]),
+                update=SessionUpdateRequest(status="completed", tags=["updated"]),
                 repo=repo,
             )
             session_response = await get_session(session_id=session.id, repo=repo)
@@ -369,7 +371,7 @@ async def test_replay_route_passes_split_breakpoints_to_builder(api_repo_factory
         await repo.add_event(event)
         await repo.create_checkpoint(checkpoint)
 
-        with patch("api.main.build_replay", return_value=replay_payload) as build_replay:
+        with patch("api.replay_routes.build_replay", return_value=replay_payload) as build_replay:
             response = await replay_session(
                 session_id=session.id,
                 mode="failure",
@@ -418,7 +420,7 @@ async def test_session_routes_raise_not_found(api_repo_factory):
             lambda: get_session(session_id="missing", repo=repo),
             lambda: update_session(
                 session_id="missing",
-                update=api_main.SessionUpdateRequest(status="completed"),
+                update=SessionUpdateRequest(status="completed"),
                 repo=repo,
             ),
             lambda: delete_session(session_id="missing", repo=repo),
@@ -516,7 +518,7 @@ async def test_health_endpoint_reports_database_and_redis_status(monkeypatch):
     monkeypatch.setattr(api_main, "async_session_maker", GoodSessionMaker())
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
 
-    with patch("api.main.get_config", return_value=SimpleNamespace(mode="cloud")), patch.dict(
+    with patch("api.system_routes.get_config", return_value=SimpleNamespace(mode="cloud")), patch.dict(
         sys.modules,
         {"redis": fake_redis_module, "redis.asyncio": fake_asyncio_module},
     ):
@@ -558,7 +560,7 @@ async def test_health_endpoint_degrades_on_database_and_redis_errors(monkeypatch
     monkeypatch.setattr(api_main, "async_session_maker", BrokenSessionMaker())
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
 
-    with patch("api.main.get_config", return_value=SimpleNamespace(mode="cloud")), patch.dict(
+    with patch("api.system_routes.get_config", return_value=SimpleNamespace(mode="cloud")), patch.dict(
         sys.modules,
         {"redis": fake_redis_module, "redis.asyncio": fake_asyncio_module},
     ):
@@ -588,7 +590,7 @@ async def test_event_generator_emits_event_and_keepalive_and_unsubscribes():
     with patch("api.services.get_event_buffer", return_value=fake_buffer), patch(
         "api.services.asyncio.wait_for", side_effect=fake_wait_for
     ):
-        generator = api_main._event_generator("stream-test")
+        generator = api_services.event_generator("stream-test")
         first = await anext(generator)
         second = await anext(generator)
         await generator.aclose()
