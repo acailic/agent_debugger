@@ -1,5 +1,6 @@
 # Debug AI agents like distributed systems — not black boxes.
 
+[![CI](https://github.com/acailic/agent_debugger/actions/workflows/ci.yml/badge.svg)](https://github.com/acailic/agent_debugger/actions/workflows/ci.yml)
 [![PyPI peaky-peek](https://img.shields.io/pypi/v/peaky-peek.svg?label=peaky-peek)](https://pypi.org/project/peaky-peek/)
 [![PyPI peaky-peek-server](https://img.shields.io/pypi/v/peaky-peek-server.svg?label=peaky-peek-server)](https://pypi.org/project/peaky-peek-server/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
@@ -8,8 +9,7 @@
 
 Capture every decision, tool call, and LLM interaction as a queryable event timeline. Inspect live, replay from checkpoints, search across sessions.
 
-<!-- TODO: Record demo GIF showing decision tree view → checkpoint replay → search -->
-<!-- ![Demo](./docs/demo.gif) -->
+![Decision Tree demo](./docs/demos/decision-tree.gif)
 
 ## Why This Exists
 
@@ -103,6 +103,44 @@ Session → Trace → Event → Decision → Tool Call → Checkpoint
 - **Decision** — A reasoning step with confidence, evidence, and chosen action
 - **Tool Call** — External function invocation with inputs/outputs
 - **Checkpoint** — Snapshot of state for time-travel replay
+
+## Feature Demos
+
+### Decision Tree Visualization
+
+![Decision Tree demo](./docs/demos/decision-tree.gif)
+
+Navigate agent reasoning as an interactive tree. Click nodes to inspect events, zoom to explore complex flows, and double-click to collapse branches.
+
+### Session Replay
+
+![Session Replay demo](./docs/demos/session-replay.gif)
+
+Time-travel through agent execution with checkpoint-aware playback. Play, pause, step, and seek to any point in the trace.
+
+### Trace Search
+
+![Trace Search demo](./docs/demos/trace-search.gif)
+
+Find specific events across all sessions. Search by keyword, filter by event type, and jump directly to results.
+
+### Live Streaming
+
+![Live Streaming demo](./docs/demos/live-streaming.gif)
+
+Watch agent execution in real-time. Events stream live via SSE as your agent runs.
+
+### Failure Clustering
+
+![Failure Clustering demo](./docs/demos/failure-clustering.gif)
+
+Adaptive analysis groups similar failures. Click a cluster to jump to the representative failure event.
+
+### Session Comparison
+
+![Session Comparison demo](./docs/demos/session-comparison.gif)
+
+Compare two agent runs side-by-side. Identify differences in decisions, tool calls, and outcomes.
 
 ## Use Cases
 
