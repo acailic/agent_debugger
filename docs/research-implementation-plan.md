@@ -13,6 +13,10 @@ Move `agent_debugger` from "research-informed tracing base" to a debugger that d
 - prompt-policy and multi-agent control surfaces
 - replay worth using
 - real-time monitoring for long-running agents
+- root-cause analysis over failures
+- explanation layers over raw execution traces
+- failure-aware memory for repair and regression work
+- guided exploration across large trace graphs
 
 ## Current State
 
@@ -126,6 +130,62 @@ What belongs in this repo:
 - rolling state summary
 - oscillation / loop alerts
 - recent checkpoint visibility
+
+### 7. Root Cause Analysis / Causal Trace Reconstruction
+
+Source pressure:
+
+- failures should be traceable backward through causal dependencies
+- long traces need ranked suspects, not only chronological review
+
+What belongs in this repo:
+
+- causal edges between decisions, tool calls, evidence, checkpoints, and error events
+- "why did this fail?" drill-down from a failure to upstream candidates
+- ranked root-cause hypotheses with visible confidence
+- causal overlays in replay and event detail views
+
+### 8. Failure Explanations For Coding Agents
+
+Source pressure:
+
+- raw traces are too expensive to interpret under time pressure
+- explanations should stay linked to evidence, not replace it
+
+What belongs in this repo:
+
+- explanation cards that summarize symptom, likely cause, evidence, and next inspection point
+- a normalized taxonomy for common failure modes
+- session summaries that distinguish surface error from deeper failure mechanism
+- side-by-side raw trace and explanation views
+
+### 9. Failure-Aware Repair Memory
+
+Source pressure:
+
+- failed repair attempts are valuable training and debugging data
+- debugging systems should remember what was already tried
+
+What belongs in this repo:
+
+- explicit repair-attempt events with outcome and artifact links
+- summaries of repeated failed strategies across sessions
+- session and cluster views that show prior failed fixes before a new attempt
+- ranking by repair-learning value, not only failure severity
+
+### 10. Exploratory Search Over Large Trace Graphs
+
+Source pressure:
+
+- large unknown spaces need frontier-based exploration
+- exploration plans should adapt as new evidence appears
+
+What belongs in this repo:
+
+- branch and checkpoint frontier scoring for selective inspection
+- "show me the next most informative branch" workflows
+- exploration-aware decision tree traversal instead of only manual expansion
+- receding-horizon navigation across long, branching sessions
 
 ## Delivery Plan
 
@@ -300,10 +360,12 @@ Still missing:
 If work continues immediately, the best order is:
 
 1. strengthen replay restore semantics beyond checkpoint slicing
-2. add seeded benchmark corpora and UI smoke workflows around them
-3. expand replay ranking into cross-session clustering and retention tiers
-4. build multi-agent and prompt-policy comparison views
-5. add live monitoring summaries and anomaly drill-down
+2. add failure-to-cause drill-down with ranked root-cause hypotheses
+3. generate structured failure explanation cards linked to source events
+4. add seeded benchmark corpora and UI smoke workflows around them
+5. expand replay ranking into cross-session clustering and retention tiers
+6. build multi-agent and prompt-policy comparison views
+7. add live monitoring summaries and anomaly drill-down
 
 ## Parallel Platform Track
 
@@ -334,6 +396,8 @@ The research direction is being used well when:
 - papers change product behavior, not only docs
 - a refusal is distinct from an error in trace review
 - a decision can be traced back to evidence-producing events
+- a failure can be traced back to plausible upstream causes
+- raw traces can be compressed into explanations without losing evidence links
 - replay starts from the right boundary instead of replaying everything
 - prompt-policy changes are observable and comparable
 - long-running sessions surface alerts before a user reads thousands of events

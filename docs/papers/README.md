@@ -19,6 +19,10 @@ Each note uses the same structure:
 - [NeuroSkill(tm): Proactive Real-Time Agentic System Capable of Modeling Human State of Mind](./neuroskill-proactive-real-time-agentic-system.md)
 - [Learning When to Act or Refuse: Guarding Agentic Reasoning Models for Safe Multi-Step Tool Use](./learning-when-to-act-or-refuse.md)
 - [Influencing LLM Multi-Agent Dialogue via Policy-Parameterized Prompts](./policy-parameterized-prompts.md)
+- [AgentTrace: Causal Graph Tracing for Root Cause Analysis](./agenttrace-causal-graph-tracing-for-root-cause-analysis.md)
+- [XAI for Coding Agent Failures: Transforming Raw Execution Traces into Actionable Insights](./xai-for-coding-agent-failures.md)
+- [REST: Receding Horizon Explorative Steiner Tree for Zero-Shot Object-Goal Navigation](./rest-receding-horizon-explorative-steiner-tree.md)
+- [FailureMem: A Failure-Aware Multimodal Framework for Autonomous Software Repair](./failuremem-failure-aware-autonomous-software-repair.md)
 
 ## How To Read These Notes
 

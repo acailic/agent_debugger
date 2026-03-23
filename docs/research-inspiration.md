@@ -22,6 +22,18 @@ These papers are here because they push on the same problems this project is try
 - [Influencing LLM Multi-Agent Dialogue via Policy-Parameterized Prompts](https://arxiv.org/abs/2603.09890v1)
   Why it matters here: observability and control for multi-agent dialogue behavior.
 
+- [AgentTrace: Causal Graph Tracing for Root Cause Analysis](https://arxiv.org/abs/2603.14688)
+  Why it matters here: reconstructing causal chains from execution logs, tracing failures backward, and ranking likely upstream causes.
+
+- [XAI for Coding Agent Failures: Transforming Raw Execution Traces into Actionable Insights](https://arxiv.org/abs/2603.05941)
+  Why it matters here: turning raw failure traces into structured explanations that operators can act on quickly.
+
+- [REST: Receding Horizon Explorative Steiner Tree for Zero-Shot Object-Goal Navigation](https://arxiv.org/abs/2603.18624)
+  Why it matters here: frontier-based exploration and tree-guided search over large unknown state spaces.
+
+- [FailureMem: A Failure-Aware Multimodal Framework for Autonomous Software Repair](https://arxiv.org/abs/2603.17826)
+  Why it matters here: learning from failed repair attempts instead of treating them as disposable noise.
+
 For repo-oriented notes on each paper, see [Paper Notes](./papers/README.md).
 
 ## How To Use These Papers In This Repo
@@ -34,6 +46,10 @@ Practical examples:
 - use evidence-grounded reasoning research to improve decision event structure
 - use safety research to add refusal and guardrail events
 - use multi-agent control research to design better policy and prompt observability
+- use causal tracing research to rank likely root causes after an error or refusal
+- use XAI research to turn raw traces into concise failure narratives with evidence links
+- use repair-memory research to preserve failed attempts and guide later debugging
+- use exploration research to navigate large trace graphs without inspecting every branch
 
 ## Reading Strategy
 

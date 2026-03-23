@@ -52,6 +52,10 @@ The architecture is also informed by the following recent papers:
 - [NeuroSkill(tm): Proactive Real-Time Agentic System Capable of Modeling Human State of Mind](https://arxiv.org/abs/2603.03212v1): informs real-time, state-aware agent monitoring patterns.
 - [Learning When to Act or Refuse: Guarding Agentic Reasoning Models for Safe Multi-Step Tool Use](https://arxiv.org/abs/2603.03205v1): informs explicit safety checks, refusal states, and stepwise tool-use traceability.
 - [Influencing LLM Multi-Agent Dialogue via Policy-Parameterized Prompts](https://arxiv.org/abs/2603.09890v1): informs multi-agent observability and prompt/policy instrumentation for dialogue control.
+- [AgentTrace: Causal Graph Tracing for Root Cause Analysis](https://arxiv.org/abs/2603.14688): motivates failure-to-cause reconstruction, causal overlays, and ranked upstream suspects.
+- [XAI for Coding Agent Failures: Transforming Raw Execution Traces into Actionable Insights](https://arxiv.org/abs/2603.05941): motivates explanation layers that compress raw traces into operator-usable failure narratives.
+- [REST: Receding Horizon Explorative Steiner Tree for Zero-Shot Object-Goal Navigation](https://arxiv.org/abs/2603.18624): motivates frontier-based traversal of large trace graphs and receding-horizon exploration of branches.
+- [FailureMem: A Failure-Aware Multimodal Framework for Autonomous Software Repair](https://arxiv.org/abs/2603.17826): motivates preserving failed repair attempts as reusable debugging memory rather than disposable noise.
 
 ---
 
