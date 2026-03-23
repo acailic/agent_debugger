@@ -32,6 +32,8 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0",
     "aiosqlite>=0.19",
     "alembic>=1.12",
+    "aiofiles>=23.0",
+    "bcrypt>=4.0",
 ]
 
 [project.optional-dependencies]
@@ -39,7 +41,6 @@ cloud = [
     "asyncpg>=0.28",
     "redis[hiredis]>=5.0",
     "aiobotocore>=2.7",
-    "bcrypt>=4.0",
 ]
 
 [project.urls]

@@ -13,13 +13,12 @@ import uuid
 from contextvars import ContextVar
 from datetime import UTC
 from datetime import datetime
-from typing import TYPE_CHECKING
 from typing import Any
 from typing import Awaitable
 from typing import Callable
+from typing import Protocol
 
-from collector.buffer import get_event_buffer
-from collector.scorer import get_importance_scorer
+from .scorer import get_importance_scorer
 from .events import Checkpoint
 from .events import AgentTurnEvent
 from .events import BehaviorAlertEvent
@@ -37,14 +36,19 @@ from .events import ToolCallEvent
 from .events import ToolResultEvent
 from .events import TraceEvent
 
-if TYPE_CHECKING:
-    from collector.buffer import EventBuffer
+
+class EventBufferLike(Protocol):
+    """Protocol for publish-capable event buffers."""
+
+    async def publish(self, session_id: str, event: TraceEvent) -> None:
+        """Publish an event for live consumers."""
+        ...
 
 _current_session_id: ContextVar[str | None] = ContextVar("current_session_id", default=None)
 _current_parent_id: ContextVar[str | None] = ContextVar("current_parent_id", default=None)
 _event_sequence: ContextVar[int] = ContextVar("event_sequence", default=0)
 _current_context: ContextVar[TraceContext | None] = ContextVar("current_context", default=None)
-_default_event_buffer: ContextVar[EventBuffer | None] = ContextVar("default_event_buffer", default=None)
+_default_event_buffer: ContextVar[EventBufferLike | None] = ContextVar("default_event_buffer", default=None)
 _default_event_persister: ContextVar[Callable[[TraceEvent], Awaitable[None]] | None] = ContextVar(
     "default_event_persister",
     default=None,
@@ -64,7 +68,7 @@ _default_session_update_hook: ContextVar[Callable[[Session], Awaitable[None]] | 
 
 
 def configure_event_pipeline(
-    buffer: EventBuffer | None,
+    buffer: EventBufferLike | None,
     *,
     persist_event: Callable[[TraceEvent], Awaitable[None]] | None = None,
     persist_checkpoint: Callable[[Checkpoint], Awaitable[None]] | None = None,
@@ -125,7 +129,7 @@ class TraceContext:
         framework: str = "",
         config: dict[str, Any] | None = None,
         tags: list[str] | None = None,
-        event_buffer: EventBuffer | None = None,
+        event_buffer: EventBufferLike | None = None,
     ) -> None:
         """Initialize the trace context.
 
@@ -138,7 +142,7 @@ class TraceContext:
             framework: Framework being used (pydantic_ai, langchain, autogen).
             config: Agent configuration settings.
             tags: Tags for categorizing this session.
-            event_buffer: Optional EventBuffer for real-time event publishing.
+            event_buffer: Optional event buffer for real-time event publishing.
                 If not provided, uses the default configured via configure_event_pipeline().
         """
         self.session_id = session_id or str(uuid.uuid4())
@@ -146,11 +150,7 @@ class TraceContext:
         self._events: list[TraceEvent | Checkpoint] = []
         self._events_lock: asyncio.Lock = asyncio.Lock()
         self._checkpoint_sequence = 0
-        self._event_buffer = (
-            event_buffer
-            if event_buffer is not None
-            else _default_event_buffer.get() or get_event_buffer()
-        )
+        self._event_buffer = event_buffer if event_buffer is not None else _default_event_buffer.get()
         self._event_persister = _default_event_persister.get()
         self._checkpoint_persister = _default_checkpoint_persister.get()
         self._session_start_hook = _default_session_start_hook.get()

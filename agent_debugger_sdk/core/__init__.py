@@ -18,9 +18,11 @@ from agent_debugger_sdk.core.events import PromptPolicyEvent
 from agent_debugger_sdk.core.events import RefusalEvent
 from agent_debugger_sdk.core.events import SafetyCheckEvent
 from agent_debugger_sdk.core.events import Session
+from agent_debugger_sdk.core.scorer import ImportanceScorer
 from agent_debugger_sdk.core.events import ToolCallEvent
 from agent_debugger_sdk.core.events import ToolResultEvent
 from agent_debugger_sdk.core.events import TraceEvent
+from agent_debugger_sdk.core.scorer import get_importance_scorer
 
 __all__ = [
     "EventType",
@@ -39,8 +41,10 @@ __all__ = [
     "BehaviorAlertEvent",
     "Session",
     "Checkpoint",
+    "ImportanceScorer",
     "TraceContext",
     "get_current_context",
+    "get_importance_scorer",
     "trace_agent",
     "trace_tool",
     "trace_llm",
