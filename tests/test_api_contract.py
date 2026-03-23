@@ -7,8 +7,8 @@ from fastapi.routing import APIRoute
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import api.main as api_main
-from api import services as api_services
 from agent_debugger_sdk.core.context import configure_event_pipeline
+from api import services as api_services
 from benchmarks import run_evidence_grounding_session, run_failure_cluster_session, run_safety_escalation_session
 from collector.buffer import get_event_buffer
 from collector.server import SessionCreate, TraceEventIngest, configure_storage, create_session, ingest_trace

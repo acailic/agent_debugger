@@ -19,8 +19,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from agent_debugger_sdk.adapters.langchain import LANGCHAIN_AVAILABLE, LangChainTracingHandler
 from agent_debugger_sdk import TraceContext, init
+from agent_debugger_sdk.adapters.langchain import LANGCHAIN_AVAILABLE, LangChainTracingHandler
 
 if not LANGCHAIN_AVAILABLE:
     print("langchain-core is required for this example.")
