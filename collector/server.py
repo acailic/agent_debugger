@@ -15,9 +15,15 @@ from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import status
 from pydantic import BaseModel
+from pydantic import field_validator
 
 from .buffer import get_event_buffer
 from .scorer import get_importance_scorer
+
+# Input size limits for security (DoS prevention)
+MAX_DATA_SIZE_BYTES = 1 * 1024 * 1024  # 1MB
+MAX_METADATA_SIZE_BYTES = 1 * 1024 * 1024  # 1MB
+MAX_NAME_LENGTH = 255
 
 
 class TraceEventIngest(BaseModel):
@@ -30,6 +36,42 @@ class TraceEventIngest(BaseModel):
     name: str = ""
     data: dict[str, Any] = {}
     metadata: dict[str, Any] = {}
+
+    @field_validator("name")
+    @classmethod
+    def validate_name_length(cls, v: str) -> str:
+        """Validate name field length to prevent abuse."""
+        if len(v) > MAX_NAME_LENGTH:
+            raise ValueError(f"name must be {MAX_NAME_LENGTH} characters or less")
+        return v
+
+    @field_validator("data")
+    @classmethod
+    def validate_data_size(cls, v: dict[str, Any]) -> dict[str, Any]:
+        """Validate data dict size to prevent DoS attacks."""
+        import json
+
+        try:
+            size = len(json.dumps(v))
+        except (TypeError, ValueError):
+            size = len(str(v))
+        if size > MAX_DATA_SIZE_BYTES:
+            raise ValueError(f"data must be {MAX_DATA_SIZE_BYTES} bytes or less")
+        return v
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata_size(cls, v: dict[str, Any]) -> dict[str, Any]:
+        """Validate metadata dict size to prevent DoS attacks."""
+        import json
+
+        try:
+            size = len(json.dumps(v))
+        except (TypeError, ValueError):
+            size = len(str(v))
+        if size > MAX_METADATA_SIZE_BYTES:
+            raise ValueError(f"metadata must be {MAX_METADATA_SIZE_BYTES} bytes or less")
+        return v
 
 
 class TraceEventResponse(BaseModel):
