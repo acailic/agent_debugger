@@ -166,7 +166,10 @@ class TraceContext:
             # Get stack trace from traceback object
             import traceback as tb_module
 
-            tb_str = tb_module.format_exc() if exc_tb else None
+            if exc_tb is not None:
+                tb_str = "".join(tb_module.format_exception(exc_type, exc_val, exc_tb))
+            else:
+                tb_str = "".join(tb_module.format_exception_only(exc_type, exc_val)) if exc_type else None
 
             await self.record_error(
                 error_type=exc_type.__name__,
