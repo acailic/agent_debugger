@@ -17,6 +17,11 @@ venv/
 *.db-wal
 .tmp-*
 
+# Environment variables
+.env
+.env.local
+.env.*.local
+
 # Frontend dependencies and build output
 frontend/node_modules/
 frontend/dist/

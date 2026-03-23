@@ -1,0 +1,36 @@
+app = "agent-debugger"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+
+[env]
+  AGENT_DEBUGGER_MODE = "cloud"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8080
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+[checks]
+  [checks.alive]
+    type = "http"
+    interval = "30s"
+    timeout = "10s"
+    grace_period = "10s"
+    method = "get"
+    path = "/health"
