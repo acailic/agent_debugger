@@ -33,12 +33,51 @@ jobs:
       - name: Install build tools
         run: pip install build
 
+      - name: Derive release version from tag
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#sdk-v}"
+          version="${version#v}"
+          echo "RELEASE_VERSION=${version}" >> "$GITHUB_ENV"
+
+      - name: Set SDK version from tag
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["RELEASE_VERSION"]
+          path = Path("pyproject.toml")
+          content = path.read_text(encoding="utf-8")
+          updated, count = re.subn(
+              r'(?m)^version = "[^"]+"$',
+              f'version = "{version}"',
+              content,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("failed to update SDK version in pyproject.toml")
+          path.write_text(updated, encoding="utf-8")
+          PY
+
+      - name: Show SDK build metadata
+        run: |
+          python3 - <<'PY'
+          import tomllib
+          with open("pyproject.toml", "rb") as f:
+              data = tomllib.load(f)
+          print(data["project"]["name"], data["project"]["version"])
+          PY
+
       - name: Build peaky-peek wheel + sdist
         run: python -m build
         # pyproject.toml at root already targets peaky-peek / agent_debugger_sdk only
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
         # No token needed — uses OIDC trusted publishing.
         # Configure on PyPI: https://pypi.org/manage/account/publishing/
         #   Publisher: GitHub Actions
@@ -68,14 +107,53 @@ jobs:
       - name: Install build tools
         run: pip install build
 
+      - name: Derive release version from tag
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#server-v}"
+          version="${version#v}"
+          echo "RELEASE_VERSION=${version}" >> "$GITHUB_ENV"
+
       - name: Swap in server pyproject for build
         run: cp pyproject-server.toml pyproject.toml
+
+      - name: Set server version from tag
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["RELEASE_VERSION"]
+          path = Path("pyproject.toml")
+          content = path.read_text(encoding="utf-8")
+          updated, count = re.subn(
+              r'(?m)^version = "[^"]+"$',
+              f'version = "{version}"',
+              content,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("failed to update server version in pyproject.toml")
+          path.write_text(updated, encoding="utf-8")
+          PY
+
+      - name: Show server build metadata
+        run: |
+          python3 - <<'PY'
+          import tomllib
+          with open("pyproject.toml", "rb") as f:
+              data = tomllib.load(f)
+          print(data["project"]["name"], data["project"]["version"])
+          PY
 
       - name: Build peaky-peek-server wheel + sdist
         run: python -m build
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
         # Configure on PyPI: https://pypi.org/manage/account/publishing/
         #   Publisher: GitHub Actions
         #   Owner:     acailic
