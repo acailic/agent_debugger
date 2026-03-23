@@ -10,6 +10,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import tempfile
 from contextlib import suppress
 from datetime import UTC
 from datetime import datetime
@@ -22,6 +24,9 @@ if TYPE_CHECKING:
     from .buffer import EventBuffer
 
 logger = logging.getLogger(__name__)
+DEFAULT_STORAGE_PATH = Path("./traces")
+USER_STORAGE_PATH = Path.home() / ".local" / "share" / "agent_debugger" / "traces"
+FALLBACK_STORAGE_PATH = Path(tempfile.gettempdir()) / "agent_debugger_traces"
 
 
 class PersistenceManager:
@@ -51,10 +56,32 @@ class PersistenceManager:
             flush_interval: How often to flush in seconds (default: 1.0)
         """
         self.buffer = buffer
-        self.storage_path = storage_path or Path("./traces")
+        self.storage_path = storage_path or self._resolve_default_storage_path()
         self.flush_interval = flush_interval
         self._task: asyncio.Task | None = None
         self._running = False
+
+    def _resolve_default_storage_path(self) -> Path:
+        """Choose a writable default storage path for local trace files."""
+        for candidate in (DEFAULT_STORAGE_PATH, USER_STORAGE_PATH, FALLBACK_STORAGE_PATH):
+            if self._is_writable_path(candidate):
+                if candidate != DEFAULT_STORAGE_PATH:
+                    logger.warning("Default trace path %s is not writable; using %s", DEFAULT_STORAGE_PATH, candidate)
+                return candidate
+
+        temp_path = Path(tempfile.mkdtemp(prefix="agent_debugger_traces_"))
+        logger.warning("No preferred trace path is writable; using %s", temp_path)
+        return temp_path
+
+    def _is_writable_path(self, path: Path) -> bool:
+        """Return whether a path can be created in or appended to."""
+        if path.exists():
+            return path.is_dir() and os.access(path, os.W_OK | os.X_OK)
+
+        parent = path.parent if path.parent != Path("") else Path(".")
+        while not parent.exists() and parent != parent.parent:
+            parent = parent.parent
+        return parent.exists() and os.access(parent, os.W_OK | os.X_OK)
 
     async def start(self) -> None:
         """Start the background flush task."""
@@ -82,7 +109,7 @@ class PersistenceManager:
     async def _ensure_storage_path(self) -> None:
         """Create storage directory if it doesn't exist."""
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, self.storage_path.mkdir, True, True)
+        await loop.run_in_executor(None, lambda: self.storage_path.mkdir(parents=True, exist_ok=True))
 
     async def _flush_loop(self) -> None:
         """Internal flush loop that runs periodically."""
@@ -127,6 +154,7 @@ class PersistenceManager:
             session_id: The session identifier
             events: List of TraceEvent objects to write
         """
+        await self._ensure_storage_path()
         file_path = self.storage_path / f"{session_id}.json"
         lines = []
 

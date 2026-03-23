@@ -257,12 +257,13 @@ class TraceRepository:
             return None
         return self._orm_to_event(db_event)
 
-    async def list_events(self, session_id: str, limit: int = 100) -> list[TraceEvent]:
+    async def list_events(self, session_id: str, limit: int = 100, offset: int = 0) -> list[TraceEvent]:
         """List events for a session with pagination.
 
         Args:
             session_id: Session ID to filter events by
             limit: Maximum number of events to return
+            offset: Number of events to skip
 
         Returns:
             List of TraceEvent instances
@@ -276,6 +277,7 @@ class TraceRepository:
                 EventModel.session_id == session_id,
             )
             .order_by(EventModel.timestamp)
+            .offset(offset)
             .limit(limit)
         )
         return [self._orm_to_event(db) for db in result.scalars()]

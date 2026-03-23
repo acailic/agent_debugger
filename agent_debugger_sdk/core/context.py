@@ -233,9 +233,18 @@ class TraceContext:
         status = "completed"
         if exc_type is not None:
             status = "error"
+            # Get stack trace from traceback object
+            import traceback as tb_module
+
+            if exc_tb is not None:
+                tb_str = "".join(tb_module.format_exception(exc_type, exc_val, exc_tb))
+            else:
+                tb_str = "".join(tb_module.format_exception_only(exc_type, exc_val)) if exc_type else None
+
             await self.record_error(
                 error_type=exc_type.__name__,
                 error_message=str(exc_val),
+                stack_trace=tb_str,
             )
 
         end_event = TraceEvent(

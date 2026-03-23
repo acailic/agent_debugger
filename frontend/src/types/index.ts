@@ -124,6 +124,12 @@ export interface TreeNode {
   children: TreeNode[]
 }
 
+export interface ReplayState {
+  isPlaying: boolean
+  currentIndex: number
+  speed: number
+}
+
 export interface TraceAnalysisRanking {
   event_id: string
   event_type: EventType

@@ -49,15 +49,17 @@ class EventBuffer(BufferBase):
             session_id: Session ID to publish to
             event: TraceEvent to publish
         """
-        # Enforce memory bounds
-        await self._enforce_bounds(session_id)
-
-        if session_id not in self._events:
-            self._events[session_id] = []
-        self._events[session_id].append(event)
-        self._session_activity[session_id] = datetime.now(UTC)
-
         async with self._lock:
+            # Enforce memory bounds (sync operation, no I/O)
+            self._enforce_bounds(session_id)
+
+            # Store event and update activity
+            if session_id not in self._events:
+                self._events[session_id] = []
+            self._events[session_id].append(event)
+            self._session_activity[session_id] = datetime.now(UTC)
+
+            # Notify subscribers
             queues = self._queues.get(session_id, [])
             dead_queues = []
 
@@ -128,8 +130,10 @@ class EventBuffer(BufferBase):
         self._session_activity.pop(session_id, None)
         return events
 
-    async def _enforce_bounds(self, session_id: str) -> None:
+    def _enforce_bounds(self, session_id: str) -> None:
         """Enforce memory bounds for events and sessions.
+
+        This is a synchronous method as it only modifies in-memory data.
 
         Args:
             session_id: Current session being accessed
