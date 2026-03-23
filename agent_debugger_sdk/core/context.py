@@ -166,6 +166,7 @@ class TraceContext:
 
         self._session_start_event: TraceEvent | None = None
         self._entered = False
+        self._transport: Any | None = None  # HttpTransport instance if in cloud mode
 
     async def __aenter__(self) -> TraceContext:
         """Enter the tracing context.
@@ -179,6 +180,22 @@ class TraceContext:
         _current_parent_id.set(None)
         _event_sequence.set(0)
         _current_context.set(self)
+
+        # Wire in HTTP transport for cloud mode
+        # IMPORTANT: Do NOT call configure_event_pipeline() here as it mutates
+        # global ContextVars and would break concurrent sessions. Instead, set
+        # instance-level hooks.
+        from agent_debugger_sdk.config import get_config
+        config = get_config()
+        if config.mode == "cloud" and config.api_key:
+            from agent_debugger_sdk.transport import HttpTransport
+            self._transport = HttpTransport(config.endpoint, config.api_key)
+            # Set instance-level hooks (not global pipeline)
+            self._event_persister = self._transport.send_event
+            self._session_start_hook = self._transport.send_session_start
+            self._session_update_hook = self._transport.send_session_update
+        else:
+            self._transport = None
 
         self._entered = True
         if self._session_start_hook is not None:
@@ -248,6 +265,11 @@ class TraceContext:
         _event_sequence.set(0)
         _current_context.set(None)
         self._entered = False
+
+        # Close transport if it was created
+        if self._transport is not None:
+            await self._transport.close()
+            self._transport = None
 
     async def record_decision(
         self,
