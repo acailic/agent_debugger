@@ -115,7 +115,7 @@ class TestLangChainTracingHandler:
                 )
 
             buffer = get_event_buffer()
-            events = buffer.get_events("test-llm-start")
+            events = await buffer.get_events("test-llm-start")
 
             llm_events = [e for e in events if e.event_type == EventType.LLM_REQUEST]
             assert len(llm_events) == 1
@@ -154,7 +154,7 @@ class TestLangChainTracingHandler:
                 )
 
             buffer = get_event_buffer()
-            events = buffer.get_events("test-llm-end")
+            events = await buffer.get_events("test-llm-end")
 
             llm_events = [e for e in events if e.event_type == EventType.LLM_RESPONSE]
             assert len(llm_events) == 1
@@ -191,7 +191,7 @@ class TestLangChainTracingHandler:
                 )
 
             buffer = get_event_buffer()
-            events = buffer.get_events("test-llm-error")
+            events = await buffer.get_events("test-llm-error")
 
             error_events = [e for e in events if e.event_type == EventType.ERROR]
             assert len(error_events) == 1
@@ -221,7 +221,7 @@ class TestLangChainTracingHandler:
                 )
 
             buffer = get_event_buffer()
-            events = buffer.get_events("test-tool-start")
+            events = await buffer.get_events("test-tool-start")
 
             tool_events = [e for e in events if e.event_type == EventType.TOOL_CALL]
             assert len(tool_events) == 1
@@ -260,7 +260,7 @@ class TestLangChainTracingHandler:
                 )
 
             buffer = get_event_buffer()
-            events = buffer.get_events("test-tool-end")
+            events = await buffer.get_events("test-tool-end")
 
             tool_result_events = [e for e in events if e.event_type == EventType.TOOL_RESULT]
             assert len(tool_result_events) == 1
@@ -299,7 +299,7 @@ class TestLangChainTracingHandler:
                 )
 
             buffer = get_event_buffer()
-            events = buffer.get_events("test-tool-error")
+            events = await buffer.get_events("test-tool-error")
 
             tool_result_events = [e for e in events if e.event_type == EventType.TOOL_RESULT]
             assert len(tool_result_events) == 1
@@ -329,7 +329,7 @@ class TestLangChainTracingHandler:
                 )
 
             buffer = get_event_buffer()
-            events = buffer.get_events("test-chain-start")
+            events = await buffer.get_events("test-chain-start")
 
             chain_events = [e for e in events if e.name.startswith("chain_start_")]
             assert len(chain_events) == 1
@@ -366,7 +366,7 @@ class TestLangChainTracingHandler:
                 )
 
             buffer = get_event_buffer()
-            events = buffer.get_events("test-chain-end")
+            events = await buffer.get_events("test-chain-end")
 
             chain_end_events = [e for e in events if e.name == "chain_end"]
             assert len(chain_end_events) == 1
@@ -433,7 +433,7 @@ class TestLangChainTracingHandler:
                 )
 
             buffer = get_event_buffer()
-            llm_events = [e for e in buffer.get_events("test-llm-model-name") if e.event_type == EventType.LLM_REQUEST]
+            llm_events = [e for e in await buffer.get_events("test-llm-model-name") if e.event_type == EventType.LLM_REQUEST]
             assert len(llm_events) == 1
             assert llm_events[0].parent_id == "parent-event-id"
             assert llm_events[0].model == "gpt-4o-mini"
@@ -478,8 +478,8 @@ class TestLangChainTracingHandler:
                 )
 
             buffer = get_event_buffer()
-            tool_call = next(e for e in buffer.get_events("test-tool-fallbacks") if e.event_type == EventType.TOOL_CALL)
-            tool_result = next(e for e in buffer.get_events("test-tool-fallbacks") if e.event_type == EventType.TOOL_RESULT)
+            tool_call = next(e for e in await buffer.get_events("test-tool-fallbacks") if e.event_type == EventType.TOOL_CALL)
+            tool_result = next(e for e in await buffer.get_events("test-tool-fallbacks") if e.event_type == EventType.TOOL_RESULT)
 
             assert tool_call.parent_id == "parent-tool-event"
             assert tool_call.tool_name == "fallback_tool"
@@ -510,7 +510,7 @@ class TestLangChainTracingHandler:
                 await handler.on_chain_error(error=RuntimeError("chain failed"), run_id=uuid.uuid4())
 
             buffer = get_event_buffer()
-            events = buffer.get_events("test-chain-fallbacks")
+            events = await buffer.get_events("test-chain-fallbacks")
             chain_start = next(event for event in events if event.name.startswith("chain_start_"))
             chain_end = next(event for event in events if event.name == "chain_end")
             error_event = next(event for event in events if event.event_type == EventType.ERROR)
@@ -568,7 +568,7 @@ class TestLangChainAdapter:
                 assert adapter.handler._context is not None
 
             buffer = get_event_buffer()
-            events = buffer.get_events("test-context-session")
+            events = await buffer.get_events("test-context-session")
 
             assert len(events) >= 2
             assert events[0].event_type == EventType.AGENT_START

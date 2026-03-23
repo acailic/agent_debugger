@@ -11,7 +11,12 @@ from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
+import api.main as api_main
 import pytest
+from agent_debugger_sdk.core.events import Checkpoint
+from agent_debugger_sdk.core.events import Session
+from agent_debugger_sdk.core.events import ToolCallEvent
+from api.main import CreateKeyRequest
 from fastapi import FastAPI
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
@@ -19,12 +24,6 @@ from fastapi.routing import APIRoute
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine
-
-import api.main as api_main
-from agent_debugger_sdk.core.events import Checkpoint
-from agent_debugger_sdk.core.events import Session
-from agent_debugger_sdk.core.events import ToolCallEvent
-from api.main import CreateKeyRequest
 from storage import Base
 from storage import TraceRepository
 
@@ -290,6 +289,7 @@ async def test_auth_revoke_route_raises_not_found_for_missing_key(api_repo_facto
 async def test_session_routes_return_persisted_data(api_repo_factory):
     list_sessions = _get_route_endpoint("/api/sessions", "GET")
     get_session = _get_route_endpoint("/api/sessions/{session_id}", "GET")
+    update_session = _get_route_endpoint("/api/sessions/{session_id}", "PUT")
     get_traces = _get_route_endpoint("/api/sessions/{session_id}/traces", "GET")
     get_trace_bundle = _get_route_endpoint("/api/sessions/{session_id}/trace", "GET")
     get_tree = _get_route_endpoint("/api/sessions/{session_id}/tree", "GET")
@@ -315,6 +315,11 @@ async def test_session_routes_return_persisted_data(api_repo_factory):
             api_main.trace_intelligence, "build_live_summary", return_value=live_payload
         ):
             sessions_response = await list_sessions(limit=10, offset=0, sort_by="started_at", repo=repo)
+            updated_response = await update_session(
+                session_id=session.id,
+                update=api_main.SessionUpdateRequest(status="completed", tags=["updated"]),
+                repo=repo,
+            )
             session_response = await get_session(session_id=session.id, repo=repo)
             traces_response = await get_traces(session_id=session.id, limit=10, offset=0, repo=repo)
             bundle_response = await get_trace_bundle(session_id=session.id, repo=repo)
@@ -332,7 +337,10 @@ async def test_session_routes_return_persisted_data(api_repo_factory):
             delete_response = await delete_session(session_id=session.id, repo=repo)
 
     assert sessions_response.sessions[0]["id"] == session.id
+    assert updated_response.session["status"] == "completed"
+    assert updated_response.session["tags"] == ["updated"]
     assert session_response.session["id"] == session.id
+    assert session_response.session["status"] == "completed"
     assert traces_response.traces[0]["tool_name"] == "search"
     assert bundle_response.session["id"] == session.id
     assert bundle_response.events[0]["tool_name"] == "search"
@@ -400,6 +408,7 @@ async def test_replay_route_passes_split_breakpoints_to_builder(api_repo_factory
 @pytest.mark.asyncio
 async def test_session_routes_raise_not_found(api_repo_factory):
     get_session = _get_route_endpoint("/api/sessions/{session_id}", "GET")
+    update_session = _get_route_endpoint("/api/sessions/{session_id}", "PUT")
     delete_session = _get_route_endpoint("/api/sessions/{session_id}", "DELETE")
     get_traces = _get_route_endpoint("/api/sessions/{session_id}/traces", "GET")
     get_trace_bundle = _get_route_endpoint("/api/sessions/{session_id}/trace", "GET")
@@ -415,6 +424,11 @@ async def test_session_routes_raise_not_found(api_repo_factory):
 
         for call in (
             lambda: get_session(session_id="missing", repo=repo),
+            lambda: update_session(
+                session_id="missing",
+                update=api_main.SessionUpdateRequest(status="completed"),
+                repo=repo,
+            ),
             lambda: delete_session(session_id="missing", repo=repo),
             lambda: get_traces(session_id="missing", limit=10, offset=0, repo=repo),
             lambda: get_trace_bundle(session_id="missing", repo=repo),

@@ -1,9 +1,10 @@
 """FastAPI auth dependencies."""
 from __future__ import annotations
 
-from fastapi import Depends, HTTPException, Request
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import HTTPException
+from fastapi import Request
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.api_keys import verify_key
 from auth.models import APIKeyModel

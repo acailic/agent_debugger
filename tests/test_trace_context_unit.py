@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock
 from unittest.mock import patch
 
 import pytest
-
 from agent_debugger_sdk.core.context import TraceContext
 from agent_debugger_sdk.core.context import _get_default_event_buffer
 from agent_debugger_sdk.core.context import configure_event_pipeline
@@ -252,15 +251,14 @@ async def test_trace_context_persister_failures_are_swallowed_and_traceback_is_r
         with patch(
             "agent_debugger_sdk.config.get_config",
             return_value=SimpleNamespace(mode="local", api_key=None, endpoint="http://localhost:8000", enabled=True),
-        ):
-            with pytest.raises(ValueError, match="boom"):
-                async with TraceContext(session_id="traceback-session", agent_name="agent", framework="test") as ctx:
-                    await ctx.record_llm_response(
-                        "gpt-4o",
-                        "before error",
-                        usage={"input_tokens": 1, "output_tokens": 1},
-                    )
-                    raise ValueError("boom")
+        ), pytest.raises(ValueError, match="boom"):
+            async with TraceContext(session_id="traceback-session", agent_name="agent", framework="test") as ctx:
+                await ctx.record_llm_response(
+                    "gpt-4o",
+                    "before error",
+                    usage={"input_tokens": 1, "output_tokens": 1},
+                )
+                raise ValueError("boom")
 
         events = await ctx.get_events()
     finally:

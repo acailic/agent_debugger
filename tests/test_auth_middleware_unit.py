@@ -8,10 +8,9 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
-from fastapi import HTTPException
-
 from auth.middleware import _resolve_tenant_from_key
 from auth.middleware import get_tenant_from_api_key
+from fastapi import HTTPException
 
 
 @pytest.mark.asyncio
@@ -36,9 +35,8 @@ async def test_resolve_tenant_from_key_raises_for_invalid_key():
     result.scalars.return_value.all.return_value = [candidate]
     db.execute.return_value = result
 
-    with patch("auth.middleware.verify_key", return_value=False):
-        with pytest.raises(HTTPException) as exc:
-            await _resolve_tenant_from_key("ad_live_invalid_key", db)
+    with patch("auth.middleware.verify_key", return_value=False), pytest.raises(HTTPException) as exc:
+        await _resolve_tenant_from_key("ad_live_invalid_key", db)
 
     assert exc.value.status_code == 401
     assert exc.value.detail == "Invalid API key"

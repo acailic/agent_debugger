@@ -18,8 +18,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import aiofiles
-
 if TYPE_CHECKING:
     from .buffer import EventBuffer
 
@@ -108,8 +106,7 @@ class PersistenceManager:
 
     async def _ensure_storage_path(self) -> None:
         """Create storage directory if it doesn't exist."""
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, lambda: self.storage_path.mkdir(parents=True, exist_ok=True))
+        self.storage_path.mkdir(parents=True, exist_ok=True)
 
     async def _flush_loop(self) -> None:
         """Internal flush loop that runs periodically."""
@@ -130,13 +127,13 @@ class PersistenceManager:
         - Files are appended to on each flush
         - Events are written as newline-delimited JSON (NDJSON)
         """
-        session_ids = self.buffer.get_session_ids()
+        session_ids = await self.buffer.get_session_ids()
 
         if not session_ids:
             return
 
         for session_id in session_ids:
-            events = self.buffer.flush(session_id)
+            events = await self.buffer.flush(session_id)
             if not events:
                 continue
 
@@ -166,5 +163,5 @@ class PersistenceManager:
             }
             lines.append(json.dumps(event_dict, ensure_ascii=False))
 
-        async with aiofiles.open(file_path, mode="a", encoding="utf-8") as f:
-            await f.write("\n".join(lines) + "\n")
+        with file_path.open(mode="a", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")

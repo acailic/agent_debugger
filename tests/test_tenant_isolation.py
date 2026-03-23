@@ -1,10 +1,14 @@
 import datetime
+
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from storage.models import Base, SessionModel
-from storage.repository import TraceRepository
 from agent_debugger_sdk.core.events import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine
+from storage.models import Base
+from storage.models import SessionModel
+from storage.repository import TraceRepository
 
 
 @pytest_asyncio.fixture

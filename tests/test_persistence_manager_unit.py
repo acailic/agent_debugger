@@ -6,15 +6,12 @@ import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
-from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
-
 from collector.persistence import DEFAULT_STORAGE_PATH
-from collector.persistence import FALLBACK_STORAGE_PATH
-from collector.persistence import PersistenceManager
 from collector.persistence import USER_STORAGE_PATH
+from collector.persistence import PersistenceManager
 
 
 class StubBuffer:
@@ -22,10 +19,10 @@ class StubBuffer:
         self._session_ids = session_ids or []
         self._events_by_session = events_by_session or {}
 
-    def get_session_ids(self):
+    async def get_session_ids(self):
         return list(self._session_ids)
 
-    def flush(self, session_id):
+    async def flush(self, session_id):
         return self._events_by_session.get(session_id, [])
 
 
@@ -134,8 +131,7 @@ async def test_flush_loop_handles_transient_errors_then_cancellation(tmp_path):
 
     with patch("collector.persistence.asyncio.sleep", new=AsyncMock()), patch.object(
         manager, "flush", side_effect=flaky_flush
-    ):
-        with pytest.raises(asyncio.CancelledError):
-            await manager._flush_loop()
+    ), pytest.raises(asyncio.CancelledError):
+        await manager._flush_loop()
 
     assert calls == 2

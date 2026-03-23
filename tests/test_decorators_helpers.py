@@ -5,7 +5,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-
 from agent_debugger_sdk.core.decorators import _extract_llm_response
 from agent_debugger_sdk.core.decorators import _extract_messages
 from agent_debugger_sdk.core.decorators import _extract_settings
@@ -119,8 +118,8 @@ async def test_trace_tool_standalone_success_emits_call_and_result_events():
 
     assert result == {"answer": "HELLO"}
     buffer = get_event_buffer()
-    session_id = buffer.get_session_ids()[-1]
-    events = buffer.get_events(session_id)
+    session_id = (await buffer.get_session_ids())[-1]
+    events = await buffer.get_events(session_id)
     event_types = [event.event_type for event in events]
 
     assert EventType.AGENT_START in event_types
@@ -148,8 +147,8 @@ async def test_trace_llm_standalone_success_records_request_and_response_details
 
     assert result["content"] == "done"
     buffer = get_event_buffer()
-    session_id = buffer.get_session_ids()[-1]
-    events = buffer.get_events(session_id)
+    session_id = (await buffer.get_session_ids())[-1]
+    events = await buffer.get_events(session_id)
 
     request = next(event for event in events if event.event_type == EventType.LLM_REQUEST)
     response = next(event for event in events if event.event_type == EventType.LLM_RESPONSE)

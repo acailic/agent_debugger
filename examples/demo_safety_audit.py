@@ -27,8 +27,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from agent_debugger_sdk import TraceContext, init
-
+from agent_debugger_sdk import TraceContext
+from agent_debugger_sdk import init
 
 # ---------------------------------------------------------------------------
 # Scenario 1: Prompt injection attempt

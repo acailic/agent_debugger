@@ -2,14 +2,10 @@ from __future__ import annotations
 
 from datetime import UTC
 from datetime import datetime
+from unittest.mock import MagicMock
 
 import pytest
 import pytest_asyncio
-from unittest.mock import MagicMock
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine
-
 from agent_debugger_sdk.core.events import AgentTurnEvent
 from agent_debugger_sdk.core.events import BehaviorAlertEvent
 from agent_debugger_sdk.core.events import Checkpoint
@@ -26,8 +22,11 @@ from agent_debugger_sdk.core.events import Session
 from agent_debugger_sdk.core.events import ToolCallEvent
 from agent_debugger_sdk.core.events import ToolResultEvent
 from agent_debugger_sdk.core.events import TraceEvent
-from storage.models import CheckpointModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine
 from storage.models import Base
+from storage.models import CheckpointModel
 from storage.models import SessionModel
 from storage.repository import TraceRepository
 

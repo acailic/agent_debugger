@@ -1,8 +1,11 @@
 """Tests for PII redaction pipeline."""
-import pytest
-from redaction.pipeline import RedactionPipeline
+import json
+
+from agent_debugger_sdk.core.events import EventType
+from agent_debugger_sdk.core.events import LLMResponseEvent
+from agent_debugger_sdk.core.events import TraceEvent
 from redaction.patterns import PII_PATTERNS
-from agent_debugger_sdk.core.events import TraceEvent, EventType
+from redaction.pipeline import RedactionPipeline
 
 
 def _make_llm_event(content: str) -> TraceEvent:
@@ -35,6 +38,41 @@ def test_no_redaction_by_default():
     event = _make_llm_event("Contact john@example.com")
     redacted = pipeline.apply(event)
     assert redacted.data["content"] == "Contact john@example.com"
+
+
+def test_payload_is_truncated_when_it_exceeds_max_payload_size():
+    pipeline = RedactionPipeline(max_payload_kb=1)
+    event = LLMResponseEvent(
+        session_id="s1",
+        name="llm_response",
+        content="x" * 5000,
+        tool_calls=[{"name": "lookup", "content": "y" * 5000}],
+        metadata={},
+    )
+
+    redacted = pipeline.apply(event)
+    payload = dict(redacted.data)
+    payload["content"] = redacted.content
+    payload["tool_calls"] = redacted.tool_calls
+
+    assert redacted.metadata["_truncated"] is True
+    assert redacted.content.endswith("[TRUNCATED]")
+    assert len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) <= 1024
+
+
+def test_payload_under_limit_is_not_marked_truncated():
+    pipeline = RedactionPipeline(max_payload_kb=1)
+    event = LLMResponseEvent(
+        session_id="s1",
+        name="llm_response",
+        content="short",
+        metadata={},
+    )
+
+    redacted = pipeline.apply(event)
+
+    assert "_truncated" not in redacted.metadata
+    assert redacted.content == "short"
 
 
 def test_pii_patterns_detect_email():

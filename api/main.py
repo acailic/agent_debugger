@@ -12,15 +12,17 @@ import json
 import os
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Any
 
+from agent_debugger_sdk.config import get_config
+from agent_debugger_sdk.core.context import configure_event_pipeline
 from agent_debugger_sdk.core.events import Checkpoint
 from agent_debugger_sdk.core.events import Session
 from agent_debugger_sdk.core.events import TraceEvent
-from agent_debugger_sdk.core.context import configure_event_pipeline
-from agent_debugger_sdk.config import get_config
+from auth.api_keys import generate_api_key
+from auth.api_keys import hash_key
 from auth.middleware import get_tenant_from_api_key
-from auth.api_keys import generate_api_key, hash_key
 from auth.models import APIKeyModel
 from collector.buffer import get_event_buffer
 from collector.intelligence import TraceIntelligence
@@ -37,14 +39,13 @@ from fastapi import status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine
+from redaction.pipeline import RedactionPipeline
 from sqlalchemy import select
-from storage.engine import create_db_engine, create_session_maker
+from sqlalchemy.ext.asyncio import AsyncSession
 from storage import Base
 from storage import TraceRepository
-from redaction.pipeline import RedactionPipeline
+from storage.engine import create_db_engine
+from storage.engine import create_session_maker
 
 
 class SessionListResponse(BaseModel):
@@ -60,6 +61,22 @@ class SessionDetailResponse(BaseModel):
     """Response model for session details."""
 
     session: dict[str, Any]
+
+
+class SessionUpdateRequest(BaseModel):
+    """Request model for partial session updates."""
+
+    agent_name: str | None = None
+    framework: str | None = None
+    ended_at: datetime | None = None
+    status: str | None = None
+    total_tokens: int | None = None
+    total_cost_usd: float | None = None
+    tool_calls: int | None = None
+    llm_calls: int | None = None
+    errors: int | None = None
+    config: dict[str, Any] | None = None
+    tags: list[str] | None = None
 
 
 class TraceListResponse(BaseModel):
@@ -424,9 +441,10 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health():
         """Health check endpoint with database and Redis connectivity verification."""
-        from sqlalchemy import text
-        from agent_debugger_sdk.config import get_config
         import os
+
+        from agent_debugger_sdk.config import get_config
+        from sqlalchemy import text
 
         config = get_config()
         checks = {"status": "ok", "mode": config.mode}
@@ -529,6 +547,29 @@ def create_app() -> FastAPI:
             HTTPException: If session not found
         """
         session = await repo.get_session(session_id)
+        if session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Session {session_id} not found",
+            )
+        return SessionDetailResponse(session=session.to_dict())
+
+    @app.put("/api/sessions/{session_id}", response_model=SessionDetailResponse)
+    async def update_session(
+        session_id: str,
+        update: SessionUpdateRequest,
+        repo: TraceRepository = Depends(get_repository),
+    ) -> SessionDetailResponse:
+        """Update a session by ID with the provided fields."""
+        update_data = (
+            update.model_dump(exclude_none=True)
+            if hasattr(update, "model_dump")
+            else update.dict(exclude_none=True)
+        )
+        session = await repo.update_session(
+            session_id,
+            **update_data,
+        )
         if session is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

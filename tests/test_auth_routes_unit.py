@@ -8,12 +8,11 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
-from fastapi import HTTPException
-
 from api.auth_routes import CreateKeyRequest
 from api.auth_routes import create_key
 from api.auth_routes import list_keys
 from api.auth_routes import revoke_key
+from fastapi import HTTPException
 
 
 @pytest.mark.asyncio

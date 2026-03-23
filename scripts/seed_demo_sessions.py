@@ -24,7 +24,6 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from storage import Base
 from storage import TraceRepository
 
-
 DATABASE_URL = os.environ.get("AGENT_DEBUGGER_DB_URL", "sqlite+aiosqlite:///./agent_debugger.db")
 
 

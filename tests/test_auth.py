@@ -1,7 +1,8 @@
 """Tests for API key authentication."""
-import pytest
 
-from auth.api_keys import generate_api_key, hash_key, verify_key
+from auth.api_keys import generate_api_key
+from auth.api_keys import hash_key
+from auth.api_keys import verify_key
 
 
 def test_generate_api_key_format():

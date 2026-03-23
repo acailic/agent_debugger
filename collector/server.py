@@ -27,17 +27,15 @@ from agent_debugger_sdk.core.events import ToolResultEvent
 from agent_debugger_sdk.core.events import TraceEvent
 from auth.middleware import get_tenant_from_api_key
 from fastapi import APIRouter
-from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Request
 from fastapi import status
 from pydantic import BaseModel
 from pydantic import field_validator
+from redaction.pipeline import RedactionPipeline
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
-
 from storage import TraceRepository
-from redaction.pipeline import RedactionPipeline
 
 from .buffer import get_event_buffer
 from .scorer import get_importance_scorer

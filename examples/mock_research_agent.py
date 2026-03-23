@@ -27,14 +27,13 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from agent_debugger_sdk import TraceContext, init
-
+from agent_debugger_sdk import TraceContext
+from agent_debugger_sdk import init
 
 # ---------------------------------------------------------------------------
 # Mocked "tools" — replace these with real implementations

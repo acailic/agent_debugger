@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import contextlib
 import time
-import traceback
 from collections.abc import Awaitable
 from collections.abc import Callable
 from functools import wraps
@@ -34,13 +33,11 @@ from typing import TypeVar
 
 from agent_debugger_sdk.core.context import TraceContext
 from agent_debugger_sdk.core.context import get_current_context
-from agent_debugger_sdk.core.events import ErrorEvent
 from agent_debugger_sdk.core.events import EventType
 from agent_debugger_sdk.core.events import LLMRequestEvent
 from agent_debugger_sdk.core.events import LLMResponseEvent
 from agent_debugger_sdk.core.events import ToolCallEvent
 from agent_debugger_sdk.core.events import ToolResultEvent
-from agent_debugger_sdk.core.events import TraceEvent
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -91,7 +88,7 @@ def trace_agent(
                 try:
                     result = await func(*args, **kwargs)
                     return result
-                except Exception as e:
+                except Exception:
                     # Error is already recorded by TraceContext.__aexit__
                     raise
 

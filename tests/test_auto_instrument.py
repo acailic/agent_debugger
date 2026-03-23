@@ -6,11 +6,9 @@ import sys
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
-import pytest
-
 from agent_debugger_sdk.auto_instrument import AutoInstrumentor
-from agent_debugger_sdk.auto_instrument import get_instrumentor
 from agent_debugger_sdk.auto_instrument import _register_defaults
+from agent_debugger_sdk.auto_instrument import get_instrumentor
 
 
 class TestAutoInstrumentor:

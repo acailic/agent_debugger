@@ -1,7 +1,8 @@
 """Tests for API authentication integration."""
 import pytest
-from httpx import AsyncClient, ASGITransport
 from api.main import app
+from httpx import ASGITransport
+from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
@@ -31,7 +32,6 @@ async def test_invalid_api_key_returns_401_or_200():
 async def test_collector_health_no_auth():
     """Health check should work without authentication."""
     from api.main import app
-    from collector.server import router as collector_router
 
     # The collector router is already included in the app
     transport = ASGITransport(app=app)

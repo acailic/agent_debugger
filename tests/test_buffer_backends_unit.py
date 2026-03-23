@@ -10,10 +10,9 @@ from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
-import pytest
-
 import collector
 import collector.buffer as memory_buffer_module
+import pytest
 from agent_debugger_sdk.core.events import EventType
 from agent_debugger_sdk.core.events import ToolCallEvent
 from agent_debugger_sdk.core.events import TraceEvent
@@ -30,10 +29,10 @@ async def test_event_buffer_publish_flush_and_singleton(monkeypatch):
     await buffer.publish("memory-session", event)
 
     assert await queue.get() == event
-    assert buffer.get_events("memory-session") == [event]
-    assert buffer.get_session_ids() == ["memory-session"]
-    assert buffer.flush("memory-session") == [event]
-    assert buffer.get_events("memory-session") == []
+    assert await buffer.get_events("memory-session") == [event]
+    assert await buffer.get_session_ids() == ["memory-session"]
+    assert await buffer.flush("memory-session") == [event]
+    assert await buffer.get_events("memory-session") == []
 
     monkeypatch.setattr(memory_buffer_module, "_event_buffer", None)
     singleton_a = memory_buffer_module.get_event_buffer()
@@ -125,8 +124,8 @@ async def test_redis_event_buffer_publish_subscribe_unsubscribe_and_close():
     buffer._listen = fake_listen
 
     queue = await buffer.subscribe("redis-session")
-    assert buffer.get_session_ids() == ["redis-session"]
-    assert buffer.get_events("redis-session") == []
+    assert await buffer.get_session_ids() == ["redis-session"]
+    assert await buffer.get_events("redis-session") == []
 
     event = ToolCallEvent(session_id="redis-session", tool_name="search", arguments={"q": "Belgrade"})
     await buffer.publish("redis-session", event)
@@ -136,7 +135,7 @@ async def test_redis_event_buffer_publish_subscribe_unsubscribe_and_close():
 
     await buffer.unsubscribe("redis-session", asyncio.Queue())
     await buffer.unsubscribe("redis-session", queue)
-    assert buffer.get_session_ids() == []
+    assert await buffer.get_session_ids() == []
 
     buffer._pubsub_tasks["other-session"] = asyncio.create_task(asyncio.sleep(60))
     buffer._local_queues["other-session"] = [asyncio.Queue()]

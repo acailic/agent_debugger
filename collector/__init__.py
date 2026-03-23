@@ -46,7 +46,7 @@ def create_buffer(backend: str = "memory", **kwargs) -> BufferBase:
     """
     if backend == "memory":
         return EventBuffer(**kwargs)
-    elif backend == "redis":
+    if backend == "redis":
         from .buffer_redis import RedisEventBuffer
 
         return RedisEventBuffer(**kwargs)

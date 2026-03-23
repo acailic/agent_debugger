@@ -7,10 +7,9 @@ from datetime import UTC
 from datetime import datetime
 
 import pytest
-
+from agent_debugger_sdk.core.context import TraceContext
 from agent_debugger_sdk.core.events import Checkpoint
 from agent_debugger_sdk.core.events import DecisionEvent
-from agent_debugger_sdk.core.context import TraceContext
 from agent_debugger_sdk.core.events import ErrorEvent
 from agent_debugger_sdk.core.events import EventType
 from agent_debugger_sdk.core.events import LLMResponseEvent

@@ -1,9 +1,14 @@
 """Tests for SDK HTTP transport."""
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+import logging
+from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
+import pytest
+from agent_debugger_sdk.core.events import EventType
+from agent_debugger_sdk.core.events import Session
+from agent_debugger_sdk.core.events import TraceEvent
 from agent_debugger_sdk.transport import HttpTransport
-from agent_debugger_sdk.core.events import TraceEvent, EventType, Session
 
 
 def _make_event() -> TraceEvent:
@@ -70,6 +75,20 @@ async def test_transport_send_session_update():
         session = Session(id="s1", agent_name="test_agent", framework="pydantic_ai")
         await transport.send_session_update(session)
         mock_client.put.assert_called_once_with("/api/sessions/s1", json=session.to_dict())
+
+
+@pytest.mark.asyncio
+async def test_transport_send_session_update_logs_http_status_on_failure(caplog):
+    transport = HttpTransport(endpoint="http://localhost:8000", api_key="ad_live_test")
+    with patch.object(transport, "_client") as mock_client:
+        mock_response = MagicMock(status_code=404)
+        mock_client.put = AsyncMock(return_value=mock_response)
+
+        session = Session(id="s1", agent_name="test_agent", framework="pydantic_ai")
+        with caplog.at_level(logging.WARNING, logger="agent_debugger"):
+            await transport.send_session_update(session)
+
+    assert "status_code=404" in caplog.text
 
 
 @pytest.mark.asyncio

@@ -12,9 +12,11 @@ import pytest
 # Skip entire module if redis is not installed
 pytest.importorskip("redis")
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
 
-from agent_debugger_sdk.core.events import TraceEvent, EventType
+from agent_debugger_sdk.core.events import EventType
+from agent_debugger_sdk.core.events import TraceEvent
 from collector.buffer_base import BufferBase
 from collector.buffer_redis import RedisEventBuffer
 
@@ -131,11 +133,12 @@ async def test_get_events_returns_empty_list():
     mock_redis = AsyncMock()
     buf = RedisEventBuffer(redis_client=mock_redis)
 
-    events = buf.get_events("s1")
+    events = await buf.get_events("s1")
     assert events == []
 
 
-def test_get_session_ids():
+@pytest.mark.asyncio
+async def test_get_session_ids():
     """Test that get_session_ids() returns list of session IDs."""
     mock_redis = AsyncMock()
     buf = RedisEventBuffer(redis_client=mock_redis)
@@ -143,7 +146,7 @@ def test_get_session_ids():
     # Add some mock sessions
     buf._local_queues = {"s1": [], "s2": [], "s3": []}
 
-    session_ids = buf.get_session_ids()
+    session_ids = await buf.get_session_ids()
     assert set(session_ids) == {"s1", "s2", "s3"}
 
 

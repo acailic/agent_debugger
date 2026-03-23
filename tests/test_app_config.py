@@ -1,7 +1,6 @@
 """Test application configuration modes and health endpoint."""
 
 import os
-import pytest
 from unittest.mock import patch
 
 

@@ -1,6 +1,7 @@
 import os
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 
 @pytest.fixture(autouse=True)
@@ -13,7 +14,7 @@ def reset_config():
 
 
 def test_init_returns_config():
-    from agent_debugger_sdk.config import init, get_config
+    from agent_debugger_sdk.config import init
     config = init()
     assert config is not None
     assert config.enabled is True

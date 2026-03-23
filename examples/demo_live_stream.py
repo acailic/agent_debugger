@@ -26,8 +26,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from agent_debugger_sdk import TraceContext, init
-
+from agent_debugger_sdk import TraceContext
+from agent_debugger_sdk import init
 
 # ---------------------------------------------------------------------------
 # Simulated tool implementations (no API keys required)
@@ -184,37 +184,36 @@ async def support_triage_agent(ticket: dict) -> str:
             return f"Resolved: sent KB article to {ticket['user_id']}"
 
         # Step 4b: Escalation path
-        else:
-            await ctx.record_safety_check(
-                policy_name="escalation_guard",
-                outcome="warn",
-                risk_level="medium",
-                rationale=(
-                    f"Auto-resolution not safe for {classification['category']} "
-                    f"severity={classification['severity']}. Routing to human."
-                ),
-            )
+        await ctx.record_safety_check(
+            policy_name="escalation_guard",
+            outcome="warn",
+            risk_level="medium",
+            rationale=(
+                f"Auto-resolution not safe for {classification['category']} "
+                f"severity={classification['severity']}. Routing to human."
+            ),
+        )
 
-            # Checkpoint before escalating
-            await ctx.create_checkpoint(
-                state={"action": "escalate", "category": classification["category"]},
-                memory={"decision_id": decision_id, "severity": classification["severity"]},
-                importance=0.93,
-            )
+        # Checkpoint before escalating
+        await ctx.create_checkpoint(
+            state={"action": "escalate", "category": classification["category"]},
+            memory={"decision_id": decision_id, "severity": classification["severity"]},
+            importance=0.93,
+        )
 
-            await asyncio.sleep(0.3)
-            await ctx.record_tool_call(
-                "escalate_to_human",
-                {"ticket_id": ticket["id"], "reason": f"{classification['category']} requires human review"},
-            )
-            escalation = await escalate_to_human(
-                ticket["id"],
-                f"{classification['category']} / {classification['severity']}",
-            )
-            await ctx.record_tool_result("escalate_to_human", result=escalation, duration_ms=300)
+        await asyncio.sleep(0.3)
+        await ctx.record_tool_call(
+            "escalate_to_human",
+            {"ticket_id": ticket["id"], "reason": f"{classification['category']} requires human review"},
+        )
+        escalation = await escalate_to_human(
+            ticket["id"],
+            f"{classification['category']} / {classification['severity']}",
+        )
+        await ctx.record_tool_result("escalate_to_human", result=escalation, duration_ms=300)
 
-            print(f"  → escalated to {escalation['queue']}, ETA {escalation['eta_minutes']}m")
-            return f"Escalated ticket {ticket['id']} to {escalation['queue']}"
+        print(f"  → escalated to {escalation['queue']}, ETA {escalation['eta_minutes']}m")
+        return f"Escalated ticket {ticket['id']} to {escalation['queue']}"
 
 
 # ---------------------------------------------------------------------------

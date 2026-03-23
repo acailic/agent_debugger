@@ -12,14 +12,14 @@ import time
 import uuid
 from typing import Any
 
-logger = logging.getLogger("agent_debugger")
-
 from agent_debugger_sdk.core.context import TraceContext
 from agent_debugger_sdk.core.events import EventType
 from agent_debugger_sdk.core.events import LLMRequestEvent
 from agent_debugger_sdk.core.events import LLMResponseEvent
 from agent_debugger_sdk.core.events import ToolCallEvent
 from agent_debugger_sdk.core.events import TraceEvent
+
+logger = logging.getLogger("agent_debugger")
 
 try:
     from langchain_core.callbacks import AsyncCallbackHandler

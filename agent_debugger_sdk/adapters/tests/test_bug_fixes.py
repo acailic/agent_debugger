@@ -1,22 +1,18 @@
 """Tests for bug fixes in Phase 1."""
 import asyncio
-import time
-import traceback
-from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
-
-from agent_debugger_sdk import configure_event_pipeline
-from agent_debugger_sdk.core.context import TraceContext
-from agent_debugger_sdk.core.decorators import trace_agent
-from agent_debugger_sdk.core.decorators import trace_tool
-from agent_debugger_sdk.core.decorators import trace_llm
-from agent_debugger_sdk.core.events import EventType
 from collector.buffer import EventBuffer
 from collector.buffer import get_event_buffer
 from collector.persistence import PersistenceManager
+
+from agent_debugger_sdk import configure_event_pipeline
+from agent_debugger_sdk.core.decorators import trace_agent
+from agent_debugger_sdk.core.decorators import trace_llm
+from agent_debugger_sdk.core.decorators import trace_tool
+from agent_debugger_sdk.core.events import EventType
 
 
 @pytest.fixture(autouse=True)
@@ -43,7 +39,7 @@ class TestBUG004PersistenceManager:
         asyncio.run(pm.flush())
 
     def test_get_session_ids_no_type_error(self):
-        """Test that get_session_ids is sync and doesn't raise TypeError."""
+        """Test that get_session_ids is async and doesn't raise TypeError."""
         buffer = EventBuffer()
         pm = PersistenceManager(buffer)
 
@@ -51,7 +47,7 @@ class TestBUG004PersistenceManager:
         asyncio.run(buffer.publish("session-1", MagicMock(id="event-1", to_dict=lambda: {})))
 
         # This should not raise TypeError
-        session_ids = pm.buffer.get_session_ids()
+        session_ids = asyncio.run(pm.buffer.get_session_ids())
         assert isinstance(session_ids, list)
 
 
@@ -82,7 +78,7 @@ class TestBUG005RaceCondition:
         total_expected = num_events
         total_actual = 0
         for task_id in range(num_tasks):
-            events = buffer.get_events(f"session-{task_id}")
+            events = await buffer.get_events(f"session-{task_id}")
             total_actual += len(events)
 
         assert total_actual == total_expected
@@ -119,7 +115,7 @@ class TestBUG002DuplicateEvents:
                 await adapter._context._emit_event(event)
 
             # Check buffer - should have exactly 1 event (the LLM request)
-            events = buffer.get_events("test-no-dups")
+            events = await buffer.get_events("test-no-dups")
             llm_events = [e for e in events if e.event_type == EventType.LLM_REQUEST]
             assert len(llm_events) == 1, "Expected exactly 1 LLM request event, buffer should not have duplicates"
 
@@ -132,7 +128,6 @@ class TestBUG002DuplicateEvents:
         with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
             from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
             from agent_debugger_sdk.core.context import TraceContext
-            from agent_debugger_sdk.core.events import LLMRequestEvent
 
             context = TraceContext(
                 session_id="test-langchain-no-dups",
@@ -155,7 +150,7 @@ class TestBUG002DuplicateEvents:
                 )
 
             # Check buffer - should have exactly 1 LLM request
-            events = buffer.get_events("test-langchain-no-dups")
+            events = await buffer.get_events("test-langchain-no-dups")
             llm_events = [e for e in events if e.event_type == EventType.LLM_REQUEST]
             assert len(llm_events) == 1, "Expected exactly 1 LLM request event in buffer"
 
@@ -178,11 +173,11 @@ class TestBUG003DuplicateAgentEvents:
         # Get buffer and check events
         buffer = get_event_buffer()
         # The decorator creates a new session, find it latest session
-        session_ids = buffer.get_session_ids()
+        session_ids = await buffer.get_session_ids()
         assert len(session_ids) >= 1
         session_id = session_ids[-1]  # Get the last created session
 
-        events = buffer.get_events(session_id)
+        events = await buffer.get_events(session_id)
         start_events = [e for e in events if e.event_type == EventType.AGENT_START]
         end_events = [e for e in events if e.event_type == EventType.AGENT_END]
 
@@ -204,9 +199,9 @@ class TestBUG003DuplicateAgentEvents:
 
         # Get buffer and check events
         buffer = get_event_buffer()
-        session_ids = buffer.get_session_ids()
+        session_ids = await buffer.get_session_ids()
         session_id = session_ids[-1]
-        events = buffer.get_events(session_id)
+        events = await buffer.get_events(session_id)
 
         start_events = [e for e in events if e.event_type == EventType.AGENT_START]
         end_events = [e for e in events if e.event_type == EventType.AGENT_END]
@@ -239,9 +234,9 @@ class TestBUG003DuplicateAgentEvents:
 
         # Get buffer and check events
         buffer = get_event_buffer()
-        session_ids = buffer.get_session_ids()
+        session_ids = await buffer.get_session_ids()
         session_id = session_ids[-1]
-        events = buffer.get_events(session_id)
+        events = await buffer.get_events(session_id)
 
         # Should have AGENT_START, TOOL_CALL, TOOL_RESULT, AGENT_END
         event_types = [e.event_type for e in events]
@@ -268,9 +263,9 @@ class TestBUG012ExceptionInfo:
 
         # Get buffer and check error was recorded
         buffer = get_event_buffer()
-        session_ids = buffer.get_session_ids()
+        session_ids = await buffer.get_session_ids()
         session_id = session_ids[-1]
-        events = buffer.get_events(session_id)
+        events = await buffer.get_events(session_id)
 
         # Find error events
         error_events = [e for e in events if e.event_type == EventType.ERROR]
@@ -299,9 +294,9 @@ class TestBUG012ExceptionInfo:
 
         # Get buffer and check error was recorded
         buffer = get_event_buffer()
-        session_ids = buffer.get_session_ids()
+        session_ids = await buffer.get_session_ids()
         session_id = session_ids[-1]
-        events = buffer.get_events(session_id)
+        events = await buffer.get_events(session_id)
 
         # Find error events
         error_events = [e for e in events if e.event_type == EventType.ERROR]

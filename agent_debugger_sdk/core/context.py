@@ -10,18 +10,17 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from collections.abc import Awaitable
+from collections.abc import Callable
 from contextvars import ContextVar
 from datetime import UTC
 from datetime import datetime
 from typing import Any
-from typing import Awaitable
-from typing import Callable
 from typing import Protocol
 
-from .scorer import get_importance_scorer
-from .events import Checkpoint
 from .events import AgentTurnEvent
 from .events import BehaviorAlertEvent
+from .events import Checkpoint
 from .events import DecisionEvent
 from .events import ErrorEvent
 from .events import EventType
@@ -35,6 +34,7 @@ from .events import Session
 from .events import ToolCallEvent
 from .events import ToolResultEvent
 from .events import TraceEvent
+from .scorer import get_importance_scorer
 
 
 class EventBufferLike(Protocol):

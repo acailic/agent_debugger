@@ -2,15 +2,8 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import Request
-from fastapi.routing import APIRoute
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine
-
-import pytest
-
 import api.main as api_main
+import pytest
 from agent_debugger_sdk.core.context import configure_event_pipeline
 from benchmarks import run_evidence_grounding_session
 from benchmarks import run_failure_cluster_session
@@ -21,6 +14,10 @@ from collector.server import TraceEventIngest
 from collector.server import configure_storage
 from collector.server import create_session
 from collector.server import ingest_trace
+from fastapi.routing import APIRoute
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine
 from storage import Base
 from storage import TraceRepository
 

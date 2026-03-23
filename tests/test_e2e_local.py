@@ -1,11 +1,11 @@
 """End-to-end integration test for local mode."""
-import asyncio
 import pytest
-from httpx import AsyncClient, ASGITransport
-
-from agent_debugger_sdk.core.context import TraceContext, configure_event_pipeline
 from agent_debugger_sdk.config import init
+from agent_debugger_sdk.core.context import TraceContext
+from agent_debugger_sdk.core.context import configure_event_pipeline
 from collector.buffer import EventBuffer
+from httpx import ASGITransport
+from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
@@ -16,8 +16,8 @@ async def test_full_local_flow():
     buffer = EventBuffer()
 
     # Configure the event pipeline for local mode persistence
-    from agent_debugger_sdk.core.context import configure_event_pipeline
-    from api.main import _persist_event, _persist_session_start
+    from api.main import _persist_event
+    from api.main import _persist_session_start
     configure_event_pipeline(
         buffer,
         persist_event=_persist_event,

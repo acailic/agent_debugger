@@ -120,7 +120,7 @@ class TestPydanticAIAdapter:
                 pass
 
             buffer = get_event_buffer()
-            events = buffer.get_events("test-session-events")
+            events = await buffer.get_events("test-session-events")
 
             assert len(events) >= 2
             assert events[0].event_type == EventType.AGENT_START
@@ -148,7 +148,7 @@ class TestPydanticAIAdapter:
                 )
 
             buffer = get_event_buffer()
-            events = buffer.get_events("test-llm-request")
+            events = await buffer.get_events("test-llm-request")
 
             llm_events = [e for e in events if e.event_type == EventType.LLM_REQUEST]
             assert len(llm_events) == 1
@@ -178,7 +178,7 @@ class TestPydanticAIAdapter:
                 )
 
             buffer = get_event_buffer()
-            events = buffer.get_events("test-llm-response")
+            events = await buffer.get_events("test-llm-response")
 
             llm_events = [e for e in events if e.event_type == EventType.LLM_RESPONSE]
             assert len(llm_events) == 1
@@ -205,7 +205,7 @@ class TestPydanticAIAdapter:
                 )
 
             buffer = get_event_buffer()
-            events = buffer.get_events("test-tool-call")
+            events = await buffer.get_events("test-tool-call")
 
             tool_events = [e for e in events if e.event_type == EventType.TOOL_CALL]
             assert len(tool_events) == 1
@@ -233,7 +233,7 @@ class TestPydanticAIAdapter:
                 )
 
             buffer = get_event_buffer()
-            events = buffer.get_events("test-tool-result")
+            events = await buffer.get_events("test-tool-result")
 
             tool_events = [e for e in events if e.event_type == EventType.TOOL_RESULT]
             assert len(tool_events) == 1
@@ -304,7 +304,7 @@ class TestPydanticAIAdapter:
         assert _pydantic_run_context.get() is None
 
         buffer = get_event_buffer()
-        events = buffer.get_events("test-instrumented-run")
+        events = await buffer.get_events("test-instrumented-run")
         tool_calls = [event for event in events if event.event_type == EventType.TOOL_CALL]
 
         assert len(tool_calls) == 2
@@ -369,7 +369,7 @@ class TestPydanticAIInstrumentor:
             )
 
         buffer = get_event_buffer()
-        events = buffer.get_events("test-instrumentor")
+        events = await buffer.get_events("test-instrumentor")
 
         llm_events = [e for e in events if e.event_type == EventType.LLM_REQUEST]
         assert len(llm_events) == 1
@@ -405,7 +405,7 @@ class TestPydanticAIInstrumentor:
             )
 
         buffer = get_event_buffer()
-        events = buffer.get_events("test-instrumentor-resp")
+        events = await buffer.get_events("test-instrumentor-resp")
 
         llm_events = [e for e in events if e.event_type == EventType.LLM_RESPONSE]
         assert len(llm_events) == 1
@@ -432,7 +432,7 @@ class TestPydanticAIInstrumentor:
             )
 
         buffer = get_event_buffer()
-        events = buffer.get_events("test-instrumentor-tool")
+        events = await buffer.get_events("test-instrumentor-tool")
 
         assert any(event.event_type == EventType.TOOL_CALL for event in events)
         assert any(event.event_type == EventType.TOOL_RESULT for event in events)

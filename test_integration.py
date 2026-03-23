@@ -23,7 +23,6 @@ from agent_debugger_sdk import trace_tool
 from collector.buffer import get_event_buffer
 from collector.scorer import get_importance_scorer
 
-
 pytestmark = pytest.mark.asyncio
 
 

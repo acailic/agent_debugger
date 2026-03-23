@@ -8,14 +8,8 @@ from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
-import pytest
-from fastapi import HTTPException
-from pydantic import ValidationError
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine
-
 import collector.server as collector_server
+import pytest
 from agent_debugger_sdk.core.events import AgentTurnEvent
 from agent_debugger_sdk.core.events import BehaviorAlertEvent
 from agent_debugger_sdk.core.events import DecisionEvent
@@ -31,6 +25,11 @@ from agent_debugger_sdk.core.events import Session
 from agent_debugger_sdk.core.events import ToolCallEvent
 from agent_debugger_sdk.core.events import ToolResultEvent
 from agent_debugger_sdk.core.events import TraceEvent
+from fastapi import HTTPException
+from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine
 from storage import Base
 from storage import TraceRepository
 

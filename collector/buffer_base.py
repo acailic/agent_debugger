@@ -55,7 +55,7 @@ class BufferBase(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_events(self, session_id: str) -> list[TraceEvent]:
+    async def get_events(self, session_id: str) -> list[TraceEvent]:
         """Get all stored events for a session.
 
         Args:
@@ -67,10 +67,22 @@ class BufferBase(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_session_ids(self) -> list[str]:
+    async def get_session_ids(self) -> list[str]:
         """Get all session IDs with buffered events.
 
         Returns:
             List of session IDs
+        """
+        ...
+
+    @abc.abstractmethod
+    async def flush(self, session_id: str) -> list[TraceEvent]:
+        """Atomically pop and return all events for a session.
+
+        Args:
+            session_id: Session ID to flush
+
+        Returns:
+            List of TraceEvent objects (may be empty)
         """
         ...

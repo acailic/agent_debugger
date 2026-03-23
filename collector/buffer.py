@@ -36,7 +36,8 @@ class EventBuffer(BufferBase):
     """
 
     _queues: dict[str, list[asyncio.Queue]] = field(default_factory=lambda: defaultdict(list))
-    _lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    _lock: asyncio.Lock | None = field(default=None, init=False, repr=False)
+    _lock_loop: asyncio.AbstractEventLoop | None = field(default=None, init=False, repr=False)
     _events: dict[str, list[TraceEvent]] = field(default_factory=dict)
     _session_activity: dict[str, datetime] = field(default_factory=dict)
     max_events_per_session: int = 10_000
@@ -49,7 +50,7 @@ class EventBuffer(BufferBase):
             session_id: Session ID to publish to
             event: TraceEvent to publish
         """
-        async with self._lock:
+        async with self._get_lock():
             # Enforce memory bounds (sync operation, no I/O)
             self._enforce_bounds(session_id)
 
@@ -83,7 +84,7 @@ class EventBuffer(BufferBase):
             asyncio.Queue that will receive events
         """
         queue: asyncio.Queue = asyncio.Queue(maxsize=100)
-        async with self._lock:
+        async with self._get_lock():
             self._queues[session_id].append(queue)
         return queue
 
@@ -94,11 +95,11 @@ class EventBuffer(BufferBase):
             session_id: Session ID to unsubscribe from
             queue: Queue to remove from subscribers
         """
-        async with self._lock:
+        async with self._get_lock():
             if queue in self._queues[session_id]:
                 self._queues[session_id].remove(queue)
 
-    def get_events(self, session_id: str) -> list[TraceEvent]:
+    async def get_events(self, session_id: str) -> list[TraceEvent]:
         """Get all stored events for a session.
 
         Args:
@@ -107,17 +108,19 @@ class EventBuffer(BufferBase):
         Returns:
             List of TraceEvent objects
         """
-        return self._events.get(session_id, [])
+        async with self._get_lock():
+            return list(self._events.get(session_id, []))
 
-    def get_session_ids(self) -> list[str]:
+    async def get_session_ids(self) -> list[str]:
         """Get all session IDs with buffered events.
 
         Returns:
             List of session IDs
         """
-        return list(self._events.keys())
+        async with self._get_lock():
+            return list(self._events.keys())
 
-    def flush(self, session_id: str) -> list[TraceEvent]:
+    async def flush(self, session_id: str) -> list[TraceEvent]:
         """Atomically pop and return all events for a session.
 
         Args:
@@ -126,9 +129,17 @@ class EventBuffer(BufferBase):
         Returns:
             List of TraceEvent objects (may be empty)
         """
-        events = self._events.pop(session_id, [])
-        self._session_activity.pop(session_id, None)
-        return events
+        async with self._get_lock():
+            events = self._events.pop(session_id, [])
+            self._session_activity.pop(session_id, None)
+            return events
+
+    def _get_lock(self) -> asyncio.Lock:
+        loop = asyncio.get_running_loop()
+        if self._lock is None or self._lock_loop is not loop:
+            self._lock = asyncio.Lock()
+            self._lock_loop = loop
+        return self._lock
 
     def _enforce_bounds(self, session_id: str) -> None:
         """Enforce memory bounds for events and sessions.

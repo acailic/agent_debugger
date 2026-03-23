@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import httpx
 
-from agent_debugger_sdk.core.events import TraceEvent, Session
+from agent_debugger_sdk.core.events import Session
+from agent_debugger_sdk.core.events import TraceEvent
 
 logger = logging.getLogger("agent_debugger")
 
@@ -81,11 +81,22 @@ class HttpTransport:
             session: The Session object with updated data
         """
         try:
-            await self._client.put(
+            response = await self._client.put(
                 f"/api/sessions/{session.id}", json=session.to_dict()
             )
-        except Exception:
-            logger.warning("Failed to send session update to collector")
+            if response.status_code >= 400:
+                logger.warning(
+                    "Failed to send session update to collector (session_id=%s, status_code=%s)",
+                    session.id,
+                    response.status_code,
+                )
+        except Exception as exc:
+            status_code = getattr(getattr(exc, "response", None), "status_code", "unknown")
+            logger.warning(
+                "Failed to send session update to collector (session_id=%s, status_code=%s)",
+                session.id,
+                status_code,
+            )
 
     async def close(self) -> None:
         """Close the HTTP client and release resources.

@@ -8,12 +8,15 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+from typing import Any
 
 if TYPE_CHECKING:
     from redis.asyncio import Redis
 
-from agent_debugger_sdk.core.events import TraceEvent, EventType
+from agent_debugger_sdk.core.events import EventType
+from agent_debugger_sdk.core.events import TraceEvent
+
 from collector.buffer_base import BufferBase
 
 
@@ -141,7 +144,7 @@ class RedisEventBuffer(BufferBase):
                     except asyncio.CancelledError:
                         pass
 
-    def get_events(self, session_id: str) -> list[TraceEvent]:
+    async def get_events(self, session_id: str) -> list[TraceEvent]:
         """Get all stored events for a session.
 
         Note: Redis streams are read via xrange commands, not stored in-memory.
@@ -156,13 +159,17 @@ class RedisEventBuffer(BufferBase):
         """
         return []
 
-    def get_session_ids(self) -> list[str]:
+    async def get_session_ids(self) -> list[str]:
         """Get all session IDs with active subscribers.
 
         Returns:
             List of session IDs that have active subscribers.
         """
         return list(self._local_queues.keys())
+
+    async def flush(self, session_id: str) -> list[TraceEvent]:
+        """Flush is a no-op for Redis-backed streams."""
+        return []
 
     async def _listen(self, session_id: str) -> None:
         """Listen for pub/sub messages and distribute to local queues.
@@ -199,7 +206,7 @@ class RedisEventBuffer(BufferBase):
                     for q in self._local_queues.get(session_id, []):
                         await q.put(event)
 
-                except (json.JSONDecodeError, ValueError, TypeError) as e:
+                except (json.JSONDecodeError, ValueError, TypeError):
                     # Skip malformed messages
                     continue
 
