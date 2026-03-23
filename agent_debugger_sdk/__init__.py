@@ -1,5 +1,6 @@
 """Agent Debugger SDK - Core types and interfaces for tracing agent execution."""
 
+from agent_debugger_sdk.config import init, get_config, Config
 from agent_debugger_sdk.core.context import TraceContext
 from agent_debugger_sdk.core.context import configure_event_pipeline
 from agent_debugger_sdk.core.context import get_current_context
@@ -24,6 +25,10 @@ from agent_debugger_sdk.core.events import ToolResultEvent
 from agent_debugger_sdk.core.events import TraceEvent
 
 __all__ = [
+    # SDK Configuration
+    "init",
+    "get_config",
+    "Config",
     # Events
     "EventType",
     "TraceEvent",
