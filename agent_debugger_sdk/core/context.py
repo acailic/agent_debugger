@@ -842,10 +842,16 @@ class TraceContext:
 
         Increments the event sequence and stores the event locally.
         If an event buffer is configured, also publishes to it for real-time streaming.
+        Wraps persistence and buffer operations in error handling to prevent crashes.
 
         Args:
             event: The event to emit.
         """
+        from agent_debugger_sdk.config import get_config
+        config = get_config()
+        if not config.enabled:
+            return  # Skip everything when disabled
+
         current_seq = _event_sequence.get()
         _event_sequence.set(current_seq + 1)
 
@@ -861,15 +867,40 @@ class TraceContext:
             self.session.total_cost_usd += event.cost_usd
             self.session.llm_calls += 1
 
-        if self._event_persister is not None:
-            await self._event_persister(event)
+        # Persist — never crash the user's code
+        persister = self._event_persister or _default_event_persister.get()
+        if persister:
+            try:
+                await persister(event)
+            except Exception:
+                import logging
+                logging.getLogger("agent_debugger").warning(
+                    "Failed to persist event %s: collector may be unavailable", event.id,
+                    exc_info=True,
+                )
 
+        # Session update — never crash the user's code
         if self._session_update_hook is not None:
-            await self._session_update_hook(self.session)
+            try:
+                await self._session_update_hook(self.session)
+            except Exception:
+                import logging
+                logging.getLogger("agent_debugger").warning(
+                    "Failed to update session %s: collector may be unavailable", self.session_id,
+                    exc_info=True,
+                )
 
         # Publish to event buffer for real-time streaming if configured
-        if self._event_buffer is not None:
-            await self._event_buffer.publish(self.session_id, event)
+        buffer = self._event_buffer or _default_event_buffer.get()
+        if buffer:
+            try:
+                await buffer.publish(self.session_id, event)
+            except Exception:
+                import logging
+                logging.getLogger("agent_debugger").warning(
+                    "Failed to publish event %s to buffer", event.id,
+                    exc_info=True,
+                )
 
 
 def get_current_context() -> TraceContext | None:
