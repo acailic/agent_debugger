@@ -1,33 +1,23 @@
 # Agent Debugger & Visualizer
 
-[![PyPI version](https://img.shields.io/pypi/v/agent-debugger.svg)](https://pypi.org/project/agent-debugger/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 
 Agent-native debugger for AI agents. Capture execution traces as structured events, inspect them live, and query or replay them later.
 
-## Install
-
-```bash
-pip install agent-debugger
-```
-
-For framework integrations:
-
-```bash
-pip install "agent-debugger[langchain]"
-pip install "agent-debugger[crewai]"
-pip install "agent-debugger[pydantic-ai]"
-pip install "agent-debugger[all]"
-pip install "agent-debugger[server]"
-```
-
 ## Quick Start
 
-### 1. Start the local API
+### 1. Clone and set up
 
 ```bash
-pip install "agent-debugger[server]"
+git clone https://github.com/acailic/agent_debugger
+cd agent_debugger
+pip install -e ".[server]"
+```
+
+### 2. Start the local API
+
+```bash
 uvicorn api.main:app --reload --port 8000
 ```
 
