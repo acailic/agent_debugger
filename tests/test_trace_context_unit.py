@@ -2,16 +2,18 @@ from __future__ import annotations
 
 import builtins
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from agent_debugger_sdk.core.context import TraceContext
-from agent_debugger_sdk.core.context import _get_default_event_buffer
-from agent_debugger_sdk.core.context import configure_event_pipeline
-from agent_debugger_sdk.core.context import get_current_context
-from agent_debugger_sdk.core.context import get_current_parent_id
-from agent_debugger_sdk.core.context import get_current_session_id
+
+from agent_debugger_sdk.core.context import (
+    TraceContext,
+    _get_default_event_buffer,
+    configure_event_pipeline,
+    get_current_context,
+    get_current_parent_id,
+    get_current_session_id,
+)
 from agent_debugger_sdk.core.events import EventType
 
 

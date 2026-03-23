@@ -8,15 +8,12 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import datetime
-from typing import TYPE_CHECKING
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from redis.asyncio import Redis
 
-from agent_debugger_sdk.core.events import EventType
-from agent_debugger_sdk.core.events import TraceEvent
-
+from agent_debugger_sdk.core.events import EventType, TraceEvent
 from collector.buffer_base import BufferBase
 
 

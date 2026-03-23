@@ -6,9 +6,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
-from agent_debugger_sdk.core.events import Checkpoint
-from agent_debugger_sdk.core.events import EventType
-from agent_debugger_sdk.core.events import TraceEvent
+from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
 
 
 def _event_value(event: TraceEvent | None, key: str, default: Any = None) -> Any:

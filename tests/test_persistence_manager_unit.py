@@ -5,13 +5,11 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from collector.persistence import DEFAULT_STORAGE_PATH
-from collector.persistence import USER_STORAGE_PATH
-from collector.persistence import PersistenceManager
+
+from collector.persistence import DEFAULT_STORAGE_PATH, USER_STORAGE_PATH, PersistenceManager
 
 
 class StubBuffer:

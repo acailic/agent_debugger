@@ -3,19 +3,15 @@ from __future__ import annotations
 import asyncio
 import builtins
 import json
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 import collector
 import collector.buffer as memory_buffer_module
-import pytest
-from agent_debugger_sdk.core.events import EventType
-from agent_debugger_sdk.core.events import ToolCallEvent
-from agent_debugger_sdk.core.events import TraceEvent
+from agent_debugger_sdk.core.events import EventType, ToolCallEvent, TraceEvent
 from collector.buffer import EventBuffer
 from collector.buffer_redis import RedisEventBuffer
 

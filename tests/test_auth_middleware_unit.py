@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from auth.middleware import _resolve_tenant_from_key
-from auth.middleware import get_tenant_from_api_key
 from fastapi import HTTPException
+
+from auth.middleware import _resolve_tenant_from_key, get_tenant_from_api_key
 
 
 @pytest.mark.asyncio

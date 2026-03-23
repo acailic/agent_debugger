@@ -44,22 +44,45 @@ No build pipeline. No `gh-pages` branch. No workflow changes needed.
 - **Subheadline:** "Capture every decision, tool call, and LLM interaction as a queryable event timeline. Inspect live, replay from checkpoints, search across sessions."
 - **Primary CTA:** Copyable `pip install peaky-peek-server` code block
 - **Secondary CTA:** GitHub link with stars badge
-- **Badges:** CI status, PyPI versions, Python 3.10+, License, Downloads
+- **Badges** (shields.io, use as `<img>` tags):
+  - CI: `https://github.com/acailic/agent_debugger/actions/workflows/ci.yml/badge.svg`
+  - PyPI peaky-peek: `https://img.shields.io/pypi/v/peaky-peek.svg?label=peaky-peek`
+  - PyPI peaky-peek-server: `https://img.shields.io/pypi/v/peaky-peek-server.svg?label=peaky-peek-server`
+  - Python: `https://img.shields.io/badge/python-3.10%2B-blue.svg`
+  - License: `https://img.shields.io/badge/License-MIT-green.svg`
+  - Downloads: `https://img.shields.io/pypi/dm/peaky-peek`
 
 ### 2. Why Peaky Peek
 - 3-column grid cards: **Local-first** | **Agent-decision-aware** | **Interactive Replay**
-- Comparison table (LangSmith / OpenTelemetry / Sentry / Peaky Peek)
+- Comparison table — columns: Tool | Focus | Limitation:
+
+| Tool | Focus | Limitation |
+|------|-------|------------|
+| LangSmith | LLM tracing | SaaS-first, no local-first option |
+| OpenTelemetry | Infra observability | Not agent-decision-aware |
+| Sentry | Error tracking | No reasoning-level insight |
+| **Peaky Peek** | Agent-native debugging | **Local-first, open source** |
 
 ### 3. Feature Highlights
 - 4 features in a 2×2 grid with screenshot thumbnails:
-  1. Decision Tree Visualization → `screenshot-decision-tree.png`
-  2. Checkpoint Replay → `screenshot-checkpoint-state.png`
-  3. Trace Search → `screenshot-search.png`
-  4. Failure Clustering → `screenshot-failure-cluster.png`
+  1. Decision Tree Visualization → `assets/screenshot-decision-tree.png`
+  2. Checkpoint Replay → `assets/screenshot-checkpoint-replay.png`
+  3. Trace Search → `assets/screenshot-search.png`
+  4. Failure Clustering → `assets/screenshot-failure-cluster.png`
+
+**Unused screenshots** (present in `docs/assets/` but not displayed on the landing page):
+`screenshot-checkpoint-state.png`, `screenshot-full-ui.png`, `screenshot-loop-detection.png`,
+`screenshot-multi-agent-coord.png`, `screenshot-multi-agent.png`, `screenshot-refusal-detail.png`,
+`screenshot-safety-session.png`, `screenshot-session-comparison.png`, `screenshot-session-list.png`,
+`screenshot-timeline.png`, `screenshot-tool-inspector.png`
 
 ### 4. Quick Install
-- 2-step code block (pip install + uvicorn run)
-- Link to full docs
+Exact commands to display (verbatim):
+```
+pip install peaky-peek-server
+uvicorn api.main:app --reload --port 8000
+```
+Followed by a link to full docs at `https://github.com/acailic/agent_debugger/blob/main/docs/README.md`.
 
 ### 5. Footer
 - Links: GitHub · Docs · Contributing · License · PyPI (peaky-peek) · PyPI (peaky-peek-server)
@@ -89,7 +112,7 @@ No build pipeline. No `gh-pages` branch. No workflow changes needed.
 
 - Mobile-first CSS grid
 - Single column on `< 768px`, multi-column above
-- No JavaScript required (copy-to-clipboard is the only optional JS enhancement)
+- No JavaScript required. Copy-to-clipboard is the only optional JS enhancement: show a "Copy" button on the install code block that uses `navigator.clipboard.writeText()`. If JS is unavailable or fails, the `<pre><code>` block remains fully selectable — no fallback UI needed.
 
 ---
 
@@ -100,6 +123,17 @@ No build pipeline. No `gh-pages` branch. No workflow changes needed.
 - Lighthouse score target: 95+ performance, 100 accessibility
 
 ---
+
+## Required `<meta>` Tags
+
+```html
+<meta name="description" content="Debug AI agents like distributed systems. Capture decisions, tool calls, and LLM interactions as a queryable event timeline.">
+<meta property="og:title" content="Peaky Peek — Agent Debugger">
+<meta property="og:description" content="Local-first AI agent debugger. Inspect live, replay from checkpoints, search across sessions.">
+<meta property="og:url" content="https://acailic.github.io/agent_debugger/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+```
 
 ## Out of Scope
 
@@ -115,6 +149,12 @@ No build pipeline. No `gh-pages` branch. No workflow changes needed.
 1. Push `docs/index.html` and `docs/style.css` to `main`
 2. In repo Settings → Pages → Source: `Deploy from branch` → Branch: `main` → Folder: `/docs`
 3. Page will be live at `https://acailic.github.io/agent_debugger/`
+
+**IMPORTANT — Relative paths required:** GitHub Pages serves this site from the subpath `/agent_debugger/`, not the domain root. All asset, CSS, and link references in `index.html` must use **relative paths**:
+- `href="style.css"` ✅ — not `href="/style.css"` ✗
+- `src="assets/screenshot-decision-tree.png"` ✅ — not `src="/assets/..."` ✗
+
+**Pre-existing `docs/` content:** The `docs/` folder contains existing markdown files (`README.md`, `architecture.md`, `integration.md`, `progress.md`, etc.) and subdirectories (`decisions/`, `papers/`, `superpowers/`, `demos/`). These will be publicly accessible via GitHub Pages URLs. This is acceptable — they are project documentation, not sensitive. No action required. A `docs/.nojekyll` file should be added to prevent Jekyll from processing the folder.
 
 ---
 

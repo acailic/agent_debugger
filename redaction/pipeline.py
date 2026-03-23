@@ -6,11 +6,8 @@ import json
 from dataclasses import fields
 from typing import Any
 
-from agent_debugger_sdk.core.events import EventType
-from agent_debugger_sdk.core.events import TraceEvent
-
-from redaction.patterns import PII_PATTERNS
-from redaction.patterns import REPLACEMENT_MAP
+from agent_debugger_sdk.core.events import EventType, TraceEvent
+from redaction.patterns import PII_PATTERNS, REPLACEMENT_MAP
 
 # Fields that contain prompt/response content
 PROMPT_FIELDS = {"content", "messages", "prompts", "result", "arguments"}

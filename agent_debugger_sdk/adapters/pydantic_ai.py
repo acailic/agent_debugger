@@ -13,21 +13,15 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from typing import Any
-from typing import Generic
-from typing import TypeVar
+from typing import Any, Generic, TypeVar
 
 from agent_debugger_sdk.core.context import TraceContext
-from agent_debugger_sdk.core.events import LLMRequestEvent
-from agent_debugger_sdk.core.events import LLMResponseEvent
-from agent_debugger_sdk.core.events import ToolCallEvent
+from agent_debugger_sdk.core.events import LLMRequestEvent, LLMResponseEvent, ToolCallEvent
 
 try:
     from pydantic_ai import Agent
-    from pydantic_ai.messages import ModelMessage
-    from pydantic_ai.messages import ToolCallPart
-    from pydantic_ai.models import InstrumentationSettings
-    from pydantic_ai.models import Model
+    from pydantic_ai.messages import ModelMessage, ToolCallPart
+    from pydantic_ai.models import InstrumentationSettings, Model
     from pydantic_ai.result import RunResult
 
     PYDANTIC_AI_AVAILABLE = True

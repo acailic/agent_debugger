@@ -16,10 +16,7 @@ import pytest
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from agent_debugger_sdk import EventType
-from agent_debugger_sdk import TraceContext
-from agent_debugger_sdk import trace_agent
-from agent_debugger_sdk import trace_tool
+from agent_debugger_sdk import EventType, TraceContext, trace_agent, trace_tool
 from collector.buffer import get_event_buffer
 from collector.scorer import get_importance_scorer
 
@@ -100,7 +97,7 @@ async def test_decorator_tracing():
     # Check events
     buffer = get_event_buffer()
     # The decorator creates its own session, find it
-    all_sessions = buffer._queues.keys() if hasattr(buffer, "_queues") else []
+    _ = buffer._queues.keys() if hasattr(buffer, "_queues") else []
 
     print("  ✅ Decorator tracing works")
     return True
@@ -110,10 +107,7 @@ async def test_importance_scoring():
     """Test importance scoring."""
     print("\n=== Test 3: Importance Scoring ===")
 
-    from agent_debugger_sdk.core.events import ErrorEvent
-    from agent_debugger_sdk.core.events import LLMResponseEvent
-    from agent_debugger_sdk.core.events import ToolResultEvent
-    from agent_debugger_sdk.core.events import TraceEvent
+    from agent_debugger_sdk.core.events import ErrorEvent, LLMResponseEvent, ToolResultEvent, TraceEvent
 
     scorer = get_importance_scorer()
 

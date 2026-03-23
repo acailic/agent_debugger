@@ -2,24 +2,16 @@ from __future__ import annotations
 
 import asyncio
 
-import api.main as api_main
 import pytest
-from agent_debugger_sdk.core.context import configure_event_pipeline
-from benchmarks import run_evidence_grounding_session
-from benchmarks import run_failure_cluster_session
-from benchmarks import run_safety_escalation_session
-from collector.buffer import get_event_buffer
-from collector.server import SessionCreate
-from collector.server import TraceEventIngest
-from collector.server import configure_storage
-from collector.server import create_session
-from collector.server import ingest_trace
 from fastapi.routing import APIRoute
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine
-from storage import Base
-from storage import TraceRepository
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+import api.main as api_main
+from agent_debugger_sdk.core.context import configure_event_pipeline
+from benchmarks import run_evidence_grounding_session, run_failure_cluster_session, run_safety_escalation_session
+from collector.buffer import get_event_buffer
+from collector.server import SessionCreate, TraceEventIngest, configure_storage, create_session, ingest_trace
+from storage import Base, TraceRepository
 
 
 def _get_route_endpoint(path: str, method: str):

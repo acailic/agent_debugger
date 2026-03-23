@@ -10,19 +10,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from agent_debugger_sdk.core.context import configure_event_pipeline
-from agent_debugger_sdk.core.events import Checkpoint
-from agent_debugger_sdk.core.events import Session
-from agent_debugger_sdk.core.events import TraceEvent
-from benchmarks import DEFAULT_SEED_SESSION_IDS
-from benchmarks import iter_seed_scenarios
+from agent_debugger_sdk.core.events import Checkpoint, Session, TraceEvent
+from benchmarks import DEFAULT_SEED_SESSION_IDS, iter_seed_scenarios
 from collector.buffer import get_event_buffer
 from collector.server import configure_storage
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine
-from storage import Base
-from storage import TraceRepository
+from storage import Base, TraceRepository
 
 DATABASE_URL = os.environ.get("AGENT_DEBUGGER_DB_URL", "sqlite+aiosqlite:///./agent_debugger.db")
 

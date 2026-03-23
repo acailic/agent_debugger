@@ -12,11 +12,9 @@ import pytest
 # Skip entire module if redis is not installed
 pytest.importorskip("redis")
 
-from unittest.mock import AsyncMock
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
-from agent_debugger_sdk.core.events import EventType
-from agent_debugger_sdk.core.events import TraceEvent
+from agent_debugger_sdk.core.events import EventType, TraceEvent
 from collector.buffer_base import BufferBase
 from collector.buffer_redis import RedisEventBuffer
 

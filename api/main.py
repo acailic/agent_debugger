@@ -15,37 +15,27 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
 
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from agent_debugger_sdk.config import get_config
 from agent_debugger_sdk.core.context import configure_event_pipeline
-from agent_debugger_sdk.core.events import Checkpoint
-from agent_debugger_sdk.core.events import Session
-from agent_debugger_sdk.core.events import TraceEvent
-from auth.api_keys import generate_api_key
-from auth.api_keys import hash_key
+from agent_debugger_sdk.core.events import Checkpoint, Session, TraceEvent
+from auth.api_keys import generate_api_key, hash_key
 from auth.middleware import get_tenant_from_api_key
 from auth.models import APIKeyModel
 from collector.buffer import get_event_buffer
 from collector.intelligence import TraceIntelligence
-from collector.replay import build_replay
-from collector.replay import build_tree
+from collector.replay import build_replay, build_tree
 from collector.server import configure_storage
 from collector.server import router as collector_router
-from fastapi import Depends
-from fastapi import FastAPI
-from fastapi import HTTPException
-from fastapi import Query
-from fastapi import Request
-from fastapi import status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 from redaction.pipeline import RedactionPipeline
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from storage import Base
-from storage import TraceRepository
-from storage.engine import create_db_engine
-from storage.engine import create_session_maker
+from storage import Base, TraceRepository
+from storage.engine import create_db_engine, create_session_maker
 
 
 class SessionListResponse(BaseModel):
@@ -340,7 +330,8 @@ def create_app() -> FastAPI:
         Configured FastAPI application instance
     """
     from agent_debugger_sdk.config import get_config
-    config = get_config()
+
+    _ = get_config()  # Initialize SDK config
 
     app = FastAPI(
         lifespan=lifespan,
@@ -403,7 +394,7 @@ def create_app() -> FastAPI:
         result = await db.execute(
             select(APIKeyModel).where(
                 APIKeyModel.tenant_id == tenant_id,
-                APIKeyModel.is_active == True,
+                APIKeyModel.is_active.is_(True),
             )
         )
         keys = result.scalars().all()
@@ -443,8 +434,9 @@ def create_app() -> FastAPI:
         """Health check endpoint with database and Redis connectivity verification."""
         import os
 
-        from agent_debugger_sdk.config import get_config
         from sqlalchemy import text
+
+        from agent_debugger_sdk.config import get_config
 
         config = get_config()
         checks = {"status": "ok", "mode": config.mode}
@@ -506,7 +498,11 @@ def create_app() -> FastAPI:
                             "retention_tier": analysis["retention_tier"],
                             "failure_count": analysis["session_summary"]["failure_count"],
                             "behavior_alert_count": analysis["session_summary"]["behavior_alert_count"],
-                            "representative_event_id": analysis["representative_failure_ids"][0] if analysis["representative_failure_ids"] else None,
+                            "representative_event_id": (
+                                analysis["representative_failure_ids"][0]
+                                if analysis["representative_failure_ids"]
+                                else None
+                            ),
                         },
                     )
                 )

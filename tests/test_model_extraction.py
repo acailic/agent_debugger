@@ -1,7 +1,4 @@
-from storage.models import Base
-from storage.models import CheckpointModel
-from storage.models import EventModel
-from storage.models import SessionModel
+from storage.models import Base, CheckpointModel, EventModel, SessionModel
 
 
 def test_models_importable_from_new_location():

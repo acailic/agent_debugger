@@ -2,8 +2,7 @@
 from unittest.mock import patch
 
 import pytest
-from httpx import ASGITransport
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 
 @pytest.mark.asyncio

@@ -3,18 +3,20 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
+
 from agent_debugger_sdk.core.context import TraceContext
-from agent_debugger_sdk.core.events import Checkpoint
-from agent_debugger_sdk.core.events import DecisionEvent
-from agent_debugger_sdk.core.events import ErrorEvent
-from agent_debugger_sdk.core.events import EventType
-from agent_debugger_sdk.core.events import LLMResponseEvent
-from agent_debugger_sdk.core.events import ToolCallEvent
-from agent_debugger_sdk.core.events import TraceEvent
+from agent_debugger_sdk.core.events import (
+    Checkpoint,
+    DecisionEvent,
+    ErrorEvent,
+    EventType,
+    LLMResponseEvent,
+    ToolCallEvent,
+    TraceEvent,
+)
 from collector.buffer import EventBuffer
 from collector.intelligence import TraceIntelligence
 from collector.persistence import PersistenceManager

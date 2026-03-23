@@ -1,18 +1,14 @@
 """Tests for bug fixes in Phase 1."""
 import asyncio
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-from collector.buffer import EventBuffer
-from collector.buffer import get_event_buffer
-from collector.persistence import PersistenceManager
 
 from agent_debugger_sdk import configure_event_pipeline
-from agent_debugger_sdk.core.decorators import trace_agent
-from agent_debugger_sdk.core.decorators import trace_llm
-from agent_debugger_sdk.core.decorators import trace_tool
+from agent_debugger_sdk.core.decorators import trace_agent, trace_llm, trace_tool
 from agent_debugger_sdk.core.events import EventType
+from collector.buffer import EventBuffer, get_event_buffer
+from collector.persistence import PersistenceManager
 
 
 @pytest.fixture(autouse=True)

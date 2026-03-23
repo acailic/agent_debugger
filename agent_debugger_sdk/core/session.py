@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import uuid
 from contextvars import ContextVar
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from .events import Session

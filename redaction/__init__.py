@@ -1,1 +1,1 @@
-from redaction.pipeline import RedactionPipeline
+from redaction.pipeline import RedactionPipeline as RedactionPipeline

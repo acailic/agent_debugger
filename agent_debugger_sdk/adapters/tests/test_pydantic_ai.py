@@ -7,14 +7,12 @@ import sys
 import types
 import uuid
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from collector.buffer import get_event_buffer
 
 from agent_debugger_sdk.core.events import EventType
+from collector.buffer import get_event_buffer
 
 
 class MockAgent:
@@ -252,8 +250,7 @@ class TestPydanticAIAdapter:
     @pytest.mark.asyncio
     async def test_instrument_wraps_run_once_and_captures_tool_call_parts(self):
         """Test instrument() wraps run idempotently and captures tool-call parts."""
-        from agent_debugger_sdk.adapters.pydantic_ai import PydanticAIAdapter
-        from agent_debugger_sdk.adapters.pydantic_ai import _pydantic_run_context
+        from agent_debugger_sdk.adapters.pydantic_ai import PydanticAIAdapter, _pydantic_run_context
 
         class FakeToolCallPart:
             def __init__(self, tool_name: str, args):

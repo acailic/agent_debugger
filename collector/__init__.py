@@ -4,13 +4,11 @@ This module provides trace collection, scoring, buffering, and persistence
 for agent execution events.
 """
 
-from .buffer import EventBuffer
-from .buffer import get_event_buffer
+from .buffer import EventBuffer, get_event_buffer
 from .buffer_base import BufferBase
 from .intelligence import TraceIntelligence
 from .persistence import PersistenceManager
-from .scorer import ImportanceScorer
-from .scorer import get_importance_scorer
+from .scorer import ImportanceScorer, get_importance_scorer
 
 __all__ = [
     "EventBuffer",

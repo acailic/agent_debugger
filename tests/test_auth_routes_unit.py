@@ -3,16 +3,12 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from api.auth_routes import CreateKeyRequest
-from api.auth_routes import create_key
-from api.auth_routes import list_keys
-from api.auth_routes import revoke_key
 from fastapi import HTTPException
+
+from api.auth_routes import CreateKeyRequest, create_key, list_keys, revoke_key
 
 
 @pytest.mark.asyncio

@@ -4,28 +4,20 @@ import asyncio
 import sys
 import types
 from contextlib import asynccontextmanager
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
-import api.main as api_main
 import pytest
-from agent_debugger_sdk.core.events import Checkpoint
-from agent_debugger_sdk.core.events import Session
-from agent_debugger_sdk.core.events import ToolCallEvent
-from api.main import CreateKeyRequest
-from fastapi import FastAPI
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.routing import APIRoute
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine
-from storage import Base
-from storage import TraceRepository
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+import api.main as api_main
+from agent_debugger_sdk.core.events import Checkpoint, Session, ToolCallEvent
+from api.main import CreateKeyRequest
+from storage import Base, TraceRepository
 
 
 def _get_route_endpoint(path: str, method: str):

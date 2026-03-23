@@ -1,13 +1,10 @@
 """Tests for SDK HTTP transport."""
 import logging
-from unittest.mock import AsyncMock
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from agent_debugger_sdk.core.events import EventType
-from agent_debugger_sdk.core.events import Session
-from agent_debugger_sdk.core.events import TraceEvent
+
+from agent_debugger_sdk.core.events import EventType, Session, TraceEvent
 from agent_debugger_sdk.transport import HttpTransport
 
 

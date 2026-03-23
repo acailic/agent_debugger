@@ -1,8 +1,7 @@
 """FastAPI auth dependencies."""
 from __future__ import annotations
 
-from fastapi import HTTPException
-from fastapi import Request
+from fastapi import HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,7 +27,7 @@ async def _resolve_tenant_from_key(raw_key: str, db: AsyncSession) -> str:
     result = await db.execute(
         select(APIKeyModel).where(
             APIKeyModel.key_prefix.startswith(prefix[:8]),
-            APIKeyModel.is_active == True,
+            APIKeyModel.is_active.is_(True),
         )
     )
     candidates = result.scalars().all()

@@ -1,9 +1,7 @@
 """Tests for PII redaction pipeline."""
 import json
 
-from agent_debugger_sdk.core.events import EventType
-from agent_debugger_sdk.core.events import LLMResponseEvent
-from agent_debugger_sdk.core.events import TraceEvent
+from agent_debugger_sdk.core.events import EventType, LLMResponseEvent, TraceEvent
 from redaction.patterns import PII_PATTERNS
 from redaction.pipeline import RedactionPipeline
 

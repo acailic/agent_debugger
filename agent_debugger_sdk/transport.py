@@ -5,8 +5,7 @@ import logging
 
 import httpx
 
-from agent_debugger_sdk.core.events import Session
-from agent_debugger_sdk.core.events import TraceEvent
+from agent_debugger_sdk.core.events import Session, TraceEvent
 
 logger = logging.getLogger("agent_debugger")
 

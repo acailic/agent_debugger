@@ -8,8 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from agent_debugger_sdk.core.events import EventType
-from agent_debugger_sdk.core.events import TraceEvent
+from agent_debugger_sdk.core.events import EventType, TraceEvent
 
 
 def _event_value(event: TraceEvent, key: str, default: object = None) -> object:

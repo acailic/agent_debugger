@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import asyncio
 
-from benchmarks import run_evidence_grounding_session
-from benchmarks import run_failure_cluster_session
-from benchmarks import run_looping_behavior_session
-from benchmarks import run_multi_agent_dialogue_session
-from benchmarks import run_prompt_injection_session
-from benchmarks import run_prompt_policy_shift_session
-from benchmarks import run_replay_determinism_session
-from benchmarks import run_safety_escalation_session
+from benchmarks import (
+    run_evidence_grounding_session,
+    run_failure_cluster_session,
+    run_looping_behavior_session,
+    run_multi_agent_dialogue_session,
+    run_prompt_injection_session,
+    run_prompt_policy_shift_session,
+    run_replay_determinism_session,
+    run_safety_escalation_session,
+)
 from collector.intelligence import TraceIntelligence
 from collector.replay import build_replay
 

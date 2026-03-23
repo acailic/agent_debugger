@@ -1,8 +1,8 @@
 """Integration test for redaction pipeline integration."""
 
 import pytest
-from agent_debugger_sdk.core.events import EventType
-from agent_debugger_sdk.core.events import TraceEvent
+
+from agent_debugger_sdk.core.events import EventType, TraceEvent
 from redaction.pipeline import RedactionPipeline
 
 

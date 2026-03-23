@@ -3,18 +3,14 @@ from __future__ import annotations
 
 import uuid
 
-from auth.api_keys import generate_api_key
-from auth.api_keys import hash_key
-from auth.models import APIKeyModel
-from fastapi import APIRouter
-from fastapi import Depends
-from fastapi import HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.main import get_db_session
-from api.main import get_tenant_id
+from api.main import get_db_session, get_tenant_id
+from auth.api_keys import generate_api_key, hash_key
+from auth.models import APIKeyModel
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -77,7 +73,7 @@ async def list_keys(
     result = await db.execute(
         select(APIKeyModel).where(
             APIKeyModel.tenant_id == tenant_id,
-            APIKeyModel.is_active == True,
+            APIKeyModel.is_active.is_(True),
         )
     )
     keys = result.scalars().all()

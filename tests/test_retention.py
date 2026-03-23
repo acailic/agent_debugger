@@ -4,8 +4,7 @@ import sys
 
 # Add the storage directory to the path to import retention directly
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'storage'))
-from retention import find_expired_sessions
-from retention import get_retention_days
+from retention import find_expired_sessions, get_retention_days
 
 
 def test_retention_days_by_plan():

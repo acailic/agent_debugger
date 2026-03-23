@@ -6,13 +6,12 @@ import importlib
 import sys
 import types
 import uuid
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-from collector.buffer import get_event_buffer
 
 from agent_debugger_sdk.core.events import EventType
+from collector.buffer import get_event_buffer
 
 
 class MockGeneration:
@@ -542,8 +541,7 @@ class TestLangChainAdapter:
     @pytest.mark.asyncio
     async def test_handler_property(self):
         """Test handler property returns LangChainTracingHandler."""
-        from agent_debugger_sdk.adapters.langchain import LangChainAdapter
-        from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
+        from agent_debugger_sdk.adapters.langchain import LangChainAdapter, LangChainTracingHandler
 
         with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
             adapter = LangChainAdapter(session_id="test-session")
@@ -577,8 +575,7 @@ class TestLangChainAdapter:
     @pytest.mark.asyncio
     async def test_get_callbacks(self):
         """Test get_callbacks returns handler list."""
-        from agent_debugger_sdk.adapters.langchain import LangChainAdapter
-        from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
+        from agent_debugger_sdk.adapters.langchain import LangChainAdapter, LangChainTracingHandler
 
         with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
             adapter = LangChainAdapter(session_id="test-session")

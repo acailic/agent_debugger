@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from agent_debugger_sdk.core.context import TraceContext
-from agent_debugger_sdk.core.events import Checkpoint
-from agent_debugger_sdk.core.events import TraceEvent
+from agent_debugger_sdk.core.events import Checkpoint, TraceEvent
 
 
 @dataclass

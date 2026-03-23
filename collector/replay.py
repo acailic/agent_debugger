@@ -5,9 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-from agent_debugger_sdk.core.events import Checkpoint
-from agent_debugger_sdk.core.events import EventType
-from agent_debugger_sdk.core.events import TraceEvent
+from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
 
 
 def build_tree(events: list[TraceEvent]) -> dict[str, Any] | None:

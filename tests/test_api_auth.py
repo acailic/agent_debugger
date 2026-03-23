@@ -1,8 +1,8 @@
 """Tests for API authentication integration."""
 import pytest
+from httpx import ASGITransport, AsyncClient
+
 from api.main import app
-from httpx import ASGITransport
-from httpx import AsyncClient
 
 
 @pytest.mark.asyncio

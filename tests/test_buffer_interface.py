@@ -2,8 +2,8 @@
 import asyncio
 
 import pytest
-from agent_debugger_sdk.core.events import EventType
-from agent_debugger_sdk.core.events import TraceEvent
+
+from agent_debugger_sdk.core.events import EventType, TraceEvent
 
 
 def _make_event(session_id: str = "s1", name: str = "test") -> TraceEvent:
