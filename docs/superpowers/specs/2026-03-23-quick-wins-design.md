@@ -21,7 +21,7 @@ Transform `peaky-peek-server` into a zero-friction debugging experience with 5 q
 **Package changes:**
 - `pyproject-server.toml` — Add CLI entry point, include frontend assets
 - `agent_debugger_sdk/pricing.py` — New module with model pricing data
-- `agent_debugger_sdk/core/events.py` — Add `cost_usd` field
+- `agent_debugger_sdk/core/events.py` — Add auto-calculation of `cost_usd` (field exists)
 - `api/main.py` — Add static file serving and export endpoint
 - `cli.py` — New CLI entry point
 - `docs/getting-started.md` — New tutorial
@@ -68,12 +68,16 @@ peaky-peek --version
 ```python
 """CLI entry point for peaky-peek-server."""
 import argparse
+import importlib.metadata
 import webbrowser
 
 import uvicorn
 
 
 def main() -> None:
+    # Get version from package metadata (avoids hardcoding)
+    version = importlib.metadata.version("peaky-peek-server")
+
     parser = argparse.ArgumentParser(
         prog="peaky-peek",
         description="Debug AI agents with time-travel replay and decision trees",
@@ -81,7 +85,7 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8000, help="Port to bind (default: 8000)")
     parser.add_argument("--open", action="store_true", help="Open browser after starting")
-    parser.add_argument("--version", action="version", version="%(prog)s 0.1.2")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {version}")
 
     args = parser.parse_args()
 
@@ -250,28 +254,27 @@ def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float |
 
 ### Integration with LLMResponseEvent
 
-**Modify:** `agent_debugger_sdk/core/events.py`
+**Note:** The `cost_usd` field already exists in `LLMResponseEvent`. This spec adds automatic calculation.
 
-Add `cost_usd` field:
+**Modify:** `agent_debugger_sdk/core/events.py` — Add auto-calculation in `__post_init__` or factory method
 
 ```python
+from agent_debugger_sdk.pricing import calculate_cost
+
 @dataclass
 class LLMResponseEvent(BaseEvent):
     model: str
     input_tokens: int | None = None
     output_tokens: int | None = None
-    cost_usd: float | None = None  # NEW
+    cost_usd: float = 0.0  # Already exists
     # ... existing fields
-```
 
-Calculate on creation:
-
-```python
-from agent_debugger_sdk.pricing import calculate_cost
-
-# When creating LLMResponseEvent:
-if input_tokens and output_tokens:
-    cost_usd = calculate_cost(model, input_tokens, output_tokens)
+    def __post_init__(self):
+        # Auto-calculate cost if not explicitly set and tokens available
+        if self.cost_usd == 0.0 and self.input_tokens and self.output_tokens:
+            calculated = calculate_cost(self.model, self.input_tokens, self.output_tokens)
+            if calculated is not None:
+                self.cost_usd = calculated
 ```
 
 ### UI Display
@@ -330,23 +333,23 @@ GET /api/sessions/{session_id}/export
 
 ### Implementation
 
-Add to `api/main.py`:
+Add to `api/session_routes.py` (follows existing route patterns):
 
 ```python
 from datetime import datetime, timezone
-from fastapi import HTTPException
+from fastapi import APIRouter, Depends
 
-@app.get("/api/sessions/{session_id}/export")
+from api.dependencies import get_repository
+from api.services import require_session
+from storage.repository import TraceRepository
+
+@router.get("/api/sessions/{session_id}/export")
 async def export_session(
     session_id: str,
-    repo: TraceRepository = Depends(get_repository)
+    repo: TraceRepository = Depends(get_repository),
 ) -> dict:
     """Export session as portable JSON."""
-
-    session = await repo.get_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-
+    session = await require_session(repo, session_id)
     events = await repo.get_events(session_id)
     checkpoints = await repo.get_checkpoints(session_id)
 
