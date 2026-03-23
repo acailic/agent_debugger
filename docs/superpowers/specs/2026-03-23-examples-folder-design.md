@@ -77,7 +77,7 @@ Run:
 - Check `PYDANTIC_AI_AVAILABLE` at top; if `False`, print `"Install pydantic-ai: pip install pydantic-ai"` and `sys.exit(0)` — **must** be before any adapter instantiation since `PydanticAIAdapter.__init__` raises `ImportError` when the dep is absent
 - Create a `TraceContext` with `async with TraceContext(...) as ctx:`
 - Use `PydanticAIAdapter` with a mock `Agent("openai:gpt-4o-mini")` — agent will not be invoked (no real API key); only the wrapper's trace methods are called directly
-- Call `await ctx.record_llm_request(prompt="What is 2+2?", model="mock")` and `await ctx.record_llm_response(response="4", model="mock", duration_ms=50)` directly on the context to produce visible LLM events
+- Call `await ctx.record_llm_request(model="mock", messages=[{"role": "user", "content": "What is 2+2?"}])` and `await ctx.record_llm_response(model="mock", content="4", duration_ms=50)` directly on the context to produce visible LLM events (use `messages=` not `prompt=`; use `content=` not `response=`)
 - Add a comment: "For a real run: set OPENAI_API_KEY and call `await adapter.run('your question')`"
 - Prints session ID
 
