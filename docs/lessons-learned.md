@@ -2,6 +2,8 @@
 
 This page is about what building the debugger has actually taught so far, not just what the original design said.
 
+Validated against the current repository shape on `2026-03-24`.
+
 ## 1. Event Design Comes First
 
 The clearest lesson so far is that debugger quality depends on event quality.
@@ -161,3 +163,110 @@ They reduce coupling in exactly the places that need to change next:
 - event buffering for local vs cloud fan-out
 
 The lesson is that infrastructure-facing refactors are highest value when they remove friction from the next concrete product step.
+
+## 14. One Event Contract Is Carrying Most Of The Repo
+
+The strongest architectural learning from the current codebase is that one shared event contract is doing most of the heavy lifting.
+
+The same event model is used across:
+
+- `TraceContext`
+- collector ingestion
+- repository persistence
+- replay and analysis helpers
+- frontend timeline and inspector views
+
+That is more important than any single feature because it keeps the system coherent while the product surface grows.
+
+The lesson is:
+
+- protect the event schema
+- keep provenance fields explicit
+- avoid one-off route-specific payload shapes unless they clearly add value
+
+## 15. Local And Cloud Should Diverge At The Boundary, Not Everywhere
+
+The repo now shows a better architectural split than it did earlier.
+
+Local mode and cloud mode differ mainly at configuration and transport time:
+
+- `init()` resolves mode, endpoint, and API key
+- `TraceContext` swaps in HTTP transport only when cloud mode is active
+- the rest of the tracing model stays largely the same
+
+That is the right lesson because it keeps the core tracing runtime from fragmenting into two products.
+
+The goal should stay:
+
+- shared event semantics
+- shared session lifecycle
+- minimal branching outside transport, auth, and infrastructure wiring
+
+## 16. Repository-Level Tenant Enforcement Is The Right Safety Backstop
+
+A useful repo-specific learning is that multi-tenant safety is stronger when it does not depend only on route discipline.
+
+The repository now scopes queries by `tenant_id`, which means isolation is enforced where data is actually accessed.
+
+That matters because:
+
+- route handlers can change
+- new endpoints can be added
+- helper code can drift
+
+But if the repository is tenant-aware, the default path is much safer.
+
+The lesson is that security boundaries belong as close as possible to the data layer.
+
+## 17. Graceful Degradation Matters More Than Perfect Transport
+
+The SDK transport code makes an important product decision visible:
+
+- transport failures are logged
+- they do not crash the traced agent run
+
+That is the right bias for a debugger SDK. Instrumentation should not become the reason production or development workloads fail.
+
+The lesson is not that transport reliability is unimportant.
+
+The lesson is that:
+
+- observability failures should degrade gracefully
+- correctness of the host workload comes first
+- stronger retrying and delivery guarantees should be added without violating that principle
+
+## 18. The Test Suite Shows The Real Maturity Curve
+
+The docs can say many things, but the tests reveal where the repo is actually solid.
+
+This repository now has targeted coverage around:
+
+- adapter behavior
+- auth helpers and middleware
+- redaction behavior
+- tenant isolation
+- engine and buffer backends
+- API contracts
+- replay and research-style features
+
+That is a meaningful learning in itself.
+
+The repo is no longer just a prototype with a nice UI idea. It has crossed into a phase where implementation claims are increasingly backed by contract tests.
+
+## 19. The Repo Is Strongest As A Coherent Local Debugger
+
+Looking at the code and docs together, the clearest high-level conclusion is:
+
+- the local debugger path is the most mature and coherent part of the system
+
+That includes:
+
+- SDK tracing
+- session and event persistence
+- SSE streaming
+- replay and analysis endpoints
+- frontend debugger views
+
+The cloud story is now much more real than before, but it is still best understood as an active hardening track rather than the primary finished product shape.
+
+That distinction is useful because it keeps documentation honest and helps prioritize work correctly.
