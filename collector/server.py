@@ -52,9 +52,9 @@ class TraceEventIngest(BaseModel):
         import json
 
         try:
-            size = len(json.dumps(v))
+            size = len(json.dumps(v, ensure_ascii=False).encode("utf-8"))
         except (TypeError, ValueError):
-            size = len(str(v))
+            size = len(str(v).encode("utf-8"))
         if size > MAX_DATA_SIZE_BYTES:
             raise ValueError(f"data must be {MAX_DATA_SIZE_BYTES} bytes or less")
         return v
@@ -66,9 +66,9 @@ class TraceEventIngest(BaseModel):
         import json
 
         try:
-            size = len(json.dumps(v))
+            size = len(json.dumps(v, ensure_ascii=False).encode("utf-8"))
         except (TypeError, ValueError):
-            size = len(str(v))
+            size = len(str(v).encode("utf-8"))
         if size > MAX_METADATA_SIZE_BYTES:
             raise ValueError(f"metadata must be {MAX_METADATA_SIZE_BYTES} bytes or less")
         return v

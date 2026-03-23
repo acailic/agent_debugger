@@ -132,7 +132,11 @@ def create_app() -> FastAPI:
     # Read CORS origins from environment variable for production configurability
     # Default to wildcard for development convenience
     cors_origins_str = os.environ.get("AGENT_DEBUGGER_CORS_ORIGINS", "*")
-    cors_origins = [origin.strip() for origin in cors_origins_str.split(",")] if cors_origins_str != "*" else ["*"]
+    cors_origins = (
+        [o for o in (origin.strip() for origin in cors_origins_str.split(",")) if o]
+        if cors_origins_str != "*"
+        else ["*"]
+    )
 
     app.add_middleware(
         CORSMiddleware,

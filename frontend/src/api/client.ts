@@ -1,4 +1,4 @@
-import type { ReplayResponse, Session, TraceAnalysis, TraceBundle, TraceEvent, TreeNode } from '../types'
+import type { ReplayResponse, Session, TraceAnalysis, TraceBundle, TraceEvent } from '../types'
 
 const API_BASE = '/api'
 

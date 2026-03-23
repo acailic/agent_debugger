@@ -55,6 +55,8 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
 
   // useRef to store renderTree function to avoid stale closure in handleNodeDoubleClick
   const renderTreeRef = useRef<() => void>(() => {})
+  // Persist collapsed state keyed by event id, outside the ephemeral D3 hierarchy
+  const collapsedStateRef = useRef<Map<string, boolean>>(new Map())
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -71,13 +73,19 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
     return () => window.removeEventListener('resize', updateDimensions)
   }, [])
 
-  const convertToD3Tree = useCallback((node: TreeNode): D3TreeNode => {
-    return {
-      id: node.event.id,
-      event: node.event,
-      children: node.children.map(convertToD3Tree),
-    }
-  }, [])
+  const convertToD3Tree = useCallback(
+    (node: TreeNode): D3TreeNode => {
+      return {
+        id: node.event.id,
+        event: node.event,
+        children: node.children.map(convertToD3Tree),
+        // Read persisted collapsed state; collapsedStateRef is a stable ref object,
+        // so the callback does not need to be recreated when Map contents change.
+        _collapsed: collapsedStateRef.current.get(node.event.id) ?? false,
+      }
+    },
+    [] // collapsedStateRef is a stable React ref — no deps needed
+  )
 
   const handleNodeClick = useCallback(
     (event: MouseEvent, d: d3.HierarchyNode<D3TreeNode>) => {
@@ -92,7 +100,8 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
     (event: MouseEvent, d: d3.HierarchyNode<D3TreeNode>) => {
       event.stopPropagation()
       if (d.data.children.length > 0) {
-        d.data._collapsed = !d.data._collapsed
+        const newCollapsed = !collapsedStateRef.current.get(d.data.id)
+        collapsedStateRef.current.set(d.data.id, newCollapsed)
         renderTreeRef.current()
       }
     },
@@ -170,6 +179,7 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
       .enter()
       .append('g')
       .attr('class', 'node')
+      .attr('data-id', (d) => d.data.id)
       .attr('transform', (d) => `translate(${d.x ?? 0}, ${d.y ?? 0})`)
       .on('click', handleNodeClick)
       .on('dblclick', handleNodeDoubleClick)
