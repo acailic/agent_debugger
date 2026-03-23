@@ -10,7 +10,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from agent_debugger_sdk.core.events import TraceEvent
 
@@ -56,7 +56,7 @@ class EventBuffer(BufferBase):
             if session_id not in self._events:
                 self._events[session_id] = []
             self._events[session_id].append(event)
-            self._session_activity[session_id] = datetime.now(UTC)
+            self._session_activity[session_id] = datetime.now(timezone.utc)
 
             # Notify subscribers
             queues = self._queues.get(session_id, [])

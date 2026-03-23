@@ -13,21 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from agent_debugger_sdk.core.events import (
-    AgentTurnEvent,
-    BehaviorAlertEvent,
     Checkpoint,
-    DecisionEvent,
-    ErrorEvent,
     EventType,
-    LLMRequestEvent,
-    LLMResponseEvent,
-    PolicyViolationEvent,
-    PromptPolicyEvent,
-    RefusalEvent,
-    SafetyCheckEvent,
     Session,
-    ToolCallEvent,
-    ToolResultEvent,
     TraceEvent,
 )
 from storage.models import CheckpointModel, EventModel, SessionModel
@@ -72,6 +60,7 @@ class TraceRepository:
             tool_calls=session.tool_calls,
             llm_calls=session.llm_calls,
             errors=session.errors,
+            replay_value=session.replay_value,
             config=session.config,
             tags=session.tags,
         )
@@ -99,7 +88,13 @@ class TraceRepository:
             return None
         return self._orm_to_session(db_session)
 
-    async def list_sessions(self, limit: int = 50, offset: int = 0) -> list[Session]:
+    async def list_sessions(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        *,
+        sort_by: str = "started_at",
+    ) -> list[Session]:
         """List sessions with pagination.
 
         Args:
@@ -109,12 +104,14 @@ class TraceRepository:
         Returns:
             List of Session instances
         """
+        stmt = select(SessionModel).where(SessionModel.tenant_id == self.tenant_id)
+        if sort_by == "replay_value":
+            stmt = stmt.order_by(SessionModel.replay_value.desc(), SessionModel.started_at.desc())
+        else:
+            stmt = stmt.order_by(SessionModel.started_at.desc())
+
         result = await self.session.execute(
-            select(SessionModel)
-            .where(SessionModel.tenant_id == self.tenant_id)
-            .order_by(SessionModel.started_at.desc())
-            .offset(offset)
-            .limit(limit)
+            stmt.offset(offset).limit(limit)
         )
         return [self._orm_to_session(db) for db in result.scalars()]
 
@@ -151,6 +148,7 @@ class TraceRepository:
             "tool_calls",
             "llm_calls",
             "errors",
+            "replay_value",
             "config",
             "tags",
         }
@@ -446,73 +444,7 @@ class TraceRepository:
         Returns:
             EventModel instance
         """
-        data = dict(event.data)
-        if isinstance(event, ToolCallEvent):
-            data["tool_name"] = event.tool_name
-            data["arguments"] = event.arguments
-        elif isinstance(event, ToolResultEvent):
-            data["tool_name"] = event.tool_name
-            data["result"] = event.result
-            data["error"] = event.error
-            data["duration_ms"] = event.duration_ms
-        elif isinstance(event, LLMRequestEvent):
-            data["model"] = event.model
-            data["messages"] = event.messages
-            data["tools"] = event.tools
-            data["settings"] = event.settings
-        elif isinstance(event, LLMResponseEvent):
-            data["model"] = event.model
-            data["content"] = event.content
-            data["tool_calls"] = event.tool_calls
-            data["usage"] = event.usage
-            data["cost_usd"] = event.cost_usd
-            data["duration_ms"] = event.duration_ms
-        elif isinstance(event, DecisionEvent):
-            data["reasoning"] = event.reasoning
-            data["confidence"] = event.confidence
-            data["evidence"] = event.evidence
-            data["evidence_event_ids"] = event.evidence_event_ids
-            data["alternatives"] = event.alternatives
-            data["chosen_action"] = event.chosen_action
-        elif isinstance(event, SafetyCheckEvent):
-            data["policy_name"] = event.policy_name
-            data["outcome"] = event.outcome
-            data["risk_level"] = event.risk_level
-            data["rationale"] = event.rationale
-            data["blocked_action"] = event.blocked_action
-            data["evidence"] = event.evidence
-        elif isinstance(event, RefusalEvent):
-            data["reason"] = event.reason
-            data["policy_name"] = event.policy_name
-            data["risk_level"] = event.risk_level
-            data["blocked_action"] = event.blocked_action
-            data["safe_alternative"] = event.safe_alternative
-        elif isinstance(event, PolicyViolationEvent):
-            data["policy_name"] = event.policy_name
-            data["severity"] = event.severity
-            data["violation_type"] = event.violation_type
-            data["details"] = event.details
-        elif isinstance(event, PromptPolicyEvent):
-            data["template_id"] = event.template_id
-            data["policy_parameters"] = event.policy_parameters
-            data["speaker"] = event.speaker
-            data["state_summary"] = event.state_summary
-            data["goal"] = event.goal
-        elif isinstance(event, AgentTurnEvent):
-            data["agent_id"] = event.agent_id
-            data["speaker"] = event.speaker
-            data["turn_index"] = event.turn_index
-            data["goal"] = event.goal
-            data["content"] = event.content
-        elif isinstance(event, BehaviorAlertEvent):
-            data["alert_type"] = event.alert_type
-            data["severity"] = event.severity
-            data["signal"] = event.signal
-            data["related_event_ids"] = event.related_event_ids
-        elif isinstance(event, ErrorEvent):
-            data["error_type"] = event.error_type
-            data["error_message"] = event.error_message
-            data["stack_trace"] = event.stack_trace
+        data = event.to_storage_data()
 
         event_metadata = dict(event.metadata)
         event_metadata["upstream_event_ids"] = list(event.upstream_event_ids)
@@ -539,164 +471,22 @@ class TraceRepository:
         Returns:
             Appropriate TraceEvent subclass instance
         """
-        data = dict(db_event.data)  # Make a copy to avoid modifying original
+        data = dict(db_event.data or {})
         event_type = EventType(db_event.event_type) if db_event.event_type else EventType.AGENT_START
-
-        # Fields to strip from data for each event type to avoid duplication
-        system_fields_by_type: dict[EventType, list[str]] = {
-            EventType.TOOL_CALL: ["tool_name", "arguments"],
-            EventType.TOOL_RESULT: ["tool_name", "result", "error", "duration_ms"],
-            EventType.LLM_REQUEST: ["model", "messages", "tools", "settings"],
-            EventType.LLM_RESPONSE: ["model", "content", "tool_calls", "usage", "cost_usd", "duration_ms"],
-            EventType.DECISION: [
-                "reasoning",
-                "confidence",
-                "evidence",
-                "evidence_event_ids",
-                "alternatives",
-                "chosen_action",
-            ],
-            EventType.SAFETY_CHECK: [
-                "policy_name",
-                "outcome",
-                "risk_level",
-                "rationale",
-                "blocked_action",
-                "evidence",
-            ],
-            EventType.REFUSAL: [
-                "reason",
-                "policy_name",
-                "risk_level",
-                "blocked_action",
-                "safe_alternative",
-            ],
-            EventType.POLICY_VIOLATION: ["policy_name", "severity", "violation_type", "details"],
-            EventType.PROMPT_POLICY: ["template_id", "policy_parameters", "speaker", "state_summary", "goal"],
-            EventType.AGENT_TURN: ["agent_id", "speaker", "turn_index", "goal", "content"],
-            EventType.BEHAVIOR_ALERT: ["alert_type", "severity", "signal", "related_event_ids"],
-            EventType.ERROR: ["error_type", "error_message", "stack_trace"],
-        }
-
-        # Strip system fields from data to prevent duplication
-        cleaned_data = {k: v for k, v in data.items() if k not in system_fields_by_type.get(event_type, [])}
+        event_metadata = dict(db_event.event_metadata or {})
+        upstream_event_ids = event_metadata.pop("upstream_event_ids", [])
 
         base_kwargs = {
             "id": db_event.id,
             "session_id": db_event.session_id,
             "parent_id": db_event.parent_id,
-            "event_type": event_type,
             "timestamp": db_event.timestamp,
             "name": db_event.name,
-            "data": cleaned_data,
-            "metadata": db_event.event_metadata,
+            "metadata": event_metadata,
             "importance": db_event.importance,
-            "upstream_event_ids": db_event.event_metadata.get("upstream_event_ids", []),
+            "upstream_event_ids": upstream_event_ids,
         }
-
-        if event_type == EventType.TOOL_CALL:
-            return ToolCallEvent(
-                **base_kwargs,
-                tool_name=data.get("tool_name", ""),
-                arguments=data.get("arguments", {}),
-            )
-        if event_type == EventType.TOOL_RESULT:
-            return ToolResultEvent(
-                **base_kwargs,
-                tool_name=data.get("tool_name", ""),
-                result=data.get("result"),
-                error=data.get("error"),
-                duration_ms=data.get("duration_ms", 0.0),
-            )
-        if event_type == EventType.LLM_REQUEST:
-            return LLMRequestEvent(
-                **base_kwargs,
-                model=data.get("model", ""),
-                messages=data.get("messages", []),
-                tools=data.get("tools", []),
-                settings=data.get("settings", {}),
-            )
-        if event_type == EventType.LLM_RESPONSE:
-            return LLMResponseEvent(
-                **base_kwargs,
-                model=data.get("model", ""),
-                content=data.get("content", ""),
-                tool_calls=data.get("tool_calls", []),
-                usage=data.get("usage", {"input_tokens": 0, "output_tokens": 0}),
-                cost_usd=data.get("cost_usd", 0.0),
-                duration_ms=data.get("duration_ms", 0.0),
-            )
-        if event_type == EventType.DECISION:
-            return DecisionEvent(
-                **base_kwargs,
-                reasoning=data.get("reasoning", ""),
-                confidence=data.get("confidence", 0.5),
-                evidence=data.get("evidence", []),
-                evidence_event_ids=data.get("evidence_event_ids", []),
-                alternatives=data.get("alternatives", []),
-                chosen_action=data.get("chosen_action", ""),
-            )
-        if event_type == EventType.SAFETY_CHECK:
-            return SafetyCheckEvent(
-                **base_kwargs,
-                policy_name=data.get("policy_name", ""),
-                outcome=data.get("outcome", "pass"),
-                risk_level=data.get("risk_level", "low"),
-                rationale=data.get("rationale", ""),
-                blocked_action=data.get("blocked_action"),
-                evidence=data.get("evidence", []),
-            )
-        if event_type == EventType.REFUSAL:
-            return RefusalEvent(
-                **base_kwargs,
-                reason=data.get("reason", ""),
-                policy_name=data.get("policy_name", ""),
-                risk_level=data.get("risk_level", "medium"),
-                blocked_action=data.get("blocked_action"),
-                safe_alternative=data.get("safe_alternative"),
-            )
-        if event_type == EventType.POLICY_VIOLATION:
-            return PolicyViolationEvent(
-                **base_kwargs,
-                policy_name=data.get("policy_name", ""),
-                severity=data.get("severity", "medium"),
-                violation_type=data.get("violation_type", ""),
-                details=data.get("details", {}),
-            )
-        if event_type == EventType.PROMPT_POLICY:
-            return PromptPolicyEvent(
-                **base_kwargs,
-                template_id=data.get("template_id", ""),
-                policy_parameters=data.get("policy_parameters", {}),
-                speaker=data.get("speaker", ""),
-                state_summary=data.get("state_summary", ""),
-                goal=data.get("goal", ""),
-            )
-        if event_type == EventType.AGENT_TURN:
-            return AgentTurnEvent(
-                **base_kwargs,
-                agent_id=data.get("agent_id", ""),
-                speaker=data.get("speaker", ""),
-                turn_index=data.get("turn_index", 0),
-                goal=data.get("goal", ""),
-                content=data.get("content", ""),
-            )
-        if event_type == EventType.BEHAVIOR_ALERT:
-            return BehaviorAlertEvent(
-                **base_kwargs,
-                alert_type=data.get("alert_type", ""),
-                severity=data.get("severity", "medium"),
-                signal=data.get("signal", ""),
-                related_event_ids=data.get("related_event_ids", []),
-            )
-        if event_type == EventType.ERROR:
-            return ErrorEvent(
-                **base_kwargs,
-                error_type=data.get("error_type", ""),
-                error_message=data.get("error_message", ""),
-                stack_trace=data.get("stack_trace"),
-            )
-        return TraceEvent(**base_kwargs)
+        return TraceEvent.from_data(event_type, base_kwargs, data)
 
     def _orm_to_session(self, db_session: SessionModel) -> Session:
         """Convert a SessionModel ORM instance to a Session dataclass.
@@ -719,6 +509,7 @@ class TraceRepository:
             tool_calls=db_session.tool_calls,
             llm_calls=db_session.llm_calls,
             errors=db_session.errors,
+            replay_value=db_session.replay_value,
             config=db_session.config,
             tags=db_session.tags,
         )

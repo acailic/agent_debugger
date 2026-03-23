@@ -12,7 +12,7 @@ import asyncio
 import uuid
 from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any, Protocol
 
 from .events import (
@@ -280,7 +280,7 @@ class TraceContext:
             importance=0.2,
         )
         self.session.status = status
-        self.session.ended_at = datetime.now(UTC)
+        self.session.ended_at = datetime.now(timezone.utc)
 
         await self._emit_event(end_event)
         if self._session_update_hook is not None:
@@ -760,7 +760,7 @@ class TraceContext:
             sequence=self._checkpoint_sequence,
             state=state,
             memory=memory or {},
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             importance=max(0.0, min(1.0, importance)),
         )
 

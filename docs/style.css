@@ -1,0 +1,246 @@
+/* Part 1 — CSS variables */
+:root {
+  --bg:          #0d1117;
+  --surface:     #161b22;
+  --border:      #30363d;
+  --accent:      #58a6ff;
+  --accent-hover:#79b8ff;
+  --text:        #e6edf3;
+  --muted:       #8b949e;
+  --code-bg:     #1f2428;
+  --font-sans:   system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono:   ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+  --radius:      6px;
+  --max-w:       1100px;
+}
+
+/* Part 2 — Reset + base */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); text-decoration: underline; }
+img { display: block; max-width: 100%; height: auto; }
+code, pre { font-family: var(--font-mono); }
+
+/* Part 3 — Layout utilities */
+.container { max-width: var(--max-w); margin: 0 auto; padding: 0 24px; }
+.section { padding: 80px 0; }
+.section--alt { background: var(--surface); }
+.section__title {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  margin-bottom: 12px;
+  text-align: center;
+}
+.section__sub {
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 48px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Part 4 — Hero */
+.hero {
+  padding: 96px 0 80px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+.hero__headline {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 20px;
+  letter-spacing: -0.02em;
+}
+.hero__sub {
+  color: var(--muted);
+  font-size: 1.125rem;
+  max-width: 640px;
+  margin: 0 auto 36px;
+}
+.hero__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 36px;
+}
+.hero__badges img { height: 20px; }
+.hero__cta {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  text-decoration: none;
+}
+.btn--primary { background: var(--accent); color: #0d1117; border: 1px solid var(--accent); }
+.btn--primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #0d1117; text-decoration: none; }
+.btn--outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn--outline:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.install-block { position: relative; display: inline-block; text-align: left; }
+.install-block__pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 56px 14px 18px;
+  font-size: 0.95rem;
+  color: var(--text);
+  white-space: pre;
+}
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.copy-btn:hover { color: var(--text); border-color: var(--accent); }
+.copy-btn.copied { color: #3fb950; border-color: #3fb950; }
+
+/* Part 5 — Why Peaky Peek */
+.why-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 24px;
+  margin-bottom: 56px;
+}
+.why-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 24px;
+}
+.why-card__icon { font-size: 2rem; margin-bottom: 12px; }
+.why-card__title { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+.why-card__body { color: var(--muted); font-size: 0.9rem; line-height: 1.6; }
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.compare-table th,
+.compare-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.compare-table thead th {
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.compare-table tbody tr:last-child td { border-bottom: none; }
+.compare-table--highlight td { background: #132034; color: var(--accent); font-weight: 600; }
+
+/* Part 6 — Features grid */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.feature-card:hover { border-color: var(--accent); }
+.feature-card__img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  border-bottom: 1px solid var(--border);
+}
+.feature-card__body-wrap { padding: 20px; }
+.feature-card__title { font-size: 0.95rem; font-weight: 700; margin-bottom: 6px; }
+.feature-card__body { color: var(--muted); font-size: 0.875rem; line-height: 1.5; }
+
+/* Part 7 — Quick install */
+.install-steps { max-width: 640px; margin: 0 auto; }
+.install-steps__label {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  margin-top: 20px;
+}
+.install-steps__label:first-child { margin-top: 0; }
+.install-steps pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  font-size: 0.9rem;
+  color: var(--text);
+  overflow-x: auto;
+}
+.install-steps__note { color: var(--muted); font-size: 0.85rem; margin-top: 24px; text-align: center; }
+.install-steps__note a { color: var(--accent); }
+
+/* Part 8 — Footer */
+.footer {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 40px 0;
+  text-align: center;
+}
+.footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  justify-content: center;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+.footer__links a { color: var(--muted); }
+.footer__links a:hover { color: var(--text); text-decoration: none; }
+.footer__legal { color: var(--muted); font-size: 0.8rem; }
+
+/* Part 9 — Responsive overrides (MUST be last) */
+@media (max-width: 767px) {
+  .section { padding: 56px 0; }
+  .hero { padding: 64px 0 56px; }
+  .why-grid { grid-template-columns: 1fr; }
+  .features-grid { grid-template-columns: 1fr; }
+  .hero__cta { flex-direction: column; align-items: stretch; }
+  .btn { justify-content: center; }
+  /* Hides last column on mobile — intentional, keeps table readable */
+  .compare-table th:last-child,
+  .compare-table td:last-child { display: none; }
+}

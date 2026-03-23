@@ -6,7 +6,7 @@ import json
 from dataclasses import fields
 from typing import Any
 
-from agent_debugger_sdk.core.events import EventType, TraceEvent
+from agent_debugger_sdk.core.events import BASE_EVENT_FIELDS, EventType, TraceEvent
 from redaction.patterns import PII_PATTERNS, REPLACEMENT_MAP
 
 # Fields that contain prompt/response content
@@ -23,20 +23,6 @@ TRUNCATION_PRIORITY_FIELDS = {
     "evidence",
 }
 TRUNCATED_MARKER = "[TRUNCATED]"
-BASE_EVENT_FIELDS = {
-    "id",
-    "session_id",
-    "parent_id",
-    "event_type",
-    "timestamp",
-    "name",
-    "data",
-    "metadata",
-    "importance",
-    "upstream_event_ids",
-}
-
-
 class RedactionPipeline:
     def __init__(
         self,
@@ -49,6 +35,18 @@ class RedactionPipeline:
         self.redact_tool_payloads = redact_tool_payloads
         self.redact_pii = redact_pii
         self.max_payload_kb = max_payload_kb
+
+    @classmethod
+    def from_config(cls) -> RedactionPipeline:
+        """Build a redaction pipeline from the active SDK configuration."""
+        from agent_debugger_sdk.config import get_config
+
+        config = get_config()
+        return cls(
+            redact_prompts=config.redact_prompts,
+            redact_pii=False,
+            max_payload_kb=config.max_payload_kb,
+        )
 
     def apply(self, event: TraceEvent) -> TraceEvent:
         # NOTE: We use copy + mutation instead of dataclasses.replace()
@@ -122,22 +120,28 @@ class RedactionPipeline:
         did_truncate = False
 
         for priority_only in (True, False):
-            while self._payload_size_bytes(truncated) > max_bytes:
+            while True:
+                current_size = self._payload_size_bytes(truncated)
+                if current_size <= max_bytes:
+                    return truncated, True
+
                 candidates = self._collect_string_candidates(truncated, priority_only=priority_only)
                 if not candidates:
                     break
 
                 changed = False
                 for path, value in candidates:
-                    current_size = self._payload_size_bytes(truncated)
                     excess = current_size - max_bytes
                     replacement = self._truncate_string(value, excess)
                     if replacement == value:
                         continue
+
                     self._set_nested_value(truncated, path, replacement)
                     did_truncate = True
                     changed = True
-                    if self._payload_size_bytes(truncated) <= max_bytes:
+
+                    current_size -= self._estimate_string_reduction(value, replacement)
+                    if current_size <= max_bytes:
                         return truncated, True
 
                 if not changed:
@@ -223,6 +227,13 @@ class RedactionPipeline:
 
     def _payload_size_bytes(self, payload: dict[str, Any]) -> int:
         return len(self._serialize_json(payload).encode("utf-8"))
+
+    def _estimate_string_reduction(self, old_value: str, new_value: str) -> int:
+        return max(
+            len(self._serialize_json(old_value).encode("utf-8"))
+            - len(self._serialize_json(new_value).encode("utf-8")),
+            0,
+        )
 
     def _serialize_json(self, payload: Any) -> str:
         return json.dumps(payload, ensure_ascii=False, default=str)

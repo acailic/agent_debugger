@@ -13,7 +13,7 @@ import logging
 import os
 import tempfile
 from contextlib import suppress
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -105,7 +105,7 @@ class PersistenceManager:
 
     async def _ensure_storage_path(self) -> None:
         """Create storage directory if it doesn't exist."""
-        self.storage_path.mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(self.storage_path.mkdir, parents=True, exist_ok=True)
 
     async def _flush_loop(self) -> None:
         """Internal flush loop that runs periodically."""
@@ -158,9 +158,12 @@ class PersistenceManager:
             event_dict = event.to_dict()
             event_dict["_meta"] = {
                 "session_id": session_id,
-                "flushed_at": datetime.now(UTC).isoformat(),
+                "flushed_at": datetime.now(timezone.utc).isoformat(),
             }
             lines.append(json.dumps(event_dict, ensure_ascii=False))
 
+        await asyncio.to_thread(self._write_sync, file_path, lines)
+
+    def _write_sync(self, file_path: Path, lines: list[str]) -> None:
         with file_path.open(mode="a", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")

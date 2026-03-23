@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import builtins
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 

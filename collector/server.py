@@ -15,20 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from agent_debugger_sdk.config import get_config
 from agent_debugger_sdk.core.events import (
-    AgentTurnEvent,
-    BehaviorAlertEvent,
-    DecisionEvent,
-    ErrorEvent,
     EventType,
-    LLMRequestEvent,
-    LLMResponseEvent,
-    PolicyViolationEvent,
-    PromptPolicyEvent,
-    RefusalEvent,
-    SafetyCheckEvent,
     Session,
-    ToolCallEvent,
-    ToolResultEvent,
     TraceEvent,
 )
 from auth.middleware import get_tenant_from_api_key
@@ -158,13 +146,7 @@ async def _get_tenant_id(request: Request, db: AsyncSession) -> str:
 
 def _get_redaction_pipeline() -> RedactionPipeline:
     """Get redaction pipeline based on config."""
-    from agent_debugger_sdk.config import get_config
-    config = get_config()
-    return RedactionPipeline(
-        redact_prompts=config.redact_prompts,
-        redact_pii=False,  # Could be another config option
-        max_payload_kb=config.max_payload_kb,
-    )
+    return RedactionPipeline.from_config()
 
 
 async def _persist_event_if_configured(event: TraceEvent, tenant_id: str = "local") -> None:
@@ -222,118 +204,14 @@ def _build_event(event_data: TraceEventIngest, event_type: EventType) -> TraceEv
     base_kwargs: dict[str, Any] = {
         "session_id": event_data.session_id,
         "parent_id": event_data.parent_id,
-        "event_type": event_type,
         "name": event_data.name,
-        "data": event_data.data,
         "metadata": event_data.metadata,
         "upstream_event_ids": event_data.upstream_event_ids,
     }
     if timestamp is not None:
         base_kwargs["timestamp"] = timestamp
 
-    if event_type == EventType.TOOL_CALL:
-        return ToolCallEvent(
-            **base_kwargs,
-            tool_name=event_data.data.get("tool_name", ""),
-            arguments=event_data.data.get("arguments", {}),
-        )
-    if event_type == EventType.TOOL_RESULT:
-        return ToolResultEvent(
-            **base_kwargs,
-            tool_name=event_data.data.get("tool_name", ""),
-            result=event_data.data.get("result"),
-            error=event_data.data.get("error"),
-            duration_ms=event_data.data.get("duration_ms", 0.0),
-        )
-    if event_type == EventType.LLM_REQUEST:
-        return LLMRequestEvent(
-            **base_kwargs,
-            model=event_data.data.get("model", ""),
-            messages=event_data.data.get("messages", []),
-            tools=event_data.data.get("tools", []),
-            settings=event_data.data.get("settings", {}),
-        )
-    if event_type == EventType.LLM_RESPONSE:
-        return LLMResponseEvent(
-            **base_kwargs,
-            model=event_data.data.get("model", ""),
-            content=event_data.data.get("content", ""),
-            tool_calls=event_data.data.get("tool_calls", []),
-            usage=event_data.data.get("usage", {"input_tokens": 0, "output_tokens": 0}),
-            cost_usd=event_data.data.get("cost_usd", 0.0),
-            duration_ms=event_data.data.get("duration_ms", 0.0),
-        )
-    if event_type == EventType.DECISION:
-        return DecisionEvent(
-            **base_kwargs,
-            reasoning=event_data.data.get("reasoning", ""),
-            confidence=event_data.data.get("confidence", 0.5),
-            evidence=event_data.data.get("evidence", []),
-            evidence_event_ids=event_data.data.get("evidence_event_ids", []),
-            alternatives=event_data.data.get("alternatives", []),
-            chosen_action=event_data.data.get("chosen_action", ""),
-        )
-    if event_type == EventType.SAFETY_CHECK:
-        return SafetyCheckEvent(
-            **base_kwargs,
-            policy_name=event_data.data.get("policy_name", ""),
-            outcome=event_data.data.get("outcome", "pass"),
-            risk_level=event_data.data.get("risk_level", "low"),
-            rationale=event_data.data.get("rationale", ""),
-            blocked_action=event_data.data.get("blocked_action"),
-            evidence=event_data.data.get("evidence", []),
-        )
-    if event_type == EventType.REFUSAL:
-        return RefusalEvent(
-            **base_kwargs,
-            reason=event_data.data.get("reason", ""),
-            policy_name=event_data.data.get("policy_name", ""),
-            risk_level=event_data.data.get("risk_level", "medium"),
-            blocked_action=event_data.data.get("blocked_action"),
-            safe_alternative=event_data.data.get("safe_alternative"),
-        )
-    if event_type == EventType.POLICY_VIOLATION:
-        return PolicyViolationEvent(
-            **base_kwargs,
-            policy_name=event_data.data.get("policy_name", ""),
-            severity=event_data.data.get("severity", "medium"),
-            violation_type=event_data.data.get("violation_type", ""),
-            details=event_data.data.get("details", {}),
-        )
-    if event_type == EventType.PROMPT_POLICY:
-        return PromptPolicyEvent(
-            **base_kwargs,
-            template_id=event_data.data.get("template_id", ""),
-            policy_parameters=event_data.data.get("policy_parameters", {}),
-            speaker=event_data.data.get("speaker", ""),
-            state_summary=event_data.data.get("state_summary", ""),
-            goal=event_data.data.get("goal", ""),
-        )
-    if event_type == EventType.AGENT_TURN:
-        return AgentTurnEvent(
-            **base_kwargs,
-            agent_id=event_data.data.get("agent_id", ""),
-            speaker=event_data.data.get("speaker", ""),
-            turn_index=event_data.data.get("turn_index", 0),
-            goal=event_data.data.get("goal", ""),
-            content=event_data.data.get("content", ""),
-        )
-    if event_type == EventType.BEHAVIOR_ALERT:
-        return BehaviorAlertEvent(
-            **base_kwargs,
-            alert_type=event_data.data.get("alert_type", ""),
-            severity=event_data.data.get("severity", "medium"),
-            signal=event_data.data.get("signal", ""),
-            related_event_ids=event_data.data.get("related_event_ids", []),
-        )
-    if event_type == EventType.ERROR:
-        return ErrorEvent(
-            **base_kwargs,
-            error_type=event_data.data.get("error_type", ""),
-            error_message=event_data.data.get("error_message", ""),
-            stack_trace=event_data.data.get("stack_trace"),
-        )
-    return TraceEvent(**base_kwargs)
+    return TraceEvent.from_data(event_type, base_kwargs, event_data.data)
 
 
 @router.post("/traces", response_model=TraceEventResponse, status_code=status.HTTP_202_ACCEPTED)

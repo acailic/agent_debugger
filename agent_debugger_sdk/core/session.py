@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 from contextvars import ContextVar
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from .events import Session
@@ -60,7 +60,7 @@ class SessionManager:
             id=str(uuid.uuid4()),
             agent_name=agent_name,
             framework=framework,
-            started_at=datetime.now(UTC),
+            started_at=datetime.now(timezone.utc),
             status="running",
             config=config or {},
             tags=tags or [],
@@ -82,7 +82,7 @@ class SessionManager:
         if session is None:
             return None
 
-        session.ended_at = datetime.now(UTC)
+        session.ended_at = datetime.now(timezone.utc)
         session.status = status
         return session
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import JSON, Float, ForeignKey, Index, String
@@ -24,7 +24,7 @@ class SessionModel(Base):
     tenant_id: Mapped[str] = mapped_column(String(64), nullable=False, default="local", index=True)
     agent_name: Mapped[str] = mapped_column(String(255))
     framework: Mapped[str] = mapped_column(String(100))
-    started_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    started_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
     ended_at: Mapped[datetime | None] = mapped_column(nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="running")
     total_tokens: Mapped[int] = mapped_column(default=0)
@@ -32,6 +32,7 @@ class SessionModel(Base):
     tool_calls: Mapped[int] = mapped_column(default=0)
     llm_calls: Mapped[int] = mapped_column(default=0)
     errors: Mapped[int] = mapped_column(default=0)
+    replay_value: Mapped[float] = mapped_column(Float, default=0.0, index=True)
     config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)
 
@@ -49,7 +50,7 @@ class EventModel(Base):
     session_id: Mapped[str] = mapped_column(String(36), ForeignKey("sessions.id"), index=True)
     parent_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     event_type: Mapped[str] = mapped_column(String(32), index=True)
-    timestamp: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), index=True)
+    timestamp: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc), index=True)
     name: Mapped[str] = mapped_column(String(255))
     data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     event_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
@@ -75,7 +76,7 @@ class CheckpointModel(Base):
     sequence: Mapped[int] = mapped_column(default=0)
     state: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     memory: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    timestamp: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    timestamp: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
     importance: Mapped[float] = mapped_column(Float, default=0.5)
 
     session: Mapped[SessionModel] = relationship(back_populates="checkpoints")

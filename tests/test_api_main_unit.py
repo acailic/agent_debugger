@@ -4,7 +4,7 @@ import asyncio
 import sys
 import types
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 

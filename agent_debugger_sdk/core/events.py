@@ -8,8 +8,8 @@ event can have a parent, enabling hierarchical trace analysis.
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from dataclasses import dataclass, field, fields
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 
@@ -43,6 +43,20 @@ class EventType(StrEnum):
     BEHAVIOR_ALERT = "behavior_alert"
 
 
+BASE_EVENT_FIELDS = {
+    "id",
+    "session_id",
+    "parent_id",
+    "event_type",
+    "timestamp",
+    "name",
+    "data",
+    "metadata",
+    "importance",
+    "upstream_event_ids",
+}
+
+
 @dataclass(kw_only=True)
 class TraceEvent:
     """Base dataclass for all trace events.
@@ -67,7 +81,7 @@ class TraceEvent:
     session_id: str = ""
     parent_id: str | None = None
     event_type: EventType = EventType.AGENT_START
-    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     name: str = ""
     data: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -97,6 +111,22 @@ class TraceEvent:
         }
 
     @classmethod
+    def _typed_field_names(cls) -> set[str]:
+        """Return event-specific dataclass fields beyond the shared base payload."""
+        return {
+            field_info.name
+            for field_info in fields(cls)
+            if field_info.name not in BASE_EVENT_FIELDS
+        }
+
+    def to_storage_data(self) -> dict[str, Any]:
+        """Merge event-specific fields into the storage payload."""
+        payload = dict(self.data)
+        for field_name in self._typed_field_names():
+            payload[field_name] = getattr(self, field_name)
+        return payload
+
+    @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TraceEvent:
         """Deserialize a dictionary to a TraceEvent.
 
@@ -118,6 +148,33 @@ class TraceEvent:
             data["event_type"] = EventType(data["event_type"])
 
         return cls(**data)
+
+    @classmethod
+    def from_data(
+        cls,
+        event_type: EventType,
+        base_kwargs: dict[str, Any],
+        data: dict[str, Any],
+    ) -> TraceEvent:
+        """Build the typed event instance for the given event_type."""
+        event_cls = EVENT_TYPE_REGISTRY.get(event_type, cls)
+        typed_field_names = event_cls._typed_field_names()
+        typed_kwargs = {
+            field_name: data[field_name]
+            for field_name in typed_field_names
+            if field_name in data
+        }
+        payload = {
+            key: value
+            for key, value in data.items()
+            if key not in typed_field_names
+        }
+        return event_cls(
+            **base_kwargs,
+            event_type=event_type,
+            data=payload,
+            **typed_kwargs,
+        )
 
 
 @dataclass(kw_only=True)
@@ -515,7 +572,7 @@ class Session:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     agent_name: str = ""
     framework: str = ""
-    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     ended_at: datetime | None = None
     status: str = "running"
     total_tokens: int = 0
@@ -523,6 +580,7 @@ class Session:
     tool_calls: int = 0
     llm_calls: int = 0
     errors: int = 0
+    replay_value: float = 0.0
     config: dict[str, Any] = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
 
@@ -540,6 +598,7 @@ class Session:
             "tool_calls": self.tool_calls,
             "llm_calls": self.llm_calls,
             "errors": self.errors,
+            "replay_value": self.replay_value,
             "config": self.config,
             "tags": self.tags,
         }
@@ -569,7 +628,7 @@ class Checkpoint:
     sequence: int = 0
     state: dict[str, Any] = field(default_factory=dict)
     memory: dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     importance: float = 0.5
 
     def to_dict(self) -> dict[str, Any]:
@@ -584,3 +643,19 @@ class Checkpoint:
             "timestamp": self.timestamp.isoformat(),
             "importance": self.importance,
         }
+
+
+EVENT_TYPE_REGISTRY: dict[EventType, type[TraceEvent]] = {
+    EventType.TOOL_CALL: ToolCallEvent,
+    EventType.TOOL_RESULT: ToolResultEvent,
+    EventType.LLM_REQUEST: LLMRequestEvent,
+    EventType.LLM_RESPONSE: LLMResponseEvent,
+    EventType.DECISION: DecisionEvent,
+    EventType.SAFETY_CHECK: SafetyCheckEvent,
+    EventType.REFUSAL: RefusalEvent,
+    EventType.POLICY_VIOLATION: PolicyViolationEvent,
+    EventType.PROMPT_POLICY: PromptPolicyEvent,
+    EventType.AGENT_TURN: AgentTurnEvent,
+    EventType.BEHAVIOR_ALERT: BehaviorAlertEvent,
+    EventType.ERROR: ErrorEvent,
+}
