@@ -75,9 +75,50 @@ async def my_agent() -> None:
 asyncio.run(my_agent())
 ```
 
+## Framework Quick Starts
+
+<details>
+<summary><b>PydanticAI</b></summary>
+
+```python
+from pydantic_ai import Agent
+from agent_debugger_sdk import init
+from agent_debugger_sdk.adapters import PydanticAIAdapter
+
+init()
+
+agent = Agent("openai:gpt-4o")
+adapter = PydanticAIAdapter(agent, agent_name="support_agent")
+```
+
+</details>
+
+<details>
+<summary><b>LangChain</b></summary>
+
+```python
+from agent_debugger_sdk import TraceContext, init
+from agent_debugger_sdk.adapters import LangChainTracingHandler
+
+init()
+
+context = TraceContext(session_id="demo", agent_name="langchain_agent", framework="langchain")
+handler = LangChainTracingHandler(session_id="demo")
+handler.set_context(context)
+```
+
+</details>
+
+<details>
+<summary><b>CrewAI</b></summary>
+
+Adapter available — see [integration guide](./docs/integration.md) for setup details.
+
+</details>
+
 More integration paths:
 
-- [Integration guide](./docs/integration.md)
+- [Full integration guide](./docs/integration.md)
 - [SDK package readme](./SDK_README.md)
 
 ## Use Cases
