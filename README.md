@@ -1,4 +1,4 @@
-# Agent Debugger & Visualizer
+# Debug AI agents like distributed systems — not black boxes.
 
 [![PyPI peaky-peek](https://img.shields.io/pypi/v/peaky-peek.svg?label=peaky-peek)](https://pypi.org/project/peaky-peek/)
 [![PyPI peaky-peek-server](https://img.shields.io/pypi/v/peaky-peek-server.svg?label=peaky-peek-server)](https://pypi.org/project/peaky-peek-server/)
@@ -6,28 +6,40 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://img.shields.io/pypi/dm/peaky-peek)](https://pypi.org/project/peaky-peek/)
 
-When your AI agent does something wrong, you need to know *why* — not just that it failed. Agent Debugger captures every decision, tool call, and LLM interaction as a queryable event timeline. Inspect live, replay from checkpoints, search across sessions.
+Capture every decision, tool call, and LLM interaction as a queryable event timeline. Inspect live, replay from checkpoints, search across sessions.
 
-| Package | Install | What you get |
-|---|---|---|
-| [`peaky-peek`](https://pypi.org/project/peaky-peek/) | `pip install peaky-peek` | Tracing SDK — `TraceContext`, decorators, LangChain/CrewAI/PydanticAI adapters |
-| [`peaky-peek-server`](https://pypi.org/project/peaky-peek-server/) | `pip install peaky-peek-server` | Full stack — SDK + FastAPI server + SQLite storage + SSE + React UI |
+<!-- TODO: Record demo GIF showing decision tree view → checkpoint replay → search -->
+<!-- ![Demo](./docs/demo.gif) -->
+
+## Why This Exists
+
+Traditional observability tools weren't built for agent-native debugging:
+
+- **Logs and OpenTelemetry** — great for infrastructure metrics, blind to reasoning chains and decision trees
+- **LangSmith** — powerful LLM tracing, but SaaS-first with no local-first option
+- **Sentry** — excellent for error tracking, no insight into *why* agents chose specific actions
+
+Peaky Peek is different: **agent-decision-aware**, **local-first by default**, and built for **interactive replay** — not just logging. We capture the causal chain behind every action so you can debug agents like distributed systems: trace failures, replay from checkpoints, and search across reasoning paths.
+
+| Tool | Focus | Limitation |
+|------|-------|-----------|
+| LangSmith | LLM tracing | SaaS-first, no local-first option |
+| OpenTelemetry | Infra observability | Not agent-decision-aware |
+| Sentry | Error tracking | No reasoning-level insight |
+| **Peaky Peek** | Agent-native debugging | **Local-first, open source** |
 
 ## Quick Start
 
-### 1. Install
+### Option A: Docker (no install)
 
 ```bash
-# SDK only (instrument your agents)
-pip install peaky-peek
-
-# Full self-hosted stack
-pip install peaky-peek-server
+docker run -p 8000:8000 -p 5173:5173 peaky-peek
 ```
 
-### 2. Start the local API
+### Option B: pip
 
 ```bash
+pip install peaky-peek-server
 uvicorn api.main:app --reload --port 8000
 ```
 
@@ -36,7 +48,7 @@ Backend addresses:
 - FastAPI docs: `http://localhost:8000/docs`
 - Health: `http://localhost:8000/health`
 
-### 2. Optional: run the frontend UI
+### Optional: Run the frontend UI
 
 ```bash
 cd frontend
@@ -47,7 +59,7 @@ npm run dev
 Frontend dev server:
 - UI: `http://localhost:5173`
 
-### 3. Instrument your code
+### Instrument your code
 
 ```python
 import asyncio
@@ -76,10 +88,32 @@ async def my_agent() -> None:
 asyncio.run(my_agent())
 ```
 
-## Framework Quick Starts
+## Core Concepts
 
-<details>
-<summary><b>PydanticAI</b></summary>
+Peaky Peek models agent execution as a hierarchy:
+
+```
+Session → Trace → Event → Decision → Tool Call → Checkpoint
+```
+
+- **Session** — A complete agent run (e.g., one user request)
+- **Trace** — The full event timeline for a session
+- **Event** — Any observable action (decision, tool call, LLM response)
+- **Decision** — A reasoning step with confidence, evidence, and chosen action
+- **Tool Call** — External function invocation with inputs/outputs
+- **Checkpoint** — Snapshot of state for time-travel replay
+
+## Use Cases
+
+- **LangChain agent loops the wrong tool** — inspect the decision tree to see exactly which reasoning step triggered the bad tool selection
+- **PydanticAI workflow fails silently** — replay the session step-by-step from the last checkpoint before failure
+- **CrewAI task handoffs go wrong** — search events across agents to find where context was lost
+- **Prompt iteration** — compare LLM request/response pairs across multiple runs to measure improvement
+- **Safety auditing** — trace why an agent refused or chose a risky action
+
+## Framework Integrations
+
+### PydanticAI
 
 ```python
 from pydantic_ai import Agent
@@ -92,10 +126,7 @@ agent = Agent("openai:gpt-4o")
 adapter = PydanticAIAdapter(agent, agent_name="support_agent")
 ```
 
-</details>
-
-<details>
-<summary><b>LangChain</b></summary>
+### LangChain
 
 ```python
 from agent_debugger_sdk import TraceContext, init
@@ -108,47 +139,21 @@ handler = LangChainTracingHandler(session_id="demo")
 handler.set_context(context)
 ```
 
-</details>
+### CrewAI
 
-<details>
-<summary><b>CrewAI</b></summary>
+```python
+from agent_debugger_sdk import init
+from agent_debugger_sdk.adapters import CrewAIAdapter
 
-Adapter available — see [integration guide](./docs/integration.md) for setup details.
+init()
 
-</details>
+# Wrap your CrewAI crew with automatic tracing
+adapter = CrewAIAdapter(crew=your_crew, agent_name="my_crew")
+```
 
 More integration paths:
-
 - [Full integration guide](./docs/integration.md)
 - [SDK package readme](./SDK_README.md)
-
-## Use Cases
-
-- **LangChain agent loops the wrong tool** — inspect the decision tree to see exactly which reasoning step triggered the bad tool selection
-- **PydanticAI workflow fails silently** — replay the session step-by-step from the last checkpoint before failure
-- **CrewAI task handoffs go wrong** — search events across agents to find where context was lost
-- **Prompt iteration** — compare LLM request/response pairs across multiple runs to measure improvement
-
-## Main API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/sessions` | List sessions |
-| `GET` | `/api/sessions/{id}` | Get session details |
-| `GET` | `/api/sessions/{id}/traces` | Session event list |
-| `GET` | `/api/sessions/{id}/trace` | Normalized trace bundle |
-| `GET` | `/api/sessions/{id}/tree` | Decision tree |
-| `GET` | `/api/sessions/{id}/checkpoints` | Checkpoints |
-| `GET` | `/api/sessions/{id}/analysis` | Adaptive trace analysis |
-| `GET` | `/api/sessions/{id}/live` | Live summary |
-| `GET` | `/api/sessions/{id}/replay` | Checkpoint-aware replay |
-| `GET` | `/api/sessions/{id}/stream` | SSE real-time stream |
-| `GET` | `/api/traces/search` | Search across sessions |
-| `POST` | `/api/traces` | Ingest trace event |
-
-```bash
-curl "http://localhost:8000/api/traces/search?query=weather&event_type=decision&limit=10"
-```
 
 ## Architecture
 
@@ -173,6 +178,31 @@ curl "http://localhost:8000/api/traces/search?query=weather&event_type=decision&
 └─────────────────────────────────────────────────────┘
 ```
 
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for full module breakdown.
+
+## Privacy & Security
+
+- **Local-first by default** — no external telemetry
+- **Optional redaction pipeline** — prompts, payloads, PII regex
+- **API key authentication** — bcrypt hashing
+- **Multi-tenant isolation** — cloud mode
+- **No data leaves your machine** — without explicit cloud config
+
+## Deployment Modes
+
+- **Local developer debugging** (default)
+- **Team self-hosted server**
+- **Air-gapped / enterprise environments**
+- **Cloud multi-tenant** (planned)
+
+## Project Status
+
+- **Core debugger stable** — local path end-to-end
+- **SDK, API, storage, replay, frontend** — usable
+- **Research-grade analysis features** — available
+- **LangChain zero-code auto-patching** — handler path works, auto-patch placeholder
+- **Cloud features** — auth, tenant isolation experimental
+
 ## Development
 
 ```bash
@@ -191,12 +221,24 @@ cd frontend && npm install && npm run build
 python scripts/seed_demo_sessions.py
 ```
 
-## Current Shape
+## Contributing
 
-- The local debugger path is working end to end.
-- The SDK core, API, storage, replay surface, and frontend debugger are usable now.
-- Cloud-oriented auth, privacy, and tenant isolation work exists in the repo but is still incomplete.
-- PydanticAI and LangChain integration points exist, but finished zero-code auto-instrumentation is not the current story.
+Contributions are welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+
+## Research
+
+This is not just tooling — the design is research-informed. Peaky Peek draws on recent work in neural debugging, replay mechanisms, evidence-grounded reasoning, agentic safety, root-cause tracing, explainable failure analysis, and failure-aware repair:
+
+- [Towards a Neural Debugger for Python](https://arxiv.org/abs/2603.09951v1)
+- [MSSR: Memory-Aware Adaptive Replay for Continual LLM Fine-Tuning](https://arxiv.org/abs/2603.09892v1)
+- [CXReasonAgent: Evidence-Grounded Diagnostic Reasoning Agent for Chest X-rays](https://arxiv.org/abs/2602.23276v1)
+- [NeuroSkill™: Proactive Real-Time Agentic System Capable of Modeling Human State of Mind](https://arxiv.org/abs/2603.03212v1)
+- [Learning When to Act or Refuse](https://arxiv.org/abs/2603.03205v1) — safe tool use and refusal-aware agent traces
+- [Influencing LLM Multi-Agent Dialogue via Policy-Parameterized Prompts](https://arxiv.org/abs/2603.09890v1)
+- [AgentTrace: Causal Graph Tracing for Root Cause Analysis](https://arxiv.org/abs/2603.14688)
+- [XAI for Coding Agent Failures: Transforming Raw Execution Traces into Actionable Insights](https://arxiv.org/abs/2603.05941)
+- [REST: Receding Horizon Explorative Steiner Tree for Zero-Shot Object-Goal Navigation](https://arxiv.org/abs/2603.18624)
+- [FailureMem: A Failure-Aware Multimodal Framework for Autonomous Software Repair](https://arxiv.org/abs/2603.17826)
 
 ## Documentation
 
@@ -205,21 +247,6 @@ python scripts/seed_demo_sessions.py
 - [Integration](./docs/integration.md)
 - [Architecture overview](./ARCHITECTURE.md)
 - [Progress tracker](./docs/progress.md)
-
-## Research
-
-This tool draws on recent work in neural debugging, replay mechanisms, evidence-grounded reasoning, agentic safety, root-cause tracing, explainable failure analysis, and failure-aware repair:
-
-- [Towards a Neural Debugger for Python](https://arxiv.org/abs/2603.09951v1)
-- [MSSR: Memory-Aware Adaptive Replay for Continual LLM Fine-Tuning](https://arxiv.org/abs/2603.09892v1)
-- [CXReasonAgent: Evidence-Grounded Diagnostic Reasoning Agent for Chest X-rays](https://arxiv.org/abs/2602.23276v1)
-- [NeuroSkill(tm): Proactive Real-Time Agentic System Capable of Modeling Human State of Mind](https://arxiv.org/abs/2603.03212v1)
-- [Learning When to Act or Refuse](https://arxiv.org/abs/2603.03205v1) — safe tool use and refusal-aware agent traces
-- [Influencing LLM Multi-Agent Dialogue via Policy-Parameterized Prompts](https://arxiv.org/abs/2603.09890v1)
-- [AgentTrace: Causal Graph Tracing for Root Cause Analysis](https://arxiv.org/abs/2603.14688)
-- [XAI for Coding Agent Failures: Transforming Raw Execution Traces into Actionable Insights](https://arxiv.org/abs/2603.05941)
-- [REST: Receding Horizon Explorative Steiner Tree for Zero-Shot Object-Goal Navigation](https://arxiv.org/abs/2603.18624)
-- [FailureMem: A Failure-Aware Multimodal Framework for Autonomous Software Repair](https://arxiv.org/abs/2603.17826)
 
 ## License
 
