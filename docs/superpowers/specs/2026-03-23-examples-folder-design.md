@@ -90,7 +90,7 @@ Run:
 ### `07_loop_detection.py`
 - Runs a simple agent that calls `search_tool` 4 times with near-identical inputs (simulating a stuck loop)
 - Between calls, prints: "trying again..." to console
-- After the 4th call, calls `await ctx.record_behavior_alert(alert_type="tool_loop_detected", description="search_tool called 4 times with similar inputs", severity="high")` — this is the correct method (exists in `TraceContext` and already used in `06_safety_audit.py`)
+- After the 4th call, calls `await ctx.record_behavior_alert(alert_type="tool_loop_detected", signal="search_tool called 4 times with similar inputs", severity="high")` — second arg is `signal=`, not `description=` (verified against `context.py` signature)
 - Do NOT use `record_decision` for this — use `record_behavior_alert` for consistency
 - What to look for in the UI: Live alerts timeline, loop detection heuristic panel
 
