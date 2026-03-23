@@ -26,6 +26,15 @@ def test_init_with_api_key_sets_cloud_mode():
     assert config.api_key == "ad_live_test123"
 
 
+def test_config_defaults_cloud_endpoint_when_api_key_is_present():
+    from agent_debugger_sdk.config import Config
+
+    config = Config(api_key="ad_live_test123")
+
+    assert config.mode == "cloud"
+    assert config.endpoint == "https://api.agentdebugger.dev"
+
+
 def test_init_without_api_key_sets_local_mode():
     from agent_debugger_sdk.config import init
     with patch.dict(os.environ, {}, clear=True):

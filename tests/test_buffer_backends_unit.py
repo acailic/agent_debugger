@@ -175,6 +175,25 @@ async def test_redis_event_buffer_listen_distributes_valid_messages_and_skips_in
 
 
 @pytest.mark.asyncio
+async def test_redis_event_buffer_listen_handles_cancellation_and_unsubscribes():
+    class CancelledPubSub:
+        def __init__(self):
+            self.subscribe = AsyncMock()
+            self.unsubscribe = AsyncMock()
+
+        async def listen(self):
+            raise asyncio.CancelledError
+            yield None  # pragma: no cover
+
+    redis_client = SimpleNamespace(pubsub=MagicMock(return_value=CancelledPubSub()))
+    buffer = RedisEventBuffer(redis_client=redis_client)
+
+    await buffer._listen("cancelled-session")
+
+    redis_client.pubsub.return_value.unsubscribe.assert_awaited_once_with("ad:live:cancelled-session")
+
+
+@pytest.mark.asyncio
 async def test_redis_event_buffer_context_manager_closes_client():
     redis_client = SimpleNamespace(
         xadd=AsyncMock(),

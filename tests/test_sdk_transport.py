@@ -73,6 +73,26 @@ async def test_transport_send_session_update():
 
 
 @pytest.mark.asyncio
+async def test_transport_send_session_start_graceful_on_failure():
+    transport = HttpTransport(endpoint="http://localhost:8000", api_key="ad_live_test")
+    with patch.object(transport, "_client") as mock_client:
+        mock_client.post = AsyncMock(side_effect=ConnectionError("down"))
+        session = Session(id="s1", agent_name="test_agent", framework="pydantic_ai")
+
+        await transport.send_session_start(session)
+
+
+@pytest.mark.asyncio
+async def test_transport_send_session_update_graceful_on_failure():
+    transport = HttpTransport(endpoint="http://localhost:8000", api_key="ad_live_test")
+    with patch.object(transport, "_client") as mock_client:
+        mock_client.put = AsyncMock(side_effect=ConnectionError("down"))
+        session = Session(id="s1", agent_name="test_agent", framework="pydantic_ai")
+
+        await transport.send_session_update(session)
+
+
+@pytest.mark.asyncio
 async def test_transport_close():
     transport = HttpTransport(endpoint="http://localhost:8000", api_key="ad_live_test")
     with patch.object(transport, "_client") as mock_client:

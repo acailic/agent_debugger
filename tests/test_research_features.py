@@ -78,9 +78,26 @@ def test_importance_scorer_reads_structured_fields():
             chosen_action="continue",
         )
     )
+    unsupported_decision = scorer.score(
+        DecisionEvent(
+            reasoning="Guess and continue",
+            confidence=0.1,
+            evidence=[],
+            chosen_action="continue",
+        )
+    )
+    severe_alert = scorer.score(
+        TraceEvent(
+            event_type=EventType.BEHAVIOR_ALERT,
+            data={"severity": "high"},
+            upstream_event_ids=["decision-1"],
+        )
+    )
 
     assert expensive_response > 0.5
     assert grounded_decision > 0.9
+    assert unsupported_decision >= grounded_decision
+    assert severe_alert > 0.9
 
 
 @pytest.mark.asyncio

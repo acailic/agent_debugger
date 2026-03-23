@@ -77,6 +77,22 @@ def test_trace_event_ingest_validates_name_and_payload_sizes(monkeypatch):
         )
 
 
+def test_trace_event_ingest_accepts_non_json_serializable_payloads_via_fallback(monkeypatch):
+    monkeypatch.setattr(collector_server, "MAX_DATA_SIZE_BYTES", 64)
+    monkeypatch.setattr(collector_server, "MAX_METADATA_SIZE_BYTES", 64)
+
+    payload = {"set": {1, 2}}
+    event = collector_server.TraceEventIngest(
+        session_id="s1",
+        event_type="tool_call",
+        data=payload,
+        metadata=payload,
+    )
+
+    assert event.data == payload
+    assert event.metadata == payload
+
+
 def test_configure_storage_updates_session_maker():
     marker = object()
     collector_server.configure_storage(marker)

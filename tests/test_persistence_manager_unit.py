@@ -109,6 +109,16 @@ async def test_flush_skips_empty_buffers_and_writes_non_empty_sessions(tmp_path)
 
 
 @pytest.mark.asyncio
+async def test_flush_returns_early_without_session_ids(tmp_path):
+    manager = PersistenceManager(StubBuffer(session_ids=[]), storage_path=tmp_path)
+
+    with patch.object(manager, "_write_session_events", new=AsyncMock()) as writer:
+        await manager.flush()
+
+    writer.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_flush_loop_handles_transient_errors_then_cancellation(tmp_path):
     manager = PersistenceManager(StubBuffer(), storage_path=tmp_path, flush_interval=0)
     manager._running = True

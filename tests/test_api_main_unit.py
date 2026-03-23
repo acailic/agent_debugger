@@ -275,6 +275,18 @@ async def test_auth_routes_create_list_and_revoke_keys(api_repo_factory):
 
 
 @pytest.mark.asyncio
+async def test_auth_revoke_route_raises_not_found_for_missing_key(api_repo_factory):
+    revoke_key = _get_route_endpoint("/api/auth/keys/{key_id}", "DELETE")
+
+    async with api_repo_factory() as db_session:
+        with pytest.raises(HTTPException) as exc:
+            await revoke_key("missing", tenant_id="tenant-a", db=db_session)
+
+    assert exc.value.status_code == 404
+    assert exc.value.detail == "Key not found"
+
+
+@pytest.mark.asyncio
 async def test_session_routes_return_persisted_data(api_repo_factory):
     list_sessions = _get_route_endpoint("/api/sessions", "GET")
     get_session = _get_route_endpoint("/api/sessions/{session_id}", "GET")
@@ -390,6 +402,7 @@ async def test_session_routes_raise_not_found(api_repo_factory):
     get_session = _get_route_endpoint("/api/sessions/{session_id}", "GET")
     delete_session = _get_route_endpoint("/api/sessions/{session_id}", "DELETE")
     get_traces = _get_route_endpoint("/api/sessions/{session_id}/traces", "GET")
+    get_trace_bundle = _get_route_endpoint("/api/sessions/{session_id}/trace", "GET")
     get_tree = _get_route_endpoint("/api/sessions/{session_id}/tree", "GET")
     get_checkpoints = _get_route_endpoint("/api/sessions/{session_id}/checkpoints", "GET")
     get_stream = _get_route_endpoint("/api/sessions/{session_id}/stream", "GET")
@@ -404,6 +417,7 @@ async def test_session_routes_raise_not_found(api_repo_factory):
             lambda: get_session(session_id="missing", repo=repo),
             lambda: delete_session(session_id="missing", repo=repo),
             lambda: get_traces(session_id="missing", limit=10, offset=0, repo=repo),
+            lambda: get_trace_bundle(session_id="missing", repo=repo),
             lambda: get_tree(session_id="missing", repo=repo),
             lambda: get_checkpoints(session_id="missing", repo=repo),
             lambda: get_stream(session_id="missing", repo=repo),

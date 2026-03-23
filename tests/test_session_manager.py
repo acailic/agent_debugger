@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from agent_debugger_sdk.core import session as session_module
 from agent_debugger_sdk.core.session import SessionManager
 
 
@@ -65,3 +66,12 @@ def test_update_session_stats_ignores_missing_session():
 
     manager.update_session_stats("missing", total_tokens=10)
 
+
+def test_get_session_manager_returns_singleton():
+    session_module._session_manager = None
+
+    first = session_module.get_session_manager()
+    second = session_module.get_session_manager()
+
+    assert first is second
+    assert isinstance(first, SessionManager)
