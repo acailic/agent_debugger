@@ -3,8 +3,8 @@ name: Publish to PyPI
 on:
   push:
     tags:
-      - "sdk-v*"       # triggers SDK-only publish  →  agentdbg
-      - "server-v*"    # triggers server publish    →  agentdbg-server
+      - "sdk-v*"       # triggers SDK-only publish  →  peaky-peek
+      - "server-v*"    # triggers server publish    →  peaky-peek-server
       - "v*"           # triggers both
 
 permissions:
@@ -13,15 +13,15 @@ permissions:
 
 jobs:
   # ─────────────────────────────────────────────
-  # agentdbg  (SDK only)
+  # peaky-peek  (SDK only)
   # ─────────────────────────────────────────────
   publish-sdk:
-    name: Publish agentdbg (SDK)
+    name: Publish peaky-peek (SDK)
     runs-on: ubuntu-latest
     if: startsWith(github.ref_name, 'sdk-v') || startsWith(github.ref_name, 'v')
     environment:
       name: pypi-sdk
-      url: https://pypi.org/project/agentdbg/
+      url: https://pypi.org/project/peaky-peek/
 
     steps:
       - uses: actions/checkout@v4
@@ -33,9 +33,9 @@ jobs:
       - name: Install build tools
         run: pip install build
 
-      - name: Build agentdbg wheel + sdist
+      - name: Build peaky-peek wheel + sdist
         run: python -m build
-        # pyproject.toml at root already targets agentdbg / agent_debugger_sdk only
+        # pyproject.toml at root already targets peaky-peek / agent_debugger_sdk only
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -48,15 +48,15 @@ jobs:
         #   Env name:  pypi-sdk
 
   # ─────────────────────────────────────────────
-  # agentdbg-server  (full stack)
+  # peaky-peek-server  (full stack)
   # ─────────────────────────────────────────────
   publish-server:
-    name: Publish agentdbg-server
+    name: Publish peaky-peek-server
     runs-on: ubuntu-latest
     if: startsWith(github.ref_name, 'server-v') || startsWith(github.ref_name, 'v')
     environment:
       name: pypi-server
-      url: https://pypi.org/project/agentdbg-server/
+      url: https://pypi.org/project/peaky-peek-server/
 
     steps:
       - uses: actions/checkout@v4
@@ -71,7 +71,7 @@ jobs:
       - name: Swap in server pyproject for build
         run: cp pyproject-server.toml pyproject.toml
 
-      - name: Build agentdbg-server wheel + sdist
+      - name: Build peaky-peek-server wheel + sdist
         run: python -m build
 
       - name: Publish to PyPI

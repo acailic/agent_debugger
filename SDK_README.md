@@ -12,7 +12,7 @@ See why your AI agent did that. This package gives you a tracing SDK for custom 
 ## Quick Start
 
 ```bash
-pip install agentdbg
+pip install peaky-peek
 ```
 
 ```python
@@ -39,7 +39,7 @@ asyncio.run(main())
 Run the backend locally if you want to receive and inspect events:
 
 ```bash
-pip install agentdbg-server
+pip install peaky-peek-server
 uvicorn api.main:app --reload --port 8000
 ```
 

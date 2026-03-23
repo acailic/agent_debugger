@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agentdbg"
+name = "peaky-peek"
 version = "0.1.0"
 description = "Lightweight tracing SDK for AI agents. Capture decisions, tool calls, and LLM events with one context manager."
 readme = "SDK_README.md"

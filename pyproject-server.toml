@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agentdbg-server"
+name = "peaky-peek-server"
 version = "0.1.0"
 description = "Self-hosted server for Agent Debugger — FastAPI backend, SQLite/Postgres storage, SSE streaming, and React UI."
 readme = "README.md"
@@ -26,7 +26,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "agentdbg>=0.1.0",
+    "peaky-peek>=0.1.0",
     "fastapi>=0.100",
     "uvicorn[standard]>=0.20",
     "sqlalchemy[asyncio]>=2.0",
