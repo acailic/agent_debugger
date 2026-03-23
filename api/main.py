@@ -34,6 +34,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine
+from storage.engine import create_db_engine, create_session_maker
 from storage import Base
 from storage import TraceRepository
 
@@ -129,10 +130,8 @@ class TraceSearchResponse(BaseModel):
     results: list[dict[str, Any]]
 
 
-DATABASE_URL = os.environ.get("AGENT_DEBUGGER_DB_URL", "sqlite+aiosqlite:///./agent_debugger.db")
-
-engine = create_async_engine(DATABASE_URL, echo=False)
-async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+engine = create_db_engine()
+async_session_maker = create_session_maker(engine)
 trace_intelligence = TraceIntelligence()
 
 
