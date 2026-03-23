@@ -217,6 +217,7 @@ def create_app() -> FastAPI:
     async def get_session_traces(
         session_id: str,
         limit: int = Query(default=100, ge=1, le=10000),
+        offset: int = Query(default=0, ge=0),
         repo: TraceRepository = Depends(get_repository),
     ) -> TraceListResponse:
         """Get all traces for a session.
@@ -224,6 +225,7 @@ def create_app() -> FastAPI:
         Args:
             session_id: Unique session identifier
             limit: Maximum number of traces to return
+            offset: Number of traces to skip
             repo: TraceRepository instance
 
         Returns:
@@ -239,7 +241,7 @@ def create_app() -> FastAPI:
                 detail=f"Session {session_id} not found",
             )
 
-        traces = await repo.list_events(session_id, limit=limit)
+        traces = await repo.list_events(session_id, limit=limit, offset=offset)
         return TraceListResponse(
             traces=[t.to_dict() for t in traces],
             session_id=session_id,

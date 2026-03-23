@@ -119,9 +119,13 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             messages=messages,
             tools=kwargs.get("tools", []),
             settings={
-                "temperature": invocation_params.get("temperature"),
-                "max_tokens": invocation_params.get("max_tokens"),
-                "top_p": invocation_params.get("top_p"),
+                k: v
+                for k, v in {
+                    "temperature": invocation_params.get("temperature"),
+                    "max_tokens": invocation_params.get("max_tokens"),
+                    "top_p": invocation_params.get("top_p"),
+                }.items()
+                if v is not None
             },
             name=f"llm_start_{model}",
             importance=0.3,
@@ -221,7 +225,7 @@ class LangChainTracingHandler(AsyncCallbackHandler):
     async def on_tool_start(
         self,
         serialized: dict[str, Any],
-        input_str: str,
+        input_str: str | dict[str, Any],
         *,
         run_id: uuid.UUID,
         parent_run_id: uuid.UUID | None = None,
@@ -233,7 +237,7 @@ class LangChainTracingHandler(AsyncCallbackHandler):
 
         Args:
             serialized: Serialized tool configuration.
-            input_str: Input string for the tool.
+            input_str: Input string or dict for the tool.
             run_id: Unique identifier for this run.
             parent_run_id: Parent run ID if this is a nested run.
             tags: Tags associated with this run.
@@ -405,7 +409,7 @@ class LangChainTracingHandler(AsyncCallbackHandler):
         start_time = self._start_times.pop(run_id_str, time.time())
         duration_ms = (time.time() - start_time) * 1000
 
-        parent_id = self._run_map.get(run_id_str)
+        parent_id = self._run_map.pop(run_id_str, None)
 
         event = TraceEvent(
             session_id=self.session_id,
@@ -441,6 +445,7 @@ class LangChainTracingHandler(AsyncCallbackHandler):
 
         run_id_str = str(run_id)
         self._start_times.pop(run_id_str, None)
+        self._run_map.pop(run_id_str, None)
 
         await self._context.record_error(
             error_type=type(error).__name__,
