@@ -28,3 +28,6 @@ frontend/dist/
 
 # Worktrees
 .worktrees/
+
+# Local backup folders
+old_docs/
