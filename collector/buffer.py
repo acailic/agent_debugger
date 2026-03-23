@@ -16,11 +16,13 @@ from datetime import datetime
 
 from agent_debugger_sdk.core.events import TraceEvent
 
+from .buffer_base import BufferBase
+
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class EventBuffer:
+class EventBuffer(BufferBase):
     """Simple async buffer with subscriber support.
 
     Stores events in memory and allows multiple subscribers to receive
