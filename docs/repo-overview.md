@@ -83,6 +83,35 @@ It is responsible for:
 - startup wiring between the SDK and the event buffer
 - startup wiring between the SDK and database-backed persistence
 
+### `auth/`
+
+This is the start of the cloud security layer.
+
+It currently contains:
+
+- API key generation and bcrypt hashing
+- auth-related ORM models
+- FastAPI helpers for resolving a tenant from a bearer token
+
+Important:
+
+- this is progress, but not full multi-tenant enforcement yet
+
+### `redaction/`
+
+This is the privacy layer.
+
+It currently contains:
+
+- configurable prompt redaction
+- configurable tool payload redaction
+- regex-based PII scrubbing
+
+Important:
+
+- the pipeline exists and is tested
+- it is not yet wired into the ingestion path
+
 ### `frontend/`
 
 This is the UI layer for the debugger.
@@ -113,11 +142,14 @@ The strongest parts of the repo today are:
 - async-safe tracing through `TraceContext`
 - decorator-based instrumentation
 - framework adapter scaffolding
+- `agent_debugger.init()` for local/cloud configuration
 - live SSE event streaming
 - repository-backed persistent history
 - adaptive event ranking and failure clustering
 - checkpoint-aware replay endpoints
 - a usable frontend debugger surface
+- benchmark/demo seed coverage
+- API key and redaction primitives for the next cloud step
 
 ## What Is Still In Progress
 
@@ -125,7 +157,10 @@ The main gaps are:
 
 - execution restoration is shallower than the replay model suggests
 - cross-session clustering is still limited
-- auth, retention, privacy, and deployment hardening are still missing
+- auth and privacy work exists, but is not wired end to end
+- tenant isolation is not enforced in the repository yet
+- SDK cloud transport is not finished
+- retention and deployment hardening are still missing
 - docs and legacy helper modules still need periodic cleanup
 
 ## What This Repo Is Good For Right Now
@@ -134,11 +169,12 @@ Right now, this codebase is strongest as:
 
 - a local debugger for agent traces
 - a research-informed observability surface
-- a base for deeper replay and adaptive evaluation
+- a base for deeper replay, adaptive evaluation, and cloud hardening
 
 It is weaker as:
 
 - a production multi-tenant platform
+- a cloud-hosted debugger with enforced tenant boundaries
 - a fully restorable execution debugger
 - a production-grade observability platform
 
@@ -152,4 +188,4 @@ The next step is not redoing the contract layer. It is deepening the product aro
 4. query the same run later
 5. analyze and replay it in one UI
 
-That flow is now real. The next leverage is benchmark coverage, richer clustering, stronger replay semantics, and production hardening.
+That flow is now real. The next leverage is finishing the cloud/security path, then deepening replay semantics and cross-session analysis.

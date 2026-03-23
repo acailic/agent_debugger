@@ -4,6 +4,7 @@ This folder explains what this project is, how it works today, and what it still
 
 ## Start Here
 
+- [Progress](./progress.md): current implementation snapshot, recent repo progress, and what is still only partial
 - [Repo Overview](./repo-overview.md): what is in the repository, what already works, and what is still rough
 - [Lessons Learned](./lessons-learned.md): what building the debugger so far has taught
 - [How It Works](./how-it-works.md): the current runtime flow from trace capture to UI
@@ -23,20 +24,22 @@ This folder explains what this project is, how it works today, and what it still
 ## Suggested Reading Order
 
 1. [Repo Overview](./repo-overview.md)
-2. [How It Works](./how-it-works.md)
-3. [Lessons Learned](./lessons-learned.md)
-4. [Architecture](./architecture.md)
-5. [Console Workflows](./console-workflows.md)
-6. [Improvement Roadmap](./improvement-roadmap.md)
-7. [Research Implementation Plan](./research-implementation-plan.md)
-8. [Research Inspiration](./research-inspiration.md)
-9. [Paper Notes](./papers/README.md)
+2. [Progress](./progress.md)
+3. [How It Works](./how-it-works.md)
+4. [Lessons Learned](./lessons-learned.md)
+5. [Architecture](./architecture.md)
+6. [Console Workflows](./console-workflows.md)
+7. [Improvement Roadmap](./improvement-roadmap.md)
+8. [Research Implementation Plan](./research-implementation-plan.md)
+9. [Research Inspiration](./research-inspiration.md)
+10. [Paper Notes](./papers/README.md)
 
 ## Documentation Principles
 
 The docs try to stay honest about two things:
 
 - what is implemented now
+- what is partially implemented but not yet wired end to end
 - what is still incomplete or rough
 
-That distinction matters here. The core debugger path now works end to end. The remaining work is mainly cross-session comparison, live monitoring depth, benchmark coverage, and production hardening.
+That distinction matters here. The core local debugger path now works end to end. The main remaining work is finishing the newer cloud/security path, deepening replay, and hardening the product for multi-user use.

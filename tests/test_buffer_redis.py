@@ -1,9 +1,17 @@
-"""Tests for Redis-backed event buffer."""
+"""Tests for Redis-backed event buffer.
+
+These tests require the 'redis' package which is an optional dependency.
+They will be skipped if redis is not installed.
+"""
 from __future__ import annotations
 
 import asyncio
 
 import pytest
+
+# Skip entire module if redis is not installed
+pytest.importorskip("redis")
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from agent_debugger_sdk.core.events import TraceEvent, EventType

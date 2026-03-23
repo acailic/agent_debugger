@@ -32,7 +32,11 @@ dependencies = [
 langchain = ["langchain-core>=0.2"]
 crewai = ["crewai>=0.40"]
 pydantic-ai = ["pydantic-ai>=0.0.10"]
-all = ["agent-debugger[langchain,crewai,pydantic-ai]"]
+all = [
+    "langchain-core>=0.2",
+    "crewai>=0.40",
+    "pydantic-ai>=0.0.10",
+]
 server = [
     "fastapi>=0.100",
     "uvicorn[standard]>=0.20",
@@ -41,7 +45,11 @@ server = [
     "alembic>=1.12",
 ]
 cloud = [
-    "agent-debugger[server]",
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.20",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.19",
+    "alembic>=1.12",
     "asyncpg>=0.28",
     "redis[hiredis]>=5.0",
     "aiobotocore>=2.7",
@@ -54,7 +62,7 @@ Repository = "https://github.com/agentdebugger/agent-debugger"
 Documentation = "https://docs.agentdebugger.dev"
 
 [tool.hatch.build.targets.wheel]
-packages = ["agent_debugger_sdk"]
+packages = ["agent_debugger_sdk", "api", "auth", "collector", "redaction", "storage"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

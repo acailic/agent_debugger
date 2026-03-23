@@ -98,6 +98,22 @@ Adapters cover framework-specific integrations:
 
 That split is sensible. The core tracing logic stays generic, and framework-specific behavior stays off to the side.
 
+There is also now an SDK configuration entry point:
+
+- `agent_debugger.init()`
+
+That config layer resolves:
+
+- local vs cloud mode
+- API key and endpoint from environment
+- enable/disable behavior
+- sampling and prompt-redaction flags
+
+Important:
+
+- this is the configuration surface for cloud readiness
+- it does not yet mean the SDK has a fully finished cloud transport path
+
 ### 4. Live event pipeline
 
 On FastAPI startup, `api/main.py` wires the SDK to the collector and storage with:
@@ -205,7 +221,8 @@ It currently assembles:
 - Cross-session analysis is still shallow. Clustering is session-local and mostly fingerprint-based today.
 - Replay is checkpoint-aware, but not yet true execution restoration with resumable agent state.
 - The frontend is useful, but it is still one-screen and local-first rather than a hardened multi-user product.
-- Auth, tenancy, retention, and redaction are still future work.
+- Auth and redaction are no longer just ideas: helper modules and tests exist, but they are not wired end to end through repository enforcement and ingestion.
+- Cloud mode exists as SDK configuration, but the end-to-end remote ingestion path is not finished yet.
 
 ## Bottom Line
 

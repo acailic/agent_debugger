@@ -2,7 +2,7 @@
 
 Visual debugging tool for AI agents that captures execution traces, visualizes decision trees, enables time-travel debugging, and provides real-time monitoring.
 
-For project documentation, start in [docs/README.md](./docs/README.md). The root [LEARNING.md](./LEARNING.md) now points to the focused docs pages.
+For project documentation, start in [docs/README.md](./docs/README.md). For the current implementation snapshot, see [docs/progress.md](./docs/progress.md). The root [LEARNING.md](./LEARNING.md) now points to the focused docs pages.
 
 ## Research Inspiration
 
@@ -190,9 +190,13 @@ venv/bin/python scripts/seed_demo_sessions.py
 | API | ✅ Complete |
 | Adapters | ✅ Complete |
 | Frontend | ✅ Working debugger UI |
+| SDK init/config | ✅ Implemented |
+| Auth primitives | 🟡 API key generation, hashing, models, and middleware helpers |
+| Redaction | 🟡 Implemented as a module, not yet wired into ingestion |
+| Tenant isolation | ⏳ Planned but not enforced end to end |
 
 ## Next Steps
 
-1. **Add auth + multi-user tenancy** for shared trace workspaces
-2. **Add richer benchmark corpora** for safety and replay regressions
-3. **Deploy** the API and frontend as one packaged debugger product
+1. **Finish cloud/security integration**: tenant-aware persistence, authenticated ingestion, and redaction on write
+2. **Deepen replay semantics** from trace slicing toward stronger state restoration
+3. **Deploy and harden** the API and frontend as one packaged debugger product

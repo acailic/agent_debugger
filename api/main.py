@@ -314,16 +314,15 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application.
 
+    The app uses module-level engine and session maker created at import time
+    for dependency injection. This function exists for testability and future
+    extensibility.
+
     Returns:
         Configured FastAPI application instance
     """
     from agent_debugger_sdk.config import get_config
     config = get_config()
-
-    # Database — config-driven
-    from storage.engine import create_db_engine, create_session_maker
-    engine = create_db_engine()
-    session_maker = create_session_maker(engine)
 
     app = FastAPI(
         lifespan=lifespan,

@@ -125,3 +125,39 @@ That integration work is mostly done now. The highest-value next move is:
 4. harden the product for auth, retention, and redaction
 
 That is now the shortest path from working debugger core to research-grade tool.
+
+## 11. Configuration Before Transport Was The Right Order
+
+Adding `agent_debugger.init()` before finishing cloud transport was a good sequencing decision.
+
+It created one clear place for:
+
+- API key resolution
+- endpoint selection
+- enable/disable behavior
+- sampling and redaction settings
+
+That matters because cloud support will be much easier to reason about with one config surface instead of ad hoc environment lookups spread across the runtime.
+
+## 12. Security Features Are Only Real When They Sit On The Hot Path
+
+This round of work made an important distinction visible:
+
+- having auth helpers is progress
+- having a redaction pipeline is progress
+- but neither counts as a finished product capability until every ingest and query path actually uses them
+
+That is a useful lesson because it prevents the docs from overstating maturity.
+
+The implementation now has the right building blocks. What is still missing is end-to-end enforcement.
+
+## 13. Extraction Work Pays Off Right Before Scale Work
+
+Extracting ORM models and introducing `BufferBase` were not flashy changes, but they were the right kind of preparation.
+
+They reduce coupling in exactly the places that need to change next:
+
+- storage models for tenancy and migrations
+- event buffering for local vs cloud fan-out
+
+The lesson is that infrastructure-facing refactors are highest value when they remove friction from the next concrete product step.

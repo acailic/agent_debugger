@@ -235,15 +235,23 @@ class TraceRepository:
         return [self._orm_to_event(db) for db in db_events]
 
     async def get_event(self, event_id: str) -> TraceEvent | None:
-        """Retrieve an event by ID.
+        """Retrieve an event by ID with tenant isolation.
 
         Args:
             event_id: Unique identifier of the event
 
         Returns:
-            TraceEvent if found, None otherwise
+            TraceEvent if found and belongs to current tenant, None otherwise
         """
-        result = await self.session.execute(select(EventModel).where(EventModel.id == event_id))
+        # Join with SessionModel to ensure tenant isolation
+        result = await self.session.execute(
+            select(EventModel)
+            .join(SessionModel, EventModel.session_id == SessionModel.id)
+            .where(
+                EventModel.id == event_id,
+                SessionModel.tenant_id == self.tenant_id,
+            )
+        )
         db_event = result.scalar_one_or_none()
         if db_event is None:
             return None
@@ -306,6 +314,7 @@ class TraceRepository:
         """
         db_checkpoint = CheckpointModel(
             id=checkpoint.id,
+            tenant_id=self.tenant_id,
             session_id=checkpoint.session_id,
             event_id=checkpoint.event_id,
             sequence=checkpoint.sequence,
@@ -320,18 +329,23 @@ class TraceRepository:
         return self._orm_to_checkpoint(db_checkpoint)
 
     async def get_checkpoint(self, checkpoint_id: str) -> Checkpoint | None:
-        """Retrieve a checkpoint by ID.
+        """Retrieve a checkpoint by ID with tenant isolation.
 
         Args:
             checkpoint_id: Unique identifier of the checkpoint
 
         Returns:
-            Checkpoint if found, None otherwise
+            Checkpoint if found and belongs to current tenant, None otherwise
         """
+        # Join with SessionModel to ensure tenant isolation
         result = await self.session.execute(
             select(CheckpointModel)
+            .join(SessionModel, CheckpointModel.session_id == SessionModel.id)
             .options(selectinload(CheckpointModel.event))
-            .where(CheckpointModel.id == checkpoint_id)
+            .where(
+                CheckpointModel.id == checkpoint_id,
+                SessionModel.tenant_id == self.tenant_id,
+            )
         )
         db_checkpoint = result.scalar_one_or_none()
         if db_checkpoint is None:
@@ -513,6 +527,7 @@ class TraceRepository:
 
         return EventModel(
             id=event.id,
+            tenant_id=self.tenant_id,
             session_id=event.session_id,
             parent_id=event.parent_id,
             event_type=str(event.event_type),

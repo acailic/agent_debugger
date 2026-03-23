@@ -32,6 +32,14 @@ The main remaining gap is not "more ideas." It is productizing those ideas throu
 3. evaluation and retention logic
 4. cross-session analysis
 
+This page is intentionally research-feature focused.
+
+For the current platform and cloud-readiness state, use:
+
+- [Progress](./progress.md)
+- [Architecture](./architecture.md)
+- [Improvement Roadmap](./improvement-roadmap.md)
+
 ## Research Themes To Implement
 
 ### 1. Neural Debugger Pattern
@@ -296,6 +304,19 @@ If work continues immediately, the best order is:
 3. expand replay ranking into cross-session clustering and retention tiers
 4. build multi-agent and prompt-policy comparison views
 5. add live monitoring summaries and anomaly drill-down
+
+## Parallel Platform Track
+
+Research features are no longer the only meaningful next work.
+
+A parallel platform track is now clearly active:
+
+1. finish cloud/auth wiring around the accepted ADRs
+2. enforce tenant isolation in storage and repository code
+3. wire redaction into ingestion and persistence
+4. complete database configuration and migration support
+
+That platform track is not a distraction from the research plan. It is what makes the research-backed debugger viable outside a strong local demo.
 
 ## Non-Goals
 

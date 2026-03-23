@@ -1,15 +1,32 @@
-"""Redis-backed event buffer using Streams + pub/sub."""
+"""Redis-backed event buffer using Streams + pub/sub.
+
+This module is optional and requires the 'redis' package. It will raise
+ImportError at runtime if redis is not installed.
+"""
 from __future__ import annotations
 
 import asyncio
 import json
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from redis.asyncio import Redis
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
 
 from agent_debugger_sdk.core.events import TraceEvent, EventType
 from collector.buffer_base import BufferBase
+
+
+def _get_redis_class() -> type:
+    """Lazily import Redis class to avoid ImportError if redis is not installed."""
+    try:
+        from redis.asyncio import Redis
+        return Redis
+    except ImportError as e:
+        raise ImportError(
+            "Redis package is required for RedisEventBuffer. "
+            "Install it with: pip install agent-debugger[cloud]"
+        ) from e
 
 
 class RedisEventBuffer(BufferBase):

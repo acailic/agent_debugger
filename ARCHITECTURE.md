@@ -5,6 +5,24 @@
 
 This file is a broader design document. For the current implementation shape, prefer [docs/architecture.md](./docs/architecture.md) and [docs/how-it-works.md](./docs/how-it-works.md).
 
+## Reality Check
+
+This file mixes implemented architecture with older design intent.
+
+As of `2026-03-23`, the most important current-state corrections are:
+
+- the local debugger path is real and coherent end to end
+- SDK configuration through `agent_debugger.init()` now exists
+- API key helpers and redaction modules exist, but are not yet wired end to end
+- tenant isolation and cloud transport are still incomplete
+- some module maps below are aspirational and do not match the exact file layout in the repo
+
+For implementation truth, prefer:
+
+- [docs/progress.md](./docs/progress.md)
+- [docs/architecture.md](./docs/architecture.md)
+- [docs/improvement-roadmap.md](./docs/improvement-roadmap.md)
+
 ---
 
 ## Overview

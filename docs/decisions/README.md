@@ -30,3 +30,13 @@ The 6 accepted ADRs form the build foundation:
 - **011** (10 weeks: cloud backend → auth+teams → beta launch) = execution timeline
 
 The 6 under-review ADRs are deferred decisions that will be validated through beta user feedback.
+
+## Current Reality
+
+As of `2026-03-23`, the accepted ADRs are at different implementation stages:
+
+- **ADR-006**: partially implemented. `agent_debugger.init()` and env-based config now exist in code.
+- **ADR-008**: partially implemented. API key helpers, auth models, and redaction modules exist, but tenant enforcement and write-path integration are still pending.
+- **ADR-011**: partially underway. The local debugger, benchmark seeds, and docs structure are strong; cloud-hardening work has started but is not complete.
+
+Read [`../progress.md`](../progress.md) for the implementation snapshot that complements these decisions.

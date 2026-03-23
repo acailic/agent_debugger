@@ -12,6 +12,11 @@ The project falls into five layers:
 4. API layer
 5. visualization layer
 
+Two cross-cutting modules now also matter:
+
+- `auth/` for API key and tenant resolution helpers
+- `redaction/` for ingestion-time privacy controls
+
 ## Layer Overview
 
 ### SDK layer
@@ -27,6 +32,7 @@ Responsibilities:
 - manage trace context
 - expose decorators
 - integrate with external agent frameworks
+- expose environment-driven initialization through `agent_debugger.init()`
 
 Key modules:
 
@@ -88,6 +94,7 @@ Responsibilities:
 Important:
 
 - the live transport currently implemented is SSE, not WebSocket
+- auth helpers exist in `auth/`, but API-wide tenant enforcement is not finished yet
 
 ### Visualization layer
 
@@ -119,6 +126,12 @@ The durable path today is:
 
 Those two paths now meet at `TraceContext`, which publishes live events and persists the same session data.
 
+The partial cloud/security path looks like this:
+
+`agent_debugger.init() -> API key config + auth helpers + redaction pipeline -> future tenant-aware persistence and remote transport`
+
+That path is directionally correct, but it is not complete end to end in the current repo state.
+
 ## Architectural Strengths
 
 - The event schema is strong enough to support multiple debugger views.
@@ -132,7 +145,9 @@ Those two paths now meet at `TraceContext`, which publishes live events and pers
 - Checkpoints are useful but not yet full execution restoration points.
 - Cross-session analysis and search are still shallow.
 - Live streaming depends on local memory rather than durable fan-out infrastructure.
-- Product hardening features such as auth, tenancy, and redaction are still missing.
+- Auth exists as helpers and models, but repository-enforced tenant isolation is still missing.
+- Redaction exists as a module and tests, but it is not yet inserted into the live ingestion path.
+- Cloud configuration exists in the SDK, but remote transport and cloud persistence semantics are not complete.
 
 ## Design Direction
 

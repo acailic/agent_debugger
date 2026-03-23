@@ -41,15 +41,15 @@ Best next steps:
 3. track expected rankings, clusters, and breakpoint hits as regression assertions
 4. add fixtures that mimic both safe and unsafe tool-use paths
 
-### 4. Make the debugger easier to operate at scale
+### 4. Finish the cloud and security path that has already started
 
 Best next steps:
 
-1. auth and tenant separation
-2. retention and compaction policies
-3. redaction for prompts, tool payloads, and sensitive evidence
-4. PostgreSQL support and migrations
-5. backpressure handling for high-volume live streams
+1. wire API key auth into the actual API dependency chain
+2. add `tenant_id` to trace models and enforce it in `TraceRepository`
+3. apply redaction before persistence so privacy settings affect stored traces
+4. implement the SDK's remote/cloud transport path
+5. add PostgreSQL support, migrations, and backpressure handling for high-volume streams
 
 ### 5. Expand the product surface around the current core
 
@@ -87,9 +87,10 @@ Best next steps:
 
 ### Phase 4: production hardening
 
-- auth and tenant separation
+- repository-enforced tenant isolation
+- redaction wired into persistence
+- SDK cloud transport
 - retention policies
-- redaction/privacy controls
 - PostgreSQL support and migrations
 - backpressure handling for high-volume streams
 
@@ -97,6 +98,6 @@ Best next steps:
 
 If only one engineering task is chosen next, it should be this:
 
-- build a reusable benchmark seed pipeline and use it to validate replay, ranking, clustering, and safety behavior end to end
+- finish the end-to-end cloud ingestion path from `agent_debugger.init()` through authenticated ingestion, tenant-aware persistence, and redaction on write
 
-That work improves tests, demos, and the product surface at the same time.
+That work turns several partial features into one coherent product capability.
