@@ -3,7 +3,7 @@
 [![PyPI peaky-peek](https://img.shields.io/pypi/v/peaky-peek.svg?label=peaky-peek)](https://pypi.org/project/peaky-peek/)
 [![PyPI peaky-peek-server](https://img.shields.io/pypi/v/peaky-peek-server.svg?label=peaky-peek-server)](https://pypi.org/project/peaky-peek-server/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 Agent-native debugger for AI agents. Capture execution traces as structured events, inspect them live, and query or replay them later.
 
@@ -168,4 +168,4 @@ This tool draws on recent work in neural debugging, replay mechanisms, evidence-
 
 ## License
 
-Apache 2.0
+MIT

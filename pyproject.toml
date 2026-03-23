@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Lightweight tracing SDK for AI agents. Capture decisions, tool calls, and LLM events with one context manager."
 readme = "SDK_README.md"
 requires-python = ">=3.10"
-license = "Apache-2.0"
+license = "MIT"
 authors = [
     { name = "acailic", email = "acailic@users.noreply.github.com" },
 ]
@@ -16,7 +16,7 @@ keywords = ["ai", "agents", "debugging", "tracing", "observability", "langchain"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
