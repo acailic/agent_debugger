@@ -4,53 +4,58 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agent-debugger"
-version = "1.0.0"
-description = "Visual debugging tool for AI agents that captures execution traces, visualizes decision trees, enables time-travel debugging, and provides real-time monitoring."
-readme = "README.md"
+version = "0.1.0"
+description = "Agent-native debugger for AI agents. See why your agent did that."
+readme = "SDK_README.md"
 requires-python = ">=3.10"
-license = {file = "LICENSE"}
+license = "Apache-2.0"
 authors = [
-    {name = "Agent Debugger Team"}
+    { name = "Agent Debugger Team" },
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Debuggers",
 ]
 
 dependencies = [
-    "fastapi>=0.104.0",
-    "uvicorn[standard]>=0.24.0",
-    "sqlalchemy[asyncio]>=2.0.0",
-    "aiosqlite>=0.19.0",
-    "pydantic>=2.5.0",
-    "httpx>=0.25.0",
-    "alembic>=1.12.0",
-    "redis>=5.0.0",
-    "asyncpg>=0.29.0",
+    "pydantic>=2.0",
+    "httpx>=0.24",
 ]
 
 [project.optional-dependencies]
-server = []
-cloud = []
+langchain = ["langchain-core>=0.2"]
+crewai = ["crewai>=0.40"]
+pydantic-ai = ["pydantic-ai>=0.0.10"]
+all = ["agent-debugger[langchain,crewai,pydantic-ai]"]
+server = [
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.20",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.19",
+    "alembic>=1.12",
+]
+cloud = [
+    "agent-debugger[server]",
+    "asyncpg>=0.28",
+    "redis[hiredis]>=5.0",
+    "aiobotocore>=2.7",
+    "bcrypt>=4.0",
+]
 
 [project.urls]
-Homepage = "https://github.com/amplifier/ai_working/agent_debugger"
-Documentation = "https://github.com/amplifier/ai_working/agent_debugger/blob/main/README.md"
-Repository = "https://github.com/amplifier/ai_working/agent_debugger.git"
-Issues = "https://github.com/amplifier/ai_working/agent_debugger/issues"
+Homepage = "https://agentdebugger.dev"
+Repository = "https://github.com/agentdebugger/agent-debugger"
+Documentation = "https://docs.agentdebugger.dev"
 
-[tool.uvicorn]
-host = "0.0.0.0"
-port = 8080
-reload = false
-workers = 1
+[tool.hatch.build.targets.wheel]
+packages = ["agent_debugger_sdk"]
 
-[tool.alembic]
-script_location = "storage/migrations"
-sqlalchemy.url = "sqlite+aiosqlite:///./agent_debugger.db"
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

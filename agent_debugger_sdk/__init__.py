@@ -1,5 +1,7 @@
 """Agent Debugger SDK - Core types and interfaces for tracing agent execution."""
 
+__version__ = "0.1.0"
+
 from agent_debugger_sdk.config import init, get_config, Config
 from agent_debugger_sdk.core.context import TraceContext
 from agent_debugger_sdk.core.context import configure_event_pipeline
