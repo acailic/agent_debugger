@@ -107,6 +107,7 @@ class TraceEventResponse(BaseModel):
 class SessionCreate(BaseModel):
     """Request model for creating a session."""
 
+    id: str | None = None
     agent_name: str
     framework: str
     config: dict[str, Any] = {}
@@ -392,6 +393,7 @@ async def create_session(
         SessionResponse with session details
     """
     session = Session(
+        id=session_data.id or str(__import__("uuid").uuid4()),
         agent_name=session_data.agent_name,
         framework=session_data.framework,
         config=session_data.config,

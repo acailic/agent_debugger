@@ -299,7 +299,8 @@ async def lifespan(app: FastAPI):
     buffer_backend = "redis" if os.environ.get("REDIS_URL") else "memory"
     buffer = create_buffer(backend=buffer_backend)
 
-    # Wire pipeline
+    # Wire collector storage and event pipeline
+    configure_storage(async_session_maker)
     configure_event_pipeline(
         buffer,
         persist_event=_persist_event,
