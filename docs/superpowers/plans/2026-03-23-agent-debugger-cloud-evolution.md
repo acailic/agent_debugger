@@ -1729,7 +1729,7 @@ server = [
     "alembic>=1.12",
 ]
 cloud = [
-    "agent-debugger[server]",
+    "peaky-peek-server",
     "asyncpg>=0.28",
     "redis[hiredis]>=5.0",
     "aiobotocore>=2.7",
@@ -2527,7 +2527,7 @@ See **why** your AI agent did that. Agent-native debugging for LangChain, CrewAI
 ## Quickstart (60 seconds)
 
 ​```bash
-pip install agent-debugger
+pip install peaky-peek
 ​```
 
 ​```python
@@ -2629,7 +2629,7 @@ Items from the ADRs that are intentionally deferred to post-beta:
 | **S3 large payload storage** | 005 | Optional optimization. PostgreSQL JSON handles payloads up to 100KB fine. Add S3 when storage costs become a concern post-launch. |
 | **Background analysis worker** | 005 | Inline analysis is fast enough for initial scale (<500 events/sec). Extract to worker when ingestion latency becomes measurable. |
 | **CrewAI adapter** | 004 | Priority 2 framework. Build during/after beta based on user demand. |
-| **Server modules in PyPI wheel** | 006 | SDK wheel ships `agent_debugger_sdk` only. Server (`api/`, `collector/`, `storage/`, `auth/`, `redaction/`) is deployed separately via Docker or `pip install -e .[server]`. |
+| **Server modules in PyPI wheel** | 006 | SDK wheel ships `agent_debugger_sdk` only. Server (`api/`, `collector/`, `storage/`, `auth/`, `redaction/`) is deployed separately via Docker or `pip install peaky-peek-server`. |
 | **JWT dashboard auth (Clerk)** | 008 | Required for Phase 2 team features. Separate plan needed for Clerk integration, user management, and team RBAC. |
 | **Stripe billing integration** | 011 | Required for Phase 2. Separate plan needed for subscription management, metering, and checkout. |
 | **Landing page and docs site** | 011 | Required for Phase 2. Separate plan needed for marketing site. |

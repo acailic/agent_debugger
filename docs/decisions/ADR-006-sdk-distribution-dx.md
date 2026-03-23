@@ -13,9 +13,9 @@ Ship a pip-installable SDK with three integration levels: decorator, adapter, an
 
 ### Package
 
-- **PyPI name**: `agent-debugger`
+- **PyPI name**: `peaky-peek`
 - **Import name**: `agent_debugger_sdk`
-- **License**: Apache 2.0
+- **License**: MIT
 - **Python**: 3.10+
 - **Dependencies**: Minimal (pydantic, httpx). Framework adapters are optional extras.
 
@@ -23,13 +23,15 @@ Ship a pip-installable SDK with three integration levels: decorator, adapter, an
 
 ```bash
 # Core SDK
-pip install agent-debugger
+pip install peaky-peek
 
 # With framework adapters
-pip install agent-debugger[langchain]
-pip install agent-debugger[pydantic-ai]
-pip install agent-debugger[all]
-pip install agent-debugger[server]
+pip install peaky-peek[langchain]
+pip install peaky-peek[pydantic-ai]
+pip install peaky-peek[all]
+
+# Local server
+pip install peaky-peek-server
 ```
 
 ### Three Integration Levels

@@ -33,8 +33,11 @@ The system captures a hierarchy: `Session → Trace → Event → Decision → T
 git clone https://github.com/acailic/agent_debugger
 cd agent_debugger
 
-# Install in editable mode with server dependencies
-pip install -e ".[server]"
+# Install the SDK in editable mode
+pip install -e .
+
+# Install backend/runtime dependencies used by the local server
+pip install fastapi "uvicorn[standard]" "sqlalchemy[asyncio]" aiosqlite alembic aiofiles bcrypt
 
 # Verify installation
 python -m pytest -q
@@ -76,9 +79,8 @@ We welcome contributions in these areas:
 Add support for new agent frameworks by creating adapter classes in `agent_debugger_sdk/adapters/`. Current adapters:
 - PydanticAI
 - LangChain
-- CrewAI
 
-Example: Add an adapter for AutoGen, Semantic Kernel, or a custom framework.
+Example: Add an adapter for CrewAI, AutoGen, Semantic Kernel, or a custom framework.
 
 ### 2. Seed Scenarios
 
@@ -150,7 +152,7 @@ All tests must pass before merging:
 python -m pytest -v
 
 # Run specific test file
-python -m pytest tests/test_collector.py -v
+python -m pytest tests/test_buffer_interface.py -v
 ```
 
 ### Code Review
@@ -182,7 +184,7 @@ pytest tests/ -v
 pytest tests/ --cov=agent_debugger_sdk --cov=collector --cov=api --cov=storage
 
 # Run specific test module
-pytest tests/test_sdk.py -v
+pytest tests/test_package.py -v
 
 # Run async tests only
 pytest tests/ -k "async" -v
@@ -202,14 +204,14 @@ npm run dev
 # Build for production
 npm run build
 
-# Run frontend tests
-npm run test
+# Run frontend lint checks
+npm run lint
 ```
 
 ### Type Checking
 
 ```bash
-# Run mypy for static type checking (if configured)
+# Run mypy for static type checking if you have it installed locally
 mypy agent_debugger_sdk/ collector/ api/ storage/
 ```
 

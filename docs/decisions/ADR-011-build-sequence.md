@@ -39,7 +39,7 @@ Three phases over ~10 weeks. Each phase has a clear exit milestone.
 - [ ] Shareable session URLs
 - [ ] Dark theme polish
 
-**Exit milestone**: Deploy to Fly.io/Railway. One test user can `pip install agent-debugger`, set API key, and see traces in cloud UI.
+**Exit milestone**: Deploy to Fly.io/Railway. One test user can `pip install peaky-peek`, set API key, and see traces in cloud UI.
 
 ### Phase 2: Auth + Teams + Landing Page (Weeks 5-7)
 

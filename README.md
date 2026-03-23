@@ -30,13 +30,7 @@ Peaky Peek is different: **agent-decision-aware**, **local-first by default**, a
 
 ## Quick Start
 
-### Option A: Docker (no install)
-
-```bash
-docker run -p 8000:8000 -p 5173:5173 peaky-peek
-```
-
-### Option B: pip
+### Option A: pip (recommended)
 
 ```bash
 pip install peaky-peek-server
@@ -58,6 +52,13 @@ npm run dev
 
 Frontend dev server:
 - UI: `http://localhost:5173`
+
+### Option B: Docker (local build)
+
+```bash
+docker build -t peaky-peek . && docker run -p 8080:8080 peaky-peek
+# API: http://localhost:8080
+```
 
 ### Instrument your code
 
@@ -107,7 +108,7 @@ Session → Trace → Event → Decision → Tool Call → Checkpoint
 
 - **LangChain agent loops the wrong tool** — inspect the decision tree to see exactly which reasoning step triggered the bad tool selection
 - **PydanticAI workflow fails silently** — replay the session step-by-step from the last checkpoint before failure
-- **CrewAI task handoffs go wrong** — search events across agents to find where context was lost
+- **Multi-agent task handoffs go wrong** — search events across agents to find where context was lost
 - **Prompt iteration** — compare LLM request/response pairs across multiple runs to measure improvement
 - **Safety auditing** — trace why an agent refused or chose a risky action
 
@@ -139,17 +140,11 @@ handler = LangChainTracingHandler(session_id="demo")
 handler.set_context(context)
 ```
 
-### CrewAI
+### Custom or Emerging Frameworks
 
-```python
-from agent_debugger_sdk import init
-from agent_debugger_sdk.adapters import CrewAIAdapter
+If your framework does not have a first-class adapter yet, use `TraceContext` or decorators around the framework boundary you control.
 
-init()
-
-# Wrap your CrewAI crew with automatic tracing
-adapter = CrewAIAdapter(crew=your_crew, agent_name="my_crew")
-```
+CrewAI-style multi-agent flows currently fit this pattern: explicit tracing is supported today, while a dedicated adapter is not yet shipped in `agent_debugger_sdk.adapters`.
 
 More integration paths:
 - [Full integration guide](./docs/integration.md)
@@ -209,7 +204,8 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for full module breakdown.
 # Clone and install for development
 git clone https://github.com/acailic/agent_debugger
 cd agent_debugger
-pip install -e ".[server]"  # or: pip install peaky-peek-server
+pip install -e .
+pip install fastapi "uvicorn[standard]" "sqlalchemy[asyncio]" aiosqlite alembic aiofiles bcrypt
 
 # Run tests
 python -m pytest -q

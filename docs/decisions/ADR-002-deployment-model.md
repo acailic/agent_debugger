@@ -13,7 +13,7 @@ Developer tools have a proven adoption funnel: open-source builds trust, cloud p
 
 ### How It Works
 
-The SDK (`agent-debugger` on PyPI) is open-source (MIT or Apache 2.0). Developers install it, instrument their agents, and events flow to either:
+The SDK (`peaky-peek` on PyPI) is open-source under MIT. Developers install it, instrument their agents, and events flow to either:
 
 1. **Local mode** (free): Events go to a local collector/SQLite. Full debugger UI runs on localhost. Single user. No cloud dependency.
 2. **Cloud mode** (paid): Events go to our hosted API. Team features, persistent storage, collaboration, longer retention.
@@ -22,8 +22,8 @@ The SDK (`agent-debugger` on PyPI) is open-source (MIT or Apache 2.0). Developer
 
 ```
 # Local mode (default, no config needed)
-pip install agent-debugger
-# Just works - starts local collector automatically
+pip install peaky-peek
+# Sends events to a local server when one is running
 
 # Cloud mode (one env var)
 export AGENT_DEBUGGER_API_KEY=ad_live_...
@@ -48,5 +48,5 @@ The maintenance cost of two deployment targets is real but manageable because:
 - Must keep local experience excellent (not a crippled free tier)
 - Cloud must offer clear value beyond "same thing but hosted" (teams, retention, collaboration)
 - SDK must work offline and not phone home without explicit opt-in
-- License choice matters: MIT for maximum adoption, Apache 2.0 for patent protection
-- Recommend Apache 2.0 for the SDK, proprietary for cloud-only features (team management, SSO)
+- MIT keeps adoption friction low and matches the repo's current licensing
+- Cloud-only features can still remain separate product decisions without changing the SDK license

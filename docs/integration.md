@@ -7,7 +7,8 @@ This page shows the simplest supported ways to integrate the debugger with your 
 Run the backend first:
 
 ```bash
-pip install -e ".[server]"
+pip install -e .
+pip install fastapi "uvicorn[standard]" "sqlalchemy[asyncio]" aiosqlite alembic aiofiles bcrypt
 uvicorn api.main:app --reload --port 8000
 ```
 
