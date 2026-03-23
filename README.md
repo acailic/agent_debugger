@@ -80,6 +80,13 @@ More integration paths:
 - [Integration guide](./docs/integration.md)
 - [SDK package readme](./SDK_README.md)
 
+## Use Cases
+
+- **LangChain agent loops the wrong tool** — inspect the decision tree to see exactly which reasoning step triggered the bad tool selection
+- **PydanticAI workflow fails silently** — replay the session step-by-step from the last checkpoint before failure
+- **CrewAI task handoffs go wrong** — search events across agents to find where context was lost
+- **Prompt iteration** — compare LLM request/response pairs across multiple runs to measure improvement
+
 ## Main API Endpoints
 
 | Method | Endpoint | Description |
