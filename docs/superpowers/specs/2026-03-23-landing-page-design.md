@@ -30,6 +30,7 @@ A single static marketing/landing page hosted on GitHub Pages that converts deve
 docs/
   index.html       ← single page, all content
   style.css        ← hand-written, CSS variables, dark theme
+  .nojekyll        ← empty file, prevents GitHub Pages Jekyll processing
   assets/          ← existing screenshots (already present)
 ```
 
@@ -82,10 +83,18 @@ Exact commands to display (verbatim):
 pip install peaky-peek-server
 uvicorn api.main:app --reload --port 8000
 ```
+**Note:** The `uvicorn` command assumes the user has cloned the repo and is running from the repo root (`git clone https://github.com/acailic/agent_debugger && cd agent_debugger`). Display a prerequisite line above the code block making this clear.
+
 Followed by a link to full docs at `https://github.com/acailic/agent_debugger/blob/main/docs/README.md`.
 
 ### 5. Footer
-- Links: GitHub · Docs · Contributing · License · PyPI (peaky-peek) · PyPI (peaky-peek-server)
+- Links with exact `href` targets:
+  - GitHub → `https://github.com/acailic/agent_debugger`
+  - Docs → `https://github.com/acailic/agent_debugger/blob/main/docs/README.md`
+  - Contributing → `https://github.com/acailic/agent_debugger/blob/main/CONTRIBUTING.md`
+  - License → `https://github.com/acailic/agent_debugger/blob/main/LICENSE`
+  - PyPI peaky-peek → `https://pypi.org/project/peaky-peek/`
+  - PyPI peaky-peek-server → `https://pypi.org/project/peaky-peek-server/`
 - MIT license notice
 
 ---
@@ -133,6 +142,8 @@ Followed by a link to full docs at `https://github.com/acailic/agent_debugger/bl
 <meta property="og:url" content="https://acailic.github.io/agent_debugger/">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
+<meta property="og:image" content="https://acailic.github.io/agent_debugger/assets/screenshot-full-ui.png">
+<meta name="twitter:image" content="https://acailic.github.io/agent_debugger/assets/screenshot-full-ui.png">
 ```
 
 ## Out of Scope
@@ -160,7 +171,10 @@ Followed by a link to full docs at `https://github.com/acailic/agent_debugger/bl
 
 ## Success Criteria
 
+- `docs/.nojekyll` file is present (prevents Jekyll processing)
 - Page loads and renders correctly on desktop and mobile
 - `pip install` command is clearly visible and copyable above the fold
-- All existing `docs/assets/` screenshots load correctly
+- All four feature screenshots load correctly (relative paths verified)
+- All footer links resolve to valid URLs
 - GitHub Pages deployment succeeds with no build errors
+- OG/Twitter preview image resolves at the absolute GitHub Pages URL
