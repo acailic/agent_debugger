@@ -4,7 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 
-Agent-native visual debugger for AI agents. Capture execution traces, visualize decision trees, enable time-travel replay, and monitor agents in real time.
+Agent-native debugger for AI agents. Capture execution traces as structured events, inspect them live, and query or replay them later.
 
 ## Install
 
@@ -18,85 +18,81 @@ For framework integrations:
 pip install "agent-debugger[langchain]"
 pip install "agent-debugger[crewai]"
 pip install "agent-debugger[pydantic-ai]"
-pip install "agent-debugger[all]"   # all adapters
-pip install "agent-debugger[server]"  # self-hosted server
+pip install "agent-debugger[all]"
+pip install "agent-debugger[server]"
 ```
 
 ## Quick Start
 
-### 1. Start the API Server
+### 1. Start the local API
 
 ```bash
 pip install "agent-debugger[server]"
 uvicorn api.main:app --reload --port 8000
 ```
 
-Server runs at:
-- **API**: http://localhost:8000
-- **Docs**: http://localhost:8000/docs (Swagger UI)
-- **Health**: http://localhost:8000/api/health
+Backend addresses:
+- API: `http://localhost:8000`
+- FastAPI docs: `http://localhost:8000/docs`
+- Health: `http://localhost:8000/health`
 
-### 2. Use the SDK in Your Code
+### 2. Optional: run the frontend UI
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend dev server:
+- UI: `http://localhost:5173`
+
+### 3. Instrument your code
 
 ```python
 import asyncio
-from agent_debugger_sdk import TraceContext
 
-async def my_agent():
-    async with TraceContext(session_id="my-session", agent_name="my_agent") as ctx:
+from agent_debugger_sdk import TraceContext, init
+
+init()
+
+
+async def my_agent() -> None:
+    async with TraceContext(agent_name="my_agent", framework="custom") as ctx:
         await ctx.record_decision(
-            reasoning="User asked about weather",
+            reasoning="The user asked for weather data",
             confidence=0.85,
             chosen_action="call_weather_tool",
             evidence=[{"source": "user_input", "content": "What's the weather?"}],
         )
-        result = await call_weather_api("Seattle")
-        await ctx.record_tool_result("weather_api", result=result, duration_ms=100)
-    return result
+        await ctx.record_tool_call("weather_api", {"location": "Seattle"})
+        await ctx.record_tool_result(
+            "weather_api",
+            result={"forecast": "rain"},
+            duration_ms=100,
+        )
+
 
 asyncio.run(my_agent())
 ```
 
-### 3. Decorator API
+More integration paths:
 
-```python
-from agent_debugger_sdk import trace_agent, trace_tool
+- [Integration guide](./docs/integration.md)
+- [SDK package readme](./SDK_README.md)
 
-@trace_agent(name="search_agent", framework="custom")
-async def search_agent(query: str) -> str:
-    @trace_tool(name="web_search")
-    async def web_search(query: str) -> list[str]:
-        return [f"result1: {query}", f"result2: {query}"]
-
-    results = await web_search(query)
-    return f"Found {len(results)} results for '{query}'"
-```
-
-### 4. PydanticAI Integration
-
-```python
-from pydantic_ai import Agent
-from agent_debugger_sdk.adapters import PydanticAIAdapter
-
-agent = Agent('openai:gpt-4o')
-adapter = PydanticAIAdapter(agent, agent_name="my_agent")
-
-async with adapter.trace_session() as session_id:
-    result = await agent.run("Hello!")
-    print(f"Session: {session_id}")
-```
-
-## API Endpoints
+## Main API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/sessions` | Create session |
 | `GET` | `/api/sessions` | List sessions |
 | `GET` | `/api/sessions/{id}` | Get session details |
+| `GET` | `/api/sessions/{id}/traces` | Session event list |
 | `GET` | `/api/sessions/{id}/trace` | Normalized trace bundle |
 | `GET` | `/api/sessions/{id}/tree` | Decision tree |
 | `GET` | `/api/sessions/{id}/checkpoints` | Checkpoints |
 | `GET` | `/api/sessions/{id}/analysis` | Adaptive trace analysis |
+| `GET` | `/api/sessions/{id}/live` | Live summary |
 | `GET` | `/api/sessions/{id}/replay` | Checkpoint-aware replay |
 | `GET` | `/api/sessions/{id}/stream` | SSE real-time stream |
 | `GET` | `/api/traces/search` | Search across sessions |
@@ -147,24 +143,19 @@ cd frontend && npm install && npm run build
 python scripts/seed_demo_sessions.py
 ```
 
-## Status
+## Current Shape
 
-| Layer | Status |
-|-------|--------|
-| SDK Core | Complete |
-| Collector | Complete |
-| Storage | Complete |
-| API | Complete |
-| Adapters (LangChain, CrewAI, PydanticAI) | Complete |
-| Frontend | Working debugger UI |
-| Auth primitives | In progress |
-| Redaction | Module complete, ingestion wiring pending |
-| Tenant isolation | Planned |
+- The local debugger path is working end to end.
+- The SDK core, API, storage, replay surface, and frontend debugger are usable now.
+- Cloud-oriented auth, privacy, and tenant isolation work exists in the repo but is still incomplete.
+- PydanticAI and LangChain integration points exist, but finished zero-code auto-instrumentation is not the current story.
 
 ## Documentation
 
+- [Docs start page](./docs/README.md)
+- [Intro](./docs/intro.md)
+- [Integration](./docs/integration.md)
 - [Architecture overview](./ARCHITECTURE.md)
-- [Full API docs](./docs/README.md)
 - [Progress tracker](./docs/progress.md)
 
 ## Research

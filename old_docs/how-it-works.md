@@ -1,6 +1,6 @@
 # How It Works
 
-This page explains how the system works today.
+This page explains how the system works today, not just how it is supposed to work on paper.
 
 ## What This Repo Is
 
@@ -30,7 +30,7 @@ Those event types are defined in `agent_debugger_sdk/core/events.py`.
 
 ## Main Mental Model
 
-There is one main runtime path:
+There is now one main runtime path:
 
 `agent code -> TraceContext/decorators/adapters -> EventBuffer + persistence hooks -> repository/database -> API -> UI`
 
@@ -68,7 +68,7 @@ When a traced run starts, `TraceContext`:
 2. sets async-local state with `contextvars`
 3. creates or updates the session through configured persistence hooks
 4. emits an `agent_start` event
-5. records decisions, tool results, errors, checkpoints, and safety events
+5. records decisions, tool results, errors, checkpoints, and research-driven safety and multi-agent events
 6. emits an `agent_end` event on exit
 7. updates session counters and final session status
 
@@ -96,9 +96,11 @@ Adapters cover framework-specific integrations:
 - `PydanticAIAdapter`
 - `LangChainTracingHandler`
 
-There is also an SDK configuration entry point:
+That split is sensible. The core tracing logic stays generic, and framework-specific behavior stays off to the side.
 
-- `init()`
+There is also now an SDK configuration entry point:
+
+- `agent_debugger.init()`
 
 That config layer resolves:
 
@@ -106,6 +108,11 @@ That config layer resolves:
 - API key and endpoint from environment
 - enable/disable behavior
 - sampling and prompt-redaction flags
+
+Important:
+
+- this is the configuration surface for cloud readiness
+- it does not yet mean the SDK has a fully finished cloud transport path
 
 ### 4. Live event pipeline
 
@@ -146,6 +153,8 @@ The live stream path is straightforward:
 3. new events are emitted as server-sent events
 4. keepalive comments are sent periodically
 
+This is one of the cleaner parts of the current implementation.
+
 ### 6. Storage layer
 
 `storage/repository.py` defines a durable repository backed by SQLAlchemy models for:
@@ -182,9 +191,9 @@ It computes:
 - high replay value events
 - loop-style behavior alerts
 
-### 8. Frontend
+### 7. Frontend status
 
-The frontend is a working debugger surface.
+The frontend is now a working debugger surface, not a placeholder shell.
 
 It currently assembles:
 
@@ -206,3 +215,15 @@ It currently assembles:
 - Clean separation between core SDK and framework adapters.
 - Pragmatic live transport through SSE.
 - Database-backed query surface shared by the UI and tests.
+
+## What Is Incomplete
+
+- Cross-session analysis is still shallow. Clustering is session-local and mostly fingerprint-based today.
+- Replay is checkpoint-aware, but not yet true execution restoration with resumable agent state.
+- The frontend is useful, but it is still one-screen and local-first rather than a hardened multi-user product.
+- Auth and redaction are no longer just ideas: helper modules and tests exist, but they are not wired end to end through repository enforcement and ingestion.
+- Cloud mode exists as SDK configuration, but the end-to-end remote ingestion path is not finished yet.
+
+## Bottom Line
+
+The core path is now coherent: trace capture, live streaming, persistence, analysis, replay, and UI all operate on the same event model. The next real step is not contract repair anymore. It is making the debugger deeper: better replay semantics, stronger benchmark corpora, richer clustering, and production hardening.
