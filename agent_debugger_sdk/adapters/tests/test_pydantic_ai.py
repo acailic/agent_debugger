@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import importlib
+import sys
+import types
 import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -44,6 +47,42 @@ class TestPydanticAIAdapter:
             assert adapter.session_id == "test-session"
             assert adapter.agent_name == "test_agent"
             assert adapter.tags == ["test"]
+
+    def test_module_marks_pydantic_ai_available_when_imports_succeed(self):
+        """Test module import-path sets availability when dependencies exist."""
+        import agent_debugger_sdk.adapters.pydantic_ai as pydantic_ai_mod
+
+        fake_package = types.ModuleType("pydantic_ai")
+        fake_messages = types.ModuleType("pydantic_ai.messages")
+        fake_models = types.ModuleType("pydantic_ai.models")
+        fake_result = types.ModuleType("pydantic_ai.result")
+        fake_package.Agent = type("FakeAgent", (), {})
+        fake_messages.ModelMessage = type("FakeModelMessage", (), {})
+        fake_messages.ToolCallPart = type("FakeToolCallPart", (), {})
+        fake_models.InstrumentationSettings = type("FakeInstrumentationSettings", (), {})
+        fake_models.Model = type("FakeModel", (), {})
+        fake_result.RunResult = type("FakeRunResult", (), {})
+        fake_package.messages = fake_messages
+        fake_package.models = fake_models
+        fake_package.result = fake_result
+
+        with patch.dict(
+            sys.modules,
+            {
+                "pydantic_ai": fake_package,
+                "pydantic_ai.messages": fake_messages,
+                "pydantic_ai.models": fake_models,
+                "pydantic_ai.result": fake_result,
+            },
+        ):
+            reloaded = importlib.reload(pydantic_ai_mod)
+            assert reloaded.PYDANTIC_AI_AVAILABLE is True
+            assert reloaded.Agent is fake_package.Agent
+            assert reloaded.ToolCallPart is fake_messages.ToolCallPart
+            assert reloaded.InstrumentationSettings is fake_models.InstrumentationSettings
+            assert reloaded.RunResult is fake_result.RunResult
+
+        importlib.reload(pydantic_ai_mod)
 
     @pytest.mark.asyncio
     async def test_context_manager_creates_session(self):

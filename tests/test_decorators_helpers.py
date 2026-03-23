@@ -64,6 +64,7 @@ def test_extract_messages_tools_and_settings_from_args_and_kwargs():
     tools = [{"name": "search"}]
 
     assert _extract_messages((messages,), {}) == messages
+    assert _extract_messages((), {"messages": messages}) == messages
     assert _extract_messages((), {"messages": "raw"}) == [{"role": "unknown", "content": "raw"}]
     assert _extract_tools((), {"tools": tools}) == tools
     assert _extract_settings(
@@ -96,12 +97,16 @@ def test_extract_llm_response_supports_string_dict_and_object_shapes():
             tool_calls=[tool_call],
         )
     )
+    content_response = _extract_llm_response(SimpleNamespace(content="direct"))
+    broken_choice_response = _extract_llm_response(SimpleNamespace(choices=[SimpleNamespace(message=None)]))
 
     assert string_response == ("hello", {"input_tokens": 0, "output_tokens": 0}, 0.0, [])
     assert dict_response == ("ok", {"input_tokens": 3, "output_tokens": 4}, 0.12, [{"name": "lookup"}])
     assert object_response[0] == "from choice"
     assert object_response[1] == {"input_tokens": 11, "output_tokens": 7}
     assert object_response[3][0]["name"] == "search"
+    assert content_response[0] == "direct"
+    assert broken_choice_response[0].startswith("namespace(")
 
 
 @pytest.mark.asyncio
