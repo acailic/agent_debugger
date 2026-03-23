@@ -43,7 +43,7 @@ This project is useful if you want to:
 
 The local path is the clearest supported workflow today.
 
-Cloud-oriented configuration, auth, tenant isolation, and privacy work exist in the repo, but they are still being hardened and finished. The docs in this folder try to separate:
+Cloud-oriented configuration, auth, tenant isolation, and privacy work exist in the repo, but are not yet production-ready The docs in this folder try to separate:
 
 - what works end to end now
 - what exists but is still partial
