@@ -139,7 +139,7 @@ def trace_tool(
                 await ctx.__aenter__()
 
             if ctx is None:
-                raise RuntimeError("TraceContext is None - this should not happen")
+                raise RuntimeError("TraceContext is None - this should not happen")  # pragma: no cover
 
             tool_call_event = ToolCallEvent(
                 session_id=ctx.session_id,
@@ -237,7 +237,7 @@ def trace_llm(
                 await ctx.__aenter__()
 
             if ctx is None:
-                raise RuntimeError("TraceContext is None - this should not happen")
+                raise RuntimeError("TraceContext is None - this should not happen")  # pragma: no cover
 
             messages = _extract_messages(args, kwargs)
 
