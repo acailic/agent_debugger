@@ -12,7 +12,7 @@ See why your AI agent did that. This package gives you a tracing SDK for custom 
 ## Quick Start
 
 ```bash
-pip install agent-debugger
+pip install agentdbg
 ```
 
 ```python
@@ -39,7 +39,7 @@ asyncio.run(main())
 Run the backend locally if you want to receive and inspect events:
 
 ```bash
-pip install "agent-debugger[server]"
+pip install agentdbg-server
 uvicorn api.main:app --reload --port 8000
 ```
 

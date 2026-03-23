@@ -1,0 +1,84 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "sdk-v*"       # triggers SDK-only publish  →  agentdbg
+      - "server-v*"    # triggers server publish    →  agentdbg-server
+      - "v*"           # triggers both
+
+permissions:
+  contents: read
+  id-token: write  # required for PyPI trusted publishing (OIDC)
+
+jobs:
+  # ─────────────────────────────────────────────
+  # agentdbg  (SDK only)
+  # ─────────────────────────────────────────────
+  publish-sdk:
+    name: Publish agentdbg (SDK)
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref_name, 'sdk-v') || startsWith(github.ref_name, 'v')
+    environment:
+      name: pypi-sdk
+      url: https://pypi.org/project/agentdbg/
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: pip install build
+
+      - name: Build agentdbg wheel + sdist
+        run: python -m build
+        # pyproject.toml at root already targets agentdbg / agent_debugger_sdk only
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No token needed — uses OIDC trusted publishing.
+        # Configure on PyPI: https://pypi.org/manage/account/publishing/
+        #   Publisher: GitHub Actions
+        #   Owner:     acailic
+        #   Repo:      agent_debugger
+        #   Workflow:  publish.yml
+        #   Env name:  pypi-sdk
+
+  # ─────────────────────────────────────────────
+  # agentdbg-server  (full stack)
+  # ─────────────────────────────────────────────
+  publish-server:
+    name: Publish agentdbg-server
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref_name, 'server-v') || startsWith(github.ref_name, 'v')
+    environment:
+      name: pypi-server
+      url: https://pypi.org/project/agentdbg-server/
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: pip install build
+
+      - name: Swap in server pyproject for build
+        run: cp pyproject-server.toml pyproject.toml
+
+      - name: Build agentdbg-server wheel + sdist
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # Configure on PyPI: https://pypi.org/manage/account/publishing/
+        #   Publisher: GitHub Actions
+        #   Owner:     acailic
+        #   Repo:      agent_debugger
+        #   Workflow:  publish.yml
+        #   Env name:  pypi-server
