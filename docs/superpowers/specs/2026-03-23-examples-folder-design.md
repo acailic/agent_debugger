@@ -65,29 +65,34 @@ Run:
 ## Example Content Sketches
 
 ### `03_langchain.py`
-- Imports `LangChainTracingHandler` from `agent_debugger_sdk.adapters`
-- Creates a mock LangChain-style callback flow (no real LLM — uses `LANGCHAIN_AVAILABLE` guard same as adapter)
-- Attaches the handler to a `TraceContext`
-- Manually fires `on_llm_start`, `on_llm_end`, `on_tool_start`, `on_tool_end` to simulate a chain run
-- Prints session ID and trace URL
+- Check `LANGCHAIN_AVAILABLE` at top; if `False`, print `"Install langchain-core: pip install langchain-core"` and `sys.exit(0)`
+- Create a `TraceContext` with `async with TraceContext(...) as ctx:`
+- Create `handler = LangChainTracingHandler(session_id=ctx.session_id)` then call `handler.set_context(ctx)` — **required** before any callbacks fire (handler silently no-ops without it)
+- Call `await handler.on_llm_start(serialized={}, prompts=["What is 2+2?"], run_id=uuid.uuid4())` to simulate an LLM request
+- Call `await handler.on_llm_end(response=LLMResult(generations=[[]], llm_output={"model": "mock"}), run_id=uuid.uuid4())` to simulate the response
+- Call `await handler.on_tool_start(serialized={"name": "calculator"}, input_str="2+2", run_id=uuid.uuid4())` and `await handler.on_tool_end(output="4", run_id=uuid.uuid4())` to simulate a tool call
+- Print session ID — all events visible in the UI timeline under that session
 
 ### `04_pydantic_ai.py`
-- Imports `PydanticAIAdapter` from `agent_debugger_sdk.adapters`
-- Uses a mock agent (no real API key) wrapped with the adapter
-- Runs a single mock turn, records LLM request/response
+- Check `PYDANTIC_AI_AVAILABLE` at top; if `False`, print `"Install pydantic-ai: pip install pydantic-ai"` and `sys.exit(0)` — **must** be before any adapter instantiation since `PydanticAIAdapter.__init__` raises `ImportError` when the dep is absent
+- Create a `TraceContext` with `async with TraceContext(...) as ctx:`
+- Use `PydanticAIAdapter` with a mock `Agent("openai:gpt-4o-mini")` — agent will not be invoked (no real API key); only the wrapper's trace methods are called directly
+- Call `await ctx.record_llm_request(prompt="What is 2+2?", model="mock")` and `await ctx.record_llm_response(response="4", model="mock", duration_ms=50)` directly on the context to produce visible LLM events
+- Add a comment: "For a real run: set OPENAI_API_KEY and call `await adapter.run('your question')`"
 - Prints session ID
 
 ### `05_checkpoint_replay.py`
 - Runs a 3-step agent (decide → tool call → checkpoint)
-- After the trace closes, fetches the session via `httpx` or `urllib` (stdlib only) to show the checkpoint exists
-- Prints checkpoint label and state dict
-- Comment block explains: "to replay, restart the server and POST to /api/sessions/{id}/replay"
+- After the trace closes, fetches the session via `httpx` (already a declared dependency in `pyproject.toml`) — use `httpx.get(f"http://localhost:8000/api/sessions/{session_id}")`
+- Prints the checkpoint label and state dict extracted from the response JSON
+- Comment block explains: "to replay from this checkpoint: POST /api/sessions/{id}/replay with the checkpoint id"
 
 ### `07_loop_detection.py`
 - Runs a simple agent that calls `search_tool` 4 times with near-identical inputs (simulating a stuck loop)
-- Between calls, logs: "trying again..." to console
-- After the 4th call, records a `record_decision` with reasoning: "loop detected, stopping"
-- What to look for: live alert in the UI timeline
+- Between calls, prints: "trying again..." to console
+- After the 4th call, calls `await ctx.record_behavior_alert(alert_type="tool_loop_detected", description="search_tool called 4 times with similar inputs", severity="high")` — this is the correct method (exists in `TraceContext` and already used in `06_safety_audit.py`)
+- Do NOT use `record_decision` for this — use `record_behavior_alert` for consistency
+- What to look for in the UI: Live alerts timeline, loop detection heuristic panel
 
 ---
 
@@ -116,10 +121,11 @@ Run any example from the repo root after starting the server:
 ## Constraints
 
 - No real API keys required for any example
-- Each file ≤ 120 lines
+- **≤ 120 lines applies only to newly created files** (`03_langchain.py`, `04_pydantic_ai.py`, `05_checkpoint_replay.py`, `07_loop_detection.py`). Renamed files (`01`, `02`, `06`, `08`) keep their original content unchanged — line count constraint does not apply to them.
 - No new dependencies beyond what is already in `pyproject.toml`
-- All examples use `sys.path.insert(0, ...)` pattern already established in `hello_agent.py`
-- LangChain and PydanticAI examples use `if not LANGCHAIN_AVAILABLE` / `if not PYDANTIC_AI_AVAILABLE` guards and print a helpful install message if the optional dependency is missing
+- All examples use `sys.path.insert(0, ...)` pattern and `asyncio.run(main())` entry point
+- LangChain example: check `LANGCHAIN_AVAILABLE` at top; print install hint and `sys.exit(0)` if missing
+- PydanticAI example: check `PYDANTIC_AI_AVAILABLE` at top; print install hint and `sys.exit(0)` if missing (the adapter raises `ImportError` on `__init__` when dep is absent — the guard must be at the top of the script before instantiation)
 
 ---
 
