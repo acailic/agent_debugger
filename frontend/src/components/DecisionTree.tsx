@@ -53,6 +53,9 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
     content: '',
   })
 
+  // useRef to store renderTree function to avoid stale closure in handleNodeDoubleClick
+  const renderTreeRef = useRef<() => void>(() => {})
+
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
@@ -84,12 +87,13 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
     [onSelectEvent]
   )
 
+  // handleNodeDoubleClick uses renderTreeRef.current to avoid stale closure
   const handleNodeDoubleClick = useCallback(
     (event: MouseEvent, d: d3.HierarchyNode<D3TreeNode>) => {
       event.stopPropagation()
       if (d.data.children.length > 0) {
         d.data._collapsed = !d.data._collapsed
-        renderTree()
+        renderTreeRef.current()
       }
     },
     []
@@ -212,6 +216,11 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
       })
     }
   }, [tree, selectedEventId, zoom, pan, convertToD3Tree, handleNodeClick, handleNodeDoubleClick, handleMouseMove, handleMouseLeave])
+
+  // Keep renderTreeRef in sync with the latest renderTree function
+  useEffect(() => {
+    renderTreeRef.current = renderTree
+  }, [renderTree])
 
   useEffect(() => {
     renderTree()

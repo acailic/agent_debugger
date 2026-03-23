@@ -13,6 +13,8 @@ interface SessionReplayProps {
   onSeek: (index: number) => void
   speed: number
   onSpeedChange: (speed: number) => void
+  onJumpToPrevCheckpoint?: () => void
+  onJumpToNextCheckpoint?: () => void
 }
 
 const SPEED_OPTIONS = [0.5, 1, 2, 5]
@@ -71,6 +73,8 @@ export function SessionReplay({
   onSeek,
   speed,
   onSpeedChange,
+  onJumpToPrevCheckpoint,
+  onJumpToNextCheckpoint,
 }: SessionReplayProps) {
   const sliderRef = useRef<HTMLInputElement>(null)
   const playIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -78,6 +82,17 @@ export function SessionReplay({
   const totalEvents = events.length
   const canStepBack = currentIndex > 0
   const canStepForward = currentIndex < totalEvents - 1
+
+  // Checkpoint events computed first for navigation
+  const checkpointEvents = events
+    .map((event, index) => ({ event, index }))
+    .filter(({ event }) => isCheckpoint(event))
+
+  // Checkpoint navigation
+  const prevCheckpointIndex = checkpointEvents.filter(({ index }) => index < currentIndex).pop()?.index ?? null
+  const nextCheckpointIndex = checkpointEvents.find(({ index }) => index > currentIndex)?.index ?? null
+  const canJumpToPrevCheckpoint = prevCheckpointIndex !== null
+  const canJumpToNextCheckpoint = nextCheckpointIndex !== null
 
   const togglePlayPause = useCallback(() => {
     if (isPlaying) {
@@ -159,24 +174,21 @@ export function SessionReplay({
     }
   }, [isPlaying, speed, currentIndex, totalEvents, onStepForward, onPause])
 
-  const checkpointEvents = events
-    .map((event, index) => ({ event, index }))
-    .filter(({ event }) => isCheckpoint(event))
-
   const progressPercent = totalEvents > 1 ? (currentIndex / (totalEvents - 1)) * 100 : 0
 
   return (
     <div className="session-replay">
       <div className="replay-controls">
         <button
-          className="replay-btn step-back"
-          onClick={onStepBackward}
-          disabled={!canStepBack}
-          title="Step backward (Left Arrow)"
-          aria-label="Step backward"
+          className="replay-btn jump-prev-checkpoint"
+          onClick={() => onJumpToPrevCheckpoint?.()}
+          disabled={!canJumpToPrevCheckpoint}
+          title="Jump to previous checkpoint"
+          aria-label="Jump to previous checkpoint"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+            <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
           </svg>
         </button>
 
@@ -184,11 +196,11 @@ export function SessionReplay({
           className="replay-btn step-back-single"
           onClick={onStepBackward}
           disabled={!canStepBack}
-          title="Previous event"
+          title="Previous event (Left Arrow)"
           aria-label="Previous event"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+            <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
           </svg>
         </button>
 
@@ -213,23 +225,24 @@ export function SessionReplay({
           className="replay-btn step-forward-single"
           onClick={onStepForward}
           disabled={!canStepForward}
-          title="Next event"
+          title="Next event (Right Arrow)"
           aria-label="Next event"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
           </svg>
         </button>
 
         <button
-          className="replay-btn step-forward"
-          onClick={onStepForward}
-          disabled={!canStepForward}
-          title="Step forward (Right Arrow)"
-          aria-label="Step forward"
+          className="replay-btn jump-next-checkpoint"
+          onClick={() => onJumpToNextCheckpoint?.()}
+          disabled={!canJumpToNextCheckpoint}
+          title="Jump to next checkpoint"
+          aria-label="Jump to next checkpoint"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+            <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
           </svg>
         </button>
 

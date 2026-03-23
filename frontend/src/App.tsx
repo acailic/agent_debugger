@@ -443,6 +443,20 @@ function App() {
                 onSeek={setCurrentIndex}
                 speed={speed}
                 onSpeedChange={setSpeed}
+                onJumpToPrevCheckpoint={() => {
+                  const checkpointEvents = activeEvents
+                    .map((event, index) => ({ event, index }))
+                    .filter(({ event }) => event.event_type === 'checkpoint')
+                  const prevCheckpoint = checkpointEvents.filter(({ index }) => index < currentIndex).pop()
+                  if (prevCheckpoint) setCurrentIndex(prevCheckpoint.index)
+                }}
+                onJumpToNextCheckpoint={() => {
+                  const checkpointEvents = activeEvents
+                    .map((event, index) => ({ event, index }))
+                    .filter(({ event }) => event.event_type === 'checkpoint')
+                  const nextCheckpoint = checkpointEvents.find(({ index }) => index > currentIndex)
+                  if (nextCheckpoint) setCurrentIndex(nextCheckpoint.index)
+                }}
               />
               <div className="replay-summary">
                 <span>Nearest checkpoint: {replay?.nearest_checkpoint?.sequence ?? 'none'}</span>
