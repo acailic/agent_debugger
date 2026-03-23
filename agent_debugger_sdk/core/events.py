@@ -98,6 +98,29 @@ class TraceEvent:
             "upstream_event_ids": self.upstream_event_ids,
         }
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> TraceEvent:
+        """Deserialize a dictionary to a TraceEvent.
+
+        Converts a dictionary back to a TraceEvent, handling
+        datetime deserialization and EventType enum conversion.
+
+        Args:
+            data: Dictionary representation of an event
+
+        Returns:
+            TraceEvent instance
+        """
+        # Handle timestamp deserialization
+        if isinstance(data.get("timestamp"), str):
+            data["timestamp"] = datetime.fromisoformat(data["timestamp"])
+
+        # Handle EventType deserialization
+        if isinstance(data.get("event_type"), str):
+            data["event_type"] = EventType(data["event_type"])
+
+        return cls(**data)
+
 
 @dataclass(kw_only=True)
 class ToolCallEvent(TraceEvent):
