@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
+from agent_debugger_sdk.pricing import calculate_cost
+
 # Python 3.10 compatibility: StrEnum was added in Python 3.11
 if sys.version_info >= (3, 11):
     from enum import StrEnum
@@ -314,6 +316,16 @@ class LLMResponseEvent(TraceEvent):
     usage: dict[str, int] = field(default_factory=lambda: {"input_tokens": 0, "output_tokens": 0})
     cost_usd: float = 0.0
     duration_ms: float = 0.0
+
+    def __post_init__(self):
+        """Auto-calculate cost if not explicitly set and tokens available."""
+        if self.cost_usd == 0.0:
+            input_tokens = self.usage.get("input_tokens", 0)
+            output_tokens = self.usage.get("output_tokens", 0)
+            if input_tokens or output_tokens:
+                calculated = calculate_cost(self.model, input_tokens, output_tokens)
+                if calculated is not None:
+                    object.__setattr__(self, "cost_usd", calculated)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the LLM response event to a dictionary."""
