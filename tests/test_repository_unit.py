@@ -34,7 +34,7 @@ def _make_session(session_id: str = "session-1") -> Session:
         id=session_id,
         agent_name="agent",
         framework="pytest",
-        started_at=datetime(2026, 3, 23, 10, 0, tzinfo=UTC),
+        started_at=datetime(2026, 3, 23, 10, 0, tzinfo=timezone.utc),
         config={"mode": "test"},
         tags=["coverage"],
     )
@@ -101,7 +101,7 @@ async def test_event_and_checkpoint_queries_respect_tenant_and_filters(db_sessio
     first = ToolCallEvent(
         id="event-1",
         session_id=session_a.id,
-        timestamp=datetime(2026, 3, 23, 10, 1, tzinfo=UTC),
+        timestamp=datetime(2026, 3, 23, 10, 1, tzinfo=timezone.utc),
         name="search-start",
         tool_name="search",
         arguments={"q": "Belgrade"},
@@ -111,7 +111,7 @@ async def test_event_and_checkpoint_queries_respect_tenant_and_filters(db_sessio
     second = ErrorEvent(
         id="event-2",
         session_id=session_a.id,
-        timestamp=datetime(2026, 3, 23, 10, 2, tzinfo=UTC),
+        timestamp=datetime(2026, 3, 23, 10, 2, tzinfo=timezone.utc),
         name="tool-failure",
         error_type="RuntimeError",
         error_message="Belgrade failed",
@@ -119,7 +119,7 @@ async def test_event_and_checkpoint_queries_respect_tenant_and_filters(db_sessio
     foreign = ToolCallEvent(
         id="event-foreign",
         session_id=session_b.id,
-        timestamp=datetime(2026, 3, 23, 10, 3, tzinfo=UTC),
+        timestamp=datetime(2026, 3, 23, 10, 3, tzinfo=timezone.utc),
         name="foreign",
         tool_name="lookup",
         arguments={"q": "foreign"},
@@ -151,7 +151,7 @@ async def test_event_and_checkpoint_queries_respect_tenant_and_filters(db_sessio
         session_id=session_a.id,
         event_id=first.id,
         sequence=1,
-        timestamp=datetime(2026, 3, 23, 10, 1, tzinfo=UTC),
+        timestamp=datetime(2026, 3, 23, 10, 1, tzinfo=timezone.utc),
         importance=0.95,
         state={"step": 1},
     )
@@ -160,7 +160,7 @@ async def test_event_and_checkpoint_queries_respect_tenant_and_filters(db_sessio
         session_id=session_a.id,
         event_id=second.id,
         sequence=2,
-        timestamp=datetime(2026, 3, 23, 10, 2, tzinfo=UTC),
+        timestamp=datetime(2026, 3, 23, 10, 2, tzinfo=timezone.utc),
         importance=0.2,
         state={"step": 2},
     )
@@ -366,7 +366,7 @@ def test_session_and_checkpoint_orm_converters():
         sequence=7,
         state={"done": True},
         memory={"notes": "ok"},
-        timestamp=datetime(2026, 3, 23, 11, 0, tzinfo=UTC),
+        timestamp=datetime(2026, 3, 23, 11, 0, tzinfo=timezone.utc),
         importance=0.9,
     )
 

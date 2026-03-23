@@ -1,40 +1,38 @@
 """API key management endpoints."""
+
 from __future__ import annotations
 
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.main import get_db_session, get_tenant_id
-from auth.api_keys import generate_api_key, hash_key
+from api.dependencies import get_db_session, get_tenant_id
+from api.schemas import CreateKeyRequest, CreateKeyResponse, KeyListItem
+from auth.api_keys import generate_api_key as _default_generate_api_key
+from auth.api_keys import hash_key as _default_hash_key
 from auth.models import APIKeyModel
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+generate_api_key = _default_generate_api_key
+hash_key = _default_hash_key
 
 
-class CreateKeyRequest(BaseModel):
-    name: str = ""
-    environment: str = "live"  # live or test
+def _auth_key_helpers():
+    from api import main as api_main
 
-
-class CreateKeyResponse(BaseModel):
-    id: str
-    key: str  # Only returned once at creation
-    key_prefix: str
-    name: str
-    environment: str
-
-
-class KeyListItem(BaseModel):
-    id: str
-    key_prefix: str
-    name: str
-    environment: str
-    created_at: str
-    last_used_at: str | None
+    generate = (
+        generate_api_key
+        if generate_api_key is not _default_generate_api_key
+        else getattr(api_main, "generate_api_key", generate_api_key)
+    )
+    hash_fn = (
+        hash_key
+        if hash_key is not _default_hash_key
+        else getattr(api_main, "hash_key", hash_key)
+    )
+    return generate, hash_fn
 
 
 @router.post("/keys", response_model=CreateKeyResponse, status_code=201)
@@ -44,11 +42,12 @@ async def create_key(
     tenant_id: str = Depends(get_tenant_id),
 ):
     """Create a new API key for the current tenant."""
-    raw_key = generate_api_key(environment=request.environment)
+    generate, hash_fn = _auth_key_helpers()
+    raw_key = generate(environment=request.environment)
     key_model = APIKeyModel(
         id=str(uuid.uuid4()),
         tenant_id=tenant_id,
-        key_hash=hash_key(raw_key),
+        key_hash=hash_fn(raw_key),
         key_prefix=raw_key[:12] + "...",
         environment=request.environment,
         name=request.name,
@@ -79,11 +78,14 @@ async def list_keys(
     keys = result.scalars().all()
     return [
         KeyListItem(
-            id=k.id, key_prefix=k.key_prefix, name=k.name,
-            environment=k.environment, created_at=str(k.created_at),
-            last_used_at=str(k.last_used_at) if k.last_used_at else None,
+            id=key.id,
+            key_prefix=key.key_prefix,
+            name=key.name,
+            environment=key.environment,
+            created_at=str(key.created_at),
+            last_used_at=str(key.last_used_at) if key.last_used_at else None,
         )
-        for k in keys
+        for key in keys
     ]
 
 
@@ -93,7 +95,7 @@ async def revoke_key(
     db: AsyncSession = Depends(get_db_session),
     tenant_id: str = Depends(get_tenant_id),
 ):
-    """Revoke (deactivate) an API key."""
+    """Revoke an API key for the current tenant."""
     result = await db.execute(
         select(APIKeyModel).where(
             APIKeyModel.id == key_id,

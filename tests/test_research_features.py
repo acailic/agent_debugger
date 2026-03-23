@@ -124,7 +124,7 @@ async def test_persistence_manager_flushes_buffer_without_async_type_errors(tmp_
 
 def test_build_replay_scopes_focus_to_relevant_branch():
     """Focus replay should include the selected branch, not unrelated sibling work."""
-    timestamp = datetime(2026, 1, 1, tzinfo=UTC)
+    timestamp = datetime(2026, 1, 1, tzinfo=timezone.utc)
     events = [
         TraceEvent(id="root", session_id="session-1", name="root", timestamp=timestamp),
         DecisionEvent(
@@ -200,7 +200,7 @@ def test_build_replay_scopes_focus_to_relevant_branch():
 
 def test_trace_intelligence_emits_session_and_checkpoint_rankings():
     """Adaptive analysis should surface session replay value and ranked checkpoints."""
-    timestamp = datetime(2026, 1, 1, tzinfo=UTC)
+    timestamp = datetime(2026, 1, 1, tzinfo=timezone.utc)
     events = [
         TraceEvent(id="root", session_id="session-2", name="root", timestamp=timestamp),
         DecisionEvent(
@@ -247,7 +247,7 @@ def test_trace_intelligence_emits_session_and_checkpoint_rankings():
 
 def test_trace_intelligence_builds_backend_live_summary():
     """Live summary should expose backend-native recent alerts and latest event ids."""
-    timestamp = datetime(2026, 1, 1, tzinfo=UTC)
+    timestamp = datetime(2026, 1, 1, tzinfo=timezone.utc)
     events = [
         TraceEvent(id="root", session_id="session-3", name="root", timestamp=timestamp),
         ToolCallEvent(

@@ -168,7 +168,7 @@ def test_parse_event_type_and_timestamp():
     assert collector_server._parse_event_type("tool_call") == EventType.TOOL_CALL
     assert collector_server._parse_timestamp(None) is None
     assert collector_server._parse_timestamp("2026-03-23T10:00:00Z") == datetime(
-        2026, 3, 23, 10, 0, tzinfo=UTC
+        2026, 3, 23, 10, 0, tzinfo=timezone.utc
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -213,7 +213,7 @@ def test_build_event_returns_typed_event(event_type, data, expected_type, field_
     assert isinstance(event, expected_type)
     assert event.session_id == "session-1"
     assert event.parent_id == "parent-1"
-    assert event.timestamp == datetime(2026, 3, 23, 12, 0, tzinfo=UTC)
+    assert event.timestamp == datetime(2026, 3, 23, 12, 0, tzinfo=timezone.utc)
     assert event.metadata == {"source": "test"}
     assert event.upstream_event_ids == ["up-1"]
     assert field_assertions(event)

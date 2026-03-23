@@ -96,7 +96,7 @@ def test_normalizers_include_analysis_summary():
         id="session-normalize",
         agent_name="agent",
         framework="pytest",
-        started_at=datetime(2026, 3, 23, tzinfo=UTC),
+        started_at=datetime(2026, 3, 23, tzinfo=timezone.utc),
     )
     event = ToolCallEvent(session_id=session.id, tool_name="search", arguments={"q": "Belgrade"})
     checkpoint = Checkpoint(session_id=session.id, event_id=event.id, sequence=1)
@@ -168,7 +168,7 @@ async def test_persist_helpers_store_session_event_and_checkpoint(api_repo_facto
         await api_main._persist_session_start(session)
 
         session.status = "completed"
-        session.ended_at = datetime(2026, 3, 23, 11, 0, tzinfo=UTC)
+        session.ended_at = datetime(2026, 3, 23, 11, 0, tzinfo=timezone.utc)
         await api_main._persist_session_update(session)
         await api_main._persist_event(event)
         await api_main._persist_checkpoint(checkpoint)
@@ -194,13 +194,13 @@ async def test_list_sessions_can_sort_by_replay_value(api_repo_factory):
         id="replay-low",
         agent_name="low",
         framework="pytest",
-        started_at=datetime(2026, 3, 23, 9, 0, tzinfo=UTC),
+        started_at=datetime(2026, 3, 23, 9, 0, tzinfo=timezone.utc),
     )
     session_high = Session(
         id="replay-high",
         agent_name="high",
         framework="pytest",
-        started_at=datetime(2026, 3, 23, 10, 0, tzinfo=UTC),
+        started_at=datetime(2026, 3, 23, 10, 0, tzinfo=timezone.utc),
     )
     analyses = {
         "replay-low": {

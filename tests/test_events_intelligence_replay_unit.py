@@ -161,7 +161,7 @@ def test_trace_intelligence_helper_and_empty_paths():
 
 def test_trace_intelligence_build_live_summary_derives_recent_alerts():
     intelligence = TraceIntelligence()
-    timestamp = datetime(2026, 3, 23, tzinfo=UTC)
+    timestamp = datetime(2026, 3, 23, tzinfo=timezone.utc)
     events = [
         ToolCallEvent(id="tool-1", session_id="session-1", tool_name="search", timestamp=timestamp),
         ToolCallEvent(id="tool-2", session_id="session-1", tool_name="search", timestamp=timestamp),
@@ -235,7 +235,7 @@ def test_trace_intelligence_build_live_summary_derives_recent_alerts():
 
 def test_trace_intelligence_analyze_session_clusters_and_rankings():
     intelligence = TraceIntelligence()
-    timestamp = datetime(2026, 3, 23, tzinfo=UTC)
+    timestamp = datetime(2026, 3, 23, tzinfo=timezone.utc)
     events = [
         ToolCallEvent(id="tool-1", session_id="session-1", tool_name="search", timestamp=timestamp),
         ToolCallEvent(id="tool-2", session_id="session-1", tool_name="search", timestamp=timestamp),
@@ -308,7 +308,7 @@ def test_trace_intelligence_analyze_session_clusters_and_rankings():
 
 
 def test_replay_helpers_cover_focus_failure_and_breakpoint_paths():
-    timestamp = datetime(2026, 3, 23, tzinfo=UTC)
+    timestamp = datetime(2026, 3, 23, tzinfo=timezone.utc)
     root = TraceEvent(id="root", session_id="session-1", timestamp=timestamp)
     child = TraceEvent(id="child", session_id="session-1", parent_id="root", timestamp=timestamp)
     early_child = TraceEvent(id="early-child", session_id="session-1", parent_id="focus", timestamp=timestamp)

@@ -52,8 +52,8 @@ async def test_event_buffer_removes_full_subscriber_and_handles_missing_unsubscr
 
 def test_event_buffer_enforces_bounds_for_events_and_sessions():
     buffer = EventBuffer(max_events_per_session=2, max_sessions=2)
-    older = datetime(2026, 3, 23, 9, 0, tzinfo=UTC)
-    newer = datetime(2026, 3, 23, 10, 0, tzinfo=UTC)
+    older = datetime(2026, 3, 23, 9, 0, tzinfo=timezone.utc)
+    newer = datetime(2026, 3, 23, 10, 0, tzinfo=timezone.utc)
     buffer._events["trim-session"] = [
         TraceEvent(session_id="trim-session"),
         TraceEvent(session_id="trim-session"),
