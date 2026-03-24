@@ -574,21 +574,22 @@ class LangChainAdapter:
 
 
 def register_auto_patch() -> None:
-    """Patch LangChain's default callback manager to include our handler.
+    """Register the LangChain adapter with the global auto-patch registry.
 
-    This function is called by the auto-instrumentation system to automatically
-    patch LangChain for tracing without requiring code changes.
+    This function is called by the auto-instrumentation system to register
+    the :class:`~agent_debugger_sdk.auto_patch.adapters.langchain_adapter.LangChainAdapter`
+    with the global :class:`~agent_debugger_sdk.auto_patch.registry.PatchRegistry`.
 
-    The patching strategy:
-    1. Wraps LangChain's callback manager to automatically include tracing
-    2. Preserves existing callbacks while adding our handler
-    3. Works with LangChain's existing callback mechanisms
-
-    Note:
-        This is a placeholder for future auto-patching implementation.
-        Currently, users must manually add the handler to their callbacks.
+    Once registered, the adapter will be activated the next time
+    :func:`~agent_debugger_sdk.auto_patch.activate` is called.  It installs a
+    lightweight synchronous callback handler into LangChain's global callback
+    manager so that every LLM call automatically emits trace events.
     """
-    # TODO: Implement auto-patching logic
-    # This would involve patching LangChain's callback manager
-    # to automatically include LangChainTracingHandler
-    pass
+    from agent_debugger_sdk.auto_patch.adapters.langchain_adapter import (  # noqa: PLC0415
+        LangChainAdapter,
+    )
+    from agent_debugger_sdk.auto_patch.registry import get_registry  # noqa: PLC0415
+
+    registry = get_registry()
+    if "langchain" not in registry.registered_names():
+        registry.register(LangChainAdapter())

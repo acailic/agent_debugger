@@ -51,6 +51,9 @@ Issues = "https://github.com/acailic/agent_debugger/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["agent_debugger_sdk", "api", "auth", "collector", "redaction", "storage"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"frontend/dist" = "frontend/dist"
+
 [project.scripts]
 peaky-peek = "cli:main"
 

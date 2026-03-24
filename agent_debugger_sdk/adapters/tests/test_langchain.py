@@ -814,7 +814,13 @@ class TestLangChainErrorBoundaries:
                     await handler.on_tool_error(error=RuntimeError("tool"), run_id=uuid.uuid4())
 
 
-def test_register_auto_patch_is_noop():
+def test_register_auto_patch_registers_langchain_adapter():
     from agent_debugger_sdk.adapters.langchain import register_auto_patch
-
-    assert register_auto_patch() is None
+    from agent_debugger_sdk.auto_patch.registry import get_registry
+    registry = get_registry()
+    original_adapters = list(registry._adapters)
+    try:
+        register_auto_patch()
+        assert any(a.name == "langchain" for a in registry._adapters)
+    finally:
+        registry._adapters[:] = original_adapters
