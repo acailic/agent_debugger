@@ -80,6 +80,7 @@ class SafetyOutcome(StrEnum):
     PASS = "pass"
     FAIL = "fail"
     WARN = "warn"
+    BLOCK = "block"
 
 
 BASE_EVENT_FIELDS = {

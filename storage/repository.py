@@ -310,7 +310,6 @@ class TraceRepository:
             importance=checkpoint.importance,
         )
         self.session.add(db_checkpoint)
-        await self.session.refresh(db_checkpoint)
         return self._orm_to_checkpoint(db_checkpoint)
 
     async def commit(self) -> None:

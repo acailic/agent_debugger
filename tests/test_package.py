@@ -1,6 +1,6 @@
 """Tests for package metadata and imports."""
 
-from importlib.metadata import version, PackageNotFoundError
+from importlib.metadata import PackageNotFoundError, version
 
 
 def test_package_importable():
@@ -31,8 +31,9 @@ def test_version_exists():
 
 def test_version_format():
     """Test that version follows semantic versioning."""
-    import agent_debugger_sdk
     import re
+
+    import agent_debugger_sdk
     
     # Semantic versioning pattern: major.minor.patch
     semver_pattern = r'^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$'
@@ -51,7 +52,6 @@ def test_all_exports_importable():
 
 def test_no_circular_imports():
     """Test that the package can be imported without circular dependency issues."""
-    import importlib
     import sys
     
     # Remove from cache if present

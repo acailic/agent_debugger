@@ -1,14 +1,13 @@
 """Comprehensive tests for API replay routes - targeting 90%+ coverage."""
 
-import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from unittest.mock import Mock, patch, AsyncMock
-from uuid import uuid4
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, patch
+from uuid import uuid4
+
+import pytest
+from fastapi.testclient import TestClient
 
 from api.main import create_app
-from api.schemas import ReplayResponse, CheckpointResponse, RestoreResponse
 
 
 @pytest.fixture
@@ -222,7 +221,7 @@ class TestReplayIntegration:
     @patch('collector.replay.build_replay')
     def test_full_replay_workflow(self, mock_build, mock_get_repo, mock_load, mock_require, client, mock_session_id):
         """Test complete replay workflow with real-like data."""
-        from agent_debugger_sdk.core.events import TraceEvent, EventType
+        from agent_debugger_sdk.core.events import EventType, TraceEvent
         
         # Setup mocks
         mock_repo = AsyncMock()

@@ -251,8 +251,9 @@ class TestCheckpointEndpoints:
 
     def test_checkpoint_endpoints_registered(self):
         """GET and POST checkpoint endpoints should be registered in the app."""
-        import api.main as api_main
         from fastapi.routing import APIRoute
+
+        import api.main as api_main
 
         routes = [(r.path, r.methods) for r in api_main.app.routes if isinstance(r, APIRoute)]
         assert any(p == "/api/checkpoints/{checkpoint_id}" and "GET" in m for p, m in routes)
@@ -262,10 +263,10 @@ class TestCheckpointEndpoints:
         """GET /api/checkpoints/{id} should return 404 when checkpoint does not exist."""
         import asyncio
 
-        import api.main as api_main
         from fastapi import HTTPException
         from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+        import api.main as api_main
         from storage import Base, TraceRepository
 
         engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path}/cp.db", echo=False)

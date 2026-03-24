@@ -1,16 +1,12 @@
 """Comprehensive tests for LangChain adapter - targeting 85%+ coverage."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
 import uuid
-from datetime import datetime
+from unittest.mock import Mock, patch
 
-from agent_debugger_sdk.auto_patch.adapters.langchain_adapter import (
-    LangChainAdapter,
-    _SyncTracingCallbackHandler
-)
+import pytest
+
 from agent_debugger_sdk.auto_patch import PatchConfig
-from agent_debugger_sdk.core.events import EventType
+from agent_debugger_sdk.auto_patch.adapters.langchain_adapter import LangChainAdapter, _SyncTracingCallbackHandler
 
 
 class TestSyncTracingCallbackHandler:
@@ -433,7 +429,6 @@ class TestLangChainAdapterIntegration:
     def test_langchain_with_tools(self):
         """Test LangChain with tool calls."""
         from langchain.tools import Tool
-        from langchain.agents import initialize_agent
         
         adapter = LangChainAdapter()
         config = PatchConfig()

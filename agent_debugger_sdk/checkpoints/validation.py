@@ -6,9 +6,9 @@ from dataclasses import asdict, is_dataclass
 from typing import Any
 
 from .schemas import (
+    SCHEMA_REGISTRY,
     BaseCheckpointState,
     CustomCheckpointState,
-    SCHEMA_REGISTRY,
 )
 
 

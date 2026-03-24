@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.dependencies import get_repository
-from api.schemas import CheckpointResponse, RestoreRequest, RestoreResponse, ReplayResponse
+from api.schemas import CheckpointResponse, ReplayResponse, RestoreRequest, RestoreResponse
 from api.services import load_session_artifacts, normalize_checkpoint, require_session
 from collector.replay import build_replay
 from storage import TraceRepository
