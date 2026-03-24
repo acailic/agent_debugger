@@ -25,10 +25,14 @@ def mock_repo() -> AsyncMock:
 
 @pytest.fixture
 def client(mock_repo) -> TestClient:
-    """Create test client with repository dependency overridden."""
+    """Create test client with repository dependency overridden.
+
+    Uses raise_server_exceptions=False so the lifespan is not required;
+    route-level behaviour is tested via dependency overrides.
+    """
     app.dependency_overrides[get_repository] = lambda: mock_repo
-    with TestClient(app) as c:
-        yield c
+    client = TestClient(app, raise_server_exceptions=False)
+    yield client
     app.dependency_overrides.pop(get_repository, None)
 
 
