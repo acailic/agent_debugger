@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 
@@ -119,6 +121,24 @@ async def list_checkpoints(
         checkpoints=[normalize_checkpoint(checkpoint) for checkpoint in checkpoints],
         session_id=session_id,
     )
+
+
+@router.get("/api/sessions/{session_id}/export")
+async def export_session(
+    session_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> dict:
+    """Export session as portable JSON."""
+    session = await require_session(repo, session_id)
+    events = await repo.list_events(session_id)
+    checkpoints = await repo.list_checkpoints(session_id)
+    return {
+        "export_version": "1.0",
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "session": session.to_dict(),
+        "events": [e.to_dict() for e in events],
+        "checkpoints": [c.to_dict() for c in checkpoints],
+    }
 
 
 @router.get("/api/sessions/{session_id}/stream")

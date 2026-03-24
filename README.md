@@ -30,6 +30,8 @@ Peaky Peek is different: **agent-decision-aware**, **local-first by default**, a
 
 ## Quick Start
 
+**New to Peaky Peek?** See the [5-Minute Getting Started Guide](./docs/getting-started.md).
+
 ### Option A: pip (recommended)
 
 ```bash
