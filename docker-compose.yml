@@ -4,7 +4,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./agent_debugger.db:/app/agent_debugger.db
+      - ./data/agent_debugger.db:/app/data/agent_debugger.db
     environment:
       - AGENT_DEBUGGER_ENABLED=true
     healthcheck:

@@ -19,7 +19,7 @@ from collector.buffer import get_event_buffer
 from collector.server import configure_storage
 from storage import Base, TraceRepository
 
-DATABASE_URL = os.environ.get("AGENT_DEBUGGER_DB_URL", "sqlite+aiosqlite:///./agent_debugger.db")
+DATABASE_URL = os.environ.get("AGENT_DEBUGGER_DB_URL", "sqlite+aiosqlite:///./data/agent_debugger.db")
 
 
 async def main() -> None:

@@ -19,6 +19,9 @@ htmlcov/
 *.db
 *.db-shm
 *.db-wal
+# Database files (now in data/)
+*.db.backup
+data/
 .tmp-*
 traces/
 dist/

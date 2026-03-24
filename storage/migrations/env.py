@@ -21,7 +21,7 @@ target_metadata = Base.metadata
 def get_url() -> str:
     return os.environ.get(
         "AGENT_DEBUGGER_DB_URL",
-        config.get_main_option("sqlalchemy.url", "sqlite+aiosqlite:///./agent_debugger.db"),
+        config.get_main_option("sqlalchemy.url", "sqlite+aiosqlite:///./data/agent_debugger.db"),
     )
 
 def run_migrations_offline() -> None:

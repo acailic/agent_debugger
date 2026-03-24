@@ -10,7 +10,7 @@ from alembic.config import Config as AlembicConfig
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-DEFAULT_SQLITE_URL = "sqlite+aiosqlite:///./agent_debugger.db"
+DEFAULT_SQLITE_URL = "sqlite+aiosqlite:///./data/agent_debugger.db"
 
 
 def get_database_url() -> str:
