@@ -117,6 +117,14 @@ class PatchRegistry:
         """
         return [a.name for a in self._patched]
 
+    def registered_names(self) -> list[str]:
+        """Return names of all registered adapters.
+
+        Returns:
+            List of adapter name strings.
+        """
+        return [a.name for a in self._adapters]
+
 
 _registry = PatchRegistry()
 

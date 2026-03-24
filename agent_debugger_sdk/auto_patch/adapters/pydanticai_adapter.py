@@ -28,6 +28,8 @@ class PydanticAIAdapter(BaseAdapter):
     agent invocation automatically emits LLM request/response trace events.
 
     The original ``run`` method is restored on :meth:`unpatch`.
+
+    Note: One instance per process is assumed when using class-level monkey-patching.
     """
 
     name = "pydanticai"
@@ -36,6 +38,7 @@ class PydanticAIAdapter(BaseAdapter):
         self._original_run: Any = None
         self._transport: SyncTransport | None = None
         self._config: PatchConfig | None = None
+        self._session_id: str | None = None
 
     def is_available(self) -> bool:
         """Return True if ``pydantic_ai`` is importable."""
@@ -56,6 +59,7 @@ class PydanticAIAdapter(BaseAdapter):
 
         self._config = config
         self._transport = SyncTransport(config.server_url)
+        self._session_id = get_or_create_session(self._transport, config.agent_name, self.name)
 
         Agent = pydantic_ai.Agent
 
@@ -75,7 +79,7 @@ class PydanticAIAdapter(BaseAdapter):
                 return await adapter._original_run(agent_self, user_prompt, **kwargs)
 
             try:
-                session_id = get_or_create_session(transport, cfg.agent_name, adapter.name)
+                session_id = adapter._session_id or ""
                 model_name = _get_model_name(agent_self)
 
                 messages: list[dict[str, Any]] = []
@@ -142,6 +146,11 @@ class PydanticAIAdapter(BaseAdapter):
             logger.debug("PydanticAIAdapter: restored original Agent.run")
         except Exception:
             logger.warning("PydanticAIAdapter: failed to restore Agent.run", exc_info=True)
+        finally:
+            if self._transport is not None:
+                self._transport.shutdown()
+                self._transport = None
+            self._session_id = None
 
 
 # ---------------------------------------------------------------------------

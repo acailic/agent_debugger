@@ -13,14 +13,11 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from agent_debugger_sdk.auto_patch._transport import SyncTransport, get_or_create_session
 from agent_debugger_sdk.auto_patch.registry import BaseAdapter, PatchConfig
 from agent_debugger_sdk.core.events import LLMRequestEvent, LLMResponseEvent, ToolCallEvent
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger("agent_debugger.auto_patch")
 
@@ -45,6 +42,7 @@ class _SyncTracingCallbackHandler:
         self._transport = transport
         self._capture_content = capture_content
         self._start_times: dict[str, float] = {}
+        self._model_names: dict[str, str] = {}
         self._request_event_ids: dict[str, str] = {}
 
     # ------------------------------------------------------------------
@@ -66,6 +64,7 @@ class _SyncTracingCallbackHandler:
 
             invocation_params = kwargs.get("invocation_params") or {}
             model = invocation_params.get("model") or invocation_params.get("model_name") or "unknown"
+            self._model_names[run_id_str] = model
 
             messages: list[dict[str, Any]] = []
             if self._capture_content:
@@ -119,8 +118,7 @@ class _SyncTracingCallbackHandler:
                     "output_tokens": token_usage.get("completion_tokens", 0),
                 }
 
-            invocation_params = kwargs.get("invocation_params") or {}
-            model = invocation_params.get("model") or invocation_params.get("model_name") or "unknown"
+            model = self._model_names.pop(run_id_str, "unknown")
 
             event = LLMResponseEvent(
                 session_id=self._session_id,
@@ -140,6 +138,7 @@ class _SyncTracingCallbackHandler:
         """Clean up tracking state on LLM error."""
         run_id_str = str(run_id)
         self._start_times.pop(run_id_str, None)
+        self._model_names.pop(run_id_str, None)
         self._request_event_ids.pop(run_id_str, None)
 
     # ------------------------------------------------------------------
@@ -262,6 +261,9 @@ class LangChainAdapter(BaseAdapter):
                 logger.warning("LangChainAdapter: failed to remove global handler", exc_info=True)
             finally:
                 self._handler = None
+        if self._transport is not None:
+            self._transport.shutdown()
+            self._transport = None
 
     # ------------------------------------------------------------------
     # Internal: LangChain global callback manager access

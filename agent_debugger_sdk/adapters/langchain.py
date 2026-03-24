@@ -591,5 +591,5 @@ def register_auto_patch() -> None:
     from agent_debugger_sdk.auto_patch.registry import get_registry  # noqa: PLC0415
 
     registry = get_registry()
-    if not any(a.name == "langchain" for a in registry._adapters):
+    if "langchain" not in registry.registered_names():
         registry.register(LangChainAdapter())
