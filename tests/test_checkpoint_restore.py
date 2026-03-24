@@ -296,6 +296,34 @@ class TestCheckpointEndpoints:
 
 class TestCreateCheckpointValidation:
     @pytest.mark.asyncio
+    async def test_create_checkpoint_with_dataclass_state(self):
+        """create_checkpoint should accept typed state dataclass."""
+        from agent_debugger_sdk import TraceContext
+        from agent_debugger_sdk.checkpoints import LangChainCheckpointState
+
+        async with TraceContext(agent_name="test") as ctx:
+            state = LangChainCheckpointState(
+                label="test_state",
+                messages=[{"role": "user", "content": "hi"}],
+            )
+            checkpoint_id = await ctx.create_checkpoint(state, importance=0.9)
+            assert checkpoint_id is not None
+
+    @pytest.mark.asyncio
+    async def test_create_checkpoint_with_dict_state(self):
+        """create_checkpoint should accept dict and validate it."""
+        from agent_debugger_sdk import TraceContext
+
+        async with TraceContext(agent_name="test") as ctx:
+            state_dict = {
+                "framework": "langchain",
+                "label": "test_state",
+                "messages": [{"role": "user", "content": "hi"}],
+            }
+            checkpoint_id = await ctx.create_checkpoint(state_dict, importance=0.9)
+            assert checkpoint_id is not None
+
+    @pytest.mark.asyncio
     async def test_create_checkpoint_serializes_dataclass_state_to_dict(self):
         """create_checkpoint should serialize dataclass state to dict when persisting."""
         from agent_debugger_sdk import TraceContext
