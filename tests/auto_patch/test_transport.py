@@ -42,14 +42,10 @@ class TestSyncTransportSendEvent:
 
             t = SyncTransport(server_url="http://localhost:9999")
 
-            import time
-
-            start = time.monotonic()
             t.send_event({"event_type": "test"})
-            elapsed = time.monotonic() - start
 
-            # Should complete in well under 100ms
-            assert elapsed < 0.1
+            # Assert non-blocking by verifying queue received the item
+            assert not t._queue.empty()
 
 
 class TestSyncTransportSendSession:

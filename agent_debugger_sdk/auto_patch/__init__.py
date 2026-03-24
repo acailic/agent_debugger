@@ -28,9 +28,10 @@ from __future__ import annotations
 import logging
 import os
 
+from agent_debugger_sdk.auto_patch._transport import reset_session
 from agent_debugger_sdk.auto_patch.registry import PatchConfig, PatchRegistry, get_registry
 
-logger = logging.getLogger("peaky_peek.auto_patch")
+logger = logging.getLogger("agent_debugger.auto_patch")
 
 __all__ = ["PatchConfig", "activate", "deactivate"]
 
@@ -97,6 +98,7 @@ def activate(config: PatchConfig | None = None) -> None:
 def deactivate() -> None:
     """Remove all auto-patch hooks and restore original library behaviour."""
     get_registry().unapply()
+    reset_session()
     logger.info("Peaky Peek auto-patch deactivated")
 
 

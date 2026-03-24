@@ -5,7 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-logger = logging.getLogger("peaky_peek.auto_patch")
+logger = logging.getLogger("agent_debugger.auto_patch")
 
 
 @dataclass

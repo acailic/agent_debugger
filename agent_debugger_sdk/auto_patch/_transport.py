@@ -15,7 +15,7 @@ from typing import Any
 
 import httpx
 
-logger = logging.getLogger("peaky_peek.auto_patch")
+logger = logging.getLogger("agent_debugger.auto_patch")
 
 # ---------------------------------------------------------------------------
 # Module-level session state shared across all adapters in one process
@@ -116,7 +116,7 @@ class SyncTransport:
             try:
                 self._client.post("/api/traces", json=item)
             except Exception:
-                logger.warning("Failed to deliver event to Peaky Peek server — event dropped")
+                logger.warning("Failed to deliver event — event dropped", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -156,3 +156,10 @@ def get_or_create_session(transport: SyncTransport, agent_name: str, framework: 
         }
         _current_session_id = transport.send_session(session_dict)
     return _current_session_id
+
+
+def reset_session() -> None:
+    """Reset the module-level session ID (call on deactivate)."""
+    global _current_session_id
+    with _session_lock:
+        _current_session_id = None

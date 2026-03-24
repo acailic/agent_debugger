@@ -13,6 +13,7 @@ class _MockAdapter(BaseAdapter):
         self._available = available
         self.patched = False
         self.unpatched = False
+        self.last_config: PatchConfig | None = None
 
     def is_available(self) -> bool:
         return self._available
