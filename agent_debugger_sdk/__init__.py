@@ -2,6 +2,11 @@
 
 __version__ = "0.1.2"
 
+from agent_debugger_sdk.checkpoints import (
+    BaseCheckpointState,
+    CustomCheckpointState,
+    LangChainCheckpointState,
+)
 from agent_debugger_sdk.config import Config, get_config, init
 from agent_debugger_sdk.core.context import TraceContext, configure_event_pipeline, get_current_context
 from agent_debugger_sdk.core.decorators import trace_agent, trace_llm, trace_tool
@@ -49,6 +54,10 @@ __all__ = [
     "Session",
     "Checkpoint",
     "ImportanceScorer",
+    # Checkpoints
+    "BaseCheckpointState",
+    "CustomCheckpointState",
+    "LangChainCheckpointState",
     # Context
     "TraceContext",
     "get_current_context",

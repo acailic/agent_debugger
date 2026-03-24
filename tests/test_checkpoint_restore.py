@@ -1,5 +1,7 @@
 """Tests for checkpoint schemas and restore functionality."""
 
+import pytest
+
 
 class TestBaseCheckpointState:
     def test_base_checkpoint_state_defaults(self):
@@ -159,3 +161,80 @@ class TestCheckpointValidation:
         assert result["framework"] == "langchain"
         assert result["label"] == "test"
         assert result["messages"] == [{"role": "user", "content": "hi"}]
+
+
+class TestTraceContextRestore:
+    def test_restore_classmethod_exists(self):
+        """TraceContext.restore should be a classmethod."""
+        from agent_debugger_sdk import TraceContext
+
+        assert hasattr(TraceContext, "restore")
+        assert callable(getattr(TraceContext, "restore"))
+
+    @pytest.mark.asyncio
+    async def test_restore_creates_context_with_restored_state(self):
+        """TraceContext.restore should create context with restored state."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_debugger_sdk import TraceContext
+
+        mock_checkpoint_data = {
+            "id": "cp-test-123",
+            "session_id": "sess-original",
+            "event_id": "evt-1",
+            "sequence": 1,
+            "state": {
+                "framework": "langchain",
+                "label": "test_checkpoint",
+                "messages": [{"role": "user", "content": "hello"}],
+            },
+            "memory": {},
+            "timestamp": "2026-03-24T12:00:00Z",
+            "importance": 0.9,
+        }
+
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+            mock_response = MagicMock()
+            mock_response.json.return_value = mock_checkpoint_data
+            mock_response.raise_for_status = MagicMock()
+            mock_get.return_value = mock_response
+
+            ctx = await TraceContext.restore(
+                checkpoint_id="cp-test-123",
+                server_url="http://localhost:8000",
+            )
+
+            assert ctx is not None
+            assert ctx.restored_state is not None
+            assert ctx.restored_state.framework == "langchain"
+
+    @pytest.mark.asyncio
+    async def test_restored_context_can_be_used_as_context_manager(self):
+        """Restored context should work as async context manager."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_debugger_sdk import TraceContext
+
+        mock_checkpoint_data = {
+            "id": "cp-test-456",
+            "session_id": "sess-original",
+            "event_id": "evt-1",
+            "sequence": 1,
+            "state": {"framework": "custom", "data": {"step": 5}},
+            "memory": {},
+            "timestamp": "2026-03-24T12:00:00Z",
+            "importance": 0.5,
+        }
+
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+            mock_response = MagicMock()
+            mock_response.json.return_value = mock_checkpoint_data
+            mock_response.raise_for_status = MagicMock()
+            mock_get.return_value = mock_response
+
+            async with await TraceContext.restore(
+                checkpoint_id="cp-test-456",
+                server_url="http://localhost:8000",
+            ) as ctx:
+                assert ctx.session_id != "sess-original"
+                assert ctx.session.config.get("restored_from_checkpoint") == "cp-test-456"

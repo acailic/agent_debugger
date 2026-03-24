@@ -13,7 +13,10 @@ import uuid
 from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
+
+if TYPE_CHECKING:
+    from agent_debugger_sdk.checkpoints import BaseCheckpointState
 
 from .events import (
     AgentTurnEvent,
@@ -184,6 +187,69 @@ class TraceContext:
         self._session_start_event: TraceEvent | None = None
         self._entered = False
         self._transport: Any | None = None  # HttpTransport instance if in cloud mode
+        self._restored_state: BaseCheckpointState | None = None
+
+    @classmethod
+    async def restore(
+        cls,
+        checkpoint_id: str,
+        *,
+        session_id: str | None = None,
+        server_url: str | None = None,
+        label: str = "",
+    ) -> TraceContext:
+        """Restore execution from a checkpoint.
+
+        Creates a new TraceContext pre-populated with checkpoint state.
+        The restored session references the original in its config.
+
+        Args:
+            checkpoint_id: ID of checkpoint to restore from.
+            session_id: Optional session ID for the restored session (new UUID if None).
+            server_url: Server URL (uses configured endpoint if None).
+            label: Label for the restored session.
+
+        Returns:
+            TraceContext with restored state accessible via ctx.restored_state.
+
+        Example:
+            async with await TraceContext.restore("cp-abc123") as ctx:
+                state = ctx.restored_state  # LangChainCheckpointState
+                messages = state.messages   # Pre-populated history
+        """
+        import httpx
+
+        from agent_debugger_sdk.checkpoints import validate_checkpoint_state
+
+        if server_url is None:
+            from agent_debugger_sdk.config import get_config
+            config = get_config()
+            server_url = config.endpoint or "http://localhost:8000"
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{server_url}/api/checkpoints/{checkpoint_id}")
+            response.raise_for_status()
+            checkpoint_data = response.json()
+
+        state_dict = checkpoint_data.get("state", {})
+        original_session_id = checkpoint_data.get("session_id", "")
+
+        ctx = cls(
+            session_id=session_id or str(uuid.uuid4()),
+            agent_name=label or f"restored from {checkpoint_id[:8]}",
+            framework=state_dict.get("framework", "custom"),
+            config={
+                "restored_from_checkpoint": checkpoint_id,
+                "original_session_id": original_session_id,
+            },
+        )
+        ctx._restored_state = validate_checkpoint_state(state_dict)
+        return ctx
+
+    @property
+    def restored_state(self) -> BaseCheckpointState | None:
+        """The checkpoint state this context was restored from, if any."""
+        return self._restored_state
 
     async def __aenter__(self) -> TraceContext:
         """Enter the tracing context.
