@@ -21,6 +21,7 @@ logger = logging.getLogger("peaky_peek.auto_patch")
 # Module-level session state shared across all adapters in one process
 # ---------------------------------------------------------------------------
 _current_session_id: str | None = None
+_session_lock = threading.Lock()
 
 _SENTINEL = None  # value that signals the background thread to exit
 
@@ -142,12 +143,16 @@ def get_or_create_session(transport: SyncTransport, agent_name: str, framework: 
     if _current_session_id is not None:
         return _current_session_id
 
-    session_dict = {
-        "agent_name": agent_name,
-        "framework": framework,
-        "status": "running",
-        "config": {},
-        "tags": [],
-    }
-    _current_session_id = transport.send_session(session_dict)
+    with _session_lock:
+        if _current_session_id is not None:  # double-checked locking
+            return _current_session_id
+
+        session_dict = {
+            "agent_name": agent_name,
+            "framework": framework,
+            "status": "running",
+            "config": {},
+            "tags": [],
+        }
+        _current_session_id = transport.send_session(session_dict)
     return _current_session_id
