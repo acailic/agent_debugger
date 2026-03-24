@@ -30,12 +30,14 @@ async def get_trace_bundle(
     session_id: str,
     repo: TraceRepository = Depends(get_repository),
 ) -> TraceBundleResponse:
-    session = await require_session(repo, session_id)
+    await require_session(repo, session_id)
     events, checkpoints, analysis = await analyze_session(
         repo,
         session_id,
         persist_replay_value=True,
     )
+    await repo.commit()
+    session = await require_session(repo, session_id)
     return TraceBundleResponse(
         session=normalize_session(session),
         events=[normalize_event(event) for event in events],
@@ -52,6 +54,7 @@ async def get_session_analysis(
 ) -> AnalysisResponse:
     await require_session(repo, session_id)
     _, _, analysis = await analyze_session(repo, session_id, persist_replay_value=True)
+    await repo.commit()
     return AnalysisResponse(session_id=session_id, analysis=analysis)
 
 

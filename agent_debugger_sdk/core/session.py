@@ -12,7 +12,7 @@ from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Any
 
-from .events import Session
+from .events import Session, SessionStatus
 
 
 class SessionManager:
@@ -61,14 +61,18 @@ class SessionManager:
             agent_name=agent_name,
             framework=framework,
             started_at=datetime.now(timezone.utc),
-            status="running",
+            status=SessionStatus.RUNNING,
             config=config or {},
             tags=tags or [],
         )
         self._sessions[session.id] = session
         return session
 
-    def end_session(self, session_id: str, status: str = "completed") -> Session | None:
+    def end_session(
+        self,
+        session_id: str,
+        status: SessionStatus = SessionStatus.COMPLETED,
+    ) -> Session | None:
         """End an active session.
 
         Args:
@@ -83,7 +87,7 @@ class SessionManager:
             return None
 
         session.ended_at = datetime.now(timezone.utc)
-        session.status = status
+        session.status = SessionStatus(status)
         return session
 
     def get_session(self, session_id: str) -> Session | None:
@@ -103,7 +107,7 @@ class SessionManager:
         Returns:
             List of sessions with status='running'
         """
-        return [s for s in self._sessions.values() if s.status == "running"]
+        return [s for s in self._sessions.values() if s.status == SessionStatus.RUNNING]
 
     def update_session_stats(self, session_id: str, **stats: Any) -> None:
         """Update statistics for a session.

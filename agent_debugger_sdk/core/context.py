@@ -13,38 +13,20 @@ import uuid
 from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from agent_debugger_sdk.checkpoints import BaseCheckpointState
 
+from .emitter import EventBufferLike, EventEmitter
 from .events import (
-    AgentTurnEvent,
-    BehaviorAlertEvent,
     Checkpoint,
-    DecisionEvent,
-    ErrorEvent,
     EventType,
-    LLMRequestEvent,
-    LLMResponseEvent,
-    PolicyViolationEvent,
-    PromptPolicyEvent,
-    RefusalEvent,
-    SafetyCheckEvent,
     Session,
-    ToolCallEvent,
-    ToolResultEvent,
+    SessionStatus,
     TraceEvent,
 )
-from .scorer import get_importance_scorer
-
-
-class EventBufferLike(Protocol):
-    """Protocol for publish-capable event buffers."""
-
-    async def publish(self, session_id: str, event: TraceEvent) -> None:
-        """Publish an event for live consumers."""
-        ...
+from .recorders import RecordingMixin
 
 _current_session_id: ContextVar[str | None] = ContextVar("current_session_id", default=None)
 _current_parent_id: ContextVar[str | None] = ContextVar("current_parent_id", default=None)
@@ -114,7 +96,7 @@ def configure_event_pipeline(
     _default_session_update_hook.set(persist_session_update)
 
 
-class TraceContext:
+class TraceContext(RecordingMixin):
     """Async-safe context manager for tracing agent execution.
 
     Manages thread-local (actually async-context-local) state for tracking
@@ -182,6 +164,16 @@ class TraceContext:
             framework=framework,
             config=config or {},
             tags=tags or [],
+        )
+        self._emitter = EventEmitter(
+            session_id=self.session_id,
+            session=self.session,
+            event_store=self._events,
+            event_lock=self._events_lock,
+            event_sequence=_event_sequence,
+            event_buffer=self._event_buffer,
+            event_persister=self._event_persister,
+            session_update_hook=self._session_update_hook,
         )
 
         self._session_start_event: TraceEvent | None = None
@@ -277,6 +269,8 @@ class TraceContext:
             self._event_persister = self._transport.send_event
             self._session_start_hook = self._transport.send_session_start
             self._session_update_hook = self._transport.send_session_update
+            self._emitter.set_event_persister(self._event_persister)
+            self._emitter.set_session_update_hook(self._session_update_hook)
         else:
             self._transport = None
 
@@ -313,9 +307,9 @@ class TraceContext:
             exc_val: Exception value if an exception was raised.
             exc_tb: Exception traceback if an exception was raised.
         """
-        status = "completed"
+        status = SessionStatus.COMPLETED
         if exc_type is not None:
-            status = "error"
+            status = SessionStatus.ERROR
             # Get stack trace from traceback object
             import traceback as tb_module
 
@@ -362,431 +356,6 @@ class TraceContext:
         if self._transport is not None:
             await self._transport.close()
             self._transport = None
-
-    async def record_decision(
-        self,
-        reasoning: str,
-        confidence: float,
-        evidence: list[dict[str, Any]],
-        chosen_action: str,
-        evidence_event_ids: list[str] | None = None,
-        upstream_event_ids: list[str] | None = None,
-        alternatives: list[dict[str, Any]] | None = None,
-        name: str = "decision",
-    ) -> str:
-        """Record a decision point in the agent execution.
-
-        Captures the reasoning process when an agent makes a decision,
-        including confidence level, supporting evidence, alternatives
-        considered, and the chosen action.
-
-        Args:
-            reasoning: The agent's reasoning for this decision.
-            confidence: Confidence level (0.0-1.0).
-            evidence: List of evidence items supporting the decision.
-                Each item should have 'source' and 'content' keys.
-            chosen_action: The action that was selected.
-            alternatives: Optional list of alternative actions considered.
-                Each item should have 'action' and 'reason_rejected' keys.
-            name: Human-readable name for this decision point.
-
-        Returns:
-            The event ID of the recorded decision.
-
-        Example:
-            event_id = await ctx.record_decision(
-                reasoning="User query about weather requires weather API",
-                confidence=0.85,
-                evidence=[{"source": "user_input", "content": "What's the weather?"}],
-                chosen_action="call_weather_tool",
-                alternatives=[
-                    {"action": "search_web", "reason_rejected": "Less accurate for weather"}
-                ]
-            )
-        """
-        self._check_entered()
-
-        confidence = max(0.0, min(1.0, confidence))
-
-        event = DecisionEvent(
-            session_id=self.session_id,
-            parent_id=_current_parent_id.get(),
-            event_type=EventType.DECISION,
-            name=name,
-            reasoning=reasoning,
-            confidence=confidence,
-            evidence=evidence,
-            evidence_event_ids=evidence_event_ids or [],
-            alternatives=alternatives or [],
-            chosen_action=chosen_action,
-            importance=0.7,
-            upstream_event_ids=upstream_event_ids or [],
-        )
-
-        await self._emit_event(event)
-        return event.id
-
-    async def record_tool_call(
-        self,
-        tool_name: str,
-        arguments: dict[str, Any],
-        *,
-        upstream_event_ids: list[str] | None = None,
-        parent_id: str | None = None,
-        name: str | None = None,
-    ) -> str:
-        """Record that the agent invoked a tool."""
-        self._check_entered()
-
-        event = ToolCallEvent(
-            session_id=self.session_id,
-            parent_id=parent_id if parent_id is not None else _current_parent_id.get(),
-            event_type=EventType.TOOL_CALL,
-            name=name or f"{tool_name}_call",
-            tool_name=tool_name,
-            arguments=arguments,
-            importance=0.4,
-            upstream_event_ids=upstream_event_ids or [],
-        )
-
-        await self._emit_event(event)
-        return event.id
-
-    async def record_tool_result(
-        self,
-        tool_name: str,
-        result: Any,
-        error: str | None = None,
-        duration_ms: float = 0,
-        upstream_event_ids: list[str] | None = None,
-        parent_id: str | None = None,
-        name: str | None = None,
-    ) -> str:
-        """Record the result of a tool call.
-
-        Captures the outcome of a tool execution, including success/failure
-        status, duration, and any returned data or error.
-
-        Args:
-            tool_name: Name of the tool that was called.
-            result: The return value from the tool.
-            error: Error message if the tool call failed.
-            duration_ms: Execution time in milliseconds.
-            name: Optional human-readable name for this event.
-
-        Returns:
-            The event ID of the recorded tool result.
-
-        Example:
-            result = await search_web("weather today")
-            await ctx.record_tool_result(
-                tool_name="search_web",
-                result=result,
-                duration_ms=150.5
-            )
-        """
-        self._check_entered()
-
-        importance = 0.5
-        if error:
-            importance = 0.9
-            self.session.errors += 1
-
-        event = ToolResultEvent(
-            session_id=self.session_id,
-            parent_id=parent_id if parent_id is not None else _current_parent_id.get(),
-            event_type=EventType.TOOL_RESULT,
-            name=name or f"{tool_name}_result",
-            tool_name=tool_name,
-            result=result,
-            error=error,
-            duration_ms=duration_ms,
-            importance=importance,
-            upstream_event_ids=upstream_event_ids or [],
-        )
-
-        self.session.tool_calls += 1
-        await self._emit_event(event)
-        return event.id
-
-    async def record_llm_request(
-        self,
-        model: str,
-        messages: list[dict[str, Any]],
-        *,
-        tools: list[dict[str, Any]] | None = None,
-        settings: dict[str, Any] | None = None,
-        upstream_event_ids: list[str] | None = None,
-        parent_id: str | None = None,
-        name: str | None = None,
-    ) -> str:
-        """Record an outbound LLM request."""
-        self._check_entered()
-
-        event = LLMRequestEvent(
-            session_id=self.session_id,
-            parent_id=parent_id if parent_id is not None else _current_parent_id.get(),
-            event_type=EventType.LLM_REQUEST,
-            name=name or f"llm_request_{model}",
-            model=model,
-            messages=messages,
-            tools=tools or [],
-            settings=settings or {},
-            importance=0.35,
-            upstream_event_ids=upstream_event_ids or [],
-        )
-
-        await self._emit_event(event)
-        return event.id
-
-    async def record_llm_response(
-        self,
-        model: str,
-        content: str,
-        *,
-        tool_calls: list[dict[str, Any]] | None = None,
-        usage: dict[str, int] | None = None,
-        cost_usd: float = 0.0,
-        duration_ms: float = 0.0,
-        upstream_event_ids: list[str] | None = None,
-        parent_id: str | None = None,
-        name: str | None = None,
-    ) -> str:
-        """Record an inbound LLM response."""
-        self._check_entered()
-
-        event = LLMResponseEvent(
-            session_id=self.session_id,
-            parent_id=parent_id if parent_id is not None else _current_parent_id.get(),
-            event_type=EventType.LLM_RESPONSE,
-            name=name or f"llm_response_{model}",
-            model=model,
-            content=content,
-            tool_calls=tool_calls or [],
-            usage=usage or {"input_tokens": 0, "output_tokens": 0},
-            cost_usd=cost_usd,
-            duration_ms=duration_ms,
-            importance=0.5,
-            upstream_event_ids=upstream_event_ids or [],
-        )
-
-        await self._emit_event(event)
-        return event.id
-
-    async def record_error(
-        self,
-        error_type: str,
-        error_message: str,
-        stack_trace: str | None = None,
-        name: str | None = None,
-    ) -> str:
-        """Record an error that occurred during agent execution.
-
-        Captures error details including type, message, and optional
-        stack trace for debugging purposes.
-
-        Args:
-            error_type: The exception class name or error category.
-            error_message: Human-readable error message.
-            stack_trace: Optional stack trace for debugging.
-            name: Optional human-readable name for this event.
-
-        Returns:
-            The event ID of the recorded error.
-
-        Example:
-            try:
-                result = await risky_operation()
-            except Exception as e:
-                await ctx.record_error(
-                    error_type=type(e).__name__,
-                    error_message=str(e),
-                    stack_trace=traceback.format_exc()
-                )
-                raise
-        """
-        self._check_entered()
-
-        event = ErrorEvent(
-            session_id=self.session_id,
-            parent_id=_current_parent_id.get(),
-            event_type=EventType.ERROR,
-            name=name or f"error_{error_type}",
-            error_type=error_type,
-            error_message=error_message,
-            stack_trace=stack_trace,
-            importance=0.9,
-        )
-
-        self.session.errors += 1
-        await self._emit_event(event)
-        return event.id
-
-    async def record_safety_check(
-        self,
-        policy_name: str,
-        outcome: str,
-        risk_level: str,
-        rationale: str,
-        *,
-        blocked_action: str | None = None,
-        evidence: list[dict[str, Any]] | None = None,
-        upstream_event_ids: list[str] | None = None,
-        name: str | None = None,
-    ) -> str:
-        """Record an explicit safety check event."""
-        self._check_entered()
-        event = SafetyCheckEvent(
-            session_id=self.session_id,
-            parent_id=_current_parent_id.get(),
-            name=name or f"safety_check_{policy_name}",
-            policy_name=policy_name,
-            outcome=outcome,
-            risk_level=risk_level,
-            rationale=rationale,
-            blocked_action=blocked_action,
-            evidence=evidence or [],
-            upstream_event_ids=upstream_event_ids or [],
-            importance=0.8 if outcome != "pass" else 0.55,
-        )
-        await self._emit_event(event)
-        return event.id
-
-    async def record_refusal(
-        self,
-        reason: str,
-        policy_name: str,
-        *,
-        risk_level: str = "medium",
-        blocked_action: str | None = None,
-        safe_alternative: str | None = None,
-        upstream_event_ids: list[str] | None = None,
-        name: str | None = None,
-    ) -> str:
-        """Record an intentional refusal event."""
-        self._check_entered()
-        event = RefusalEvent(
-            session_id=self.session_id,
-            parent_id=_current_parent_id.get(),
-            name=name or f"refusal_{policy_name}",
-            reason=reason,
-            policy_name=policy_name,
-            risk_level=risk_level,
-            blocked_action=blocked_action,
-            safe_alternative=safe_alternative,
-            upstream_event_ids=upstream_event_ids or [],
-            importance=0.85,
-        )
-        await self._emit_event(event)
-        return event.id
-
-    async def record_policy_violation(
-        self,
-        policy_name: str,
-        violation_type: str,
-        *,
-        severity: str = "medium",
-        details: dict[str, Any] | None = None,
-        upstream_event_ids: list[str] | None = None,
-        name: str | None = None,
-    ) -> str:
-        """Record a policy violation event."""
-        self._check_entered()
-        event = PolicyViolationEvent(
-            session_id=self.session_id,
-            parent_id=_current_parent_id.get(),
-            name=name or f"policy_violation_{violation_type}",
-            policy_name=policy_name,
-            severity=severity,
-            violation_type=violation_type,
-            details=details or {},
-            upstream_event_ids=upstream_event_ids or [],
-            importance=0.9,
-        )
-        await self._emit_event(event)
-        return event.id
-
-    async def record_prompt_policy(
-        self,
-        template_id: str,
-        policy_parameters: dict[str, Any],
-        *,
-        speaker: str = "",
-        state_summary: str = "",
-        goal: str = "",
-        upstream_event_ids: list[str] | None = None,
-        name: str | None = None,
-    ) -> str:
-        """Record prompt-policy state for prompt-as-action traces."""
-        self._check_entered()
-        event = PromptPolicyEvent(
-            session_id=self.session_id,
-            parent_id=_current_parent_id.get(),
-            name=name or f"prompt_policy_{template_id}",
-            template_id=template_id,
-            policy_parameters=policy_parameters,
-            speaker=speaker,
-            state_summary=state_summary,
-            goal=goal,
-            upstream_event_ids=upstream_event_ids or [],
-            importance=0.65,
-        )
-        await self._emit_event(event)
-        return event.id
-
-    async def record_agent_turn(
-        self,
-        agent_id: str,
-        speaker: str,
-        turn_index: int,
-        *,
-        goal: str = "",
-        content: str = "",
-        upstream_event_ids: list[str] | None = None,
-        name: str | None = None,
-    ) -> str:
-        """Record a multi-agent turn event."""
-        self._check_entered()
-        event = AgentTurnEvent(
-            session_id=self.session_id,
-            parent_id=_current_parent_id.get(),
-            name=name or f"agent_turn_{turn_index}",
-            agent_id=agent_id,
-            speaker=speaker,
-            turn_index=turn_index,
-            goal=goal,
-            content=content,
-            upstream_event_ids=upstream_event_ids or [],
-            importance=0.6,
-        )
-        await self._emit_event(event)
-        return event.id
-
-    async def record_behavior_alert(
-        self,
-        alert_type: str,
-        signal: str,
-        *,
-        severity: str = "medium",
-        related_event_ids: list[str] | None = None,
-        upstream_event_ids: list[str] | None = None,
-        name: str | None = None,
-    ) -> str:
-        """Record a behavior anomaly event."""
-        self._check_entered()
-        event = BehaviorAlertEvent(
-            session_id=self.session_id,
-            parent_id=_current_parent_id.get(),
-            name=name or f"behavior_alert_{alert_type}",
-            alert_type=alert_type,
-            severity=severity,
-            signal=signal,
-            related_event_ids=related_event_ids or [],
-            upstream_event_ids=upstream_event_ids or [],
-            importance=0.82,
-        )
-        await self._emit_event(event)
-        return event.id
 
     async def create_checkpoint(
         self,
@@ -935,69 +504,8 @@ class TraceContext:
             )
 
     async def _emit_event(self, event: TraceEvent) -> None:
-        """Emit an event to the internal list and optionally to the event buffer.
-
-        Increments the event sequence and stores the event locally.
-        If an event buffer is configured, also publishes to it for real-time streaming.
-        Wraps persistence and buffer operations in error handling to prevent crashes.
-
-        Args:
-            event: The event to emit.
-        """
-        from agent_debugger_sdk.config import get_config
-        config = get_config()
-        if not config.enabled:
-            return  # Skip everything when disabled
-
-        current_seq = _event_sequence.get()
-        _event_sequence.set(current_seq + 1)
-
-        event.metadata["sequence"] = current_seq + 1
-        event.importance = get_importance_scorer().score(event)
-
-        async with self._events_lock:
-            self._events.append(event)
-
-        if isinstance(event, LLMResponseEvent):
-            usage = event.usage
-            self.session.total_tokens += usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
-            self.session.total_cost_usd += event.cost_usd
-            self.session.llm_calls += 1
-
-        # Persist — never crash the user's code
-        persister = self._event_persister or _default_event_persister.get()
-        if persister:
-            try:
-                await persister(event)
-            except Exception:
-                import logging
-                logging.getLogger("agent_debugger").warning(
-                    "Failed to persist event %s: collector may be unavailable", event.id,
-                    exc_info=True,
-                )
-
-        # Session update — never crash the user's code
-        if self._session_update_hook is not None:
-            try:
-                await self._session_update_hook(self.session)
-            except Exception:
-                import logging
-                logging.getLogger("agent_debugger").warning(
-                    "Failed to update session %s: collector may be unavailable", self.session_id,
-                    exc_info=True,
-                )
-
-        # Publish to event buffer for real-time streaming if configured
-        buffer = self._event_buffer or _default_event_buffer.get()
-        if buffer:
-            try:
-                await buffer.publish(self.session_id, event)
-            except Exception:
-                import logging
-                logging.getLogger("agent_debugger").warning(
-                    "Failed to publish event %s to buffer", event.id,
-                    exc_info=True,
-                )
+        """Emit an event through the shared event emitter."""
+        await self._emitter.emit(event)
 
 
 def get_current_context() -> TraceContext | None:

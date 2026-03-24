@@ -8,6 +8,8 @@ from typing import Any
 from sqlalchemy import JSON, Float, ForeignKey, Index, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+from agent_debugger_sdk.core.events import SessionStatus
+
 
 class Base(DeclarativeBase):
     """Base class for all ORM models."""
@@ -26,7 +28,7 @@ class SessionModel(Base):
     framework: Mapped[str] = mapped_column(String(100))
     started_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
     ended_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    status: Mapped[str] = mapped_column(String(32), default="running")
+    status: Mapped[SessionStatus] = mapped_column(String(32), default=SessionStatus.RUNNING)
     total_tokens: Mapped[int] = mapped_column(default=0)
     total_cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
     tool_calls: Mapped[int] = mapped_column(default=0)

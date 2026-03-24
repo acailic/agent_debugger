@@ -57,6 +57,31 @@ class EventType(StrEnum):
     BEHAVIOR_ALERT = "behavior_alert"
 
 
+class SessionStatus(StrEnum):
+    """Session lifecycle status values."""
+
+    RUNNING = "running"
+    COMPLETED = "completed"
+    ERROR = "error"
+
+
+class RiskLevel(StrEnum):
+    """Shared risk/severity labels across domain events."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class SafetyOutcome(StrEnum):
+    """Explicit outcome labels for safety checks."""
+
+    PASS = "pass"
+    FAIL = "fail"
+    WARN = "warn"
+
+
 BASE_EVENT_FIELDS = {
     "id",
     "session_id",
@@ -69,6 +94,24 @@ BASE_EVENT_FIELDS = {
     "importance",
     "upstream_event_ids",
 }
+
+
+def _serialize_field_value(value: Any) -> Any:
+    """Convert dataclass field values into JSON-serializable payloads."""
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, Enum):
+        return str(value)
+    if isinstance(value, list):
+        return [_serialize_field_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [_serialize_field_value(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _serialize_field_value(item)
+            for key, item in value.items()
+        }
+    return value
 
 
 @dataclass(kw_only=True)
@@ -112,16 +155,8 @@ class TraceEvent:
             Dictionary representation of this event
         """
         return {
-            "id": self.id,
-            "session_id": self.session_id,
-            "parent_id": self.parent_id,
-            "event_type": str(self.event_type),
-            "timestamp": self.timestamp.isoformat(),
-            "name": self.name,
-            "data": self.data,
-            "metadata": self.metadata,
-            "importance": self.importance,
-            "upstream_event_ids": self.upstream_event_ids,
+            field_info.name: _serialize_field_value(getattr(self, field_info.name))
+            for field_info in fields(self)
         }
 
     @classmethod
@@ -209,17 +244,6 @@ class ToolCallEvent(TraceEvent):
     tool_name: str = ""
     arguments: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize the tool call event to a dictionary."""
-        base = super().to_dict()
-        base.update(
-            {
-                "tool_name": self.tool_name,
-                "arguments": self.arguments,
-            }
-        )
-        return base
-
 
 @dataclass(kw_only=True)
 class ToolResultEvent(TraceEvent):
@@ -243,19 +267,6 @@ class ToolResultEvent(TraceEvent):
     error: str | None = None
     duration_ms: float = 0.0
 
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize the tool result event to a dictionary."""
-        base = super().to_dict()
-        base.update(
-            {
-                "tool_name": self.tool_name,
-                "result": self.result,
-                "error": self.error,
-                "duration_ms": self.duration_ms,
-            }
-        )
-        return base
-
 
 @dataclass(kw_only=True)
 class LLMRequestEvent(TraceEvent):
@@ -277,19 +288,6 @@ class LLMRequestEvent(TraceEvent):
     messages: list[dict[str, Any]] = field(default_factory=list)
     tools: list[dict[str, Any]] = field(default_factory=list)
     settings: dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize the LLM request event to a dictionary."""
-        base = super().to_dict()
-        base.update(
-            {
-                "model": self.model,
-                "messages": self.messages,
-                "tools": self.tools,
-                "settings": self.settings,
-            }
-        )
-        return base
 
 
 @dataclass(kw_only=True)
@@ -327,22 +325,6 @@ class LLMResponseEvent(TraceEvent):
                 if calculated is not None:
                     object.__setattr__(self, "cost_usd", calculated)
 
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize the LLM response event to a dictionary."""
-        base = super().to_dict()
-        base.update(
-            {
-                "model": self.model,
-                "content": self.content,
-                "tool_calls": self.tool_calls,
-                "usage": self.usage,
-                "cost_usd": self.cost_usd,
-                "duration_ms": self.duration_ms,
-            }
-        )
-        return base
-
-
 @dataclass(kw_only=True)
 class DecisionEvent(TraceEvent):
     """Event representing an agent decision point.
@@ -368,21 +350,6 @@ class DecisionEvent(TraceEvent):
     alternatives: list[dict[str, Any]] = field(default_factory=list)
     chosen_action: str = ""
 
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize the decision event to a dictionary."""
-        base = super().to_dict()
-        base.update(
-            {
-                "reasoning": self.reasoning,
-                "confidence": self.confidence,
-                "evidence": self.evidence,
-                "evidence_event_ids": self.evidence_event_ids,
-                "alternatives": self.alternatives,
-                "chosen_action": self.chosen_action,
-            }
-        )
-        return base
-
 
 @dataclass(kw_only=True)
 class SafetyCheckEvent(TraceEvent):
@@ -390,26 +357,15 @@ class SafetyCheckEvent(TraceEvent):
 
     event_type: EventType = EventType.SAFETY_CHECK
     policy_name: str = ""
-    outcome: str = "pass"
-    risk_level: str = "low"
+    outcome: SafetyOutcome = SafetyOutcome.PASS
+    risk_level: RiskLevel = RiskLevel.LOW
     rationale: str = ""
     blocked_action: str | None = None
     evidence: list[dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize the safety check event to a dictionary."""
-        base = super().to_dict()
-        base.update(
-            {
-                "policy_name": self.policy_name,
-                "outcome": self.outcome,
-                "risk_level": self.risk_level,
-                "rationale": self.rationale,
-                "blocked_action": self.blocked_action,
-                "evidence": self.evidence,
-            }
-        )
-        return base
+    def __post_init__(self) -> None:
+        self.outcome = SafetyOutcome(self.outcome)
+        self.risk_level = RiskLevel(self.risk_level)
 
 
 @dataclass(kw_only=True)
@@ -419,23 +375,12 @@ class RefusalEvent(TraceEvent):
     event_type: EventType = EventType.REFUSAL
     reason: str = ""
     policy_name: str = ""
-    risk_level: str = "medium"
+    risk_level: RiskLevel = RiskLevel.MEDIUM
     blocked_action: str | None = None
     safe_alternative: str | None = None
 
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize the refusal event to a dictionary."""
-        base = super().to_dict()
-        base.update(
-            {
-                "reason": self.reason,
-                "policy_name": self.policy_name,
-                "risk_level": self.risk_level,
-                "blocked_action": self.blocked_action,
-                "safe_alternative": self.safe_alternative,
-            }
-        )
-        return base
+    def __post_init__(self) -> None:
+        self.risk_level = RiskLevel(self.risk_level)
 
 
 @dataclass(kw_only=True)
@@ -444,22 +389,12 @@ class PolicyViolationEvent(TraceEvent):
 
     event_type: EventType = EventType.POLICY_VIOLATION
     policy_name: str = ""
-    severity: str = "medium"
+    severity: RiskLevel = RiskLevel.MEDIUM
     violation_type: str = ""
     details: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize the policy violation event to a dictionary."""
-        base = super().to_dict()
-        base.update(
-            {
-                "policy_name": self.policy_name,
-                "severity": self.severity,
-                "violation_type": self.violation_type,
-                "details": self.details,
-            }
-        )
-        return base
+    def __post_init__(self) -> None:
+        self.severity = RiskLevel(self.severity)
 
 
 @dataclass(kw_only=True)
@@ -473,20 +408,6 @@ class PromptPolicyEvent(TraceEvent):
     state_summary: str = ""
     goal: str = ""
 
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize the prompt policy event to a dictionary."""
-        base = super().to_dict()
-        base.update(
-            {
-                "template_id": self.template_id,
-                "policy_parameters": self.policy_parameters,
-                "speaker": self.speaker,
-                "state_summary": self.state_summary,
-                "goal": self.goal,
-            }
-        )
-        return base
-
 
 @dataclass(kw_only=True)
 class AgentTurnEvent(TraceEvent):
@@ -499,20 +420,6 @@ class AgentTurnEvent(TraceEvent):
     goal: str = ""
     content: str = ""
 
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize the agent turn event to a dictionary."""
-        base = super().to_dict()
-        base.update(
-            {
-                "agent_id": self.agent_id,
-                "speaker": self.speaker,
-                "turn_index": self.turn_index,
-                "goal": self.goal,
-                "content": self.content,
-            }
-        )
-        return base
-
 
 @dataclass(kw_only=True)
 class BehaviorAlertEvent(TraceEvent):
@@ -520,22 +427,12 @@ class BehaviorAlertEvent(TraceEvent):
 
     event_type: EventType = EventType.BEHAVIOR_ALERT
     alert_type: str = ""
-    severity: str = "medium"
+    severity: RiskLevel = RiskLevel.MEDIUM
     signal: str = ""
     related_event_ids: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize the behavior alert event to a dictionary."""
-        base = super().to_dict()
-        base.update(
-            {
-                "alert_type": self.alert_type,
-                "severity": self.severity,
-                "signal": self.signal,
-                "related_event_ids": self.related_event_ids,
-            }
-        )
-        return base
+    def __post_init__(self) -> None:
+        self.severity = RiskLevel(self.severity)
 
 
 @dataclass(kw_only=True)
@@ -556,18 +453,6 @@ class ErrorEvent(TraceEvent):
     error_type: str = ""
     error_message: str = ""
     stack_trace: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize the error event to a dictionary."""
-        base = super().to_dict()
-        base.update(
-            {
-                "error_type": self.error_type,
-                "error_message": self.error_message,
-                "stack_trace": self.stack_trace,
-            }
-        )
-        return base
 
 
 @dataclass(kw_only=True)
@@ -598,7 +483,7 @@ class Session:
     framework: str = ""
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     ended_at: datetime | None = None
-    status: str = "running"
+    status: SessionStatus = SessionStatus.RUNNING
     total_tokens: int = 0
     total_cost_usd: float = 0.0
     tool_calls: int = 0
@@ -608,6 +493,9 @@ class Session:
     config: dict[str, Any] = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        self.status = SessionStatus(self.status)
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize the session to a dictionary."""
         return {
@@ -616,7 +504,7 @@ class Session:
             "framework": self.framework,
             "started_at": self.started_at.isoformat(),
             "ended_at": self.ended_at.isoformat() if self.ended_at else None,
-            "status": self.status,
+            "status": str(self.status),
             "total_tokens": self.total_tokens,
             "total_cost_usd": self.total_cost_usd,
             "tool_calls": self.tool_calls,

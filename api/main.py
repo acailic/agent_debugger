@@ -1,4 +1,4 @@
-"""FastAPI application factory and shared runtime state."""
+"""FastAPI application factory."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from agent_debugger_sdk.config import get_config
 from agent_debugger_sdk.core.context import configure_event_pipeline
+from api import app_context
 from api import services as _services
 from api.auth_routes import router as auth_router
 from api.replay_routes import router as replay_router
@@ -19,35 +20,25 @@ from api.system_routes import router as system_router
 from api.trace_routes import router as trace_router
 from api.ui_routes import DIST_PATH
 from api.ui_routes import router as ui_router
-from collector.intelligence import TraceIntelligence
 from collector.server import configure_storage
 from collector.server import router as collector_router
-from redaction.pipeline import RedactionPipeline
-from storage.engine import create_db_engine, create_session_maker, prepare_database
-
-engine = create_db_engine()
-async_session_maker = create_session_maker(engine)
-trace_intelligence = TraceIntelligence()
-
-
-def _get_redaction_pipeline() -> RedactionPipeline:
-    """Build the default redaction pipeline from runtime config."""
-    return RedactionPipeline.from_config()
+from storage.engine import get_database_url, prepare_database
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan context manager."""
     from collector import create_buffer
-    from storage.engine import get_database_url
+
+    app_context.init_app_context()
 
     if "sqlite" in get_database_url():
-        await prepare_database(engine)
+        await prepare_database(app_context.require_engine())
 
     buffer_backend = "redis" if os.environ.get("REDIS_URL") else "memory"
     buffer = create_buffer(backend=buffer_backend)
 
-    configure_storage(async_session_maker)
+    configure_storage(app_context.require_session_maker())
     configure_event_pipeline(
         buffer,
         persist_event=_services.persist_event,
@@ -96,6 +87,15 @@ def create_app() -> FastAPI:
         app.mount("/ui", StaticFiles(directory=str(DIST_PATH), html=True), name="ui")
 
     return app
+
+
+def __getattr__(name: str):
+    """Provide compatibility access to app runtime state."""
+    if name in {"engine", "async_session_maker", "trace_intelligence"}:
+        return getattr(app_context, name)
+    if name == "_get_redaction_pipeline":
+        return app_context._get_redaction_pipeline
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 app = create_app()

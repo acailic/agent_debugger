@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from sqlalchemy import text
 
 from agent_debugger_sdk.config import get_config
+from api import app_context
 
 router = APIRouter(tags=["system"])
 
@@ -15,13 +16,11 @@ router = APIRouter(tags=["system"])
 @router.get("/health")
 async def health():
     """Health check endpoint with dependency connectivity verification."""
-    from api import main as api_main
-
     config = get_config()
     checks = {"status": "ok", "mode": config.mode}
 
     try:
-        async with api_main.async_session_maker() as session:
+        async with app_context.require_session_maker()() as session:
             await session.execute(text("SELECT 1"))
         checks["database"] = "connected"
     except Exception as e:

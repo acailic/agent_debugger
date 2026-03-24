@@ -16,6 +16,7 @@ from agent_debugger_sdk.core.events import (
     Checkpoint,
     EventType,
     Session,
+    SessionStatus,
     TraceEvent,
 )
 from storage.models import CheckpointModel, EventModel, SessionModel
@@ -65,7 +66,6 @@ class TraceRepository:
             tags=session.tags,
         )
         self.session.add(db_session)
-        await self.session.commit()
         return self._orm_to_session(db_session)
 
     async def get_session(self, session_id: str) -> Session | None:
@@ -168,7 +168,6 @@ class TraceRepository:
 
         for field, value in filtered_updates.items():
             setattr(db_session, field, value)
-        await self.session.commit()
         return self._orm_to_session(db_session)
 
     async def delete_session(self, session_id: str) -> bool:
@@ -191,7 +190,6 @@ class TraceRepository:
             return False
 
         await self.session.delete(db_session)
-        await self.session.commit()
         return True
 
     async def add_event(self, event: TraceEvent) -> TraceEvent:
@@ -205,7 +203,6 @@ class TraceRepository:
         """
         db_event = self._event_to_orm(event)
         self.session.add(db_event)
-        await self.session.commit()
         return self._orm_to_event(db_event)
 
     async def add_events_batch(self, events: list[TraceEvent]) -> list[TraceEvent]:
@@ -219,7 +216,6 @@ class TraceRepository:
         """
         db_events = [self._event_to_orm(event) for event in events]
         self.session.add_all(db_events)
-        await self.session.commit()
         return [self._orm_to_event(db) for db in db_events]
 
     async def get_event(self, event_id: str) -> TraceEvent | None:
@@ -314,9 +310,12 @@ class TraceRepository:
             importance=checkpoint.importance,
         )
         self.session.add(db_checkpoint)
-        await self.session.commit()
         await self.session.refresh(db_checkpoint)
         return self._orm_to_checkpoint(db_checkpoint)
+
+    async def commit(self) -> None:
+        """Commit the current transaction."""
+        await self.session.commit()
 
     async def get_checkpoint(self, checkpoint_id: str) -> Checkpoint | None:
         """Retrieve a checkpoint by ID with tenant isolation.
@@ -503,7 +502,7 @@ class TraceRepository:
             framework=db_session.framework,
             started_at=db_session.started_at,
             ended_at=db_session.ended_at,
-            status=db_session.status,
+            status=SessionStatus(db_session.status),
             total_tokens=db_session.total_tokens,
             total_cost_usd=db_session.total_cost_usd,
             tool_calls=db_session.tool_calls,

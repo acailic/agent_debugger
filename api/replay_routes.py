@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.dependencies import get_repository
 from api.schemas import CheckpointResponse, RestoreRequest, RestoreResponse, ReplayResponse
-from api.services import load_session_artifacts, require_session
+from api.services import load_session_artifacts, normalize_checkpoint, require_session
 from collector.replay import build_replay
 from storage import TraceRepository
 
@@ -78,14 +78,7 @@ async def get_checkpoint(
         raise HTTPException(status_code=404, detail="Checkpoint not found")
 
     return CheckpointResponse(
-        id=checkpoint.id,
-        session_id=checkpoint.session_id,
-        event_id=checkpoint.event_id,
-        sequence=checkpoint.sequence,
-        state=checkpoint.state,
-        memory=checkpoint.memory,
-        timestamp=checkpoint.timestamp.isoformat() if checkpoint.timestamp else "",
-        importance=checkpoint.importance,
+        **normalize_checkpoint(checkpoint).model_dump(),
     )
 
 
@@ -117,6 +110,7 @@ async def restore_checkpoint(
         },
     )
     await repo.create_session(new_session)
+    await repo.commit()
 
     return RestoreResponse(
         checkpoint_id=checkpoint_id,

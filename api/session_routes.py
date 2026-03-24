@@ -22,6 +22,7 @@ from api.services import (
     event_generator,
     normalize_checkpoint,
     normalize_event,
+    normalize_session,
     require_session,
 )
 from storage import TraceRepository
@@ -52,7 +53,7 @@ async def get_session(
     repo: TraceRepository = Depends(get_repository),
 ) -> SessionDetailResponse:
     session = await require_session(repo, session_id)
-    return SessionDetailResponse(session=session.to_dict())
+    return SessionDetailResponse(session=normalize_session(session))
 
 
 @router.put("/api/sessions/{session_id}", response_model=SessionDetailResponse)
@@ -69,7 +70,9 @@ async def update_session(
     session = await repo.update_session(session_id, **update_data)
     if session is None:
         session = await require_session(repo, session_id)
-    return SessionDetailResponse(session=session.to_dict())
+    else:
+        await repo.commit()
+    return SessionDetailResponse(session=normalize_session(session))
 
 
 @router.delete("/api/sessions/{session_id}", response_model=DeleteResponse)
@@ -79,6 +82,7 @@ async def delete_session(
 ) -> DeleteResponse:
     await require_session(repo, session_id)
     await repo.delete_session(session_id)
+    await repo.commit()
     return DeleteResponse(deleted=True, session_id=session_id)
 
 

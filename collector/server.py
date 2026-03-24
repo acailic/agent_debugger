@@ -167,6 +167,7 @@ async def _persist_event_if_configured(event: TraceEvent, tenant_id: str = "loca
                 detail=f"Session {event.session_id} not found",
             )
         await repo.add_event(event)
+        await repo.commit()
 
 
 def _parse_event_type(event_type_str: str) -> EventType:
@@ -278,6 +279,7 @@ async def create_session(
             tenant_id = await _get_tenant_id(request, db_session)
             repo = TraceRepository(db_session, tenant_id=tenant_id)
             session = await repo.create_session(session)
+            await repo.commit()
 
     return SessionResponse(
         id=session.id,

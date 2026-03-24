@@ -9,7 +9,9 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from agent_debugger_sdk.core.events import Checkpoint, Session, TraceEvent
+from agent_debugger_sdk.core.events import Checkpoint, Session, SessionStatus, TraceEvent
+from api import app_context
+from api.schemas import CheckpointSchema, SessionSchema, TraceEventSchema
 from collector.buffer import get_event_buffer
 from storage import TraceRepository
 
@@ -17,23 +19,26 @@ logger = logging.getLogger(__name__)
 SESSION_ANALYSIS_CAP = 100
 
 
-def normalize_session(session: Session, analysis_summary: dict[str, Any] | None = None) -> dict[str, Any]:
+def normalize_session(
+    session: Session,
+    analysis_summary: dict[str, Any] | None = None,
+) -> SessionSchema:
     normalized = session.to_dict()
     if analysis_summary:
         normalized.update(analysis_summary)
-    return normalized
+    return SessionSchema.model_validate(normalized)
 
 
-def normalize_event(event: TraceEvent) -> dict[str, Any]:
-    return event.to_dict()
+def normalize_event(event: TraceEvent) -> TraceEventSchema:
+    return TraceEventSchema.model_validate(event.to_dict())
 
 
-def normalize_checkpoint(checkpoint: Checkpoint) -> dict[str, Any]:
-    return checkpoint.to_dict()
+def normalize_checkpoint(checkpoint: Checkpoint) -> CheckpointSchema:
+    return CheckpointSchema.model_validate(checkpoint.to_dict())
 
 
 def should_refresh_replay_value(session: Session) -> bool:
-    return session.ended_at is not None or session.status != "running"
+    return session.ended_at is not None or session.status != SessionStatus.RUNNING
 
 
 def analysis_summary(analysis: dict[str, Any]) -> dict[str, Any]:
@@ -73,10 +78,8 @@ async def analyze_session(
     *,
     persist_replay_value: bool = False,
 ) -> tuple[list[TraceEvent], list[Checkpoint], dict[str, Any]]:
-    from api import main as api_main
-
     events, checkpoints = await load_session_artifacts(repo, session_id)
-    analysis = api_main.trace_intelligence.analyze_session(events, checkpoints)
+    analysis = app_context.require_trace_intelligence().analyze_session(events, checkpoints)
 
     if persist_replay_value:
         await repo.update_session(session_id, replay_value=analysis.get("session_replay_value", 0.0))
@@ -85,10 +88,8 @@ async def analyze_session(
 
 
 async def build_live_summary(repo: TraceRepository, session_id: str) -> dict[str, Any]:
-    from api import main as api_main
-
     events, checkpoints = await load_session_artifacts(repo, session_id)
-    return api_main.trace_intelligence.build_live_summary(events, checkpoints)
+    return app_context.require_trace_intelligence().build_live_summary(events, checkpoints)
 
 
 async def enrich_sessions_for_listing(
@@ -96,7 +97,7 @@ async def enrich_sessions_for_listing(
     sessions: list[Session],
     *,
     sort_by: str,
-) -> list[dict[str, Any]]:
+) -> list[SessionSchema]:
     if sort_by != "replay_value":
         return [normalize_session(session) for session in sessions]
 
@@ -119,19 +120,16 @@ async def enrich_sessions_for_listing(
 
 
 async def persist_session_start(session: Session) -> None:
-    from api import main as api_main
-
-    async with api_main.async_session_maker() as db_session:
+    async with app_context.require_session_maker()() as db_session:
         repo = TraceRepository(db_session)
         existing = await repo.get_session(session.id)
         if existing is None:
             await repo.create_session(session)
+            await repo.commit()
 
 
 async def persist_session_update(session: Session) -> None:
-    from api import main as api_main
-
-    async with api_main.async_session_maker() as db_session:
+    async with app_context.require_session_maker()() as db_session:
         repo = TraceRepository(db_session)
         replay_value = session.replay_value
         if should_refresh_replay_value(session):
@@ -154,24 +152,23 @@ async def persist_session_update(session: Session) -> None:
             config=session.config,
             tags=session.tags,
         )
+        await repo.commit()
 
 
 async def persist_event(event: TraceEvent) -> None:
-    from api import main as api_main
-
-    pipeline = api_main._get_redaction_pipeline()
+    pipeline = app_context._get_redaction_pipeline()
     event = pipeline.apply(event)
-    async with api_main.async_session_maker() as db_session:
+    async with app_context.require_session_maker()() as db_session:
         repo = TraceRepository(db_session)
         await repo.add_event(event)
+        await repo.commit()
 
 
 async def persist_checkpoint(checkpoint: Checkpoint) -> None:
-    from api import main as api_main
-
-    async with api_main.async_session_maker() as db_session:
+    async with app_context.require_session_maker()() as db_session:
         repo = TraceRepository(db_session)
         await repo.create_checkpoint(checkpoint)
+        await repo.commit()
 
 
 async def event_generator(session_id: str):

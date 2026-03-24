@@ -6,15 +6,14 @@ from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent_debugger_sdk.config import get_config
+from api import app_context
 from auth.middleware import get_tenant_from_api_key
 from storage import TraceRepository
 
 
 async def get_db_session() -> AsyncSession:
     """Yield an async database session from the configured session factory."""
-    from api import main as api_main
-
-    async with api_main.async_session_maker() as session:
+    async with app_context.require_session_maker()() as session:
         yield session
 
 
