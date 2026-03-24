@@ -78,3 +78,97 @@ After successfully pushing the tag, report:
 - remind the user that CI derives the published version from the tag and rewrites the package metadata during the workflow
 
 If the tag push fails, report the error and suggest the user check their remote configuration and permissions.
+
+If the tag push succeeds, proceed to Step 6 to create the GitHub Release.
+
+## Step 6: Create GitHub Release
+
+After the tag is pushed, create a GitHub Release with auto-generated notes from conventional commits.
+
+### 6a. Find the previous tag
+
+Based on the release type from Step 1:
+
+```bash
+# SDK releases: find most recent sdk-v* tag
+# Server releases: find most recent server-v* tag
+# Both releases: find most recent v* tag
+PREV_TAG=$(git tag -l "{PREFIX}*" --sort=-version:refname | head -2 | tail -1)
+
+# If no previous tag, use initial commit
+if [ -z "$PREV_TAG" ]; then
+    PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+fi
+```
+
+### 6b. Fetch and parse commits
+
+Get commits between previous tag and new tag:
+
+```bash
+git log "$PREV_TAG..$TAG_NAME" --pretty=format:"%s"
+```
+
+Parse using conventional commit regex:
+- Pattern: `^(feat|fix|docs|refactor|test|chore|perf|style|ci)(\([a-zA-Z0-9-]+\))?:\s*(.+)$`
+- Extract: type, scope (optional), subject
+
+### 6c. Group commits
+
+Group by:
+1. **Category**: feat → Features, fix → Bug Fixes, all others → Other
+2. **Scope**: Group under `### {Scope}` sub-header if scope exists
+3. **Sort**: Alphabetically by subject within each group
+
+### 6d. Generate release notes markdown
+
+Format:
+
+```markdown
+# {TAG_NAME}
+
+## ✨ Features
+
+### {Scope}
+- {subject}
+- {subject}
+
+## 🐛 Bug Fixes
+
+### {Scope}
+- {subject}
+
+## 📦 Other
+
+### Documentation
+- {subject}
+
+### Refactoring
+- {subject}
+```
+
+Skip empty categories. Skip scope sub-headers if no scope.
+
+### 6e. Create the GitHub Release
+
+```bash
+gh release create "$TAG_NAME" --title "$TAG_NAME" --notes-file NOTES.md
+```
+
+Or pipe directly:
+```bash
+gh release create "$TAG_NAME" --title "$TAG_NAME" --notes-file - <<< "$NOTES"
+```
+
+### 6f. Report
+
+After creating the release, report:
+- GitHub Release URL: `https://github.com/acailic/agent_debugger/releases/tag/{TAG_NAME}`
+- Summary of categories (e.g., "3 features, 2 bug fixes, 5 other changes")
+
+### 6g. Failure Handling
+
+If `gh release create` fails:
+- Report the error message
+- Provide manual command: `gh release create {TAG_NAME} --title "{TAG_NAME}" --notes-file NOTES.md`
+- Note: PyPI publish already succeeded via CI, so this is non-blocking
