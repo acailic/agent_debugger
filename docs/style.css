@@ -6,6 +6,7 @@
   --accent:      #58a6ff;
   --accent-hover:#79b8ff;
   --accent-dim:  #132034;
+  --accent-solid:#238636;
   --success:     #3fb950;
   --text:        #e6edf3;
   --muted:       #8b949e;
@@ -244,14 +245,219 @@ code, pre { font-family: var(--font-mono); }
 .footer__links a:hover { color: var(--text); text-decoration: none; }
 .footer__legal { color: var(--muted); font-size: 0.8rem; }
 
-/* Part 9 — Responsive overrides (MUST be last) */
+/* Part 9 — Category sections */
+.category {
+  margin-bottom: 64px;
+}
+.category:last-child {
+  margin-bottom: 0;
+}
+.category__title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.category__title::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 24px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.category__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+/* Part 10 — Enhanced hero with larger screenshot */
+.hero--signature {
+  padding: 64px 0 48px;
+}
+.hero__screenshot {
+  margin-top: 48px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+.hero__screenshot img {
+  width: 100%;
+  display: block;
+}
+
+/* Part 11 — Social proof section */
+.social-proof {
+  padding: 80px 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.social-proof__quote {
+  max-width: 720px;
+  margin: 0 auto 48px;
+  text-align: center;
+}
+.social-proof__quote-text {
+  font-size: 1.25rem;
+  font-style: italic;
+  color: var(--text);
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+.social-proof__quote-author {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.social-proof__logos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  justify-content: center;
+  align-items: center;
+  opacity: 0.6;
+}
+.social-proof__logo {
+  height: 32px;
+  filter: grayscale(100%) brightness(2);
+}
+
+/* Part 12 — Enhanced feature cards with category styling */
+.feature-card--category {
+  position: relative;
+  background: linear-gradient(135deg, var(--surface) 0%, rgba(22, 27, 34, 0.8) 100%);
+  border: 1px solid var(--border);
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+.feature-card--category:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  border-color: var(--accent);
+}
+.feature-card--category .feature-card__img {
+  border-bottom: 1px solid var(--border);
+}
+.feature-card__tag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Part 13 — Comparison table enhancements */
+.compare-table--enhanced {
+  font-size: 0.875rem;
+}
+.compare-table--enhanced th:first-child,
+.compare-table--enhanced td:first-child {
+  width: 28%;
+  font-weight: 600;
+}
+.compare-table--enhanced th:nth-child(2),
+.compare-table--enhanced td:nth-child(2) {
+  width: 32%;
+}
+.compare-table--enhanced th:nth-child(3),
+.compare-table--enhanced td:nth-child(3) {
+  width: 40%;
+}
+.compare-table__check {
+  color: var(--success);
+  font-weight: 600;
+}
+.compare-table__x {
+  color: var(--muted);
+}
+.compare-table--enhanced tbody tr:hover {
+  background: rgba(88, 166, 255, 0.05);
+}
+.compare-table--enhanced .compare-table--highlight td {
+  background: linear-gradient(135deg, var(--accent-dim) 0%, rgba(19, 32, 52, 0.5) 100%);
+}
+
+/* Part 14 — Get started section enhancements */
+.get-started {
+  background: linear-gradient(180deg, var(--bg) 0%, var(--surface) 100%);
+}
+.get-started__steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 32px;
+  margin-top: 48px;
+}
+.get-started__step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  position: relative;
+}
+.get-started__step-num {
+  position: absolute;
+  top: -12px;
+  left: 24px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 0.75rem;
+  font-weight: 700;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.get-started__step-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.get-started__step pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-size: 0.85rem;
+  overflow-x: auto;
+}
+.get-started__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 40px;
+}
+
+/* Part 15 — Responsive overrides (MUST be last) */
 @media (max-width: 767px) {
   .section { padding: 56px 0; }
   .hero { padding: 64px 0 56px; }
+  .hero--signature { padding: 48px 0 32px; }
+  .hero__screenshot { margin-top: 32px; border-radius: 8px; }
   .why-grid { grid-template-columns: 1fr; }
   .features-grid { grid-template-columns: 1fr; }
+  .category__grid { grid-template-columns: 1fr; }
   .hero__cta { flex-direction: column; align-items: stretch; }
   .btn { justify-content: center; }
+  .social-proof { padding: 56px 0; }
+  .social-proof__quote-text { font-size: 1.1rem; }
+  .social-proof__logos { gap: 24px; }
+  .social-proof__logo { height: 24px; }
+  .get-started__steps { grid-template-columns: 1fr; gap: 24px; }
+  .get-started__step { padding: 24px 20px; }
+  .get-started__links { flex-direction: column; align-items: stretch; }
   /* Hides last column on mobile — intentional, keeps table readable */
   .compare-table th:last-child,
   .compare-table td:last-child { display: none; }

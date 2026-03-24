@@ -22,8 +22,15 @@
 <!-- HERO -->
 <section class="hero">
   <div class="container">
-    <h1 class="hero__headline">Debug AI agents like distributed systems<br>— not black boxes.</h1>
-    <p class="hero__sub">Capture every decision, tool call, and LLM interaction as a queryable event timeline. Inspect live, replay from checkpoints, search across sessions.</p>
+    <h1 class="hero__headline">
+      <span class="hero__line1">See what your agent was thinking.</span>
+      <span class="hero__line2">Fix what went wrong.</span>
+    </h1>
+    <p class="hero__sub">The local-first debugger for AI agents. Capture every decision, tool call, and LLM interaction as a queryable event timeline.</p>
+
+    <div class="hero__visual">
+      <img src="assets/screenshot-full-ui.png" alt="Peaky Peek Agent Debugger Interface" class="hero__screenshot">
+    </div>
 
     <div class="hero__badges">
       <a href="https://github.com/acailic/agent_debugger/actions/workflows/ci.yml"><img src="https://github.com/acailic/agent_debugger/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -35,10 +42,7 @@
     </div>
 
     <div class="hero__cta">
-      <div class="install-block">
-        <pre class="install-block__pre"><code>pip install peaky-peek-server</code></pre>
-        <button class="copy-btn" onclick="copyInstall(this)" aria-label="Copy install command">Copy</button>
-      </div>
+      <a href="#get-started" class="btn btn--primary">Get Started</a>
       <a href="https://github.com/acailic/agent_debugger" class="btn btn--outline">★ GitHub</a>
       <a href="https://pypi.org/project/peaky-peek/" class="btn btn--outline">↗ PyPI</a>
     </div>
@@ -68,38 +72,6 @@
         <p class="why-card__body">Time-travel through any session. Play, pause, step, and seek to any checkpoint. Replay the exact state before a failure occurred.</p>
       </div>
     </div>
-
-    <table class="compare-table">
-      <thead>
-        <tr>
-          <th>Tool</th>
-          <th>Focus</th>
-          <th>Limitation</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>LangSmith</td>
-          <td>LLM tracing</td>
-          <td>SaaS-first, no local-first option</td>
-        </tr>
-        <tr>
-          <td>OpenTelemetry</td>
-          <td>Infra observability</td>
-          <td>Not agent-decision-aware</td>
-        </tr>
-        <tr>
-          <td>Sentry</td>
-          <td>Error tracking</td>
-          <td>No reasoning-level insight</td>
-        </tr>
-        <tr class="compare-table--highlight">
-          <td><strong>Peaky Peek</strong></td>
-          <td>Agent-native debugging</td>
-          <td>✓ Local-first &amp; open source</td>
-        </tr>
-      </tbody>
-    </table>
   </div>
 </section>
 
@@ -109,48 +81,141 @@
     <h2 class="section__title">Feature Highlights</h2>
     <p class="section__sub">Everything you need to understand why your agent did what it did.</p>
 
-    <div class="features-grid">
-      <div class="feature-card">
-        <img class="feature-card__img" src="assets/screenshot-decision-tree.png" alt="Decision Tree Visualization" loading="lazy">
-        <div class="feature-card__body-wrap">
-          <div class="feature-card__title">Decision Tree Visualization</div>
-          <p class="feature-card__body">Navigate agent reasoning as an interactive tree. Click nodes to inspect events and trace the causal chain from policy to tool call.</p>
+    <!-- Core Debugger Category -->
+    <div class="feature-category">
+      <h3 class="feature-category__title">Core Debugger</h3>
+      <div class="features-grid">
+        <div class="feature-card">
+          <img class="feature-card__img" src="assets/screenshot-decision-tree.png" alt="Decision Tree Visualization" loading="lazy">
+          <div class="feature-card__body-wrap">
+            <div class="feature-card__title">Decision Tree Visualization</div>
+            <p class="feature-card__body">Navigate agent reasoning as an interactive tree. Click nodes to inspect events and trace the causal chain from policy to tool call.</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <img class="feature-card__img" src="assets/screenshot-checkpoint-replay.png" alt="Checkpoint Replay" loading="lazy">
+          <div class="feature-card__body-wrap">
+            <div class="feature-card__title">Checkpoint Replay</div>
+            <p class="feature-card__body">Time-travel through agent execution. Play, pause, step, and seek to any point. Checkpoints ranked by restore value.</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <img class="feature-card__img" src="assets/screenshot-search.png" alt="Trace Search" loading="lazy">
+          <div class="feature-card__body-wrap">
+            <div class="feature-card__title">Trace Search</div>
+            <p class="feature-card__body">Find specific events across all sessions. Search by keyword, filter by event type, and jump directly to results.</p>
+          </div>
         </div>
       </div>
-      <div class="feature-card">
-        <img class="feature-card__img" src="assets/screenshot-checkpoint-replay.png" alt="Checkpoint Replay" loading="lazy">
-        <div class="feature-card__body-wrap">
-          <div class="feature-card__title">Checkpoint Replay</div>
-          <p class="feature-card__body">Time-travel through agent execution. Play, pause, step, and seek to any point. Checkpoints ranked by restore value.</p>
+    </div>
+
+    <!-- Multi-Agent Category -->
+    <div class="feature-category">
+      <h3 class="feature-category__title">Multi-Agent</h3>
+      <div class="features-grid">
+        <div class="feature-card">
+          <img class="feature-card__img" src="assets/screenshot-multi-agent-coord.png" alt="Multi-Agent Coordination" loading="lazy">
+          <div class="feature-card__body-wrap">
+            <div class="feature-card__title">Multi-Agent Coordination</div>
+            <p class="feature-card__body">Track communication between agents. See handoffs, task delegation, and inter-agent messages in a unified view.</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <img class="feature-card__img" src="assets/screenshot-session-comparison.png" alt="Session Comparison" loading="lazy">
+          <div class="feature-card__body-wrap">
+            <div class="feature-card__title">Session Comparison</div>
+            <p class="feature-card__body">Compare multiple agent runs side-by-side. Identify where paths diverge and why outcomes differ.</p>
+          </div>
         </div>
       </div>
-      <div class="feature-card">
-        <img class="feature-card__img" src="assets/screenshot-search.png" alt="Trace Search" loading="lazy">
-        <div class="feature-card__body-wrap">
-          <div class="feature-card__title">Trace Search</div>
-          <p class="feature-card__body">Find specific events across all sessions. Search by keyword, filter by event type, and jump directly to results.</p>
+    </div>
+
+    <!-- Safety & Analysis Category -->
+    <div class="feature-category">
+      <h3 class="feature-category__title">Safety & Analysis</h3>
+      <div class="features-grid">
+        <div class="feature-card">
+          <img class="feature-card__img" src="assets/screenshot-safety-session.png" alt="Safety Audit Trail" loading="lazy">
+          <div class="feature-card__body-wrap">
+            <div class="feature-card__title">Safety Audit Trail</div>
+            <p class="feature-card__body">Track safety-critical decisions and permission grants. Audit every policy check and intervention point.</p>
+          </div>
         </div>
-      </div>
-      <div class="feature-card">
-        <img class="feature-card__img" src="assets/screenshot-failure-cluster.png" alt="Failure Clustering" loading="lazy">
-        <div class="feature-card__body-wrap">
-          <div class="feature-card__title">Failure Clustering</div>
-          <p class="feature-card__body">Adaptive analysis groups similar failures. Surface highest-severity, highest-novelty events. Click a cluster to focus the timeline.</p>
+        <div class="feature-card">
+          <img class="feature-card__img" src="assets/screenshot-loop-detection.png" alt="Loop Detection" loading="lazy">
+          <div class="feature-card__body-wrap">
+            <div class="feature-card__title">Loop Detection</div>
+            <p class="feature-card__body">Automatically detect repetitive behavior patterns. Get alerts when agents get stuck in action cycles.</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <img class="feature-card__img" src="assets/screenshot-failure-cluster.png" alt="Failure Clustering" loading="lazy">
+          <div class="feature-card__body-wrap">
+            <div class="feature-card__title">Failure Clustering</div>
+            <p class="feature-card__body">Adaptive analysis groups similar failures. Surface highest-severity, highest-novelty events. Click a cluster to focus the timeline.</p>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- QUICK INSTALL -->
+<!-- SOCIAL PROOF -->
 <section class="section">
+  <div class="container">
+    <div class="social-proof">
+      <blockquote class="social-proof__quote">
+        <p>"Finally, a debugger that shows me WHY my agent failed, not just THAT it failed."</p>
+        <cite>— Early user, AI Engineer</cite>
+      </blockquote>
+
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Tool</th>
+            <th>Focus</th>
+            <th>Limitation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>LangSmith</td>
+            <td>LLM tracing</td>
+            <td>SaaS-first, no local-first option</td>
+          </tr>
+          <tr>
+            <td>OpenTelemetry</td>
+            <td>Infra observability</td>
+            <td>Not agent-decision-aware</td>
+          </tr>
+          <tr>
+            <td>Sentry</td>
+            <td>Error tracking</td>
+            <td>No reasoning-level insight</td>
+          </tr>
+          <tr class="compare-table--highlight">
+            <td><strong>Peaky Peek</strong></td>
+            <td>Agent-native debugging</td>
+            <td>✓ Local-first &amp; open source</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- GET STARTED -->
+<section class="section section--alt" id="get-started">
   <div class="container">
     <h2 class="section__title">Get Started in 2 Steps</h2>
     <p class="section__sub">Requires Python 3.10+ and a cloned repo. No config files needed to start.</p>
 
     <div class="install-steps">
       <p class="install-steps__label">Step 1 — Install</p>
-      <pre><code>pip install peaky-peek-server</code></pre>
+      <div class="install-block">
+        <pre class="install-block__pre"><code>pip install peaky-peek-server</code></pre>
+        <button class="copy-btn" onclick="copyInstall(this)" aria-label="Copy install command">Copy</button>
+      </div>
 
       <p class="install-steps__label">Step 2 — Run (from repo root after cloning)</p>
       <pre><code>git clone https://github.com/acailic/agent_debugger
@@ -161,6 +226,10 @@ uvicorn api.main:app --reload --port 8000</code></pre>
         API available at <code>http://localhost:8000</code> &middot;
         <a href="https://github.com/acailic/agent_debugger/blob/main/docs/README.md">Full documentation →</a>
       </p>
+    </div>
+
+    <div class="cta-bottom">
+      <a href="https://github.com/acailic/agent_debugger" class="btn btn--primary btn--large">Start Debugging on GitHub</a>
     </div>
   </div>
 </section>
