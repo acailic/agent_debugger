@@ -533,3 +533,13 @@ def get_current_parent_id() -> str | None:
         The current parent event ID if set, None otherwise.
     """
     return _current_parent_id.get()
+
+
+__all__ = [
+    "TraceContext",
+    "get_current_context",
+    "get_current_session_id",
+    "get_current_parent_id",
+    "configure_event_pipeline",
+    "_get_default_event_buffer",
+]

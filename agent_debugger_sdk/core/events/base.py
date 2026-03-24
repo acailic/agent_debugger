@@ -207,7 +207,13 @@ class TraceEvent:
         """Build the typed event instance for the given event_type."""
         from agent_debugger_sdk.core.events import EVENT_TYPE_REGISTRY
 
-        event_cls = EVENT_TYPE_REGISTRY.get(event_type, cls)
+        # Use try/except to trigger lazy loading via __missing__
+        try:
+            event_cls = EVENT_TYPE_REGISTRY[event_type]
+        except KeyError:
+            # Event type not in registry, use base TraceEvent class
+            event_cls = cls
+
         typed_field_names = event_cls._typed_field_names()
         typed_kwargs = {
             field_name: data[field_name]
