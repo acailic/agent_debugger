@@ -1247,3 +1247,110 @@ class TestRetentionTierAssignment:
         assert analysis["session_summary"]["failure_count"] >= 1
         assert analysis["session_summary"]["behavior_alert_count"] >= 1
         assert analysis["session_summary"]["checkpoint_count"] == 1
+
+
+# ------------------------------------------------------------------
+# Test Class: Clustering Edge Cases
+# ------------------------------------------------------------------
+
+
+class TestClusteringEdgeCases:
+    """Edge case tests for failure clustering."""
+
+    @pytest.fixture
+    def intelligence(self) -> TraceIntelligence:
+        return TraceIntelligence()
+
+    def test_single_failure_creates_cluster(self, intelligence: TraceIntelligence, make_trace_event):
+        """Single failure should create a cluster of size 1."""
+        timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
+        events = [
+            make_trace_event(
+                id="start-1",
+                session_id="session-1",
+                event_type=EventType.AGENT_START,
+                timestamp=timestamp,
+            ),
+            ErrorEvent(
+                id="error-1",
+                session_id="session-1",
+                error_type="ValueError",
+                error_message="Single error",
+                timestamp=timestamp,
+            ),
+        ]
+        analysis = intelligence.analyze_session(events, [])
+        assert len(analysis["failure_clusters"]) == 1
+        assert analysis["failure_clusters"][0]["count"] == 1
+
+    def test_identical_errors_same_fingerprint(self, intelligence: TraceIntelligence, make_trace_event):
+        """Identical errors should have the same fingerprint."""
+        timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
+        error1 = ErrorEvent(
+            id="error-1", session_id="session-1", error_type="ConnectionError",
+            error_message="Failed to connect", timestamp=timestamp,
+        )
+        error2 = ErrorEvent(
+            id="error-2", session_id="session-1", error_type="ConnectionError",
+            error_message="Failed to connect", timestamp=timestamp,
+        )
+        fp1 = intelligence.fingerprint(error1)
+        fp2 = intelligence.fingerprint(error2)
+        assert fp1 == fp2
+
+    def test_different_errors_different_fingerprint(self, intelligence: TraceIntelligence, make_trace_event):
+        """Different error types should have different fingerprints."""
+        timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
+        error1 = ErrorEvent(
+            id="error-1", session_id="session-1", error_type="ValueError",
+            error_message="Error", timestamp=timestamp,
+        )
+        error2 = ErrorEvent(
+            id="error-2", session_id="session-1", error_type="TypeError",
+            error_message="Error", timestamp=timestamp,
+        )
+        fp1 = intelligence.fingerprint(error1)
+        fp2 = intelligence.fingerprint(error2)
+        assert fp1 != fp2
+
+
+# ------------------------------------------------------------------
+# Test Class: Retention Tier Edge Cases
+# ------------------------------------------------------------------
+
+
+class TestRetentionTierEdgeCases:
+    """Edge case tests for retention tier assignment."""
+
+    @pytest.fixture
+    def intelligence(self) -> TraceIntelligence:
+        return TraceIntelligence()
+
+    def test_replay_value_exactly_at_threshold(self, intelligence: TraceIntelligence):
+        """Retention tier should handle exact threshold values."""
+        tier = intelligence.retention_tier(
+            replay_value=0.72, high_severity_count=0, failure_cluster_count=0, behavior_alert_count=0,
+        )
+        assert tier == "full"
+        tier = intelligence.retention_tier(
+            replay_value=0.71, high_severity_count=0, failure_cluster_count=0, behavior_alert_count=0,
+        )
+        assert tier == "summarized"
+
+    def test_multiple_conditions_trigger_full_retention(self, intelligence: TraceIntelligence):
+        """Multiple conditions should all trigger full retention."""
+        tier = intelligence.retention_tier(
+            replay_value=0.1, high_severity_count=1, failure_cluster_count=0, behavior_alert_count=0,
+        )
+        assert tier == "full"
+        tier = intelligence.retention_tier(
+            replay_value=0.1, high_severity_count=0, failure_cluster_count=2, behavior_alert_count=0,
+        )
+        assert tier == "full"
+
+    def test_zero_replay_value_gets_downsampled(self, intelligence: TraceIntelligence):
+        """Zero replay value should result in downsampled tier."""
+        tier = intelligence.retention_tier(
+            replay_value=0.0, high_severity_count=0, failure_cluster_count=0, behavior_alert_count=0,
+        )
+        assert tier == "downsampled"
