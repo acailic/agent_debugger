@@ -193,13 +193,16 @@ class TraceContext(RecordingMixin):
         _event_sequence.set(0)
         _current_context.set(self)
 
-        # Wire in HTTP transport for cloud mode
+        # Wire in HTTP transport for both local and cloud modes
         # IMPORTANT: Do NOT call configure_event_pipeline() here as it mutates
         # global ContextVars and would break concurrent sessions. Instead, set
         # instance-level hooks.
+        # Only set up HTTP transport if hooks aren't already configured via
+        # configure_event_pipeline() (e.g., in tests or server-side usage).
         from agent_debugger_sdk.config import get_config
         config = get_config()
-        if config.mode == "cloud" and config.api_key:
+        if self._session_start_hook is None:
+            # No hooks configured - use HTTP transport to send events to the server
             from agent_debugger_sdk.transport import HttpTransport
             self._transport = HttpTransport(config.endpoint, config.api_key)
             # Set instance-level hooks (not global pipeline)
@@ -209,6 +212,7 @@ class TraceContext(RecordingMixin):
             self._emitter.set_event_persister(self._event_persister)
             self._emitter.set_session_update_hook(self._session_update_hook)
         else:
+            # Hooks already configured (e.g., via configure_event_pipeline in tests)
             self._transport = None
 
         self._entered = True

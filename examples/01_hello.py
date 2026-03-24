@@ -50,10 +50,9 @@ async def weather_agent(location: str) -> str:
 
         # 3. Checkpoint: save state so you can replay from here
         await ctx.create_checkpoint(
-            label="after_weather_fetch",
             state={"location": location, "result": result},
         )
-        print("[trace] checkpoint created: after_weather_fetch")
+        print("[trace] checkpoint created")
 
         return f"{result['temp_c']}°C, {result['condition']} in {location}"
 
