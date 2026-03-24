@@ -5,6 +5,8 @@ from typing import Any
 
 from .base import EventType, TraceEvent
 
+__all__ = ["ToolCallEvent", "ToolResultEvent"]
+
 
 @dataclass(kw_only=True)
 class ToolCallEvent(TraceEvent):

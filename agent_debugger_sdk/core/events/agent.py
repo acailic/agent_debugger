@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 
 from .base import EventType, RiskLevel, TraceEvent
 
+__all__ = ["AgentTurnEvent", "BehaviorAlertEvent"]
+
 
 @dataclass(kw_only=True)
 class AgentTurnEvent(TraceEvent):

@@ -5,6 +5,8 @@ from typing import Any
 
 from .base import EventType, TraceEvent
 
+__all__ = ["DecisionEvent"]
+
 
 @dataclass(kw_only=True)
 class DecisionEvent(TraceEvent):

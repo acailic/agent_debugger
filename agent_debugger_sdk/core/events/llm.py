@@ -3,9 +3,9 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from agent_debugger_sdk.pricing import calculate_cost
-
 from .base import EventType, TraceEvent
+
+__all__ = ["LLMRequestEvent", "LLMResponseEvent"]
 
 
 @dataclass(kw_only=True)
@@ -61,6 +61,8 @@ class LLMResponseEvent(TraceEvent):
             input_tokens = self.usage.get("input_tokens", 0)
             output_tokens = self.usage.get("output_tokens", 0)
             if input_tokens or output_tokens:
+                from agent_debugger_sdk.pricing import calculate_cost
+
                 calculated = calculate_cost(self.model, input_tokens, output_tokens)
                 if calculated is not None:
                     object.__setattr__(self, "cost_usd", calculated)

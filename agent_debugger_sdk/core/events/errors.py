@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 from .base import EventType, TraceEvent
 
+__all__ = ["ErrorEvent"]
+
 
 @dataclass(kw_only=True)
 class ErrorEvent(TraceEvent):
