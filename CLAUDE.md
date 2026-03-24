@@ -154,6 +154,20 @@ make demo-safety
 make demo-research
 ```
 
+## When To Use Which Command
+
+- Use `git status --short` when you need a fast read on the working tree before making changes or committing.
+- Use `rg --files agent_debugger_sdk api frontend/src tests` when you are orienting to the repo or locating the narrowest set of relevant files.
+- Use `git diff --stat` when you want a quick size and scope summary of current edits before deeper review.
+- Use `ruff check .` after Python, API, storage, auth, redaction, or SDK changes.
+- Use `python3 -m pytest -q` after meaningful backend or SDK changes, especially when behavior or contracts changed.
+- Use a targeted pytest command such as `python3 -m pytest -q tests/test_api_contract.py -k sessions` when you changed one area and want fast feedback before running the full suite.
+- Use `cd frontend && npm run build` after any TypeScript, React, or UI contract change.
+- Use `make server` when you need the FastAPI app running locally for API or integration checks.
+- Use `make frontend` when you need the Vite UI running for manual inspection.
+- Use `make demo-seed` before demo recording or when you need example session data in the system.
+- Use `make demo-live`, `make demo-safety`, or `make demo-research` when validating the demo flows or generating showcase traces.
+
 ## Change Heuristics
 
 - If you change event types or event payload fields, assume backend schema, frontend types, and tests may all need updates.
