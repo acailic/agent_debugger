@@ -14,23 +14,8 @@ pytest.importorskip("redis")
 
 from unittest.mock import AsyncMock, MagicMock
 
-from agent_debugger_sdk.core.events import EventType, TraceEvent
 from collector.buffer_base import BufferBase
 from collector.buffer_redis import RedisEventBuffer
-
-
-def _make_event(session_id: str = "s1") -> TraceEvent:
-    """Create a test TraceEvent."""
-    return TraceEvent(
-        session_id=session_id,
-        parent_id=None,
-        event_type=EventType.TOOL_CALL,
-        name="test",
-        data={},
-        metadata={},
-        importance=0.5,
-        upstream_event_ids=[],
-    )
 
 
 def test_redis_buffer_is_subclass():
@@ -39,14 +24,14 @@ def test_redis_buffer_is_subclass():
 
 
 @pytest.mark.asyncio
-async def test_publish_calls_redis_xadd_and_publish():
+async def test_publish_calls_redis_xadd_and_publish(make_event):
     """Test that publish() calls Redis XADD and PUBLISH."""
     mock_redis = AsyncMock()
     mock_redis.xadd = AsyncMock()
     mock_redis.publish = AsyncMock()
 
     buf = RedisEventBuffer(redis_client=mock_redis)
-    event = _make_event()
+    event = make_event()
 
     await buf.publish("s1", event)
 
@@ -184,7 +169,7 @@ async def test_context_manager():
 
 
 @pytest.mark.asyncio
-async def test_custom_prefixes():
+async def test_custom_prefixes(make_event):
     """Test that custom stream and pubsub prefixes work."""
     mock_redis = AsyncMock()
     mock_redis.xadd = AsyncMock()
@@ -196,7 +181,7 @@ async def test_custom_prefixes():
         pubsub_prefix="custom:live:",
     )
 
-    event = _make_event()
+    event = make_event()
     await buf.publish("s1", event)
 
     # Verify custom prefixes are used
@@ -208,13 +193,13 @@ async def test_custom_prefixes():
 
 
 @pytest.mark.asyncio
-async def test_max_stream_len():
+async def test_max_stream_len(make_event):
     """Test that max_stream_len parameter is passed to XADD."""
     mock_redis = AsyncMock()
     mock_redis.xadd = AsyncMock()
 
     buf = RedisEventBuffer(redis_client=mock_redis, max_stream_len=5000)
-    event = _make_event()
+    event = make_event()
 
     await buf.publish("s1", event)
 
@@ -223,16 +208,14 @@ async def test_max_stream_len():
 
 
 @pytest.mark.asyncio
-async def test_event_serialization():
+async def test_event_serialization(make_event):
     """Test that events are properly serialized to JSON."""
     mock_redis = AsyncMock()
     mock_redis.xadd = AsyncMock()
     mock_redis.publish = AsyncMock()
 
     buf = RedisEventBuffer(redis_client=mock_redis)
-    event = _make_event()
-    event.data = {"key": "value", "nested": {"a": 1}}
-    event.metadata = {"meta": "data"}
+    event = make_event(data={"key": "value", "nested": {"a": 1}}, metadata={"meta": "data"})
 
     await buf.publish("s1", event)
 

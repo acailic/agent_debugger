@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -36,6 +37,9 @@ class BaseAdapter(ABC):
     """
 
     name: str  # class-level attribute, must be set by subclasses
+    _config: PatchConfig
+    _transport: "SyncTransport"
+    _originals: dict
 
     @abstractmethod
     def is_available(self) -> bool:
@@ -52,6 +56,110 @@ class BaseAdapter(ABC):
     @abstractmethod
     def unpatch(self) -> None:
         """Restore the original library behaviour (undo patching)."""
+
+    # ------------------------------------------------------------------
+    # Wrapper factories (shared implementation)
+    # ------------------------------------------------------------------
+
+    def _make_sync_wrapper(self, original):
+        """Create a sync wrapper that delegates to _call_sync."""
+        adapter = self
+
+        def wrapper(self_client, *args, **kwargs):
+            if kwargs.get("stream"):
+                return original(self_client, *args, **kwargs)
+            return adapter._call_sync(original, self_client, *args, **kwargs)
+
+        return wrapper
+
+    def _make_async_wrapper(self, original):
+        """Create an async wrapper that delegates to _call_async."""
+        adapter = self
+
+        async def wrapper(self_client, *args, **kwargs):
+            if kwargs.get("stream"):
+                return await original(self_client, *args, **kwargs)
+            return await adapter._call_async(original, self_client, *args, **kwargs)
+
+        return wrapper
+
+    # ------------------------------------------------------------------
+    # Instrumented call paths (shared implementation)
+    # ------------------------------------------------------------------
+
+    def _call_sync(self, original, self_client, *args, **kwargs):
+        """Wrap a sync call with request/response event emission."""
+        from agent_debugger_sdk.auto_patch._transport import get_or_create_session
+
+        try:
+            session_id = get_or_create_session(self._transport, self._config.agent_name, self.name)
+            request_id = self._emit_request(kwargs, session_id)
+        except Exception:
+            logger.warning("Failed to emit LLM request", exc_info=True)
+            session_id, request_id = "", ""
+
+        start = time.perf_counter()
+        try:
+            response = original(self_client, *args, **kwargs)
+        finally:
+            duration_ms = (time.perf_counter() - start) * 1000
+
+        try:
+            self._emit_response(response, request_id, session_id, duration_ms)
+        except Exception:
+            logger.warning("Failed to emit LLM response", exc_info=True)
+
+        return response
+
+    async def _call_async(self, original, self_client, *args, **kwargs):
+        """Wrap an async call with request/response event emission."""
+        from agent_debugger_sdk.auto_patch._transport import get_or_create_session
+
+        try:
+            session_id = get_or_create_session(self._transport, self._config.agent_name, self.name)
+            request_id = self._emit_request(kwargs, session_id)
+        except Exception:
+            logger.warning("Failed to emit LLM request", exc_info=True)
+            session_id, request_id = "", ""
+
+        start = time.perf_counter()
+        try:
+            response = await original(self_client, *args, **kwargs)
+        finally:
+            duration_ms = (time.perf_counter() - start) * 1000
+
+        try:
+            self._emit_response(response, request_id, session_id, duration_ms)
+        except Exception:
+            logger.warning("Failed to emit LLM response", exc_info=True)
+
+        return response
+
+    # ------------------------------------------------------------------
+    # Framework-specific event emission (override in subclasses that need it)
+    # ------------------------------------------------------------------
+
+    def _emit_request(self, kwargs: dict, session_id: str) -> str:
+        """Build and send an LLMRequestEvent; return its event id.
+
+        Subclasses that use the shared _call_sync/_call_async methods must override this.
+        Adapters using different patterns (e.g., callback handlers) can leave this as-is.
+        """
+        raise NotImplementedError("Subclass must implement _emit_request")
+
+    def _emit_response(
+        self,
+        response,
+        request_event_id: str,
+        session_id: str,
+        duration_ms: float,
+    ) -> None:
+        """Build and send LLMResponseEvent plus individual ToolCallEvents.
+
+        Subclasses that use the shared _call_sync/_call_async methods must override this.
+        Adapters using different patterns (e.g., callback handlers) can leave this as-is.
+        """
+        raise NotImplementedError("Subclass must implement _emit_response")
 
 
 class PatchRegistry:

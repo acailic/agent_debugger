@@ -77,14 +77,20 @@ async def analyze_session(
     session_id: str,
     *,
     persist_replay_value: bool = False,
-) -> tuple[list[TraceEvent], list[Checkpoint], dict[str, Any]]:
+) -> tuple[list[TraceEvent], list[Checkpoint], dict[str, Any], float]:
+    """Analyze a session's events and checkpoints.
+
+    Returns:
+        Tuple of (events, checkpoints, analysis, replay_value)
+    """
     events, checkpoints = await load_session_artifacts(repo, session_id)
     analysis = app_context.require_trace_intelligence().analyze_session(events, checkpoints)
+    replay_value = analysis.get("session_replay_value", 0.0)
 
     if persist_replay_value:
-        await repo.update_session(session_id, replay_value=analysis.get("session_replay_value", 0.0))
+        await repo.update_session(session_id, replay_value=replay_value)
 
-    return events, checkpoints, analysis
+    return events, checkpoints, analysis, replay_value
 
 
 async def build_live_summary(repo: TraceRepository, session_id: str) -> dict[str, Any]:
@@ -108,10 +114,16 @@ async def enrich_sessions_for_listing(
             SESSION_ANALYSIS_CAP,
         )
 
-    enriched: list[dict[str, Any]] = []
-    for session in capped_sessions:
-        _, _, analysis = await analyze_session(repo, session.id)
-        enriched.append(normalize_session(session, analysis_summary(analysis)))
+    # Parallelize session analysis for better performance
+    analyses = await asyncio.gather(*[
+        analyze_session(repo, session.id)
+        for session in capped_sessions
+    ])
+
+    enriched: list[dict[str, Any]] = [
+        normalize_session(session, analysis_summary(analysis))
+        for session, (_, _, analysis, _) in zip(capped_sessions, analyses)
+    ]
 
     for session in sessions[SESSION_ANALYSIS_CAP:]:
         enriched.append(normalize_session(session))
@@ -133,8 +145,7 @@ async def persist_session_update(session: Session) -> None:
         repo = TraceRepository(db_session)
         replay_value = session.replay_value
         if should_refresh_replay_value(session):
-            _, _, analysis = await analyze_session(repo, session.id)
-            replay_value = analysis.get("session_replay_value", 0.0)
+            _, _, _, replay_value = await analyze_session(repo, session.id)
             session.replay_value = replay_value
 
         await repo.update_session(
