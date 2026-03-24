@@ -7,8 +7,6 @@ import argparse
 import json
 import re
 import sys
-from pathlib import Path
-
 
 # Pre-computed patterns loaded from existing code
 PATTERNS = {
@@ -68,7 +66,7 @@ def extract_query_shapes(content: str) -> list[str]:
             where_clause = where_match.group(1)
             conditions = re.findall(r"(\w+)\.(\w+)\s*==", where_clause)
             if conditions:
-                cond_names = sorted(set([c[1] for c in conditions))
+                cond_names = sorted(set([c[1] for c in conditions]))
                 shapes.append(f"{model}.where[{', '.join(cond_names)}]")
     return shapes
 
@@ -76,7 +74,8 @@ def extract_query_shapes(content: str) -> list[str]:
 def check_duplicates(content: str) -> list[dict]:
     """Check content against known patterns."""
     duplicates = []
-    for shape in extract_query_shapes(content):
+    shapes = extract_query_shapes(content)
+    for shape in shapes:
         if shape in PATTERNS:
             info = PATTERNS[shape]
             duplicates.append({
@@ -98,6 +97,7 @@ def main():
 
     # Check path is in scope
     in_scope = any(path.startswith(d) for d in SCOPE_DIRS)
+    if not in_scope:
         print(json.dumps({"decision": "allow"}))
         sys.exit(0)
 
@@ -120,8 +120,8 @@ Location: {dup['file']}
 
 Use this existing method instead of writing a new query.
 Add `# @duplicate-allowed` to your code to bypass."""
-        sys.exit(0)
-
+        }))
+        sys.exit(1)
 
     print(json.dumps({"decision": "allow"}))
 
