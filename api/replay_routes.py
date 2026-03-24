@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from api.analytics_db import record_event
 from api.dependencies import get_repository
 from api.schemas import (
     CheckpointResponse,
@@ -44,6 +45,9 @@ async def replay_session(
     await require_session(repo, session_id)
     events, checkpoints = await load_session_artifacts(repo, session_id)
 
+    # Record analytics event (fire-and-forget)
+    record_event("replay_started", session_id=session_id, properties={"mode": mode})
+
     if not events:
         return ReplayResponse(
             session_id=session_id,
@@ -77,6 +81,8 @@ async def replay_session(
     if mode == "highlights":
         segments = identify_low_value_segments(events, threshold=collapse_threshold)
         collapsed_segments = [CollapsedSegmentSchema(**asdict(s)) for s in segments]
+        # Record analytics event for highlights mode (fire-and-forget)
+        record_event("replay_highlights_used", session_id=session_id)
 
     # Compute highlight indices (indices of high-importance events)
     highlight_indices: list[int] = [

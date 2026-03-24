@@ -138,6 +138,10 @@ async def persist_session_start(session: Session) -> None:
         if existing is None:
             await repo.create_session(session)
             await repo.commit()
+            # Record analytics event (fire-and-forget)
+            from api.analytics_db import record_event
+
+            record_event("session_created", session_id=session.id, agent_name=session.agent_name)
 
 
 async def persist_session_update(session: Session) -> None:

@@ -7,6 +7,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from api.analytics_db import record_event
 from api.dependencies import get_repository
 from api.schemas import (
     AnalysisResponse,
@@ -76,6 +77,8 @@ async def get_session_analysis(
     await require_session(repo, session_id)
     _, _, analysis, _ = await analyze_session(repo, session_id, persist_replay_value=True)
     await repo.commit()
+    # Record analytics event (fire-and-forget)
+    record_event("why_button_clicked", session_id=session_id)
     return AnalysisResponse(session_id=session_id, analysis=analysis)
 
 
@@ -104,6 +107,14 @@ async def search_traces(
         session_id=session_id,
         event_type=event_type,
         limit=limit,
+    )
+    # Record analytics event (fire-and-forget)
+    record_event(
+        "search_performed",
+        properties={
+            "query_type": "event_type" if event_type else "text",
+            "has_results": len(results) > 0,
+        },
     )
     return TraceSearchResponse(
         query=query,
