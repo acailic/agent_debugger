@@ -1,5 +1,6 @@
 import type {
   AgentBaseline,
+  AnalyticsResponse,
   DriftResponse,
   LiveSummary,
   ReplayResponse,
@@ -91,4 +92,8 @@ export async function getAgentBaseline(agentName: string): Promise<AgentBaseline
 
 export async function getAgentDrift(agentName: string): Promise<DriftResponse> {
   return fetchJSON<DriftResponse>(`${API_BASE}/agents/${encodeURIComponent(agentName)}/drift`)
+}
+
+export async function getAnalytics(range: string): Promise<AnalyticsResponse> {
+  return fetchJSON<AnalyticsResponse>(`${API_BASE}/analytics?range=${encodeURIComponent(range)}`)
 }

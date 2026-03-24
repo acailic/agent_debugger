@@ -353,3 +353,38 @@ export interface PolicyShift {
   new_template: string
   shift_magnitude: number
 }
+
+export interface AnalyticsMetrics {
+  sessions_created: number
+  why_button_clicks: number
+  failures_matched: number
+  replay_highlights_used: number
+  nl_queries_made: number
+  searches_performed: number
+}
+
+export interface AnalyticsAdoptionRate {
+  why_button: number
+  failure_memory: number
+  replay_highlights: number
+}
+
+export interface AnalyticsDerived {
+  adoption_rate: AnalyticsAdoptionRate
+  estimated_time_saved_minutes: number
+}
+
+export interface DailyBreakdown {
+  date: string
+  sessions: number
+  clicks: number
+}
+
+export interface AnalyticsResponse {
+  range: string
+  period_start: string
+  period_end: string
+  metrics: AnalyticsMetrics
+  derived: AnalyticsDerived
+  daily_breakdown: DailyBreakdown[]
+}
