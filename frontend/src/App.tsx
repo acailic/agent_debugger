@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { createEventSource, getAgentDrift, getLiveSummary, getReplay, getSessions, getTraceBundle, searchTraces } from './api/client'
+import { AnalyticsPanel } from './components/AnalyticsPanel'
 import { ConversationPanel } from './components/ConversationPanel'
 import { DecisionTree } from './components/DecisionTree'
 import { DriftAlertsPanel } from './components/DriftAlertsPanel'
@@ -14,6 +15,7 @@ import { ToolInspector } from './components/ToolInspector'
 import { TraceTimeline } from './components/TraceTimeline'
 import type { DriftResponse, EventType, FailureCluster, Highlight, LiveSummary, PolicyShift, ReplayResponse, RollingSummary, Session, TraceBundle, TraceEvent, TraceSearchResponse } from './types'
 
+type AppTab = 'trace' | 'analytics'
 type ReplayMode = 'full' | 'focus' | 'failure' | 'highlights'
 type SessionSortMode = 'started_at' | 'replay_value'
 type SearchScope = 'current' | 'all'
@@ -388,6 +390,7 @@ function App() {
   const [driftLoading, setDriftLoading] = useState(false)
   const [policyShifts, _setPolicyShifts] = useState<PolicyShift[]>([])
   const [failureClusters, _setFailureClusters] = useState<FailureCluster[]>([])
+  const [activeTab, setActiveTab] = useState<AppTab>('trace')
 
   useEffect(() => {
     let ignore = false
@@ -836,6 +839,26 @@ function App() {
 
       {error && <div className="error-banner">{error}</div>}
 
+      <nav className="app-tabs">
+        {(['trace', 'analytics'] as AppTab[]).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab === 'trace' ? 'Trace Inspector' : 'Analytics'}
+          </button>
+        ))}
+      </nav>
+
+      {activeTab === 'analytics' && (
+        <div className="analytics-view">
+          <AnalyticsPanel />
+        </div>
+      )}
+
+      {activeTab === 'trace' && (
       <main className="workspace">
         <aside className="session-rail panel">
           <div className="rail-head">
@@ -1277,6 +1300,7 @@ function App() {
           />
         </aside>
       </main>
+      )}
     </div>
   )
 }
