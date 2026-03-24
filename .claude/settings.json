@@ -1,53 +1,31 @@
 {
-  "permissions": {
-    "allow": [
-      "mcp__playwright__*",
-      "mcp__plugin_playwright_playwright__*",
-      "Bash(rg *)",
-      "Bash(ls *)",
-      "Bash(find *)",
-      "Bash(sed *)",
-      "Bash(head *)",
-      "Bash(tail *)",
-      "Bash(sort *)",
-      "Bash(wc *)",
-      "Bash(ruff *)",
-      "Bash(pytest *)",
-      "Bash(python -m pytest *)",
-      "Bash(python3 -m pytest *)",
-      "Bash(python -m build*)",
-      "Bash(python3 -m build*)",
-      "Bash(python -m hatch*)",
-      "Bash(make *)",
-      "Bash(npm run *)",
-      "Bash(npm ci*)",
-      "Bash(npm install*)",
-      "Bash(npx *)",
-      "Bash(git fetch *)",
-      "Bash(git branch *)",
-      "Bash(git rev-list *)",
-      "Bash(git tag *)",
-      "Bash(git push *)",
-      "Bash(git log *)",
-      "Bash(git diff *)",
-      "Bash(git status*)",
-      "Bash(pip install *)",
-      "Bash(pip list*)",
-      "Bash(cd frontend && npm run *)",
-      "Bash(cd frontend && npm ci*)",
-      "Bash(cd frontend && npm install*)",
-      "Bash(cd frontend && npx *)",
-      "Bash(cd frontend *)"
-    ]
+  "model": "opus[1m]",
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "warp@claude-code-warp": true,
+    "impeccable@impeccable": true
   },
+  "extraKnownMarketplaces": {
+    "impeccable": {
+      "source": {
+        "source": "github",
+        "repo": "pbakaus/impeccable"
+      }
+    }
+  },
+  "effortLevel": "high",
+  "skipDangerousModePermissionPrompt": true,
   "hooks": {
-    "PreCommit": [
+    "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{input}}' | jq -r '.tool_input.command' | { read -r cmd; if echo \"$cmd\" | grep -qE '^git commit'; then echo 'Running pre-commit quality gate...'; source .venv/bin/activate && ruff check . && python -m pytest -q; if [ $? -eq 0 ]; then echo '{\"decision\":\"allow\"}'; else echo '{\"decision\":\"block\",\"reason\":\"Pre-commit quality gate failed. Fix lint/test errors before committing.\"}'; fi; else echo '{\"decision\":\"allow\"}'; fi; }"
+            "command": "python3 /home/nistrator/Documents/github/amplifier/ai_working/agent_debugger/scripts/hooks/check_duplicate_queries.py --path \"$CLAUDE_FILE_PATH\" --content \"$CLAUDE_NEW_STRING\" 2>/dev/null; echo '{\"decision\":\"allow\"}'; exit 0"
           }
         ]
       }

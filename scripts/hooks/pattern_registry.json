@@ -1,0 +1,38 @@
+{
+  "SessionModel.where[id, tenant_id]": {
+    "method": "get_session",
+    "file": "storage/repository.py",
+  },
+  "SessionModel.where[tenant_id]": {
+    "method": "list_sessions",
+    "file": "storage/repository.py"
+  },
+  "EventModel.join[SessionModel].where[tenant_id, session_id]": {
+    "method": "get_event_tree",
+    "file": "storage/repository.py"
+  },
+  "EventModel.where[id]": {
+    "method": "get_event",
+    "file": "storage/repository.py"
+  },
+  "EventModel.where[session_id]": {
+    "method": "list_events",
+    "file": "storage/repository.py"
+  },
+  "CheckpointModel.join[SessionModel].where[tenant_id, session_id]": {
+    "method": "list_checkpoints",
+    "file": "storage/repository.py"
+  },
+  "CheckpointModel.where[id]": {
+    "method": "get_checkpoint",
+    "file": "storage/repository.py"
+  },
+  "APIKeyModel.where[tenant_id, is_active]": {
+    "method": "(auth query - consider creating Auth_repository)",
+    "file": "api/auth_routes.py"
+  },
+  "APIKeyModel.where[key_prefix.startswith, is_active]": {
+    "method": "_resolve_tenant_from_key",
+    "file": "auth/middleware.py"
+  }
+}
