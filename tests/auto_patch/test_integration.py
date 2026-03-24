@@ -275,7 +275,8 @@ def test_activate_env_var_patches_only_named_adapters(monkeypatch, mock_httpx):
     _inject_all_libs(monkeypatch)
     monkeypatch.setenv("PEAKY_PEEK_AUTO_PATCH", "openai,anthropic")
 
-    # activate() reads PEAKY_PEEK_AUTO_PATCH from env when config is None.
+    # When PEAKY_PEEK_AUTO_PATCH is set to a comma-separated list, only those
+    # named adapters are patched — all others are skipped.
     config = PatchConfig(server_url="http://localhost:9999")
     try:
         activate(config)
@@ -328,20 +329,17 @@ def test_deactivate_clears_patched_names_and_resets_session(monkeypatch, mock_ht
 
     config = PatchConfig(server_url="http://localhost:9999")
     activate(config)
-
-    # Verify it was patched.
-    assert "openai" in get_registry().patched_names()
-
-    deactivate()
-
-    # Registry must be empty after deactivation.
-    assert get_registry().patched_names() == [], (
-        f"Expected empty patched_names after deactivate, got {get_registry().patched_names()}"
-    )
-    # Transport session ID must be reset.
-    assert transport_module._current_session_id is None, (
-        "Expected _current_session_id to be None after deactivate()"
-    )
+    try:
+        assert "openai" in get_registry().patched_names()
+        deactivate()
+        assert get_registry().patched_names() == [], (
+            f"Expected empty patched_names after deactivate, got {get_registry().patched_names()}"
+        )
+        assert transport_module._current_session_id is None, (
+            "Expected _current_session_id to be None after deactivate()"
+        )
+    finally:
+        deactivate()  # safe no-op if already called
 
 
 # ---------------------------------------------------------------------------
@@ -357,32 +355,32 @@ def test_activate_deactivate_cycle_is_idempotent(monkeypatch, mock_httpx):
     config = PatchConfig(server_url="http://localhost:9999")
     thread_count_before = threading.active_count()
 
-    # --- First cycle ---
-    activate(config)
-    assert "openai" in get_registry().patched_names(), "Should be patched after first activate"
+    try:
+        # --- First cycle ---
+        activate(config)
+        assert "openai" in get_registry().patched_names(), "Should be patched after first activate"
 
-    deactivate()
-    assert get_registry().patched_names() == [], "Should be empty after first deactivate"
-    assert transport_module._current_session_id is None
+        deactivate()
+        assert get_registry().patched_names() == [], "Should be empty after first deactivate"
+        assert transport_module._current_session_id is None
 
-    # --- Second cycle ---
-    # Registry _adapters were cleared by the clean_registry fixture autouse,
-    # but deactivate() only clears _patched.  We need adapters still registered.
-    # The clean_registry fixture cleared them, so we re-activate from scratch.
-    # Re-inject (monkeypatch keeps the mock in place).
-    activate(config)
-    assert "openai" in get_registry().patched_names(), "Should be patched after second activate"
+        # --- Second cycle ---
+        # Re-inject (monkeypatch keeps the mock in place).
+        activate(config)
+        assert "openai" in get_registry().patched_names(), "Should be patched after second activate"
 
-    deactivate()
-    assert get_registry().patched_names() == [], "Should be empty after second deactivate"
-    assert transport_module._current_session_id is None
+        deactivate()
+        assert get_registry().patched_names() == [], "Should be empty after second deactivate"
+        assert transport_module._current_session_id is None
 
-    # Thread count should not grow unboundedly (background transport threads are daemons).
-    thread_count_after = threading.active_count()
-    # Allow some tolerance — daemon threads from the transport may still be alive briefly.
-    assert thread_count_after <= thread_count_before + 4, (
-        f"Thread count grew from {thread_count_before} to {thread_count_after} — possible leak"
-    )
+        # Thread count should not grow unboundedly (background transport threads are daemons).
+        thread_count_after = threading.active_count()
+        # Allow some tolerance — daemon threads from the transport may still be alive briefly.
+        assert thread_count_after <= thread_count_before + 4, (
+            f"Thread count grew from {thread_count_before} to {thread_count_after} — possible leak"
+        )
+    finally:
+        deactivate()  # safe no-op if already called
 
 
 # ---------------------------------------------------------------------------
