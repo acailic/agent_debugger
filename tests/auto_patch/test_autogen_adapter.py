@@ -238,28 +238,25 @@ class TestAutoGenAdapterV02EventEmission:
         self, fake_autogen_v02, mock_httpx
     ) -> None:
         """When initiate_chat raises, an error event should be sent and re-raised."""
-        original = fake_autogen_v02.ConversableAgent.initiate_chat
-
-        def boom(self_agent, *args, **kwargs):  # noqa: ANN001
-            raise ValueError("initiate_chat failed")
-
-        fake_autogen_v02.ConversableAgent.initiate_chat = boom
-
         adapter = AutoGenAdapter()
         config = PatchConfig(server_url="http://localhost:9999")
         adapter.patch(config)
 
-        agent_instance = fake_autogen_v02.ConversableAgent()
-        with pytest.raises(ValueError, match="initiate_chat failed"):
-            fake_autogen_v02.ConversableAgent.initiate_chat(agent_instance)
+        # Inject failure via the saved original — after patching, not before
+        saved_original = adapter._original_method
+        adapter._original_method = lambda *a, **kw: (_ for _ in ()).throw(ValueError("initiate_chat failed"))
+        try:
+            agent_instance = fake_autogen_v02.ConversableAgent()
+            with pytest.raises(ValueError, match="initiate_chat failed"):
+                fake_autogen_v02.ConversableAgent.initiate_chat(agent_instance)
 
-        _flush(adapter)
-        sent = _get_trace_events(mock_httpx)
-        types_ = [e["event_type"] for e in sent]
-        assert "error" in types_
-
-        fake_autogen_v02.ConversableAgent.initiate_chat = original
-        adapter.unpatch()
+            _flush(adapter)
+            sent = _get_trace_events(mock_httpx)
+            types_ = [e["event_type"] for e in sent]
+            assert "error" in types_
+        finally:
+            adapter._original_method = saved_original
+            adapter.unpatch()
 
     def test_server_unreachable_does_not_raise(self, fake_autogen_v02, mock_httpx) -> None:
         """Even if the server is unreachable, initiate_chat should complete."""

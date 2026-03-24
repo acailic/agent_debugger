@@ -65,13 +65,16 @@ class AutoGenAdapter(BaseAdapter):
             config: Active patch configuration.
         """
         self._config = config
-        self._transport = SyncTransport(config.server_url)
-        self._session_id = get_or_create_session(self._transport, config.agent_name, self.name)
 
         # Prefer v0.2 (``autogen``) if available; fall back to v0.4.
-        v02_available = self._try_patch_v02()
-        if not v02_available:
-            self._try_patch_v04()
+        # Transport is only created if patching succeeds.
+        patched = self._try_patch_v02() or self._try_patch_v04()
+        if not patched:
+            logger.debug("AutoGenAdapter: no patchable target found")
+            return
+
+        self._transport = SyncTransport(config.server_url)
+        self._session_id = get_or_create_session(self._transport, config.agent_name, self.name)
 
     # ------------------------------------------------------------------
     # Version-specific patchers
@@ -93,7 +96,7 @@ class AutoGenAdapter(BaseAdapter):
 
         if getattr(getattr(target_cls, method_name, None), "_peaky_peek_patched", False):
             logger.debug("AutoGenAdapter: ConversableAgent.initiate_chat already patched — skipping")
-            return True
+            return False
 
         original = getattr(target_cls, method_name)
         self._original_method = original
@@ -132,7 +135,7 @@ class AutoGenAdapter(BaseAdapter):
 
         if getattr(getattr(target_cls, method_name, None), "_peaky_peek_patched", False):
             logger.debug("AutoGenAdapter: AssistantAgent.run already patched — skipping")
-            return True
+            return False
 
         original = getattr(target_cls, method_name)
         self._original_method = original

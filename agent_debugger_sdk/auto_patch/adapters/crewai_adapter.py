@@ -70,9 +70,6 @@ class CrewAIAdapter(BaseAdapter):
 
         def traced_kickoff(self_crew: Any, *args: Any, **kwargs: Any) -> Any:
             transport = adapter._transport
-            if transport is None:
-                return adapter._original_kickoff(self_crew, *args, **kwargs)
-
             session_id = adapter._session_id or ""
             try:
                 start_event = TraceEvent(
@@ -117,9 +114,6 @@ class CrewAIAdapter(BaseAdapter):
 
         async def traced_kickoff_async(self_crew: Any, *args: Any, **kwargs: Any) -> Any:
             transport = adapter._transport
-            if transport is None:
-                return await adapter._original_kickoff_async(self_crew, *args, **kwargs)
-
             session_id = adapter._session_id or ""
             try:
                 start_event = TraceEvent(

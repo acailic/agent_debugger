@@ -246,29 +246,25 @@ class TestCrewAIAdapterSyncEventEmission:
 
     def test_kickoff_error_emits_error_event_and_reraises(self, fake_crewai, mock_httpx) -> None:
         """When kickoff raises, an error event should be sent and the exception re-raised."""
-        original_kickoff = fake_crewai.Crew.kickoff
-
-        def boom(self_crew, *args, **kwargs):  # noqa: ANN001
-            raise RuntimeError("crew failed")
-
-        fake_crewai.Crew.kickoff = boom
-
         adapter = CrewAIAdapter()
         config = PatchConfig(server_url="http://localhost:9999")
         adapter.patch(config)
 
-        crew_instance = fake_crewai.Crew()
-        with pytest.raises(RuntimeError, match="crew failed"):
-            fake_crewai.Crew.kickoff(crew_instance)
+        # Inject failure via the saved original — after patching, not before
+        saved_original = adapter._original_kickoff
+        adapter._original_kickoff = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("crew failed"))
+        try:
+            crew_instance = fake_crewai.Crew()
+            with pytest.raises(RuntimeError, match="crew failed"):
+                fake_crewai.Crew.kickoff(crew_instance)
 
-        _flush(adapter)
-        sent = _get_trace_events(mock_httpx)
-        types_ = [e["event_type"] for e in sent]
-        assert "error" in types_
-
-        # Restore so unpatch works properly
-        fake_crewai.Crew.kickoff = original_kickoff
-        adapter.unpatch()
+            _flush(adapter)
+            sent = _get_trace_events(mock_httpx)
+            types_ = [e["event_type"] for e in sent]
+            assert "error" in types_
+        finally:
+            adapter._original_kickoff = saved_original
+            adapter.unpatch()
 
     def test_server_unreachable_does_not_raise(self, fake_crewai, mock_httpx) -> None:
         """Even if the server is unreachable, kickoff should complete."""

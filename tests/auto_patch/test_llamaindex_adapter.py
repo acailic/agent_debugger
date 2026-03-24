@@ -268,28 +268,26 @@ class TestLlamaIndexAdapterSyncEventEmission:
     ) -> None:
         """When query raises, an error event should be sent and the exception re-raised."""
         _, _, query_engine = fake_llama_index
-        original_query = query_engine.BaseQueryEngine.query
-
-        def boom(self_engine, *args, **kwargs):  # noqa: ANN001
-            raise RuntimeError("query failed")
-
-        query_engine.BaseQueryEngine.query = boom
 
         adapter = LlamaIndexAdapter()
         config = PatchConfig(server_url="http://localhost:9999")
         adapter.patch(config)
 
-        engine_instance = query_engine.BaseQueryEngine()
-        with pytest.raises(RuntimeError, match="query failed"):
-            query_engine.BaseQueryEngine.query(engine_instance, "test")
+        # Inject failure via the saved original — after patching, not before
+        saved_original = adapter._original_query
+        adapter._original_query = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("query failed"))
+        try:
+            engine_instance = query_engine.BaseQueryEngine()
+            with pytest.raises(RuntimeError, match="query failed"):
+                query_engine.BaseQueryEngine.query(engine_instance, "test")
 
-        _flush(adapter)
-        sent = _get_trace_events(mock_httpx)
-        types_ = [e["event_type"] for e in sent]
-        assert "error" in types_
-
-        query_engine.BaseQueryEngine.query = original_query
-        adapter.unpatch()
+            _flush(adapter)
+            sent = _get_trace_events(mock_httpx)
+            types_ = [e["event_type"] for e in sent]
+            assert "error" in types_
+        finally:
+            adapter._original_query = saved_original
+            adapter.unpatch()
 
     def test_server_unreachable_does_not_raise(self, fake_llama_index, mock_httpx) -> None:
         """Even if the server is unreachable, the query should complete."""
