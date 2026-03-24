@@ -39,7 +39,7 @@ __all__ = ["PatchConfig", "activate", "deactivate"]
 # Adapter catalogue — add new adapters here as they are implemented.
 # Adapters are never auto-discovered; they must be explicitly listed.
 # ---------------------------------------------------------------------------
-_ADAPTER_NAMES: list[str] = ["openai", "anthropic"]
+_ADAPTER_NAMES: list[str] = ["openai", "anthropic", "langchain", "pydanticai"]
 
 
 def _build_config_from_env() -> PatchConfig:
@@ -67,12 +67,18 @@ def _load_adapters(registry: PatchRegistry) -> None:
     existing_names = {a.name for a in registry._adapters}
 
     from agent_debugger_sdk.auto_patch.adapters.anthropic_adapter import AnthropicAdapter
+    from agent_debugger_sdk.auto_patch.adapters.langchain_adapter import LangChainAdapter
     from agent_debugger_sdk.auto_patch.adapters.openai_adapter import OpenAIAdapter
+    from agent_debugger_sdk.auto_patch.adapters.pydanticai_adapter import PydanticAIAdapter
 
     if "openai" not in existing_names:
         registry.register(OpenAIAdapter())
     if "anthropic" not in existing_names:
         registry.register(AnthropicAdapter())
+    if "langchain" not in existing_names:
+        registry.register(LangChainAdapter())
+    if "pydanticai" not in existing_names:
+        registry.register(PydanticAIAdapter())
 
 
 def activate(config: PatchConfig | None = None) -> None:
