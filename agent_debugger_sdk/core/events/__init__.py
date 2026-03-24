@@ -7,13 +7,10 @@ TEMPORARY: During migration, this package re-exports from both the new
 domain modules and the legacy events.py module to maintain backward compatibility.
 """
 
-# Import from new base module
-# Import Session and Checkpoint from legacy events module (not yet migrated)
+# Import from new modules
 from agent_debugger_sdk.core._legacy_events import (
-    EVENT_TYPE_REGISTRY,
     AgentTurnEvent,
     BehaviorAlertEvent,
-    Checkpoint,
     DecisionEvent,
     ErrorEvent,
     LLMRequestEvent,
@@ -22,11 +19,21 @@ from agent_debugger_sdk.core._legacy_events import (
     PromptPolicyEvent,
     RefusalEvent,
     SafetyCheckEvent,
-    Session,
     ToolCallEvent,
     ToolResultEvent,
     TraceEvent,
 )
+from agent_debugger_sdk.core.events.base import (
+    BASE_EVENT_FIELDS,
+    EventType,
+    RiskLevel,
+    SafetyOutcome,
+    SessionStatus,
+    _serialize_field_value,
+)
+from agent_debugger_sdk.core.events.checkpoint import Checkpoint
+from agent_debugger_sdk.core.events.registry import EVENT_TYPE_REGISTRY
+from agent_debugger_sdk.core.events.session import Session
 from agent_debugger_sdk.core.events.base import (
     BASE_EVENT_FIELDS,
     EventType,
