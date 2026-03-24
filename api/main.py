@@ -13,6 +13,8 @@ from agent_debugger_sdk.config import get_config
 from agent_debugger_sdk.core.context import configure_event_pipeline
 from api import app_context
 from api import services as _services
+from api.analytics_db import init_analytics_db
+from api.analytics_routes import router as analytics_router
 from api.auth_routes import router as auth_router
 from api.comparison_routes import router as comparison_router
 from api.replay_routes import router as replay_router
@@ -35,6 +37,9 @@ async def lifespan(app: FastAPI):
 
     if "sqlite" in get_database_url():
         await prepare_database(app_context.require_engine())
+
+    # Initialize analytics database (local-only, fire-and-forget)
+    init_analytics_db()
 
     buffer_backend = "redis" if os.environ.get("REDIS_URL") else "memory"
     buffer = create_buffer(backend=buffer_backend)
@@ -78,6 +83,7 @@ def create_app() -> FastAPI:
 
     app.include_router(collector_router)
     app.include_router(auth_router)
+    app.include_router(analytics_router)
     app.include_router(session_router)
     app.include_router(trace_router)
     app.include_router(replay_router)
