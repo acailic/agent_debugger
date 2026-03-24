@@ -1,4 +1,5 @@
 export type EventType =
+  | 'trace_root'
   | 'agent_start'
   | 'agent_end'
   | 'tool_call'

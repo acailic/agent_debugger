@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import sys
 import types
-from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -116,31 +115,25 @@ async def test_lifespan_configures_pipeline_for_sqlite(monkeypatch):
     created_buffers: list[str] = []
     configure_storage = MagicMock()
     configure_event_pipeline = MagicMock()
+    prepare_database = AsyncMock()
 
     def fake_create_buffer(*, backend: str):
         created_buffers.append(backend)
         return "buffer-instance"
-
-    @asynccontextmanager
-    async def fake_begin():
-        conn = MagicMock()
-        conn.run_sync = AsyncMock()
-        yield conn
-
-    engine = SimpleNamespace(begin=fake_begin)
-
-    monkeypatch.setattr(api_main, "engine", engine)
     monkeypatch.setenv("REDIS_URL", "")
 
     with patch("storage.engine.get_database_url", return_value="sqlite+aiosqlite:///tmp/test.db"), patch(
         "collector.create_buffer", side_effect=fake_create_buffer
     ), patch("api.main.configure_storage", configure_storage), patch(
         "api.main.configure_event_pipeline", configure_event_pipeline
+    ), patch(
+        "api.main.prepare_database", prepare_database
     ):
         async with api_main.lifespan(FastAPI()):
             pass
 
     assert created_buffers == ["memory"]
+    prepare_database.assert_awaited_once_with(api_main.engine)
     configure_storage.assert_called_once_with(api_main.async_session_maker)
     configure_event_pipeline.assert_called_once()
 

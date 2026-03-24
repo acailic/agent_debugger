@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from agent_debugger_sdk.config import get_config
@@ -40,9 +40,9 @@ class TraceEventIngest(BaseModel):
     event_type: str
     timestamp: str | None = None
     name: str = ""
-    data: dict[str, Any] = {}
-    metadata: dict[str, Any] = {}
-    upstream_event_ids: list[str] = []
+    data: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    upstream_event_ids: list[str] = Field(default_factory=list)
 
     @field_validator("name")
     @classmethod
@@ -94,8 +94,8 @@ class SessionCreate(BaseModel):
     id: str | None = None
     agent_name: str
     framework: str
-    config: dict[str, Any] = {}
-    tags: list[str] = []
+    config: dict[str, Any] = Field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list)
 
 
 class SessionResponse(BaseModel):

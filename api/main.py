@@ -23,8 +23,7 @@ from collector.intelligence import TraceIntelligence
 from collector.server import configure_storage
 from collector.server import router as collector_router
 from redaction.pipeline import RedactionPipeline
-from storage import Base
-from storage.engine import create_db_engine, create_session_maker
+from storage.engine import create_db_engine, create_session_maker, prepare_database
 
 engine = create_db_engine()
 async_session_maker = create_session_maker(engine)
@@ -43,8 +42,7 @@ async def lifespan(app: FastAPI):
     from storage.engine import get_database_url
 
     if "sqlite" in get_database_url():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        await prepare_database(engine)
 
     buffer_backend = "redis" if os.environ.get("REDIS_URL") else "memory"
     buffer = create_buffer(backend=buffer_backend)

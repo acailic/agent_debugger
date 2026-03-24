@@ -161,7 +161,7 @@ def trace_tool(
                     event_type=EventType.TOOL_RESULT,
                     name=f"{name}_result",
                     tool_name=name,
-                    result=_sanitize_result(result) if result else None,
+                    result=_sanitize_result(result) if error is None else None,
                     error=str(error) if error else None,
                     duration_ms=duration_ms,
                     importance=0.9 if error else 0.5,

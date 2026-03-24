@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import timezone
 from typing import Any
 
 from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
@@ -28,6 +29,24 @@ def build_tree(events: list[TraceEvent]) -> dict[str, Any] | None:
             nodes[event.parent_id]["children"].append(node)
         else:
             roots.append(node)
+
+    if len(roots) > 1:
+        first_event = events[0]
+        return {
+            "event": {
+                "id": f"{first_event.session_id}:trace-root",
+                "session_id": first_event.session_id,
+                "parent_id": None,
+                "event_type": "trace_root",
+                "timestamp": min(event.timestamp for event in events).astimezone(timezone.utc).isoformat(),
+                "name": "trace_root",
+                "data": {"root_count": len(roots)},
+                "metadata": {},
+                "importance": 0.0,
+                "upstream_event_ids": [],
+            },
+            "children": roots,
+        }
 
     return roots[0] if roots else None
 

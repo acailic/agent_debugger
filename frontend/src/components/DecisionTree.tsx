@@ -19,6 +19,7 @@ interface D3TreeNode {
 }
 
 const NODE_COLORS: Record<string, string> = {
+  trace_root: '#64748b',
   agent_start: '#3b82f6',
   agent_end: '#1d4ed8',
   llm_request: '#a855f7',

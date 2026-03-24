@@ -160,6 +160,19 @@ def test_trace_intelligence_helper_and_empty_paths():
     assert analysis["failure_explanations"] == []
 
 
+def test_build_tree_wraps_multiple_root_events():
+    timestamp = datetime(2026, 3, 23, tzinfo=timezone.utc)
+    root_a = TraceEvent(id="root-a", session_id="session-1", event_type=EventType.AGENT_START, timestamp=timestamp)
+    root_b = TraceEvent(id="root-b", session_id="session-1", event_type=EventType.ERROR, timestamp=timestamp)
+
+    tree = build_tree([root_a, root_b])
+
+    assert tree is not None
+    assert tree["event"]["event_type"] == "trace_root"
+    assert tree["event"]["data"]["root_count"] == 2
+    assert [child["event"]["id"] for child in tree["children"]] == ["root-a", "root-b"]
+
+
 def test_trace_intelligence_build_live_summary_derives_recent_alerts():
     intelligence = TraceIntelligence()
     timestamp = datetime(2026, 3, 23, tzinfo=timezone.utc)
@@ -342,7 +355,10 @@ def test_replay_helpers_cover_focus_failure_and_breakpoint_paths():
     events = [root, child, early_child, evidence, focus, tool, failure, behavior]
 
     assert build_tree([]) is None
-    assert build_tree(events)["event"]["id"] == "root"
+    tree = build_tree(events)
+    assert tree is not None
+    assert tree["event"]["event_type"] == "trace_root"
+    assert {child["event"]["id"] for child in tree["children"]} == {"root", "evidence", "alert"}
     assert event_is_failure(behavior) is True
     assert event_is_failure(RefusalEvent(id="refusal", session_id="session-1", reason="unsafe", timestamp=timestamp)) is True
     assert event_is_failure(ToolResultEvent(id="ok", session_id="session-1", tool_name="search", timestamp=timestamp)) is False

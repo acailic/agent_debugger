@@ -132,6 +132,23 @@ async def test_trace_tool_standalone_success_emits_call_and_result_events():
 
 
 @pytest.mark.asyncio
+async def test_trace_tool_preserves_falsy_results():
+    @trace_tool(name="zero_lookup")
+    async def zero_lookup() -> int:
+        return 0
+
+    result = await zero_lookup()
+
+    assert result == 0
+    buffer = get_event_buffer()
+    session_id = (await buffer.get_session_ids())[-1]
+    events = await buffer.get_events(session_id)
+    tool_result = next(event for event in events if event.event_type == EventType.TOOL_RESULT)
+
+    assert tool_result.result == 0
+
+
+@pytest.mark.asyncio
 async def test_trace_llm_standalone_success_records_request_and_response_details():
     @trace_llm(model="gpt-test")
     async def call_llm(messages, tools=None, temperature=None):

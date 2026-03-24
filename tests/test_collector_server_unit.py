@@ -89,6 +89,25 @@ def test_trace_event_ingest_accepts_non_json_serializable_payloads_via_fallback(
     assert event.metadata == payload
 
 
+def test_request_models_do_not_share_mutable_defaults():
+    left_event = collector_server.TraceEventIngest(session_id="left", event_type="tool_call")
+    right_event = collector_server.TraceEventIngest(session_id="right", event_type="tool_call")
+    left_session = collector_server.SessionCreate(agent_name="left", framework="pytest")
+    right_session = collector_server.SessionCreate(agent_name="right", framework="pytest")
+
+    left_event.data["key"] = "value"
+    left_event.metadata["meta"] = "value"
+    left_event.upstream_event_ids.append("event-1")
+    left_session.config["mode"] = "test"
+    left_session.tags.append("left-only")
+
+    assert right_event.data == {}
+    assert right_event.metadata == {}
+    assert right_event.upstream_event_ids == []
+    assert right_session.config == {}
+    assert right_session.tags == []
+
+
 def test_configure_storage_updates_session_maker():
     marker = object()
     collector_server.configure_storage(marker)
