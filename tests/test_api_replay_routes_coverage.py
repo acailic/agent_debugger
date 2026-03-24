@@ -1,260 +1,289 @@
-"""Comprehensive tests for API replay routes - targeting 90%+ coverage."""
+"""Tests for API replay routes - targeting 90%+ coverage."""
+
+from __future__ import annotations
 
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 
-from api.main import create_app
+from api.dependencies import get_repository
+from api.main import app
 
 
 @pytest.fixture
-def app():
-    """Create test app."""
-    return create_app()
+def mock_repo() -> AsyncMock:
+    """Create a mock repository."""
+    repo = AsyncMock()
+    repo.get_checkpoint = AsyncMock(return_value=None)
+    repo.get_session = AsyncMock(return_value=None)
+    return repo
 
 
 @pytest.fixture
-def client(app):
-    """Create test client."""
-    return TestClient(app)
+def client(mock_repo) -> TestClient:
+    """Create test client with repository dependency overridden."""
+    app.dependency_overrides[get_repository] = lambda: mock_repo
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides.pop(get_repository, None)
 
 
-@pytest.fixture
-def mock_session_id():
-    """Generate a test session ID."""
-    return str(uuid4())
+class TestReplaySessionValidation:
+    """Test query parameter validation for the replay endpoint."""
+
+    def test_replay_invalid_mode_returns_422(self, client):
+        """Unsupported mode value is rejected."""
+        response = client.get(
+            f"/api/sessions/{uuid4()}/replay",
+            params={"mode": "invalid_mode"},
+        )
+        assert response.status_code == 422
+
+    def test_replay_confidence_above_1_returns_422(self, client):
+        """Confidence value > 1.0 is rejected."""
+        response = client.get(
+            f"/api/sessions/{uuid4()}/replay",
+            params={"breakpoint_confidence_below": 1.5},
+        )
+        assert response.status_code == 422
+
+    def test_replay_negative_confidence_returns_422(self, client):
+        """Negative confidence value is rejected."""
+        response = client.get(
+            f"/api/sessions/{uuid4()}/replay",
+            params={"breakpoint_confidence_below": -0.5},
+        )
+        assert response.status_code == 422
+
+    def test_replay_confidence_at_zero_is_accepted(self, client, mock_repo):
+        """Confidence value 0.0 is a valid edge case (validation only, route may 404)."""
+        mock_repo.get_session = AsyncMock(return_value=None)
+        response = client.get(
+            f"/api/sessions/{uuid4()}/replay",
+            params={"breakpoint_confidence_below": 0.0},
+        )
+        # 404 is fine — validation passed, session just doesn't exist
+        assert response.status_code in (200, 404, 422)
+        assert response.status_code != 422  # 422 would mean validation rejected it
+
+    def test_replay_confidence_at_one_is_accepted(self, client, mock_repo):
+        """Confidence value 1.0 is a valid edge case."""
+        mock_repo.get_session = AsyncMock(return_value=None)
+        response = client.get(
+            f"/api/sessions/{uuid4()}/replay",
+            params={"breakpoint_confidence_below": 1.0},
+        )
+        assert response.status_code != 422
 
 
-@pytest.fixture
-def mock_checkpoint_id():
-    """Generate a test checkpoint ID."""
-    return str(uuid4())
+class TestReplaySessionBehavior:
+    """Test replay endpoint behavior."""
 
+    @patch("api.replay_routes.require_session", new_callable=AsyncMock)
+    @patch("api.replay_routes.load_session_artifacts", new_callable=AsyncMock)
+    def test_replay_session_not_found_returns_404(self, mock_load, mock_require, client):
+        """Replay on a missing session returns 404."""
+        mock_require.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
+        response = client.get(f"/api/sessions/{uuid4()}/replay")
+        assert response.status_code == 404
 
-class TestReplaySessionEdgeCases:
-    """Test edge cases and error paths for replay_session endpoint."""
-    
-    @patch('api.services.require_session')
-    @patch('api.services.load_session_artifacts')
-    @patch('api.dependencies.get_repository')
-    def test_replay_nonexistent_session(self, mock_get_repo, mock_load, mock_require, client, mock_session_id):
-        """Test replay with session that doesn't exist."""
-        # Setup mocks
-        mock_repo = AsyncMock()
-        mock_get_repo.return_value = mock_repo
-        mock_require.side_effect = Exception("Session not found")
-        
-        response = client.get(f"/api/sessions/{mock_session_id}/replay")
-        
-        # Should handle gracefully
-        assert response.status_code >= 400
-    
-    @patch('api.services.require_session')
-    @patch('api.services.load_session_artifacts')
-    @patch('api.dependencies.get_repository')
-    def test_replay_with_no_events(self, mock_get_repo, mock_load, mock_require, client, mock_session_id):
-        """Test replay when session has no events."""
-        # Setup mocks
-        mock_repo = AsyncMock()
-        mock_get_repo.return_value = mock_repo
-        mock_require.return_value = None
-        mock_load.return_value = ([], [])  # Empty events and checkpoints
-        
-        response = client.get(f"/api/sessions/{mock_session_id}/replay")
-        
-        # Should handle gracefully with empty response
+    @patch("api.replay_routes.require_session", new_callable=AsyncMock)
+    @patch("api.replay_routes.load_session_artifacts", new_callable=AsyncMock)
+    def test_replay_with_no_events_returns_empty(self, mock_load, mock_require, client):
+        """Replay with no events returns 200 with empty events list."""
+        mock_require.return_value = MagicMock()
+        mock_load.return_value = ([], [])
+
+        session_id = str(uuid4())
+        response = client.get(f"/api/sessions/{session_id}/replay")
+
         assert response.status_code == 200
         data = response.json()
         assert data["events"] == []
-    
-    @patch('api.services.require_session')
-    @patch('api.services.load_session_artifacts')
-    @patch('api.dependencies.get_repository')
-    def test_replay_with_mode_parameter(self, mock_get_repo, mock_load, mock_require, client, mock_session_id):
-        """Test replay respects mode parameter."""
-        # Setup mocks
-        mock_repo = AsyncMock()
-        mock_get_repo.return_value = mock_repo
-        mock_require.return_value = None
+        assert data["session_id"] == session_id
+        assert data["mode"] == "full"
+
+    @patch("api.replay_routes.require_session", new_callable=AsyncMock)
+    @patch("api.replay_routes.load_session_artifacts", new_callable=AsyncMock)
+    def test_replay_mode_full(self, mock_load, mock_require, client):
+        """Replay accepts mode=full."""
+        mock_require.return_value = MagicMock()
         mock_load.return_value = ([], [])
-        
-        # Test different mode values
-        for mode in ["full", "focus", "failure"]:
-            response = client.get(
-                f"/api/sessions/{mock_session_id}/replay",
-                params={"mode": mode}
-            )
-            assert response.status_code == 200 or response.status_code >= 400
-    
-    @patch('api.services.require_session')
-    @patch('api.services.load_session_artifacts')
-    @patch('api.dependencies.get_repository')
-    def test_replay_with_invalid_mode(self, mock_get_repo, mock_load, mock_require, client, mock_session_id):
-        """Test replay with invalid mode."""
-        mock_repo = AsyncMock()
-        mock_get_repo.return_value = mock_repo
-        mock_require.return_value = None
+
+        response = client.get(f"/api/sessions/{uuid4()}/replay", params={"mode": "full"})
+        assert response.status_code == 200
+        assert response.json()["mode"] == "full"
+
+    @patch("api.replay_routes.require_session", new_callable=AsyncMock)
+    @patch("api.replay_routes.load_session_artifacts", new_callable=AsyncMock)
+    def test_replay_mode_focus(self, mock_load, mock_require, client):
+        """Replay accepts mode=focus."""
+        mock_require.return_value = MagicMock()
         mock_load.return_value = ([], [])
-        
+
+        response = client.get(f"/api/sessions/{uuid4()}/replay", params={"mode": "focus"})
+        assert response.status_code == 200
+
+    @patch("api.replay_routes.require_session", new_callable=AsyncMock)
+    @patch("api.replay_routes.load_session_artifacts", new_callable=AsyncMock)
+    def test_replay_mode_failure(self, mock_load, mock_require, client):
+        """Replay accepts mode=failure."""
+        mock_require.return_value = MagicMock()
+        mock_load.return_value = ([], [])
+
+        response = client.get(f"/api/sessions/{uuid4()}/replay", params={"mode": "failure"})
+        assert response.status_code == 200
+
+    @patch("api.replay_routes.require_session", new_callable=AsyncMock)
+    @patch("api.replay_routes.load_session_artifacts", new_callable=AsyncMock)
+    def test_replay_with_focus_event_id_parameter(self, mock_load, mock_require, client):
+        """Replay accepts focus_event_id parameter."""
+        mock_require.return_value = MagicMock()
+        mock_load.return_value = ([], [])
+
         response = client.get(
-            f"/api/sessions/{mock_session_id}/replay",
-            params={"mode": "invalid_mode"}
+            f"/api/sessions/{uuid4()}/replay",
+            params={"focus_event_id": str(uuid4())},
         )
-        # Should reject invalid mode
-        assert response.status_code == 422
-    
-    @patch('api.services.require_session')
-    @patch('api.services.load_session_artifacts')
-    @patch('api.dependencies.get_repository')
-    def test_replay_with_focus_event_id(self, mock_get_repo, mock_load, mock_require, client, mock_session_id, mock_checkpoint_id):
-        """Test replay with focus on specific event."""
-        mock_repo = AsyncMock()
-        mock_get_repo.return_value = mock_repo
-        mock_require.return_value = None
+        assert response.status_code == 200
+
+    @patch("api.replay_routes.require_session", new_callable=AsyncMock)
+    @patch("api.replay_routes.load_session_artifacts", new_callable=AsyncMock)
+    def test_replay_with_breakpoint_parameters(self, mock_load, mock_require, client):
+        """Replay accepts breakpoint filter parameters."""
+        mock_require.return_value = MagicMock()
         mock_load.return_value = ([], [])
-        
+
         response = client.get(
-            f"/api/sessions/{mock_session_id}/replay",
-            params={"focus_event_id": mock_checkpoint_id}
-        )
-        
-        # Should accept parameter
-        assert response.status_code < 500
-    
-    @patch('api.services.require_session')
-    @patch('api.services.load_session_artifacts')
-    @patch('api.dependencies.get_repository')
-    def test_replay_with_breakpoints(self, mock_get_repo, mock_load, mock_require, client, mock_session_id):
-        """Test replay with breakpoint parameters."""
-        mock_repo = AsyncMock()
-        mock_get_repo.return_value = mock_repo
-        mock_require.return_value = None
-        mock_load.return_value = ([], [])
-        
-        response = client.get(
-            f"/api/sessions/{mock_session_id}/replay",
+            f"/api/sessions/{uuid4()}/replay",
             params={
                 "breakpoint_event_types": "tool_call,error",
-                "breakpoint_tool_names": "search,execute",
+                "breakpoint_tool_names": "search",
                 "breakpoint_confidence_below": 0.5,
-                "breakpoint_safety_outcomes": "refusal,violation"
-            }
+                "breakpoint_safety_outcomes": "refusal",
+            },
         )
-        
-        # Should accept all breakpoint parameters
-        assert response.status_code == 200 or response.status_code >= 400
+        assert response.status_code == 200
+
+    @patch("api.replay_routes.require_session", new_callable=AsyncMock)
+    @patch("api.replay_routes.load_session_artifacts", new_callable=AsyncMock)
+    def test_replay_default_mode_is_full(self, mock_load, mock_require, client):
+        """Default mode is 'full' when not specified."""
+        mock_require.return_value = MagicMock()
+        mock_load.return_value = ([], [])
+
+        response = client.get(f"/api/sessions/{uuid4()}/replay")
+        assert response.json()["mode"] == "full"
 
 
-class TestGetCheckpointEdgeCases:
-    """Test edge cases for get_checkpoint endpoint."""
-    
-    @patch('api.dependencies.get_repository')
-    def test_get_checkpoint_not_found(self, mock_get_repo, client, mock_checkpoint_id):
-        """Test getting nonexistent checkpoint."""
-        mock_repo = AsyncMock()
+class TestGetCheckpointEndpoint:
+    """Test the GET /api/checkpoints/{id} endpoint."""
+
+    def test_get_checkpoint_not_found_returns_404(self, client, mock_repo):
+        """Missing checkpoint returns 404."""
         mock_repo.get_checkpoint = AsyncMock(return_value=None)
-        mock_get_repo.return_value = mock_repo
-        
-        response = client.get(f"/api/checkpoints/{mock_checkpoint_id}")
-        
+
+        response = client.get(f"/api/checkpoints/{uuid4()}")
         assert response.status_code == 404
-    
-    def test_get_checkpoint_invalid_id(self, client):
-        """Test getting checkpoint with invalid ID."""
-        response = client.get("/api/checkpoints/invalid-id")
-        
-        # Should handle gracefully
-        assert response.status_code >= 400 or response.status_code == 422
 
-
-class TestRestoreCheckpointEdgeCases:
-    """Test edge cases for restore_checkpoint endpoint."""
-    
-    @patch('api.dependencies.get_repository')
-    def test_restore_nonexistent_checkpoint(self, mock_get_repo, client, mock_checkpoint_id):
-        """Test restoring checkpoint that doesn't exist."""
-        mock_repo = AsyncMock()
-        mock_get_repo.return_value = mock_repo
-        # Mock to return None for missing checkpoint
+    def test_get_checkpoint_not_found_has_detail(self, client, mock_repo):
+        """404 response includes error detail."""
         mock_repo.get_checkpoint = AsyncMock(return_value=None)
-        
-        response = client.post(
-            f"/api/checkpoints/{mock_checkpoint_id}/restore",
-            json={"session_id": str(uuid4())}
+
+        response = client.get("/api/checkpoints/nonexistent-id")
+        assert response.status_code == 404
+        assert "detail" in response.json()
+
+    def test_get_checkpoint_returns_checkpoint_data(self, client, mock_repo):
+        """Existing checkpoint returns checkpoint data."""
+        from agent_debugger_sdk.core.events import Checkpoint
+
+        checkpoint = Checkpoint(
+            id=str(uuid4()),
+            session_id=str(uuid4()),
+            event_id=str(uuid4()),
+            sequence=1,
+            state={"key": "value"},
+            memory={},
+            timestamp=datetime.now(timezone.utc),
+            importance=0.7,
         )
-        
-        # Should return error
-        assert response.status_code >= 400
+        mock_repo.get_checkpoint = AsyncMock(return_value=checkpoint)
 
-
-class TestReplayValidation:
-    """Test input validation for replay endpoints."""
-    
-    def test_replay_with_confidence_below_range(self, client, mock_session_id):
-        """Test that confidence below is validated to be in range."""
-        response = client.get(
-            f"/api/sessions/{mock_session_id}/replay",
-            params={"breakpoint_confidence_below": 1.5}  # Invalid: > 1.0
-        )
-        
-        assert response.status_code == 422
-    
-    def test_replay_with_negative_confidence(self, client, mock_session_id):
-        """Test that negative confidence is rejected."""
-        response = client.get(
-            f"/api/sessions/{mock_session_id}/replay",
-            params={"breakpoint_confidence_below": -0.5}
-        )
-        
-        assert response.status_code == 422
-
-
-class TestReplayIntegration:
-    """Integration tests that test the full replay workflow."""
-    
-    @patch('api.services.require_session')
-    @patch('api.services.load_session_artifacts')
-    @patch('api.dependencies.get_repository')
-    @patch('collector.replay.build_replay')
-    def test_full_replay_workflow(self, mock_build, mock_get_repo, mock_load, mock_require, client, mock_session_id):
-        """Test complete replay workflow with real-like data."""
-        from agent_debugger_sdk.core.events import EventType, TraceEvent
-        
-        # Setup mocks
-        mock_repo = AsyncMock()
-        mock_get_repo.return_value = mock_repo
-        mock_require.return_value = None
-        
-        # Create mock events
-        events = [
-            TraceEvent(
-                event_type=EventType.TOOL_CALL,
-                timestamp=datetime.now(timezone.utc),
-                data={"tool": "test"}
-            )
-        ]
-        checkpoints = []
-        mock_load.return_value = (events, checkpoints)
-        
-        # Mock build_replay response
-        mock_build.return_value = {
-            "mode": "full",
-            "focus_event_id": None,
-            "start_index": 0,
-            "events": events,
-            "checkpoints": checkpoints,
-            "nearest_checkpoint": None,
-            "breakpoints": [],
-            "failure_event_ids": []
-        }
-        
-        response = client.get(f"/api/sessions/{mock_session_id}/replay")
-        
-        # Should succeed
+        response = client.get(f"/api/checkpoints/{checkpoint.id}")
         assert response.status_code == 200
         data = response.json()
-        assert data["session_id"] == mock_session_id
-        assert data["mode"] == "full"
+        assert data["id"] == checkpoint.id
+        assert data["session_id"] == checkpoint.session_id
+
+
+class TestRestoreCheckpointEndpoint:
+    """Test the POST /api/checkpoints/{id}/restore endpoint."""
+
+    def test_restore_nonexistent_checkpoint_returns_404(self, client, mock_repo):
+        """Restoring a missing checkpoint returns 404."""
+        mock_repo.get_checkpoint = AsyncMock(return_value=None)
+
+        response = client.post(
+            f"/api/checkpoints/{uuid4()}/restore",
+            json={"session_id": str(uuid4())},
+        )
+        assert response.status_code == 404
+
+    def test_restore_returns_restore_response(self, client, mock_repo):
+        """Successful restore returns restore response with new session info."""
+        from agent_debugger_sdk.core.events import Checkpoint
+
+        checkpoint = Checkpoint(
+            id=str(uuid4()),
+            session_id=str(uuid4()),
+            event_id=str(uuid4()),
+            sequence=2,
+            state={"agent_state": "active"},
+            memory={},
+            timestamp=datetime.now(timezone.utc),
+            importance=0.9,
+        )
+        mock_repo.get_checkpoint = AsyncMock(return_value=checkpoint)
+
+        new_session_id = str(uuid4())
+        response = client.post(
+            f"/api/checkpoints/{checkpoint.id}/restore",
+            json={"session_id": new_session_id},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["new_session_id"] == new_session_id
+        assert data["checkpoint_id"] == checkpoint.id
+        assert "restore_token" in data
+
+    def test_restore_generates_session_id_when_not_provided(self, client, mock_repo):
+        """Restore generates a new session ID when none is provided."""
+        from agent_debugger_sdk.core.events import Checkpoint
+
+        checkpoint = Checkpoint(
+            id=str(uuid4()),
+            session_id=str(uuid4()),
+            event_id=str(uuid4()),
+            sequence=1,
+            state={},
+            memory={},
+            timestamp=datetime.now(timezone.utc),
+            importance=0.5,
+        )
+        mock_repo.get_checkpoint = AsyncMock(return_value=checkpoint)
+
+        response = client.post(
+            f"/api/checkpoints/{checkpoint.id}/restore",
+            json={},  # no session_id provided
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "new_session_id" in data
+        assert data["new_session_id"]  # non-empty string

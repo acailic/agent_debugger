@@ -58,9 +58,11 @@ class FailureDiagnostics:
                 f' with {self._causal._clip(_event_value(failure_event, "error_message", "no message"), 72)}'
             )
         if failure_event.event_type == EventType.REFUSAL:
-            return f"Request was refused: {self._causal._clip(_event_value(failure_event, 'reason', 'no reason provided'), 88)}"
+            reason = _event_value(failure_event, "reason", "no reason provided")
+            return f"Request was refused: {self._causal._clip(reason, 88)}"
         if failure_event.event_type == EventType.POLICY_VIOLATION:
-            return f"Policy violation: {self._causal._clip(_event_value(failure_event, 'violation_type', failure_event.name or 'unknown'), 72)}"
+            vtype = _event_value(failure_event, "violation_type", failure_event.name or "unknown")
+            return f"Policy violation: {self._causal._clip(vtype, 72)}"
         if failure_event.event_type == EventType.BEHAVIOR_ALERT:
             return self._causal._clip(_event_value(failure_event, "signal", failure_event.name or "behavior alert"), 96)
         if failure_event.event_type == EventType.SAFETY_CHECK:
@@ -91,7 +93,10 @@ class FailureDiagnostics:
             confidence = float(_event_value(cause, "confidence", 0.5) or 0.5)
             evidence = _event_value(cause, "evidence", []) or []
             evidence_note = "with evidence" if evidence else "without evidence"
-            return f"{description} appears upstream via {candidate['relation_label']} at confidence {confidence:.2f} {evidence_note}."
+            return (
+                f"{description} appears upstream via {candidate['relation_label']}"
+                f" at confidence {confidence:.2f} {evidence_note}."
+            )
         if cause.event_type == EventType.TOOL_RESULT and _event_value(cause, "error"):
             return f"{description} already failed upstream via {candidate['relation_label']}."
         return f"{description} is the strongest upstream suspect via {candidate['relation_label']}."
@@ -151,7 +156,10 @@ class FailureDiagnostics:
             if top_candidate:
                 narrative += f" The strongest upstream suspect is {likely_cause.lower()}"
             else:
-                narrative += " Inspect the nearest checkpoint and surrounding decisions to establish the upstream cause."
+                narrative += (
+                    " Inspect the nearest checkpoint and surrounding decisions"
+                    " to establish the upstream cause."
+                )
 
             explanations.append(
                 {

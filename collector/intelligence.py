@@ -12,7 +12,6 @@ from .causal_analysis import CausalAnalyzer
 from .failure_diagnostics import FailureDiagnostics
 from .live_monitor import LiveMonitor
 
-
 # ---------------------------------------------------------------------------
 # Module-level helpers kept here for backward-compat (tests import them)
 # ---------------------------------------------------------------------------

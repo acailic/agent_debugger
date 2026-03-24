@@ -1,15 +1,17 @@
 """Comprehensive tests for redaction pipeline - security-critical coverage."""
 
-import pytest
-from unittest.mock import Mock, patch
-import json
 
-from redaction.pipeline import RedactionPipeline
-from agent_debugger_sdk.core.events import (
-    TraceEvent, EventType, ToolCallEvent, ToolResultEvent,
-    LLMRequestEvent, LLMResponseEvent
-)
 from datetime import datetime, timezone
+
+from agent_debugger_sdk.core.events import (
+    EventType,
+    LLMRequestEvent,
+    LLMResponseEvent,
+    ToolCallEvent,
+    ToolResultEvent,
+    TraceEvent,
+)
+from redaction.pipeline import RedactionPipeline
 
 
 class TestRedactionPipelineEdgeCases:
