@@ -1,4 +1,7 @@
-"""CLI entry point for peaky-peek-server."""
+"""CLI entry point for peaky-peek-server.
+
+This module provides the command-line interface for running the server.
+"""
 import argparse
 import importlib.metadata
 import webbrowser
