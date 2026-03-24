@@ -28,6 +28,7 @@ Each file serves multiple concerns that would benefit from domain-based organiza
 agent_debugger_sdk/core/events/
 ├── __init__.py          # Re-exports all public classes/enums
 ├── base.py              # EventType, SessionStatus, RiskLevel, SafetyOutcome enums
+│                        # StrEnum compatibility shim (Python 3.10)
 │                        # TraceEvent base class, BASE_EVENT_FIELDS, _serialize_field_value
 ├── tools.py             # ToolCallEvent, ToolResultEvent
 ├── llm.py               # LLMRequestEvent, LLMResponseEvent
@@ -44,7 +45,7 @@ agent_debugger_sdk/core/events/
 
 | File | Contents | ~Lines |
 |------|----------|--------|
-| base.py | EventType, SessionStatus, RiskLevel, SafetyOutcome enums; TraceEvent class; serialization helpers | ~200 |
+| base.py | EventType, SessionStatus, RiskLevel, SafetyOutcome enums; StrEnum shim; TraceEvent class; BASE_EVENT_FIELDS, _serialize_field_value | ~200 |
 | tools.py | ToolCallEvent, ToolResultEvent | ~40 |
 | llm.py | LLMRequestEvent, LLMResponseEvent | ~60 |
 | decisions.py | DecisionEvent | ~25 |
@@ -58,11 +59,25 @@ agent_debugger_sdk/core/events/
 **__init__.py re-exports:**
 
 ```python
-from .base import EventType, SessionStatus, RiskLevel, SafetyOutcome, TraceEvent
+# Python 3.10 compatibility: StrEnum shim lives in base.py
+from .base import (
+    EventType,
+    SessionStatus,
+    RiskLevel,
+    SafetyOutcome,
+    TraceEvent,
+    BASE_EVENT_FIELDS,      # Export for from_data() usage in domain files
+    _serialize_field_value,  # Export for checkpoint serialization
+)
 from .tools import ToolCallEvent, ToolResultEvent
 from .llm import LLMRequestEvent, LLMResponseEvent
 from .decisions import DecisionEvent
-from .safety import SafetyCheckEvent, RefusalEvent, PolicyViolationEvent, PromptPolicyEvent
+from .safety import (
+    SafetyCheckEvent,
+    RefusalEvent,
+    PolicyViolationEvent,
+    PromptPolicyEvent,
+)
 from .agent import AgentTurnEvent, BehaviorAlertEvent
 from .errors import ErrorEvent
 from .session import Session
@@ -70,16 +85,45 @@ from .checkpoint import Checkpoint
 from .registry import EVENT_TYPE_REGISTRY
 
 __all__ = [
-    "EventType", "SessionStatus", "RiskLevel", "SafetyOutcome", "TraceEvent",
-    "ToolCallEvent", "ToolResultEvent",
-    "LLMRequestEvent", "LLMResponseEvent",
+    "EventType",
+    "SessionStatus",
+    "RiskLevel",
+    "SafetyOutcome",
+    "TraceEvent",
+    "BASE_EVENT_FIELDS",
+    "_serialize_field_value",
+    "ToolCallEvent",
+    "ToolResultEvent",
+    "LLMRequestEvent",
+    "LLMResponseEvent",
     "DecisionEvent",
-    "SafetyCheckEvent", "RefusalEvent", "PolicyViolationEvent", "PromptPolicyEvent",
-    "AgentTurnEvent", "BehaviorAlertEvent",
+    "SafetyCheckEvent",
+    "RefusalEvent",
+    "PolicyViolationEvent",
+    "PromptPolicyEvent",
+    "AgentTurnEvent",
+    "BehaviorAlertEvent",
     "ErrorEvent",
-    "Session", "Checkpoint",
+    "Session",
+    "Checkpoint",
     "EVENT_TYPE_REGISTRY",
 ]
+```
+
+**Internal imports (domain files use relative imports):**
+
+```python
+# In events/tools.py, events/llm.py, events/decisions.py, etc.
+from .base import TraceEvent, EventType
+
+# In events/safety.py
+from .base import TraceEvent, EventType, RiskLevel, SafetyOutcome
+
+# In events/registry.py
+from .base import EventType, TraceEvent
+from .tools import ToolCallEvent, ToolResultEvent
+from .llm import LLMRequestEvent, LLMResponseEvent
+# ... etc (import each domain file)
 ```
 
 ### context.py → context/ package
@@ -99,6 +143,21 @@ agent_debugger_sdk/core/context/
 | vars.py | 6 ContextVar declarations, get_current_context, get_current_session_id, get_current_parent_id | ~50 |
 | pipeline.py | _get_default_event_buffer, configure_event_pipeline | ~50 |
 | trace_context.py | TraceContext class (kept intact) | ~430 |
+
+**vars.py needs type annotations:**
+
+```python
+from __future__ import annotations
+from contextvars import ContextVar
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agent_debugger_sdk.core.events import Session, SessionStatus
+
+_current_session_id: ContextVar[str | None] = ContextVar("current_session_id", default=None)
+_current_parent_id: ContextVar[str | None] = ContextVar("current_parent_id", default=None)
+# ... etc
+```
 
 **__init__.py re-exports:**
 
@@ -191,7 +250,10 @@ After decomposition, verify these key consumers:
 
 1. Run `ruff check .` after each package migration
 2. Run `python3 -m pytest -q` after each package migration
-3. Verify import paths work with a quick smoke test
+3. Verify import paths work with a quick smoke test:
+   ```bash
+   python3 -c "from agent_debugger_sdk.core.events import ToolCallEvent, TraceEvent, EVENT_TYPE_REGISTRY; from agent_debugger_sdk.core.context import TraceContext, get_current_context; from agent_debugger_sdk.core.decorators import trace_agent, trace_tool, trace_llm; print('All imports successful')"
+   ```
 
 ## Expected Outcome
 
@@ -207,8 +269,8 @@ After decomposition, verify these key consumers:
 
 | Risk | Mitigation |
 |------|------------|
-| Circular imports | Careful ordering; use `from . import` not `from package import` |
-| Missed import updates | Run full test suite after each package |
+| Circular imports | Careful ordering; use `from . import` not `from package import`; TYPE_CHECKING for type hints |
+| Missed import updates | Run full test suite after each package; smoke test command |
 | Type checking breaks | Verify pyright/mypy after changes (future task) |
 
 ## Out of Scope
