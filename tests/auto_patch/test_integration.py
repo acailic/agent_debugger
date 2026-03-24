@@ -328,8 +328,8 @@ def test_deactivate_clears_patched_names_and_resets_session(monkeypatch, mock_ht
     monkeypatch.delenv("PEAKY_PEEK_AUTO_PATCH", raising=False)
 
     config = PatchConfig(server_url="http://localhost:9999")
-    activate(config)
     try:
+        activate(config)
         assert "openai" in get_registry().patched_names()
         deactivate()
         assert get_registry().patched_names() == [], (
