@@ -82,3 +82,67 @@ class TestSchemaRegistry:
 
         assert SCHEMA_REGISTRY["langchain"] is LangChainCheckpointState
         assert SCHEMA_REGISTRY["custom"] is CustomCheckpointState
+
+
+class TestCheckpointValidation:
+    def test_validate_dict_with_langchain_framework(self):
+        """Should validate dict and return LangChainCheckpointState."""
+        from agent_debugger_sdk.checkpoints import validate_checkpoint_state
+
+        state_dict = {
+            "framework": "langchain",
+            "label": "test",
+            "messages": [{"role": "user", "content": "hi"}],
+        }
+        result = validate_checkpoint_state(state_dict)
+        assert isinstance(result, object)
+        assert result.framework == "langchain"
+        assert result.label == "test"
+
+    def test_validate_dict_with_unknown_framework_returns_custom(self):
+        """Unknown framework should fall back to CustomCheckpointState."""
+        from agent_debugger_sdk.checkpoints import validate_checkpoint_state
+
+        state_dict = {
+            "framework": "unknown_framework",
+            "label": "test",
+            "data": {"foo": "bar"},
+        }
+        result = validate_checkpoint_state(state_dict)
+        # Should preserve the unknown framework string
+        assert result.framework == "unknown_framework"
+
+    def test_validate_dict_without_framework_defaults_to_custom(self):
+        """Missing framework should default to custom."""
+        from agent_debugger_sdk.checkpoints import validate_checkpoint_state
+
+        state_dict = {"data": {"step": 1}}
+        result = validate_checkpoint_state(state_dict)
+        assert result.framework == "custom"
+
+    def test_validate_dataclass_passthrough(self):
+        """Already-typed state should pass through unchanged."""
+        from agent_debugger_sdk.checkpoints import (
+            LangChainCheckpointState,
+            validate_checkpoint_state,
+        )
+
+        state = LangChainCheckpointState(label="test")
+        result = validate_checkpoint_state(state)
+        assert result is state
+
+    def test_serialize_state_to_dict(self):
+        """Should serialize dataclass to dict with extra fields preserved."""
+        from agent_debugger_sdk.checkpoints import (
+            LangChainCheckpointState,
+            serialize_checkpoint_state,
+        )
+
+        state = LangChainCheckpointState(
+            label="test",
+            messages=[{"role": "user", "content": "hi"}],
+        )
+        result = serialize_checkpoint_state(state)
+        assert result["framework"] == "langchain"
+        assert result["label"] == "test"
+        assert result["messages"] == [{"role": "user", "content": "hi"}]

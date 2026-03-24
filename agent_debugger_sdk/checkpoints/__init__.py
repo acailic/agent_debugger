@@ -6,10 +6,13 @@ from .schemas import (
     CustomCheckpointState,
     LangChainCheckpointState,
 )
+from .validation import serialize_checkpoint_state, validate_checkpoint_state
 
 __all__ = [
     "BaseCheckpointState",
     "CustomCheckpointState",
     "LangChainCheckpointState",
     "SCHEMA_REGISTRY",
+    "validate_checkpoint_state",
+    "serialize_checkpoint_state",
 ]
