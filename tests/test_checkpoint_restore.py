@@ -131,6 +131,19 @@ class TestCheckpointValidation:
         result = validate_checkpoint_state(state)
         assert result is state
 
+    def test_validate_dict_with_extra_fields_on_known_framework(self):
+        """Extra fields on known framework should be stored in metadata."""
+        from agent_debugger_sdk.checkpoints import validate_checkpoint_state
+
+        state_dict = {
+            "framework": "langchain",
+            "label": "test",
+            "custom_field": "extra_value",
+        }
+        result = validate_checkpoint_state(state_dict)
+        assert result.framework == "langchain"
+        assert result.metadata.get("_extra") == {"custom_field": "extra_value"}
+
     def test_serialize_state_to_dict(self):
         """Should serialize dataclass to dict with extra fields preserved."""
         from agent_debugger_sdk.checkpoints import (

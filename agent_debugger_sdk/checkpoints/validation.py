@@ -55,14 +55,17 @@ def validate_checkpoint_state(state: BaseCheckpointState | dict[str, Any]) -> Ba
         else:
             extra[key] = value
 
-    # Store extra fields in _extra if schema supports it
-    # (CustomCheckpointState uses 'data' for this)
-    if extra and schema_class is CustomCheckpointState:
-        existing_data = kwargs.get("data", {})
-        kwargs["data"] = {**existing_data, **extra}
-    elif extra:
-        # For other schemas, preserve extra in metadata or similar
-        kwargs["_extra"] = extra
+    # Store extra fields in the appropriate container
+    # (CustomCheckpointState uses 'data', others use 'metadata')
+    if extra:
+        if schema_class is CustomCheckpointState:
+            # CustomCheckpointState has a 'data' field for arbitrary fields
+            existing_data = kwargs.get("data", {})
+            kwargs["data"] = {**existing_data, **extra}
+        elif "metadata" in known_fields:
+            # Known schemas like LangChainCheckpointState have a 'metadata' field
+            existing_metadata = kwargs.get("metadata", {})
+            kwargs["metadata"] = {**existing_metadata, "_extra": extra}
 
     return schema_class(**kwargs)
 
