@@ -137,6 +137,217 @@ button {
   color: var(--danger);
 }
 
+/* Failure Modal Styles */
+.failure-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: oklch(0.24 0.03 52 / 0.65);
+  backdrop-filter: blur(4px);
+}
+
+.failure-modal {
+  width: min(42rem, 90vw);
+  max-height: 85vh;
+  overflow-y: auto;
+  border-radius: 1.6rem;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.failure-modal-header {
+  padding: 1.4rem 1.6rem;
+  border-bottom: 1px solid var(--panel-border);
+  background: color-mix(in oklch, var(--panel), var(--danger) 6%);
+}
+
+.failure-modal-header h2 {
+  margin: 0.35rem 0;
+  font-family: 'Fraunces', serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.failure-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--danger), white 82%);
+  color: var(--danger);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.failure-content {
+  padding: 1.4rem 1.6rem;
+}
+
+.failure-section {
+  margin-bottom: 1.2rem;
+}
+
+.failure-section:last-child {
+  margin-bottom: 0;
+}
+
+.failure-section h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.failure-symptom {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.failure-cause {
+  margin: 0 0 0.75rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.failure-confidence {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.failure-confidence-bar-container {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--bg-strong), var(--muted) 20%);
+  overflow: hidden;
+}
+
+.failure-confidence-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--danger);
+  transition: width 200ms ease;
+}
+
+.failure-confidence-value {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--danger);
+}
+
+.failure-narrative p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.failure-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1.2rem 1.6rem;
+  border-top: 1px solid var(--panel-border);
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 25%);
+}
+
+.failure-action-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.2rem;
+  border-radius: 999px;
+  background: var(--danger);
+  color: white;
+  font-weight: 600;
+  min-height: 44px;
+}
+
+.failure-action-primary:hover {
+  background: color-mix(in oklch, var(--danger), white 88%);
+  color: var(--danger);
+}
+
+.failure-action-icon {
+  font-size: 1.1rem;
+}
+
+.failure-action-secondary {
+  padding: 0.85rem 1.2rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--panel), var(--warning) 18%);
+  border: 1px solid color-mix(in oklch, var(--warning), white 45%);
+  color: var(--text);
+  min-height: 44px;
+}
+
+.failure-action-secondary:hover {
+  background: color-mix(in oklch, var(--panel), var(--warning) 28%);
+}
+
+.failure-action-close {
+  margin-left: auto;
+  padding: 0.85rem 1.2rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 38%);
+  color: var(--muted);
+  min-height: 44px;
+}
+
+.failure-action-close:hover {
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 55%);
+  color: var(--text);
+}
+
+/* Why Button on Session Cards */
+.session-card {
+  position: relative;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.session-card-main {
+  display: grid;
+  justify-items: start;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.why-button {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  background: var(--danger);
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 160ms ease, background-color 160ms ease;
+  z-index: 1;
+}
+
+.why-button:hover {
+  transform: translateY(-1px);
+  background: color-mix(in oklch, var(--danger), white 88%);
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(15rem, 17rem) minmax(0, 1fr) minmax(20rem, 25rem);
@@ -752,6 +963,7 @@ button {
 }
 
 .timeline-event {
+  position: relative;
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 0.8rem;
@@ -765,6 +977,81 @@ button {
 
 .timeline-event.selected {
   background: color-mix(in oklch, var(--panel), var(--accent) 12%);
+}
+
+/* Highlight markers */
+.timeline-event.highlight {
+  border-left: 3px solid #f59e0b;
+}
+
+.highlight-marker {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  color: #f59e0b;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+/* Highlight info card */
+.highlight-info-card {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.highlight-info-card h4 {
+  margin: 0 0 4px 0;
+  font-size: 12px;
+  color: #92400e;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.highlight-info-card p {
+  margin: 0;
+  font-size: 13px;
+  color: #78350f;
+}
+
+/* Highlight navigation */
+.highlight-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: color-mix(in oklch, var(--panel), var(--warning) 12%);
+  border-radius: 8px;
+}
+
+.highlight-nav button {
+  padding: 4px 12px;
+  font-size: 12px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--panel), var(--warning) 25%);
+  border: 1px solid color-mix(in oklch, var(--warning), white 50%);
+  cursor: pointer;
+  transition: transform 160ms ease, background-color 160ms ease;
+}
+
+.highlight-nav button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: color-mix(in oklch, var(--panel), var(--warning) 35%);
+}
+
+.highlight-nav button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.highlight-position {
+  font-size: 12px;
+  color: #666;
+  flex: 1;
+  text-align: center;
 }
 
 .event-marker {
@@ -1560,4 +1847,115 @@ pre {
     flex-direction: column;
     gap: 0.5rem;
   }
+}
+
+/* Drift panel */
+.drift-panel {
+  margin-top: 16px;
+}
+
+.baseline-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.current-summary {
+  padding-top: 8px;
+  border-top: 1px solid var(--panel-border);
+  margin-top: 4px;
+}
+
+.drift-message {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-style: italic;
+  margin: 0.5rem 0;
+}
+
+.drift-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+.drift-alerts h3 {
+  margin: 12px 0 8px;
+  font-size: 0.9rem;
+}
+
+.drift-alert {
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 40%);
+  border-radius: 0.75rem;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-left: 3px solid var(--muted);
+}
+
+.drift-alert.warning {
+  border-left-color: var(--warning);
+  background: color-mix(in oklch, var(--panel), var(--warning) 12%);
+}
+
+.drift-alert.critical {
+  border-left-color: var(--danger);
+  background: color-mix(in oklch, var(--panel), var(--danger) 10%);
+}
+
+.alert-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.alert-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.alert-badge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.alert-badge.warning {
+  background: var(--warning);
+  color: var(--text);
+}
+
+.alert-badge.critical {
+  background: var(--danger);
+  color: white;
+}
+
+.alert-description {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.alert-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.alert-cause {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.no-drift {
+  font-size: 0.85rem;
+  color: var(--muted);
 }

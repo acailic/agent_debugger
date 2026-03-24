@@ -178,6 +178,16 @@ export interface FailureExplanation {
   candidates: FailureCauseCandidate[]
 }
 
+export interface Highlight {
+  event_id: string
+  event_type: EventType
+  highlight_type: 'decision' | 'error' | 'refusal' | 'anomaly' | 'state_change'
+  importance: number
+  reason: string
+  timestamp: string
+  headline: string
+}
+
 export interface TraceAnalysis {
   event_rankings: TraceAnalysisRanking[]
   failure_clusters: TraceAnalysisCluster[]
@@ -208,6 +218,7 @@ export interface TraceAnalysis {
     signal: string
     event_id: string
   }>
+  highlights: Highlight[]
 }
 
 export interface LiveSummary {
@@ -257,4 +268,42 @@ export interface TraceSearchResponse {
   event_type: EventType | null
   total: number
   results: TraceEvent[]
+}
+
+export interface AgentBaseline {
+  agent_name: string
+  session_count: number
+  computed_at: string
+  time_window_days: number
+  avg_decision_confidence: number
+  low_confidence_rate: number
+  avg_tool_duration_ms: number
+  error_rate: number
+  avg_cost_per_session: number
+  avg_tokens_per_session: number
+  tool_loop_rate: number
+  refusal_rate: number
+  avg_session_replay_value: number
+}
+
+export interface DriftAlert {
+  metric: string
+  metric_label: string
+  baseline_value: number
+  current_value: number
+  change_percent: number
+  severity: 'warning' | 'critical'
+  description: string
+  likely_cause: string | null
+}
+
+export interface DriftResponse {
+  agent_name: string
+  baseline: AgentBaseline
+  current: AgentBaseline
+  alerts: DriftAlert[]
+  message?: string
+  error?: string
+  baseline_session_count?: number
+  recent_session_count?: number
 }

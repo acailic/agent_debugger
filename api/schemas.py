@@ -223,3 +223,13 @@ class KeyListItem(BaseModel):
     environment: str
     created_at: str
     last_used_at: str | None
+
+
+class HighlightSchema(BaseModel):
+    event_id: str
+    event_type: str
+    highlight_type: str
+    importance: float
+    reason: str
+    timestamp: str
+    headline: str

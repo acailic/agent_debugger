@@ -4,6 +4,7 @@ interface TraceTimelineProps {
   events: TraceEvent[]
   selectedEventId: string | null
   onSelectEvent: (eventId: string) => void
+  highlightEventIds?: Set<string>
 }
 
 function describeEvent(event: TraceEvent): string {
@@ -26,7 +27,7 @@ function describeEvent(event: TraceEvent): string {
   }
 }
 
-export function TraceTimeline({ events, selectedEventId, onSelectEvent }: TraceTimelineProps) {
+export function TraceTimeline({ events, selectedEventId, onSelectEvent, highlightEventIds }: TraceTimelineProps) {
   return (
     <div className="trace-timeline">
       <div className="timeline-header">
@@ -35,22 +36,26 @@ export function TraceTimeline({ events, selectedEventId, onSelectEvent }: TraceT
       </div>
 
       <div className="timeline-events">
-        {events.map((event) => (
-          <div
-            key={event.id}
-            className={`timeline-event ${event.event_type} ${event.id === selectedEventId ? 'selected' : ''}`}
-            onClick={() => onSelectEvent(event.id)}
-          >
-            <div className="event-marker" />
-            <div className="event-info">
-              <span className="event-type">{event.event_type.replaceAll('_', ' ')}</span>
-              <span className="event-summary">{describeEvent(event)}</span>
-              <span className="event-time">
-                {new Date(event.timestamp).toLocaleTimeString()}
-              </span>
+        {events.map((event) => {
+          const isHighlight = highlightEventIds?.has(event.id) ?? false
+          return (
+            <div
+              key={event.id}
+              className={`timeline-event ${event.event_type} ${event.id === selectedEventId ? 'selected' : ''} ${isHighlight ? 'highlight' : ''}`}
+              onClick={() => onSelectEvent(event.id)}
+            >
+              <div className="event-marker" />
+              {isHighlight && <span className="highlight-marker" title="Highlighted event">*</span>}
+              <div className="event-info">
+                <span className="event-type">{event.event_type.replaceAll('_', ' ')}</span>
+                <span className="event-summary">{describeEvent(event)}</span>
+                <span className="event-time">
+                  {new Date(event.timestamp).toLocaleTimeString()}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

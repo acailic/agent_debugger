@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { createEventSource, getLiveSummary, getReplay, getSessions, getTraceBundle, searchTraces } from './api/client'
+import { createEventSource, getAgentDrift, getLiveSummary, getReplay, getSessions, getTraceBundle, searchTraces } from './api/client'
 import { ConversationPanel } from './components/ConversationPanel'
 import { DecisionTree } from './components/DecisionTree'
+import { DriftAlertsPanel } from './components/DriftAlertsPanel'
 import { LLMViewer } from './components/LLMViewer'
 import { LiveSummaryPanel } from './components/LiveSummaryPanel'
 import { SessionComparisonPanel } from './components/SessionComparisonPanel'
 import { SessionReplay } from './components/SessionReplay'
 import { ToolInspector } from './components/ToolInspector'
 import { TraceTimeline } from './components/TraceTimeline'
-import type { EventType, LiveSummary, ReplayResponse, Session, TraceBundle, TraceEvent, TraceSearchResponse } from './types'
+import type { DriftResponse, EventType, Highlight, LiveSummary, ReplayResponse, Session, TraceBundle, TraceEvent, TraceSearchResponse } from './types'
 
-type ReplayMode = 'full' | 'focus' | 'failure'
+type ReplayMode = 'full' | 'focus' | 'failure' | 'highlights'
 type SessionSortMode = 'started_at' | 'replay_value'
 type SearchScope = 'current' | 'all'
 
@@ -101,6 +102,7 @@ function EventDetail({
   event,
   ranking,
   diagnosis,
+  highlight,
   eventLookup,
   onSelectEvent,
   onFocusReplay,
@@ -109,6 +111,7 @@ function EventDetail({
   event: TraceEvent | null
   ranking?: TraceBundle['analysis']['event_rankings'][number]
   diagnosis?: TraceBundle['analysis']['failure_explanations'][number]
+  highlight?: Highlight | null
   eventLookup: Map<string, TraceEvent>
   onSelectEvent: (eventId: string) => void
   onFocusReplay: (eventId: string) => void
@@ -124,6 +127,12 @@ function EventDetail({
 
   return (
     <section className="event-detail panel">
+      {highlight && (
+        <div className="highlight-info-card">
+          <h4>Why highlighted</h4>
+          <p>{highlight.reason}</p>
+        </div>
+      )}
       <div className="detail-header">
         <div>
           <p className="eyebrow">Event Detail</p>
@@ -366,6 +375,9 @@ function App() {
   const [searchResponse, setSearchResponse] = useState<TraceSearchResponse | null>(null)
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
+  const [currentHighlightIndex, setCurrentHighlightIndex] = useState(0)
+  const [driftData, setDriftData] = useState<DriftResponse | null>(null)
+  const [driftLoading, setDriftLoading] = useState(false)
 
   useEffect(() => {
     let ignore = false
@@ -522,8 +534,10 @@ function App() {
     let ignore = false
     async function loadReplay() {
       try {
+        // 'highlights' is a frontend-only mode, use 'full' for API
+        const apiMode = replayMode === 'highlights' ? 'full' : replayMode
         const response = await getReplay(sessionId, {
-          mode: replayMode,
+          mode: apiMode as 'full' | 'focus' | 'failure',
           focusEventId: replayMode === 'focus' ? selectedEventId : null,
           breakpointEventTypes: breakpointEventTypes.split(',').map((item) => item.trim()).filter(Boolean),
           breakpointToolNames: breakpointToolNames.split(',').map((item) => item.trim()).filter(Boolean),
@@ -569,6 +583,18 @@ function App() {
   const activeEvents = replayMode === 'full'
     ? mergedSessionEvents
     : replay?.events ?? mergedSessionEvents
+
+  const highlights = bundle?.analysis.highlights ?? []
+  const highlightEventIds = useMemo(
+    () => new Set(highlights.map((h) => h.event_id)),
+    [highlights],
+  )
+  const highlightEvents = useMemo(
+    () => mergedSessionEvents.filter((event) => highlightEventIds.has(event.id)),
+    [mergedSessionEvents, highlightEventIds],
+  )
+
+  const displayEvents = replayMode === 'highlights' ? highlightEvents : activeEvents
   const selectedEvent = useMemo(
     () => activeEvents.find((event) => event.id === selectedEventId) ?? mergedSessionEvents.find((event) => event.id === selectedEventId) ?? null,
     [activeEvents, mergedSessionEvents, selectedEventId],
@@ -649,10 +675,35 @@ function App() {
     [sessions],
   )
 
+  useEffect(() => {
+    const agentName = currentSession?.agent_name
+    if (!agentName) {
+      setDriftData(null)
+      return
+    }
+
+    let ignore = false
+    async function fetchDrift(name: string) {
+      setDriftLoading(true)
+      try {
+        const data = await getAgentDrift(name)
+        if (!ignore) setDriftData(data)
+      } catch {
+        if (!ignore) setDriftData(null)
+      } finally {
+        if (!ignore) setDriftLoading(false)
+      }
+    }
+    void fetchDrift(agentName)
+    return () => {
+      ignore = true
+    }
+  }, [currentSession?.agent_name])
+
   function seekReplayIndex(nextIndex: number) {
-    const clampedIndex = Math.min(Math.max(nextIndex, 0), Math.max(activeEvents.length - 1, 0))
+    const clampedIndex = Math.min(Math.max(nextIndex, 0), Math.max(displayEvents.length - 1, 0))
     setCurrentIndex(clampedIndex)
-    const event = activeEvents[clampedIndex]
+    const event = displayEvents[clampedIndex]
     if (event) {
       setSelectedEventId(event.id)
     }
@@ -660,11 +711,30 @@ function App() {
 
   function inspectEvent(eventId: string) {
     setSelectedEventId(eventId)
-    const nextIndex = activeEvents.findIndex((event) => event.id === eventId)
+    const nextIndex = displayEvents.findIndex((event) => event.id === eventId)
     if (nextIndex >= 0) {
       setCurrentIndex(nextIndex)
     }
   }
+
+  function getHighlightForEvent(eventId: string | null): Highlight | null {
+    if (!eventId) return null
+    return highlights.find((h) => h.event_id === eventId) ?? null
+  }
+
+  function goToHighlight(delta: number) {
+    if (highlightEvents.length === 0) return
+    const newIndex = Math.max(0, Math.min(currentHighlightIndex + delta, highlightEvents.length - 1))
+    setCurrentHighlightIndex(newIndex)
+    const event = highlightEvents[newIndex]
+    if (event) {
+      setSelectedEventId(event.id)
+      const displayIndex = displayEvents.findIndex((e) => e.id === event.id)
+      if (displayIndex >= 0) setCurrentIndex(displayIndex)
+    }
+  }
+
+  const selectedHighlight = getHighlightForEvent(selectedEventId)
 
   async function runTraceSearch() {
     const trimmedQuery = searchQuery.trim()
@@ -824,7 +894,7 @@ function App() {
               <h2>Checkpoint-aware playback</h2>
             </div>
             <div className="mode-switches">
-              {(['full', 'focus', 'failure'] as ReplayMode[]).map((mode) => (
+              {(['full', 'focus', 'failure', 'highlights'] as ReplayMode[]).map((mode) => (
                 <button
                   key={mode}
                   type="button"
@@ -930,10 +1000,24 @@ function App() {
 
           <div className="trace-layout">
             <div className="panel timeline-panel">
+              {replayMode === 'highlights' && (
+                <div className="highlight-nav">
+                  <button type="button" onClick={() => goToHighlight(-1)} disabled={currentHighlightIndex === 0}>
+                    Prev
+                  </button>
+                  <span className="highlight-position">
+                    {highlightEvents.length > 0 ? `${currentHighlightIndex + 1} of ${highlightEvents.length} highlights` : 'No highlights in this session'}
+                  </span>
+                  <button type="button" onClick={() => goToHighlight(1)} disabled={currentHighlightIndex >= highlightEvents.length - 1}>
+                    Next
+                  </button>
+                </div>
+              )}
               <TraceTimeline
-                events={activeEvents}
+                events={displayEvents}
                 selectedEventId={selectedEventId}
                 onSelectEvent={inspectEvent}
+                highlightEventIds={highlightEventIds}
               />
             </div>
             <div className="panel tree-panel">
@@ -1111,6 +1195,7 @@ function App() {
             event={activeEventForInspectors}
             ranking={selectedRanking}
             diagnosis={selectedDiagnosis}
+            highlight={selectedHighlight}
             eventLookup={eventLookup}
             onSelectEvent={inspectEvent}
             onFocusReplay={(eventId) => {
@@ -1141,6 +1226,11 @@ function App() {
               )}
             </div>
           </section>
+          <DriftAlertsPanel
+            agentName={currentSession?.agent_name ?? null}
+            driftData={driftData}
+            loading={driftLoading}
+          />
         </aside>
       </main>
     </div>

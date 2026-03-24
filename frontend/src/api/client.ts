@@ -1,4 +1,13 @@
-import type { LiveSummary, ReplayResponse, Session, TraceAnalysis, TraceBundle, TraceSearchResponse } from '../types'
+import type {
+  AgentBaseline,
+  DriftResponse,
+  LiveSummary,
+  ReplayResponse,
+  Session,
+  TraceAnalysis,
+  TraceBundle,
+  TraceSearchResponse,
+} from '../types'
 
 const API_BASE = '/api'
 
@@ -70,4 +79,12 @@ export async function searchTraces(params: {
   if (params.eventType) search.set('event_type', params.eventType)
   if (params.limit) search.set('limit', String(params.limit))
   return fetchJSON<TraceSearchResponse>(`${API_BASE}/traces/search?${search.toString()}`)
+}
+
+export async function getAgentBaseline(agentName: string): Promise<AgentBaseline> {
+  return fetchJSON<AgentBaseline>(`${API_BASE}/agents/${encodeURIComponent(agentName)}/baseline`)
+}
+
+export async function getAgentDrift(agentName: string): Promise<DriftResponse> {
+  return fetchJSON<DriftResponse>(`${API_BASE}/agents/${encodeURIComponent(agentName)}/drift`)
 }
