@@ -69,8 +69,16 @@ def _repair_legacy_sqlite_schema(connection) -> None:
             text("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)")
         )
         connection.execute(text("DELETE FROM alembic_version"))
+        # Determine the correct stamp version based on which columns already exist.
+        # If the schema was created via Base.metadata.create_all, all columns from
+        # the latest models are present and we must stamp at the latest migration
+        # to prevent Alembic from trying to re-add existing columns.
+        if "retention_tier" in session_columns:
+            stamp_version = "003_add_research_features"
+        else:
+            stamp_version = "002_add_session_replay_value"
         connection.execute(
-            text("INSERT INTO alembic_version (version_num) VALUES ('002_add_session_replay_value')")
+            text(f"INSERT INTO alembic_version (version_num) VALUES ('{stamp_version}')")
         )
         repaired_legacy = True
 

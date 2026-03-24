@@ -30,15 +30,25 @@ from agent_debugger_sdk.core.events.safety import (
 from agent_debugger_sdk.core.events.session import Session
 from agent_debugger_sdk.core.events.tools import ToolCallEvent, ToolResultEvent
 
-# Force populate the EVENT_TYPE_REGISTRY to ensure class identity consistency
-# when modules are imported in different orders (e.g., in tests)
-# This must happen AFTER all event classes are imported
-try:
-    # Access via dict key to trigger __missing__ and populate the registry
-    _ = EVENT_TYPE_REGISTRY[EventType.TOOL_CALL]
-except KeyError:
-    # If TOOL_CALL is not registered yet, try another event type
-    pass
+# Eagerly populate the EVENT_TYPE_REGISTRY with the classes imported above.
+# This guarantees class identity: the same class objects used by callers of this
+# package are the ones stored in the registry, avoiding isinstance() failures
+# that can occur when lazy __missing__-based imports resolve through a different
+# path (e.g., editable installs in CI where sys.path ordering differs).
+EVENT_TYPE_REGISTRY.update({
+    EventType.TOOL_CALL: ToolCallEvent,
+    EventType.TOOL_RESULT: ToolResultEvent,
+    EventType.LLM_REQUEST: LLMRequestEvent,
+    EventType.LLM_RESPONSE: LLMResponseEvent,
+    EventType.DECISION: DecisionEvent,
+    EventType.SAFETY_CHECK: SafetyCheckEvent,
+    EventType.REFUSAL: RefusalEvent,
+    EventType.POLICY_VIOLATION: PolicyViolationEvent,
+    EventType.PROMPT_POLICY: PromptPolicyEvent,
+    EventType.AGENT_TURN: AgentTurnEvent,
+    EventType.BEHAVIOR_ALERT: BehaviorAlertEvent,
+    EventType.ERROR: ErrorEvent,
+})
 
 __all__ = [
     # From base.py
