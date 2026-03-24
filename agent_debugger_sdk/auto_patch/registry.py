@@ -5,6 +5,10 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agent_debugger_sdk.auto_patch._transport import SyncTransport
 
 logger = logging.getLogger("agent_debugger.auto_patch")
 

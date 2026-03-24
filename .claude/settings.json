@@ -47,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{input}}' | jq -r '.tool_input.command' | { read -r cmd; if echo \"$cmd\" | grep -qE '^git commit'; then echo 'Running pre-commit quality gate...'; ruff check . 2>&1 && python3 -m pytest -q 2>&1; if [ $? -eq 0 ]; then echo '{\"decision\":\"allow\"}'; else echo '{\"decision\":\"block\",\"reason\":\"Pre-commit quality gate failed. Fix lint/test errors before committing.\"}'; fi; else echo '{\"decision\":\"allow\"}'; fi; }"
+            "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{input}}' | jq -r '.tool_input.command' | { read -r cmd; if echo \"$cmd\" | grep -qE '^git commit'; then echo 'Running pre-commit quality gate...'; source .venv/bin/activate && ruff check . && python -m pytest -q; if [ $? -eq 0 ]; then echo '{\"decision\":\"allow\"}'; else echo '{\"decision\":\"block\",\"reason\":\"Pre-commit quality gate failed. Fix lint/test errors before committing.\"}'; fi; else echo '{\"decision\":\"allow\"}'; fi; }"
           }
         ]
       }
