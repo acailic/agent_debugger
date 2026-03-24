@@ -1,0 +1,56 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__playwright__*",
+      "mcp__plugin_playwright_playwright__*",
+      "Bash(rg *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(sed *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(sort *)",
+      "Bash(wc *)",
+      "Bash(ruff *)",
+      "Bash(pytest *)",
+      "Bash(python -m pytest *)",
+      "Bash(python3 -m pytest *)",
+      "Bash(python -m build*)",
+      "Bash(python3 -m build*)",
+      "Bash(python -m hatch*)",
+      "Bash(make *)",
+      "Bash(npm run *)",
+      "Bash(npm ci*)",
+      "Bash(npm install*)",
+      "Bash(npx *)",
+      "Bash(git fetch *)",
+      "Bash(git branch *)",
+      "Bash(git rev-list *)",
+      "Bash(git tag *)",
+      "Bash(git push *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git status*)",
+      "Bash(pip install *)",
+      "Bash(pip list*)",
+      "Bash(cd frontend && npm run *)",
+      "Bash(cd frontend && npm ci*)",
+      "Bash(cd frontend && npm install*)",
+      "Bash(cd frontend && npx *)",
+      "Bash(cd frontend *)"
+    ]
+  },
+  "hooks": {
+    "PreCommit": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{input}}' | jq -r '.tool_input.command' | { read -r cmd; if echo \"$cmd\" | grep -qE '^git commit'; then echo 'Running pre-commit quality gate...'; ruff check . 2>&1 && python3 -m pytest -q 2>&1; if [ $? -eq 0 ]; then echo '{\"decision\":\"allow\"}'; else echo '{\"decision\":\"block\",\"reason\":\"Pre-commit quality gate failed. Fix lint/test errors before committing.\"}'; fi; else echo '{\"decision\":\"allow\"}'; fi; }"
+          }
+        ]
+      }
+    ]
+  }
+}
