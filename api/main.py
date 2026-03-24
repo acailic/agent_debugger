@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from agent_debugger_sdk.config import get_config
@@ -19,6 +17,8 @@ from api.replay_routes import router as replay_router
 from api.session_routes import router as session_router
 from api.system_routes import router as system_router
 from api.trace_routes import router as trace_router
+from api.ui_routes import DIST_PATH
+from api.ui_routes import router as ui_router
 from collector.intelligence import TraceIntelligence
 from collector.server import configure_storage
 from collector.server import router as collector_router
@@ -61,9 +61,6 @@ async def lifespan(app: FastAPI):
     yield
 
 
-DIST_PATH = Path(__file__).parent.parent / "frontend" / "dist"
-
-
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     _ = get_config()
@@ -95,15 +92,10 @@ def create_app() -> FastAPI:
     app.include_router(trace_router)
     app.include_router(replay_router)
     app.include_router(system_router)
+    app.include_router(ui_router)
 
     if DIST_PATH.exists():
         app.mount("/ui", StaticFiles(directory=str(DIST_PATH), html=True), name="ui")
-
-    @app.get("/", response_model=None)
-    async def root() -> dict | FileResponse:
-        if DIST_PATH.exists():
-            return FileResponse(str(DIST_PATH / "index.html"))
-        return {"message": "Agent Debugger API", "docs": "/docs"}
 
     return app
 

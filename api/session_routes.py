@@ -130,7 +130,7 @@ async def export_session(
 ) -> dict:
     """Export session as portable JSON."""
     session = await require_session(repo, session_id)
-    events = await repo.list_events(session_id)
+    events = await repo.list_events(session_id, limit=10_000)
     checkpoints = await repo.list_checkpoints(session_id)
     return {
         "export_version": "1.0",
