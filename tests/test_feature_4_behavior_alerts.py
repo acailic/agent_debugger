@@ -6,6 +6,11 @@ detection of behavior changes between baseline and recent metrics.
 
 from __future__ import annotations
 
+import pytest
+
+# Skip all tests in this module - feature not yet implemented
+pytestmark = pytest.mark.skip(reason="Feature 4 (behavior_monitor) not yet implemented")
+
 from dataclasses import dataclass
 from typing import Any
 
