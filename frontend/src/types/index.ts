@@ -260,6 +260,10 @@ export interface ReplayResponse {
   nearest_checkpoint: Checkpoint | null
   breakpoints: TraceEvent[]
   failure_event_ids: string[]
+  collapsed_segments: CollapsedSegment[]
+  highlight_indices: number[]
+  stopped_at_breakpoint: boolean
+  stopped_at_index: number | null
 }
 
 export interface TraceSearchResponse {
@@ -306,4 +310,46 @@ export interface DriftResponse {
   error?: string
   baseline_session_count?: number
   recent_session_count?: number
+}
+
+export interface CollapsedSegment {
+  start_index: number
+  end_index: number
+  event_count: number
+  summary: string
+  event_types: string[]
+  total_duration_ms: number | null
+}
+
+export interface FailureCluster {
+  id: string
+  fingerprint: string
+  session_count: number
+  event_count: number
+  avg_severity: number
+  representative_session_id: string
+  sample_symptom: string | null
+}
+
+export interface RollingSummary {
+  text: string
+  metrics: Record<string, number>
+  window_type: string
+  window_size: number
+}
+
+export interface EscalationSignal {
+  event_id: string
+  turn_index: number
+  signal_type: string
+  magnitude: number
+  narrative: string
+}
+
+export interface PolicyShift {
+  event_id: string
+  turn_index: number
+  previous_template: string | null
+  new_template: string
+  shift_magnitude: number
 }

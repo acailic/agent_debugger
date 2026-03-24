@@ -531,3 +531,117 @@ class TraceRepository:
             timestamp=db_checkpoint.timestamp,
             importance=db_checkpoint.importance,
         )
+
+    # ------------------------------------------------------------------
+    # Anomaly Alert Methods
+    # ------------------------------------------------------------------
+
+    async def create_anomaly_alert(self, alert: Any) -> Any:
+        """Create a new anomaly alert record.
+
+        Args:
+            alert: AnomalyAlertModel instance to persist
+
+        Returns:
+            The created AnomalyAlertModel instance
+        """
+        from storage.models import AnomalyAlertModel
+
+        # If passed a dict-like object, convert to model
+        if not isinstance(alert, AnomalyAlertModel):
+            model = AnomalyAlertModel(
+                id=alert.id if hasattr(alert, "id") else str(alert.get("id", "")),
+                tenant_id=self.tenant_id,
+                session_id=(
+                    alert.session_id
+                    if hasattr(alert, "session_id")
+                    else alert.get("session_id", "")
+                ),
+                alert_type=(
+                    alert.alert_type
+                    if hasattr(alert, "alert_type")
+                    else alert.get("alert_type", "")
+                ),
+                severity=(
+                    alert.severity
+                    if hasattr(alert, "severity")
+                    else alert.get("severity", 0.5)
+                ),
+                signal=(
+                    alert.signal
+                    if hasattr(alert, "signal")
+                    else alert.get("signal", "")
+                ),
+                event_ids=(
+                    alert.event_ids
+                    if hasattr(alert, "event_ids")
+                    else alert.get("event_ids", [])
+                ),
+                detection_source=(
+                    alert.detection_source
+                    if hasattr(alert, "detection_source")
+                    else alert.get("detection_source", "derived")
+                ),
+                detection_config=(
+                    alert.detection_config
+                    if hasattr(alert, "detection_config")
+                    else alert.get("detection_config", {})
+                ),
+                created_at=(
+                    alert.created_at
+                    if hasattr(alert, "created_at")
+                    else alert.get("created_at")
+                ),
+            )
+            self.session.add(model)
+            return model
+
+        self.session.add(alert)
+        return alert
+
+    async def list_anomaly_alerts(
+        self,
+        session_id: str,
+        limit: int = 50,
+    ) -> list[Any]:
+        """List anomaly alerts for a session.
+
+        Args:
+            session_id: Session ID to filter alerts by
+            limit: Maximum number of alerts to return
+
+        Returns:
+            List of AnomalyAlertModel instances
+        """
+        from storage.models import AnomalyAlertModel
+
+        result = await self.session.execute(
+            select(AnomalyAlertModel)
+            .where(
+                AnomalyAlertModel.tenant_id == self.tenant_id,
+                AnomalyAlertModel.session_id == session_id,
+            )
+            .order_by(AnomalyAlertModel.created_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def get_anomaly_alert(self, alert_id: str) -> Any | None:
+        """Retrieve an anomaly alert by ID.
+
+        Args:
+            alert_id: Unique identifier of the alert
+
+        Returns:
+            AnomalyAlertModel if found, None otherwise
+        """
+        from storage.models import AnomalyAlertModel
+
+        result = await self.session.execute(
+            select(AnomalyAlertModel).where(
+                AnomalyAlertModel.id == alert_id,
+                AnomalyAlertModel.tenant_id == self.tenant_id,
+            )
+        )
+        return result.scalar_one_or_none()
+

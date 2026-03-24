@@ -5,11 +5,13 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.dependencies import get_repository
 from api.schemas import (
     AnalysisResponse,
+    AnomalyAlertListResponse,
+    AnomalyAlertSchema,
     LiveSummaryResponse,
     TraceBundleResponse,
     TraceSearchResponse,
@@ -163,3 +165,81 @@ async def get_agent_drift(
         "current": current.to_dict(),
         "alerts": [a.to_dict() for a in alerts],
     }
+
+
+# ------------------------------------------------------------------
+# Anomaly Alert Endpoints
+# ------------------------------------------------------------------
+
+
+@router.get("/api/sessions/{session_id}/alerts", response_model=AnomalyAlertListResponse)
+async def get_session_alerts(
+    session_id: str,
+    limit: int = Query(default=50, ge=1, le=200),
+    repo: TraceRepository = Depends(get_repository),
+) -> AnomalyAlertListResponse:
+    """Get all anomaly alerts for a session.
+
+    Args:
+        session_id: Session ID to get alerts for
+        limit: Maximum number of alerts to return
+        repo: TraceRepository instance
+
+    Returns:
+        List of anomaly alerts for the session
+    """
+    await require_session(repo, session_id)
+    alerts = await repo.list_anomaly_alerts(session_id, limit=limit)
+
+    return AnomalyAlertListResponse(
+        session_id=session_id,
+        alerts=[
+            AnomalyAlertSchema(
+                id=alert.id,
+                session_id=alert.session_id,
+                alert_type=alert.alert_type,
+                severity=alert.severity,
+                signal=alert.signal,
+                event_ids=alert.event_ids or [],
+                detection_source=alert.detection_source,
+                detection_config=alert.detection_config or {},
+                created_at=alert.created_at,
+            )
+            for alert in alerts
+        ],
+        total=len(alerts),
+    )
+
+
+@router.get("/api/alerts/{alert_id}", response_model=AnomalyAlertSchema)
+async def get_alert(
+    alert_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> AnomalyAlertSchema:
+    """Get a single anomaly alert by ID.
+
+    Args:
+        alert_id: Unique identifier of the alert
+        repo: TraceRepository instance
+
+    Returns:
+        AnomalyAlertSchema if found
+
+    Raises:
+        HTTPException: 404 if alert not found
+    """
+    alert = await repo.get_anomaly_alert(alert_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")
+
+    return AnomalyAlertSchema(
+        id=alert.id,
+        session_id=alert.session_id,
+        alert_type=alert.alert_type,
+        severity=alert.severity,
+        signal=alert.signal,
+        event_ids=alert.event_ids or [],
+        detection_source=alert.detection_source,
+        detection_config=alert.detection_config or {},
+        created_at=alert.created_at,
+    )

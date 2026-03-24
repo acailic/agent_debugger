@@ -14,6 +14,7 @@ from agent_debugger_sdk.core.context import configure_event_pipeline
 from api import app_context
 from api import services as _services
 from api.auth_routes import router as auth_router
+from api.comparison_routes import router as comparison_router
 from api.replay_routes import router as replay_router
 from api.session_routes import router as session_router
 from api.system_routes import router as system_router
@@ -80,6 +81,7 @@ def create_app() -> FastAPI:
     app.include_router(session_router)
     app.include_router(trace_router)
     app.include_router(replay_router)
+    app.include_router(comparison_router)
     app.include_router(system_router)
     app.include_router(ui_router)
 

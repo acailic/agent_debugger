@@ -4,13 +4,15 @@ import { createEventSource, getAgentDrift, getLiveSummary, getReplay, getSession
 import { ConversationPanel } from './components/ConversationPanel'
 import { DecisionTree } from './components/DecisionTree'
 import { DriftAlertsPanel } from './components/DriftAlertsPanel'
+import { FailureClusterPanel } from './components/FailureClusterPanel'
 import { LLMViewer } from './components/LLMViewer'
 import { LiveSummaryPanel } from './components/LiveSummaryPanel'
+import { PolicyDiffView } from './components/PolicyDiffView'
 import { SessionComparisonPanel } from './components/SessionComparisonPanel'
 import { SessionReplay } from './components/SessionReplay'
 import { ToolInspector } from './components/ToolInspector'
 import { TraceTimeline } from './components/TraceTimeline'
-import type { DriftResponse, EventType, Highlight, LiveSummary, ReplayResponse, Session, TraceBundle, TraceEvent, TraceSearchResponse } from './types'
+import type { DriftResponse, EventType, FailureCluster, Highlight, LiveSummary, PolicyShift, ReplayResponse, RollingSummary, Session, TraceBundle, TraceEvent, TraceSearchResponse } from './types'
 
 type ReplayMode = 'full' | 'focus' | 'failure' | 'highlights'
 type SessionSortMode = 'started_at' | 'replay_value'
@@ -144,6 +146,9 @@ function EventDetail({
       <div className="detail-actions">
         <button type="button" onClick={() => onFocusReplay(event.id)}>
           Focus replay
+        </button>
+        <button type="button" onClick={() => onFocusReplay(event.id)}>
+          Replay from here
         </button>
         <button type="button" onClick={onResetReplay}>
           Full session
@@ -353,8 +358,10 @@ function App() {
   const [replay, setReplay] = useState<ReplayResponse | null>(null)
   const [liveEvents, setLiveEvents] = useState<TraceEvent[]>([])
   const [liveSummary, setLiveSummary] = useState<LiveSummary | null>(null)
+  const [rollingSummaryData, _setRollingSummaryData] = useState<RollingSummary | null>(null)
   const [streamConnected, setStreamConnected] = useState(false)
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
+  const [focusEventId, _setFocusEventId] = useState<string | null>(null)
   const [selectedCheckpointId, setSelectedCheckpointId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [compareLoading, setCompareLoading] = useState(false)
@@ -369,6 +376,7 @@ function App() {
   const [breakpointToolNames, setBreakpointToolNames] = useState('')
   const [breakpointConfidenceBelow, setBreakpointConfidenceBelow] = useState('0.45')
   const [breakpointSafetyOutcomes, setBreakpointSafetyOutcomes] = useState('warn,block')
+  const [stopAtBreakpoint, setStopAtBreakpoint] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchEventType, setSearchEventType] = useState<'' | EventType>('')
   const [searchScope, setSearchScope] = useState<SearchScope>('current')
@@ -378,6 +386,8 @@ function App() {
   const [currentHighlightIndex, setCurrentHighlightIndex] = useState(0)
   const [driftData, setDriftData] = useState<DriftResponse | null>(null)
   const [driftLoading, setDriftLoading] = useState(false)
+  const [policyShifts, _setPolicyShifts] = useState<PolicyShift[]>([])
+  const [failureClusters, _setFailureClusters] = useState<FailureCluster[]>([])
 
   useEffect(() => {
     let ignore = false
@@ -538,15 +548,20 @@ function App() {
         const apiMode = replayMode === 'highlights' ? 'full' : replayMode
         const response = await getReplay(sessionId, {
           mode: apiMode as 'full' | 'focus' | 'failure',
-          focusEventId: replayMode === 'focus' ? selectedEventId : null,
+          focusEventId: replayMode === 'focus' ? (focusEventId ?? selectedEventId) : null,
           breakpointEventTypes: breakpointEventTypes.split(',').map((item) => item.trim()).filter(Boolean),
           breakpointToolNames: breakpointToolNames.split(',').map((item) => item.trim()).filter(Boolean),
           breakpointConfidenceBelow: breakpointConfidenceBelow ? Number(breakpointConfidenceBelow) : null,
           breakpointSafetyOutcomes: breakpointSafetyOutcomes.split(',').map((item) => item.trim()).filter(Boolean),
+          stopAtBreakpoint,
         })
         if (ignore) return
         setReplay(response)
-        setCurrentIndex(0)
+        if (response.stopped_at_breakpoint && response.stopped_at_index !== null) {
+          setCurrentIndex(response.stopped_at_index)
+        } else {
+          setCurrentIndex(0)
+        }
         setIsPlaying(false)
       } catch (err) {
         if (!ignore) {
@@ -563,10 +578,12 @@ function App() {
     bundle,
     replayMode,
     selectedEventId,
+    focusEventId,
     breakpointEventTypes,
     breakpointToolNames,
     breakpointConfidenceBelow,
     breakpointSafetyOutcomes,
+    stopAtBreakpoint,
   ])
 
   const mergedSessionEvents = useMemo(() => {
@@ -922,6 +939,14 @@ function App() {
                 Safety outcomes
                 <input value={breakpointSafetyOutcomes} onChange={(event) => setBreakpointSafetyOutcomes(event.target.value)} />
               </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={stopAtBreakpoint}
+                  onChange={(event) => setStopAtBreakpoint(event.target.checked)}
+                />
+                Stop at breakpoint
+              </label>
             </div>
           </section>
 
@@ -992,6 +1017,7 @@ function App() {
               events={mergedSessionEvents}
               checkpoints={bundle?.checkpoints ?? []}
               liveSummary={liveSummary}
+              rollingSummaryData={rollingSummaryData}
               isConnected={streamConnected}
               liveEventCount={liveEvents.length}
               onSelectEvent={inspectEvent}
@@ -1049,6 +1075,15 @@ function App() {
                 <span>Nearest checkpoint: {replay?.nearest_checkpoint?.sequence ?? 'none'}</span>
                 <span>Breakpoints hit: {replay?.breakpoints.length ?? 0}</span>
                 <span>Failures: {replay?.failure_event_ids.length ?? 0}</span>
+                {replay?.collapsed_segments && replay.collapsed_segments.length > 0 && (
+                  <span>Collapsed segments: {replay.collapsed_segments.length}</span>
+                )}
+                {replay?.highlight_indices && replay.highlight_indices.length > 0 && (
+                  <span>Highlights: {replay.highlight_indices.length}</span>
+                )}
+                {replay?.stopped_at_breakpoint && (
+                  <span className="breakpoint-stop-indicator">Stopped at breakpoint</span>
+                )}
               </div>
             </section>
 
@@ -1230,6 +1265,15 @@ function App() {
             agentName={currentSession?.agent_name ?? null}
             driftData={driftData}
             loading={driftLoading}
+          />
+          <PolicyDiffView
+            policyShifts={policyShifts}
+            onSelectEvent={inspectEvent}
+          />
+          <FailureClusterPanel
+            clusters={failureClusters}
+            onSelectSession={setSelectedSessionId}
+            selectedSessionId={selectedSessionId}
           />
         </aside>
       </main>

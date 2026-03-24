@@ -39,6 +39,7 @@ export async function getReplay(
     breakpointToolNames?: string[]
     breakpointConfidenceBelow?: number | null
     breakpointSafetyOutcomes?: string[]
+    stopAtBreakpoint?: boolean
   } = {},
 ) {
   const search = new URLSearchParams()
@@ -51,6 +52,9 @@ export async function getReplay(
   }
   if (params.breakpointSafetyOutcomes?.length) {
     search.set('breakpoint_safety_outcomes', params.breakpointSafetyOutcomes.join(','))
+  }
+  if (params.stopAtBreakpoint !== undefined) {
+    search.set('stop_at_breakpoint', String(params.stopAtBreakpoint))
   }
   return fetchJSON<ReplayResponse>(`${API_BASE}/sessions/${sessionId}/replay?${search.toString()}`)
 }

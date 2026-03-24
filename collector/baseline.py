@@ -10,6 +10,27 @@ from agent_debugger_sdk.core.events import EventType
 
 
 @dataclass
+class MultiAgentMetrics:
+    """Multi-agent coordination metrics for baseline tracking."""
+
+    avg_policy_shifts_per_session: float = 0.0
+    avg_turns_per_session: int = 0
+    avg_speaker_count: float = 0.0
+    escalation_pattern_rate: float = 0.0  # % of sessions with escalation signals
+    evidence_grounding_rate: float = 0.0  # % of decisions with evidence
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize multi-agent metrics to dictionary."""
+        return {
+            "avg_policy_shifts_per_session": round(self.avg_policy_shifts_per_session, 4),
+            "avg_turns_per_session": self.avg_turns_per_session,
+            "avg_speaker_count": round(self.avg_speaker_count, 4),
+            "escalation_pattern_rate": round(self.escalation_pattern_rate, 4),
+            "evidence_grounding_rate": round(self.evidence_grounding_rate, 4),
+        }
+
+
+@dataclass
 class AgentBaseline:
     """Computed baseline metrics for an agent over a time window."""
 
@@ -35,9 +56,12 @@ class AgentBaseline:
     refusal_rate: float = 0.0  # % of sessions with refusals
     avg_session_replay_value: float = 0.0
 
+    # Multi-agent coordination
+    multi_agent_metrics: MultiAgentMetrics | None = None
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize baseline to dictionary."""
-        return {
+        result = {
             "agent_name": self.agent_name,
             "session_count": self.session_count,
             "computed_at": self.computed_at.isoformat(),
@@ -52,6 +76,9 @@ class AgentBaseline:
             "refusal_rate": self.refusal_rate,
             "avg_session_replay_value": self.avg_session_replay_value,
         }
+        if self.multi_agent_metrics:
+            result["multi_agent_metrics"] = self.multi_agent_metrics.to_dict()
+        return result
 
 
 @dataclass
@@ -90,8 +117,19 @@ def compute_baseline_from_sessions(
     agent_name: str,
     sessions: list[Any],  # List of Session objects
     events_by_session: dict[str, list[Any]],  # session_id -> events
+    include_multi_agent: bool = True,
 ) -> AgentBaseline:
-    """Compute baseline metrics from a list of sessions."""
+    """Compute baseline metrics from a list of sessions.
+
+    Args:
+        agent_name: Name of the agent
+        sessions: List of Session objects
+        events_by_session: Mapping of session_id to events
+        include_multi_agent: Whether to compute multi-agent metrics
+
+    Returns:
+        AgentBaseline with computed metrics
+    """
     if not sessions:
         return AgentBaseline(
             agent_name=agent_name,
@@ -114,6 +152,13 @@ def compute_baseline_from_sessions(
     refusal_sessions = 0
     total_replay_value = 0.0
 
+    # Multi-agent metrics tracking
+    total_policy_shifts = 0
+    total_turns = 0
+    total_speakers = 0
+    escalation_sessions = 0
+    grounded_decisions = 0
+
     for session in sessions:
         events = events_by_session.get(session.id, [])
         total_cost += getattr(session, "total_cost_usd", 0) or 0
@@ -122,6 +167,11 @@ def compute_baseline_from_sessions(
 
         has_tool_loop = False
         has_refusal = False
+        has_escalation = False
+        speakers_in_session: set[str] = set()
+        prev_policy_template = None
+        policy_shift_count = 0
+        turn_count = 0
 
         for event in events:
             event_type = getattr(event, "event_type", None)
@@ -133,6 +183,11 @@ def compute_baseline_from_sessions(
                 decision_count += 1
                 if confidence < 0.5:
                     low_confidence_count += 1
+
+                # Track evidence grounding
+                evidence_ids = data.get("evidence_event_ids", [])
+                if evidence_ids:
+                    grounded_decisions += 1
 
             elif event_type == EventType.TOOL_RESULT:
                 duration = data.get("duration_ms") or getattr(event, "duration_ms", 0) or 0
@@ -148,12 +203,47 @@ def compute_baseline_from_sessions(
                 if data.get("alert_type") == "tool_loop":
                     has_tool_loop = True
 
+            # Multi-agent event tracking
+            elif event_type == EventType.AGENT_TURN:
+                turn_count += 1
+                speaker = data.get("speaker") or data.get("agent_id") or getattr(event, "speaker", None)
+                if speaker:
+                    speakers_in_session.add(speaker)
+
+            elif event_type == EventType.PROMPT_POLICY:
+                template = data.get("template_id") or data.get("name") or getattr(event, "template_id", None)
+                if template and prev_policy_template is not None and template != prev_policy_template:
+                    policy_shift_count += 1
+                if template:
+                    prev_policy_template = template
+
+            # Escalation detection
+            elif event_type in (EventType.SAFETY_CHECK, EventType.POLICY_VIOLATION):
+                has_escalation = True
+
         if has_tool_loop:
             tool_loop_sessions += 1
         if has_refusal:
             refusal_sessions += 1
+        if has_escalation or policy_shift_count > 2:
+            escalation_sessions += 1
+
+        # Aggregate multi-agent metrics
+        total_policy_shifts += policy_shift_count
+        total_turns += turn_count
+        total_speakers += len(speakers_in_session)
 
     session_count = len(sessions)
+
+    multi_agent_metrics = None
+    if include_multi_agent:
+        multi_agent_metrics = MultiAgentMetrics(
+            avg_policy_shifts_per_session=total_policy_shifts / session_count if session_count > 0 else 0.0,
+            avg_turns_per_session=int(total_turns / session_count) if session_count > 0 else 0,
+            avg_speaker_count=total_speakers / session_count if session_count > 0 else 0.0,
+            escalation_pattern_rate=escalation_sessions / session_count if session_count > 0 else 0.0,
+            evidence_grounding_rate=grounded_decisions / decision_count if decision_count > 0 else 0.0,
+        )
 
     return AgentBaseline(
         agent_name=agent_name,
@@ -169,6 +259,7 @@ def compute_baseline_from_sessions(
         tool_loop_rate=tool_loop_sessions / session_count,
         refusal_rate=refusal_sessions / session_count,
         avg_session_replay_value=total_replay_value / session_count,
+        multi_agent_metrics=multi_agent_metrics,
     )
 
 

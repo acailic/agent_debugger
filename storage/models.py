@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, Float, ForeignKey, Index, String
+from sqlalchemy import JSON, Float, ForeignKey, Index, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from agent_debugger_sdk.core.events import SessionStatus
@@ -37,6 +37,11 @@ class SessionModel(Base):
     replay_value: Mapped[float] = mapped_column(Float, default=0.0, index=True)
     config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)
+    # Retention and clustering columns for research features
+    retention_tier: Mapped[str] = mapped_column(String(16), default="downsampled", index=True)
+    failure_fingerprint_primary: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    cluster_representative: Mapped[bool] = mapped_column(default=False, index=True)
+    cluster_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
     events: Mapped[list[EventModel]] = relationship(back_populates="session", cascade="all, delete-orphan")
     checkpoints: Mapped[list[CheckpointModel]] = relationship(back_populates="session", cascade="all, delete-orphan")
@@ -83,3 +88,40 @@ class CheckpointModel(Base):
 
     session: Mapped[SessionModel] = relationship(back_populates="checkpoints")
     event: Mapped[EventModel | None] = relationship()
+
+
+class FailureClusterModel(Base):
+    """SQLAlchemy ORM model for failure clusters across sessions."""
+
+    __tablename__ = "failure_clusters"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), nullable=False, default="local", index=True)
+    fingerprint: Mapped[str] = mapped_column(String(255), index=True)
+    first_seen: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    last_seen: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    session_count: Mapped[int] = mapped_column(default=1)
+    event_count: Mapped[int] = mapped_column(default=0)
+    representative_session_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("sessions.id"))
+    representative_event_id: Mapped[str | None] = mapped_column(String(36))
+    sample_failure_mode: Mapped[str | None] = mapped_column(String(64))
+    sample_symptom: Mapped[str | None] = mapped_column(String(512))
+    avg_severity: Mapped[float] = mapped_column(Float, default=0.0)
+
+
+class AnomalyAlertModel(Base):
+    """SQLAlchemy ORM model for anomaly alerts."""
+
+    __tablename__ = "anomaly_alerts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), nullable=False, default="local", index=True)
+    session_id: Mapped[str] = mapped_column(String(36), ForeignKey("sessions.id"), index=True)
+    alert_type: Mapped[str] = mapped_column(String(64), index=True)
+    severity: Mapped[float] = mapped_column(Float)
+    signal: Mapped[str] = mapped_column(Text)
+    event_ids: Mapped[list] = mapped_column(JSON)
+    detection_source: Mapped[str] = mapped_column(String(32))
+    detection_config: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+

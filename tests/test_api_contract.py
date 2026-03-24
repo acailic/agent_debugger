@@ -132,6 +132,8 @@ def test_replay_endpoint_keeps_checkpoint_and_safety_breakpoints(api_repo_factor
                 breakpoint_tool_names=None,
                 breakpoint_confidence_below=None,
                 breakpoint_safety_outcomes="warn,block",
+                stop_at_breakpoint=False,
+                collapse_threshold=0.35,
                 repo=repo,
             )
 

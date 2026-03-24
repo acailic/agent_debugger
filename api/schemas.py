@@ -183,6 +183,10 @@ class ReplayResponse(BaseModel):
     nearest_checkpoint: CheckpointSchema | None
     breakpoints: list[TraceEventSchema]
     failure_event_ids: list[str]
+    collapsed_segments: list[CollapsedSegmentSchema] = []
+    highlight_indices: list[int] = []
+    stopped_at_breakpoint: bool = False
+    stopped_at_index: int | None = None
 
 
 class AnalysisResponse(BaseModel):
@@ -233,3 +237,47 @@ class HighlightSchema(BaseModel):
     reason: str
     timestamp: str
     headline: str
+
+
+class CollapsedSegmentSchema(BaseModel):
+    start_index: int
+    end_index: int
+    event_count: int
+    summary: str
+    event_types: list[str] = []
+    total_duration_ms: float | None = None
+
+
+class AnomalyAlertSchema(BaseModel):
+    """Schema for anomaly alerts persisted from live monitoring."""
+
+    id: str
+    session_id: str
+    alert_type: str
+    severity: float
+    signal: str
+    event_ids: list[str]
+    detection_source: str
+    detection_config: dict[str, Any]
+    created_at: datetime
+
+
+class AnomalyAlertListResponse(BaseModel):
+    """Response schema for listing anomaly alerts."""
+
+    session_id: str
+    alerts: list[AnomalyAlertSchema]
+    total: int
+
+
+class CheckpointDeltaSchema(BaseModel):
+    """Schema for checkpoint delta information."""
+
+    checkpoint_id: str
+    event_id: str
+    sequence: int
+    time_since_previous: float
+    events_since_previous: int
+    importance_delta: float
+    restore_value: float
+    state_keys_changed: list[str]
