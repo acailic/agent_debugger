@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 import api.main as api_main
 from agent_debugger_sdk.core.events import Checkpoint, Session, ToolCallEvent
+from api import app_context
 from api import dependencies as api_dependencies
 from api import services as api_services
 from api.schemas import CreateKeyRequest, SessionUpdateRequest
@@ -30,12 +31,21 @@ def _get_route_endpoint(path: str, method: str):
 
 @pytest.fixture
 def api_repo_factory(tmp_path, monkeypatch):
+    from collector.intelligence import TraceIntelligence
+    from redaction.pipeline import RedactionPipeline
+
     db_path = tmp_path / "api-main-unit.db"
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}", echo=False)
     session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    trace_intelligence = TraceIntelligence()
+    redaction_pipeline = RedactionPipeline.from_config()
 
     monkeypatch.setattr(api_main, "engine", engine)
     monkeypatch.setattr(api_main, "async_session_maker", session_maker)
+    monkeypatch.setattr(app_context, "engine", engine)
+    monkeypatch.setattr(app_context, "async_session_maker", session_maker)
+    monkeypatch.setattr(app_context, "trace_intelligence", trace_intelligence)
+    monkeypatch.setattr(app_context, "_redaction_pipeline", redaction_pipeline)
 
     async def setup() -> None:
         async with engine.begin() as conn:
@@ -104,10 +114,10 @@ def test_normalizers_include_analysis_summary():
 
     normalized_session = api_services.normalize_session(session, {"replay_value": 0.9})
 
-    assert normalized_session["id"] == "session-normalize"
-    assert normalized_session["replay_value"] == 0.9
-    assert api_services.normalize_event(event)["tool_name"] == "search"
-    assert api_services.normalize_checkpoint(checkpoint)["sequence"] == 1
+    assert normalized_session.id == "session-normalize"
+    assert normalized_session.replay_value == 0.9
+    assert api_services.normalize_event(event).tool_name == "search"
+    assert api_services.normalize_checkpoint(checkpoint).sequence == 1
 
 
 @pytest.mark.asyncio
@@ -140,11 +150,13 @@ async def test_lifespan_configures_pipeline_for_sqlite(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_redaction_pipeline_uses_runtime_config():
+    from redaction.pipeline import RedactionPipeline
+
     with patch(
         "agent_debugger_sdk.config.get_config",
         return_value=SimpleNamespace(redact_prompts=True, max_payload_kb=32),
     ):
-        pipeline = api_main._get_redaction_pipeline()
+        pipeline = RedactionPipeline.from_config()
 
     assert pipeline.redact_prompts is True
     assert pipeline.redact_pii is False
@@ -158,7 +170,7 @@ async def test_persist_helpers_store_session_event_and_checkpoint(api_repo_facto
     checkpoint = Checkpoint(session_id=session.id, event_id=event.id, sequence=1)
     pipeline = SimpleNamespace(apply=MagicMock(side_effect=lambda value: value))
 
-    with patch("api.main._get_redaction_pipeline", return_value=pipeline):
+    with patch("api.app_context._get_redaction_pipeline", return_value=pipeline):
         await api_services.persist_session_start(session)
         await api_services.persist_session_start(session)
 
@@ -229,9 +241,9 @@ async def test_list_sessions_can_sort_by_replay_value(api_repo_factory):
             ):
                 response = await list_sessions(limit=10, offset=0, sort_by="replay_value", repo=repo)
 
-    assert [session["id"] for session in response.sessions] == ["replay-high", "replay-low"]
-    assert response.sessions[0]["representative_event_id"] == "event-1"
-    assert response.sessions[1]["representative_event_id"] is None
+    assert [session.id for session in response.sessions] == ["replay-high", "replay-low"]
+    assert response.sessions[0].representative_event_id == "event-1"
+    assert response.sessions[1].representative_event_id is None
 
 
 @pytest.mark.asyncio
@@ -323,18 +335,18 @@ async def test_session_routes_return_persisted_data(api_repo_factory):
             )
             delete_response = await delete_session(session_id=session.id, repo=repo)
 
-    assert sessions_response.sessions[0]["id"] == session.id
-    assert updated_response.session["status"] == "completed"
-    assert updated_response.session["tags"] == ["updated"]
-    assert session_response.session["id"] == session.id
-    assert session_response.session["status"] == "completed"
-    assert traces_response.traces[0]["tool_name"] == "search"
-    assert bundle_response.session["id"] == session.id
-    assert bundle_response.events[0]["tool_name"] == "search"
-    assert bundle_response.checkpoints[0]["sequence"] == 1
+    assert sessions_response.sessions[0].id == session.id
+    assert updated_response.session.status == "completed"
+    assert updated_response.session.tags == ["updated"]
+    assert session_response.session.id == session.id
+    assert session_response.session.status == "completed"
+    assert traces_response.traces[0].tool_name == "search"
+    assert bundle_response.session.id == session.id
+    assert bundle_response.events[0].tool_name == "search"
+    assert bundle_response.checkpoints[0].sequence == 1
     assert bundle_response.analysis == analysis_payload
-    assert tree_response.events[0]["tool_name"] == "search"
-    assert checkpoints_response.checkpoints[0]["sequence"] == 1
+    assert tree_response.events[0].tool_name == "search"
+    assert checkpoints_response.checkpoints[0].sequence == 1
     assert analysis_response.analysis == analysis_payload
     assert live_response.live_summary == live_payload
     assert search_response.total == 1
@@ -377,7 +389,7 @@ async def test_replay_route_passes_split_breakpoints_to_builder(api_repo_factory
             )
 
     assert response.failure_event_ids == ["focus-1"]
-    assert response.breakpoints[0]["tool_name"] == "search"
+    assert response.breakpoints[0].tool_name == "search"
     build_replay.assert_called_once()
     replay_args, replay_kwargs = build_replay.call_args
     assert [replay_event.session_id for replay_event in replay_args[0]] == [session.id]
@@ -509,6 +521,7 @@ async def test_health_endpoint_reports_database_and_redis_status(monkeypatch):
     fake_redis_module = types.SimpleNamespace(asyncio=fake_asyncio_module)
 
     monkeypatch.setattr(api_main, "async_session_maker", GoodSessionMaker())
+    monkeypatch.setattr(app_context, "async_session_maker", GoodSessionMaker())
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
 
     with patch("api.system_routes.get_config", return_value=SimpleNamespace(mode="cloud")), patch.dict(
@@ -551,6 +564,7 @@ async def test_health_endpoint_degrades_on_database_and_redis_errors(monkeypatch
     fake_redis_module = types.SimpleNamespace(asyncio=fake_asyncio_module)
 
     monkeypatch.setattr(api_main, "async_session_maker", BrokenSessionMaker())
+    monkeypatch.setattr(app_context, "async_session_maker", BrokenSessionMaker())
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
 
     with patch("api.system_routes.get_config", return_value=SimpleNamespace(mode="cloud")), patch.dict(

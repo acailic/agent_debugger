@@ -42,13 +42,21 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(autouse=True, scope="session")
-async def setup_test_db():
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_db():
     """Ensure database tables exist for tests."""
+    import asyncio
+
+    from api import app_context
     from storage import Base
     from storage.engine import create_db_engine
 
-    engine = create_db_engine()
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    async def _setup():
+        engine = create_db_engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        app_context.init_app_context()
+
+    # Run async setup synchronously for session-scoped fixture
+    asyncio.run(_setup())
     yield

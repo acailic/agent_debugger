@@ -171,6 +171,7 @@ async def test_persist_event_if_configured_persists_to_repository(collector_repo
     async with collector_repo_factory() as db_session:
         repo = TraceRepository(db_session, tenant_id="tenant-a")
         await repo.create_session(session)
+        await repo.commit()
 
     with patch("collector.server._get_redaction_pipeline", return_value=pipeline):
         await collector_server._persist_event_if_configured(event, tenant_id="tenant-a")
@@ -279,6 +280,7 @@ async def test_ingest_trace_with_storage_resolves_tenant_and_publishes(collector
     async with collector_repo_factory() as db_session:
         repo = TraceRepository(db_session, tenant_id="tenant-a")
         await repo.create_session(session)
+        await repo.commit()
 
     with patch("collector.server.get_event_buffer", return_value=buffer), patch(
         "collector.server.get_importance_scorer", return_value=scorer

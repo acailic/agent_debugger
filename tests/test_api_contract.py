@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 import api.main as api_main
 from agent_debugger_sdk.core.context import configure_event_pipeline
+from api import app_context
 from api import services as api_services
 from benchmarks import run_evidence_grounding_session, run_failure_cluster_session, run_safety_escalation_session
 from collector.buffer import get_event_buffer
@@ -48,6 +49,8 @@ def api_repo_factory(tmp_path, monkeypatch):
 
     monkeypatch.setattr(api_main, "engine", engine)
     monkeypatch.setattr(api_main, "async_session_maker", session_maker)
+    monkeypatch.setattr(app_context, "engine", engine)
+    monkeypatch.setattr(app_context, "async_session_maker", session_maker)
 
     buffer = get_event_buffer()
     buffer._events.clear()
@@ -86,13 +89,13 @@ def test_trace_bundle_returns_normalized_research_events(api_repo_factory):
             return await trace_endpoint(session_id=session_id, repo=repo)
 
     payload = asyncio.run(run())
-    assert payload.session["id"] == session_id
+    assert payload.session.id == session_id
     assert payload.tree is not None
     assert payload.analysis["event_rankings"]
 
-    decision = next(event for event in payload.events if event["event_type"] == "decision")
-    assert decision["evidence_event_ids"]
-    assert decision["upstream_event_ids"]
+    decision = next(event for event in payload.events if event.event_type == "decision")
+    assert decision.evidence_event_ids
+    assert decision.upstream_event_ids
 
 
 def test_analysis_endpoint_surfaces_failure_clusters(api_repo_factory):
@@ -135,7 +138,7 @@ def test_replay_endpoint_keeps_checkpoint_and_safety_breakpoints(api_repo_factor
     replay = asyncio.run(run())
     assert replay.nearest_checkpoint is not None
     assert replay.failure_event_ids
-    assert any(event["event_type"] == "safety_check" for event in replay.breakpoints)
+    assert any(event.event_type == "safety_check" for event in replay.breakpoints)
 
 
 def test_ingest_trace_preserves_upstream_event_ids(api_repo_factory):
@@ -170,9 +173,9 @@ def test_ingest_trace_preserves_upstream_event_ids(api_repo_factory):
             return await trace_endpoint(session_id=session.id, repo=repo)
 
     payload = asyncio.run(run())
-    decision = next(event for event in payload.events if event["name"] == "api_decision")
-    assert decision["upstream_event_ids"] == ["tool-1", "llm-2"]
-    assert decision["evidence_event_ids"] == ["tool-1"]
+    decision = next(event for event in payload.events if event.name == "api_decision")
+    assert decision.upstream_event_ids == ["tool-1", "llm-2"]
+    assert decision.evidence_event_ids == ["tool-1"]
 
 
 def test_search_endpoint_finds_events_by_payload_and_filter(api_repo_factory):
@@ -196,5 +199,5 @@ def test_search_endpoint_finds_events_by_payload_and_filter(api_repo_factory):
     assert payload.session_id == session_id
     assert payload.event_type == "decision"
     assert payload.total >= 1
-    assert all(event["event_type"] == "decision" for event in payload.results)
+    assert all(event.event_type == "decision" for event in payload.results)
     assert any("Belgrade" in str(event) for event in payload.results)
