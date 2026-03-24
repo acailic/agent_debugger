@@ -37,6 +37,10 @@ async def replay_session(
     collapse_threshold: float = Query(default=0.35, ge=0.0, le=1.0),
     repo: TraceRepository = Depends(get_repository),
 ) -> ReplayResponse:
+    # Handle Query object when called directly (not through FastAPI)
+    if hasattr(collapse_threshold, 'default'):
+        collapse_threshold = collapse_threshold.default
+
     await require_session(repo, session_id)
     events, checkpoints = await load_session_artifacts(repo, session_id)
 

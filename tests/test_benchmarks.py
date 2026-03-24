@@ -125,7 +125,8 @@ class TestBenchmarkScenarioGeneration:
         # Should have a checkpoint for escalation state
         assert len(session.checkpoints) == 1
         checkpoint = session.checkpoints[0]
-        assert checkpoint.state.get("phase") == "guard-escalation"
+        # Phase is nested inside data field
+        assert checkpoint.state.get("data", {}).get("phase") == "guard-escalation"
 
     @pytest.mark.asyncio
     async def test_looping_behavior_session_produces_valid_session(self):
@@ -340,7 +341,8 @@ class TestCIRegressionAssertions:
         checkpoint = session.checkpoints[0]
 
         assert checkpoint.importance >= 0.9
-        assert "step" in checkpoint.state
+        # Step is nested inside data field
+        assert "step" in checkpoint.state.get("data", {})
 
     @pytest.mark.asyncio
     async def test_policy_violation_high_severity_present(self):
