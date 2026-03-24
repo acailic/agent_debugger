@@ -16,10 +16,13 @@ class PatchConfig:
         server_url: Base URL of the Peaky Peek collector server.
         capture_content: Whether to capture full message/response content.
             Disabled by default for privacy.
+        agent_name: Logical name for the agent owning these LLM calls.
+            Used as the session agent_name in the collector.
     """
 
     server_url: str = "http://localhost:8000"
     capture_content: bool = False
+    agent_name: str = "auto-patched-agent"
 
 
 class BaseAdapter(ABC):

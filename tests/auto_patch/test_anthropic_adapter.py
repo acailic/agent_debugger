@@ -332,6 +332,7 @@ class TestAnthropicAdapterAsyncPatch:
         wrapper = adapter._make_async_wrapper(async_original)
         asyncio.run(wrapper(MagicMock(), model="claude-3-5-sonnet-20241022", messages=[]))
 
+        _flush(adapter)
         sent = _get_trace_events(mock_httpx)
         types_ = [e["event_type"] for e in sent]
         assert "llm_request" in types_
@@ -368,6 +369,7 @@ class TestAnthropicAdapterAsyncPatch:
         wrapper = adapter._make_async_wrapper(async_original)
         asyncio.run(wrapper(MagicMock(), model="claude-3-5-sonnet-20241022", messages=[]))
 
+        _flush(adapter)
         sent = _get_trace_events(mock_httpx)
         types_ = [e["event_type"] for e in sent]
         assert "tool_call" in types_

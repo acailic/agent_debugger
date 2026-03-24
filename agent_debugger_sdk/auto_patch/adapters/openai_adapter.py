@@ -139,6 +139,7 @@ class OpenAIAdapter(BaseAdapter):
             if choice.finish_reason == "tool_calls" and choice.message.tool_calls:
                 for tc in choice.message.tool_calls:
                     try:
+                        # OpenAI serialises tool call arguments as a JSON string; parse to dict.
                         args = json.loads(tc.function.arguments)
                     except (json.JSONDecodeError, AttributeError):
                         args = {}
@@ -183,12 +184,14 @@ class OpenAIAdapter(BaseAdapter):
 
     def _call_sync(self, original, self_client, *args, **kwargs):
         try:
-            session_id = get_or_create_session(self._transport, "openai_agent", "openai")
+            session_id = get_or_create_session(self._transport, self._config.agent_name, self.name)
             request_id = self._emit_request(kwargs, session_id)
         except Exception:
             logger.warning("Failed to emit LLM request", exc_info=True)
             session_id, request_id = "", ""
 
+        # SDK exceptions propagate to the caller intentionally — user code must handle them.
+        # Only instrumentation exceptions (emit calls) are swallowed.
         start = time.perf_counter()
         try:
             response = original(self_client, *args, **kwargs)
@@ -204,12 +207,14 @@ class OpenAIAdapter(BaseAdapter):
 
     async def _call_async(self, original, self_client, *args, **kwargs):
         try:
-            session_id = get_or_create_session(self._transport, "openai_agent", "openai")
+            session_id = get_or_create_session(self._transport, self._config.agent_name, self.name)
             request_id = self._emit_request(kwargs, session_id)
         except Exception:
             logger.warning("Failed to emit LLM request", exc_info=True)
             session_id, request_id = "", ""
 
+        # SDK exceptions propagate to the caller intentionally — user code must handle them.
+        # Only instrumentation exceptions (emit calls) are swallowed.
         start = time.perf_counter()
         try:
             response = await original(self_client, *args, **kwargs)

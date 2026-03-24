@@ -47,7 +47,8 @@ def _build_config_from_env() -> PatchConfig:
     server_url = os.environ.get("PEAKY_PEEK_SERVER_URL", "http://localhost:8000")
     capture_raw = os.environ.get("PEAKY_PEEK_CAPTURE_CONTENT", "false").strip().lower()
     capture_content = capture_raw == "true"
-    return PatchConfig(server_url=server_url, capture_content=capture_content)
+    agent_name = os.environ.get("PEAKY_PEEK_AGENT_NAME", "auto-patched-agent")
+    return PatchConfig(server_url=server_url, capture_content=capture_content, agent_name=agent_name)
 
 
 def _load_adapters(registry: PatchRegistry) -> None:
@@ -65,8 +66,8 @@ def _load_adapters(registry: PatchRegistry) -> None:
     # Guard against re-registration on repeated activate() calls.
     existing_names = {a.name for a in registry._adapters}
 
-    from agent_debugger_sdk.auto_patch.adapters.openai_adapter import OpenAIAdapter
     from agent_debugger_sdk.auto_patch.adapters.anthropic_adapter import AnthropicAdapter
+    from agent_debugger_sdk.auto_patch.adapters.openai_adapter import OpenAIAdapter
 
     if "openai" not in existing_names:
         registry.register(OpenAIAdapter())

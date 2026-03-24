@@ -191,12 +191,14 @@ class AnthropicAdapter(BaseAdapter):
 
     def _call_sync(self, original, self_client, *args, **kwargs):
         try:
-            session_id = get_or_create_session(self._transport, "anthropic_agent", "anthropic")
+            session_id = get_or_create_session(self._transport, self._config.agent_name, self.name)
             request_id = self._emit_request(kwargs, session_id)
         except Exception:
             logger.warning("Failed to emit LLM request", exc_info=True)
             session_id, request_id = "", ""
 
+        # SDK exceptions propagate to the caller intentionally — user code must handle them.
+        # Only instrumentation exceptions (emit calls) are swallowed.
         start = time.perf_counter()
         try:
             response = original(self_client, *args, **kwargs)
@@ -212,12 +214,14 @@ class AnthropicAdapter(BaseAdapter):
 
     async def _call_async(self, original, self_client, *args, **kwargs):
         try:
-            session_id = get_or_create_session(self._transport, "anthropic_agent", "anthropic")
+            session_id = get_or_create_session(self._transport, self._config.agent_name, self.name)
             request_id = self._emit_request(kwargs, session_id)
         except Exception:
             logger.warning("Failed to emit LLM request", exc_info=True)
             session_id, request_id = "", ""
 
+        # SDK exceptions propagate to the caller intentionally — user code must handle them.
+        # Only instrumentation exceptions (emit calls) are swallowed.
         start = time.perf_counter()
         try:
             response = await original(self_client, *args, **kwargs)
