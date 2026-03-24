@@ -2,6 +2,8 @@
 
 from importlib.metadata import PackageNotFoundError, version
 
+import pytest
+
 
 def test_package_importable():
     import agent_debugger_sdk
@@ -57,6 +59,7 @@ def test_no_circular_imports():
     which can cause issues with other tests that hold references to event classes.
     This test should be run in isolation or with pytest --forked if available.
     """
+    pytest.skip("Run in isolation only: deletes sys.modules entries, breaks other tests")
     import sys
 
     # Remove from cache if present
