@@ -54,6 +54,7 @@ Primary loop: instrument an agent with the SDK, persist/query it through the API
 - Do not touch unrelated user changes in the worktree.
 - Avoid noisy directories unless directly relevant: `.venv*`, `frontend/node_modules`, `frontend/dist`, `dist`, `.pytest_cache`, `.ruff_cache`, `__pycache__`, `traces/`.
 - `traces/` may emit permission noise during naive filesystem scans.
+- **Playwright MCP**: Use `mcp__plugin_playwright_playwright__*` tools, NOT `mcp__playwright__*`. The official `mcp__playwright__*` tools are misconfigured for Chrome instead of Chromium and will fail.
 
 ## High-Risk Boundaries
 
