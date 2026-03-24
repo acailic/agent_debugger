@@ -77,9 +77,10 @@ async def test_transport_send_session_update():
 @pytest.mark.asyncio
 async def test_transport_send_session_update_logs_http_status_on_failure(caplog):
     transport = HttpTransport(endpoint="http://localhost:8000", api_key="ad_live_test")
-    with patch.object(transport, "_client") as mock_client:
+    # Patch the put method directly on the client
+    with patch.object(transport._client, "put") as mock_put:
         mock_response = MagicMock(status_code=404)
-        mock_client.put = AsyncMock(return_value=mock_response)
+        mock_put.return_value = mock_response
 
         session = Session(id="s1", agent_name="test_agent", framework="pydantic_ai")
         with caplog.at_level(logging.WARNING, logger="agent_debugger"):
