@@ -11,14 +11,9 @@ until the features are implemented.
 
 from __future__ import annotations
 
-import asyncio
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Protocol
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # =============================================================================
 # L3: Deterministic Restore Hooks
@@ -129,10 +124,7 @@ class TestDeterministicRestoreHooks:
         """TraceContext.restore should automatically call registered hooks."""
         try:
             from agent_debugger_sdk import TraceContext
-            from agent_debugger_sdk.checkpoints import (
-                LangChainCheckpointState,
-                RESTORE_HOOK_REGISTRY,
-            )
+            from agent_debugger_sdk.checkpoints import RESTORE_HOOK_REGISTRY
 
             hook_called = []
 
@@ -272,7 +264,7 @@ class TestStateDriftDetection:
     def test_detect_tool_call_drift(self):
         """Should detect when restored agent calls different tool."""
         try:
-            from agent_debugger_sdk.drift import DriftDetector, DriftSeverity
+            from agent_debugger_sdk.drift import DriftDetector
 
             original_events = [
                 {"id": "1", "event_type": "tool_call", "data": {"tool_name": "search"}},
@@ -330,7 +322,7 @@ class TestStateDriftDetection:
     def test_drift_event_includes_context(self):
         """DriftEvent should include original and restored values."""
         try:
-            from agent_debugger_sdk.drift import DriftDetector, DriftEvent
+            from agent_debugger_sdk.drift import DriftDetector
 
             original_events = [
                 {"id": "1", "event_type": "decision", "data": {"action": "a"}},
@@ -437,7 +429,6 @@ class TestAutoReplay:
         """Auto-replay should fetch events that occurred after checkpoint."""
         try:
             from agent_debugger_sdk import TraceContext
-            from agent_debugger_sdk.checkpoints import AutoReplayManager
 
             # Mock both checkpoint fetch and events fetch
             mock_checkpoint_data = {
@@ -569,7 +560,7 @@ class TestAutoReplay:
                 mock_response.raise_for_status = MagicMock()
                 mock_get.return_value = mock_response
 
-                ctx = await TraceContext.restore(
+                _ = await TraceContext.restore(
                     checkpoint_id="cp-hooks-replay",
                     server_url="http://localhost:8000",
                     replay_events=True,
@@ -666,7 +657,7 @@ class TestAutoReplay:
                 mock_response.raise_for_status = MagicMock()
                 mock_get.return_value = mock_response
 
-                ctx = await TraceContext.restore(
+                _ = await TraceContext.restore(
                     checkpoint_id="cp-cancel",
                     server_url="http://localhost:8000",
                     replay_events=True,
@@ -695,7 +686,6 @@ class TestReplayDepthIntegration:
             from agent_debugger_sdk.checkpoints import RESTORE_HOOK_REGISTRY
 
             hook_calls = []
-            drift_events = []
 
             async def integration_hook(state, target):
                 hook_calls.append(state)
@@ -755,8 +745,6 @@ class TestReplayDepthIntegration:
         """When drift is detected during auto-replay, event should be emitted."""
         try:
             from agent_debugger_sdk import TraceContext
-            from agent_debugger_sdk.checkpoints import RESTORE_HOOK_REGISTRY
-            from agent_debugger_sdk.drift import DriftSeverity
 
             emitted_events = []
 
@@ -822,16 +810,11 @@ class TestReplayDepthAPIIntegration:
     @pytest.mark.asyncio
     async def test_restore_endpoint_supports_replay_events(self):
         """POST /api/checkpoints/{id}/restore should accept replay_events option."""
-        import httpx
-        from fastapi.testclient import TestClient
 
         try:
-            import api.main as api_main
-
             # Create test session and checkpoint first
             # This would require setup; for now just test the schema
             # In real implementation, we'd create fixtures
-
             # Check that RestoreRequest schema supports replay_events
             from api.schemas import RestoreRequest
 
@@ -996,7 +979,7 @@ class TestReplayDepthErrorHandling:
             detector = DriftDetector(original_events)
 
             # Should handle comparison with incomplete events
-            drift = detector.compare({"id": "3"}, index=0)
+            _drift = detector.compare({"id": "3"}, index=0)
             # Should return None (no drift detectable) or handle gracefully
         except ImportError:
             pytest.skip("DriftDetector not yet implemented")

@@ -9,8 +9,6 @@ Tests cover:
 
 from datetime import datetime, timezone
 
-import pytest
-
 from agent_debugger_sdk.core.events import (
     BASE_EVENT_FIELDS,
     EVENT_TYPE_REGISTRY,
