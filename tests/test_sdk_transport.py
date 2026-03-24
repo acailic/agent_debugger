@@ -85,7 +85,9 @@ async def test_transport_send_session_update_logs_http_status_on_failure(caplog)
         with caplog.at_level(logging.WARNING, logger="agent_debugger"):
             await transport.send_session_update(session)
 
-    assert "status_code=404" in caplog.text
+    # Ensure we got the warning log at the "agent_debugger" logger
+    warning_records = [r for r in caplog.records if r.name == "agent_debugger" and r.levelno == logging.WARNING]
+    assert any("status_code=404" in r.message for r in warning_records), f"No warning log found in agent_debugger: {caplog.records}"
 
 
 @pytest.mark.asyncio
