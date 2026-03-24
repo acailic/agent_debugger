@@ -604,3 +604,68 @@ class TestBenchmarkSessionIntegrity:
                 d = checkpoint.to_dict()
                 assert isinstance(d, dict)
                 assert "id" in d
+
+
+class TestBenchmarkConsistency:
+    """Tests for benchmark consistency and determinism."""
+
+    @pytest.mark.asyncio
+    async def test_same_scenario_produces_consistent_event_count(self):
+        """Running same scenario twice should produce same number of events."""
+        session1 = await run_prompt_injection_session("consistency-a")
+        session2 = await run_prompt_injection_session("consistency-b")
+        assert len(session1.events) == len(session2.events)
+
+    @pytest.mark.asyncio
+    async def test_same_scenario_produces_consistent_event_types(self):
+        """Running same scenario twice should produce same event types in order."""
+        session1 = await run_prompt_injection_session("types-a")
+        session2 = await run_prompt_injection_session("types-b")
+        types1 = [e.event_type.value for e in session1.events]
+        types2 = [e.event_type.value for e in session2.events]
+        assert types1 == types2
+
+    @pytest.mark.asyncio
+    async def test_all_scenarios_have_valid_session_ids(self):
+        """All scenarios should have non-empty session IDs."""
+        scenarios = iter_seed_scenarios()
+        for name, runner in scenarios:
+            session = await runner(f"valid-{name}")
+            assert session.session_id is not None
+            assert len(session.session_id) > 0
+
+    @pytest.mark.asyncio
+    async def test_all_scenarios_have_events(self):
+        """All scenarios should produce at least one event."""
+        scenarios = iter_seed_scenarios()
+        for name, runner in scenarios:
+            session = await runner(f"events-{name}")
+            assert len(session.events) > 0, f"{name} produced no events"
+
+
+class TestBenchmarkEventLinkage:
+    """Tests for event linkage in benchmark scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_evidence_grounding_links_tool_result_to_decision(self):
+        """Decision should reference tool result as evidence."""
+        session = await run_evidence_grounding_session("linkage-evidence")
+        tool_result = next(e for e in session.events if e.event_type.value == "tool_result")
+        decision = next(e for e in session.events if e.event_type.value == "decision")
+        assert tool_result.id in decision.upstream_event_ids
+
+    @pytest.mark.asyncio
+    async def test_policy_shift_maintains_parent_chain(self):
+        """Policy shift should maintain proper parent chain."""
+        session = await run_prompt_policy_shift_session("linkage-policy")
+        llm_response = next(e for e in session.events if e.event_type.value == "llm_response")
+        llm_request = next(e for e in session.events if e.event_type.value == "llm_request")
+        assert llm_response.parent_id == llm_request.id
+
+    @pytest.mark.asyncio
+    async def test_looping_behavior_has_parent_chain(self):
+        """Looping behavior tool calls should form a parent chain."""
+        session = await run_looping_behavior_session("linkage-loop")
+        tool_calls = [e for e in session.events if e.event_type.value == "tool_call"]
+        assert tool_calls[1].parent_id == tool_calls[0].id
+        assert tool_calls[2].parent_id == tool_calls[1].id
