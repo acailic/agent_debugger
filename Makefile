@@ -36,14 +36,14 @@ frontend:
 	cd frontend && npm install && npm run dev
 
 test:
-	python -m pytest -q
+	python3 -m pytest -q
 
 lint:
 	ruff check .
 
 # ── Demo recording ────────────────────────────────────────────────────────────
 demo-seed:
-	python scripts/seed_demo_sessions.py
+	python3 scripts/seed_demo_sessions.py
 
 demo-setup: demo-seed
 	@echo ""
@@ -58,10 +58,10 @@ demo-setup: demo-seed
 	@echo ""
 
 demo-live:
-	python examples/demo_live_stream.py
+	python3 examples/08_live_stream.py
 
 demo-safety:
-	python examples/demo_safety_audit.py
+	python3 examples/06_safety_audit.py
 
 demo-research:
-	python examples/mock_research_agent.py
+	python3 examples/02_research_agent.py

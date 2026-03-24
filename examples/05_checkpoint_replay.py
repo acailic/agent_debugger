@@ -26,7 +26,7 @@ import httpx
 
 from agent_debugger_sdk import TraceContext, init
 
-init()
+init(api_key="local-dev", endpoint="http://127.0.0.1:8000")
 
 
 async def run_agent_with_checkpoint() -> str:
