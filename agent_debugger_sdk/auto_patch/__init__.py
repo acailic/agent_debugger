@@ -39,7 +39,7 @@ __all__ = ["PatchConfig", "activate", "deactivate"]
 # Adapter catalogue — add new adapters here as they are implemented.
 # Adapters are never auto-discovered; they must be explicitly listed.
 # ---------------------------------------------------------------------------
-_ADAPTER_NAMES: list[str] = []  # e.g. ["openai", "anthropic"]
+_ADAPTER_NAMES: list[str] = ["openai", "anthropic"]
 
 
 def _build_config_from_env() -> PatchConfig:
@@ -56,11 +56,22 @@ def _load_adapters(registry: PatchRegistry) -> None:
     Adapters are imported lazily here (not at module top-level) so that
     missing optional dependencies only raise an error if that adapter is
     actually requested, not on every import.
+
+    Each adapter is registered at most once per process; subsequent calls to
+    :func:`activate` will not add duplicate entries to the registry because
+    :meth:`PatchRegistry.apply` is idempotent in terms of re-patching
+    (it calls :meth:`PatchRegistry.unapply` first).
     """
-    # Future adapters will be imported and registered here, e.g.:
-    #   from agent_debugger_sdk.auto_patch.adapters.openai import OpenAIAdapter
-    #   registry.register(OpenAIAdapter())
-    pass
+    # Guard against re-registration on repeated activate() calls.
+    existing_names = {a.name for a in registry._adapters}
+
+    from agent_debugger_sdk.auto_patch.adapters.openai_adapter import OpenAIAdapter
+    from agent_debugger_sdk.auto_patch.adapters.anthropic_adapter import AnthropicAdapter
+
+    if "openai" not in existing_names:
+        registry.register(OpenAIAdapter())
+    if "anthropic" not in existing_names:
+        registry.register(AnthropicAdapter())
 
 
 def activate(config: PatchConfig | None = None) -> None:
