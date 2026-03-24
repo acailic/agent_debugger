@@ -39,7 +39,15 @@ __all__ = ["PatchConfig", "activate", "deactivate"]
 # Adapter catalogue — add new adapters here as they are implemented.
 # Adapters are never auto-discovered; they must be explicitly listed.
 # ---------------------------------------------------------------------------
-_ADAPTER_NAMES: list[str] = ["openai", "anthropic", "langchain", "pydanticai"]
+_ADAPTER_NAMES: list[str] = [
+    "openai",
+    "anthropic",
+    "langchain",
+    "pydanticai",
+    "crewai",
+    "autogen",
+    "llamaindex",
+]
 
 
 def _build_config_from_env() -> PatchConfig:
@@ -67,7 +75,10 @@ def _load_adapters(registry: PatchRegistry) -> None:
     existing_names = {a.name for a in registry._adapters}
 
     from agent_debugger_sdk.auto_patch.adapters.anthropic_adapter import AnthropicAdapter
+    from agent_debugger_sdk.auto_patch.adapters.autogen_adapter import AutoGenAdapter
+    from agent_debugger_sdk.auto_patch.adapters.crewai_adapter import CrewAIAdapter
     from agent_debugger_sdk.auto_patch.adapters.langchain_adapter import LangChainAdapter
+    from agent_debugger_sdk.auto_patch.adapters.llamaindex_adapter import LlamaIndexAdapter
     from agent_debugger_sdk.auto_patch.adapters.openai_adapter import OpenAIAdapter
     from agent_debugger_sdk.auto_patch.adapters.pydanticai_adapter import PydanticAIAdapter
 
@@ -79,6 +90,12 @@ def _load_adapters(registry: PatchRegistry) -> None:
         registry.register(LangChainAdapter())
     if "pydanticai" not in existing_names:
         registry.register(PydanticAIAdapter())
+    if "crewai" not in existing_names:
+        registry.register(CrewAIAdapter())
+    if "autogen" not in existing_names:
+        registry.register(AutoGenAdapter())
+    if "llamaindex" not in existing_names:
+        registry.register(LlamaIndexAdapter())
 
 
 def activate(config: PatchConfig | None = None) -> None:
