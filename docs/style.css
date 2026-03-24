@@ -100,6 +100,9 @@ code, pre { font-family: var(--font-mono); }
 }
 .btn--outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
 .btn--outline:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.btn--primary { background: var(--accent-solid); color: #fff; border: none; }
+.btn--primary:hover { background: #2ea043; color: #fff; text-decoration: none; }
+.btn--large { padding: 14px 28px; font-size: 1rem; }
 .install-block { position: relative; display: inline-block; text-align: left; }
 .install-block__pre {
   background: var(--code-bg);
@@ -440,7 +443,103 @@ code, pre { font-family: var(--font-mono); }
   margin-top: 40px;
 }
 
-/* Part 15 — Responsive overrides (MUST be last) */
+/* Part 15 — Feature category styling */
+.feature-category {
+  margin-bottom: 56px;
+}
+.feature-category:last-child {
+  margin-bottom: 0;
+}
+.feature-category__title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.feature-category__title::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 20px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+/* Part 16 — Bottom CTA */
+.cta-bottom {
+  margin-top: 48px;
+  text-align: center;
+}
+.cta-bottom .btn {
+  display: inline-flex;
+}
+
+/* Part 17 — Hero visual prominence */
+.hero__visual {
+  margin: 32px auto;
+  max-width: 900px;
+}
+
+/* Part 18 — Social proof improvements */
+.social-proof {
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+.social-proof__metrics {
+  display: flex;
+  justify-content: center;
+  gap: 64px;
+  margin-bottom: 48px;
+  flex-wrap: wrap;
+}
+.social-proof__metric {
+  text-align: center;
+}
+.social-proof__metric-value {
+  display: block;
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1.2;
+}
+.social-proof__metric-label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.social-proof__quote {
+  max-width: 600px;
+  margin: 0 auto 40px;
+  text-align: center;
+}
+.social-proof__quote p {
+  font-size: 1.25rem;
+  font-style: italic;
+  color: var(--text);
+  line-height: 1.7;
+  margin-bottom: 12px;
+}
+.social-proof__quote cite {
+  font-style: normal;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.section__subtitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 24px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Part 19 — Responsive overrides (MUST be last) */
 @media (max-width: 767px) {
   .section { padding: 56px 0; }
   .hero { padding: 64px 0 56px; }
