@@ -8,11 +8,6 @@ This module tests the FailureMemory class which provides:
 
 from __future__ import annotations
 
-import pytest
-
-# Skip all tests in this module - feature not yet implemented
-pytestmark = pytest.mark.skip(reason="Feature 2 (failure_memory) not yet implemented")
-
 from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import MagicMock
@@ -20,6 +15,10 @@ from unittest.mock import MagicMock
 import pytest
 
 from agent_debugger_sdk.core.events import EventType, TraceEvent
+
+# Skip all tests in this module - feature not yet implemented
+pytestmark = pytest.mark.skip(reason="Feature 2 (failure_memory) not yet implemented")
+
 
 # =============================================================================
 # Custom Exceptions

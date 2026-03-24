@@ -199,9 +199,16 @@ class TraceContext(RecordingMixin):
         # instance-level hooks.
         # Only set up HTTP transport if hooks aren't already configured via
         # configure_event_pipeline() (e.g., in tests or server-side usage).
+        # Check ALL hooks, not just session_start - tests may configure only some hooks.
+        hooks_configured = any([
+            self._session_start_hook,
+            self._session_update_hook,
+            self._event_persister,
+            self._checkpoint_persister,
+        ])
         from agent_debugger_sdk.config import get_config
         config = get_config()
-        if self._session_start_hook is None:
+        if not hooks_configured:
             # No hooks configured - use HTTP transport to send events to the server
             from agent_debugger_sdk.transport import HttpTransport
             self._transport = HttpTransport(config.endpoint, config.api_key)
