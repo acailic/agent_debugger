@@ -30,6 +30,16 @@ from agent_debugger_sdk.core.events.safety import (
 from agent_debugger_sdk.core.events.session import Session
 from agent_debugger_sdk.core.events.tools import ToolCallEvent, ToolResultEvent
 
+# Force populate the EVENT_TYPE_REGISTRY to ensure class identity consistency
+# when modules are imported in different orders (e.g., in tests)
+# This must happen AFTER all event classes are imported
+try:
+    # Access via dict key to trigger __missing__ and populate the registry
+    _ = EVENT_TYPE_REGISTRY[EventType.TOOL_CALL]
+except KeyError:
+    # If TOOL_CALL is not registered yet, try another event type
+    pass
+
 __all__ = [
     # From base.py
     "BASE_EVENT_FIELDS",

@@ -26,7 +26,7 @@ def test_version_exists():
     except PackageNotFoundError:
         # Package not installed in development mode - this is OK
         # Just verify the hardcoded version is valid
-        assert agent_debugger_sdk.__version__ == "0.1.2"
+        assert agent_debugger_sdk.__version__ == "0.1.4"
 
 
 def test_version_format():
@@ -51,17 +51,28 @@ def test_all_exports_importable():
 
 
 def test_no_circular_imports():
-    """Test that the package can be imported without circular dependency issues."""
+    """Test that the package can be imported without circular dependency issues.
+
+    NOTE: This test deletes and re-imports all agent_debugger_sdk modules,
+    which can cause issues with other tests that hold references to event classes.
+    This test should be run in isolation or with pytest --forked if available.
+    """
     import sys
-    
+
     # Remove from cache if present
     modules_to_remove = [
-        key for key in sys.modules.keys() 
+        key for key in sys.modules.keys()
         if key.startswith('agent_debugger_sdk')
     ]
     for module in modules_to_remove:
         del sys.modules[module]
-    
+
     # Re-import should work without issues
     import agent_debugger_sdk
     assert agent_debugger_sdk is not None
+
+    # Verify the EVENT_TYPE_REGISTRY is populated after re-import
+    from agent_debugger_sdk.core.events import EVENT_TYPE_REGISTRY, EventType
+    # Access the registry to ensure it's populated
+    _ = EVENT_TYPE_REGISTRY.get(EventType.TOOL_CALL)
+    assert len(EVENT_TYPE_REGISTRY) > 0, "EVENT_TYPE_REGISTRY should be populated after re-import"
