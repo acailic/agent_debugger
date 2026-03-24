@@ -6,7 +6,7 @@ and provides methods for recording decisions, tool results, errors, and
 checkpoints.
 """
 
-from .pipeline import configure_event_pipeline, _get_default_event_buffer
+from .pipeline import _get_default_event_buffer, configure_event_pipeline
 from .trace_context import TraceContext
 from .vars import get_current_context, get_current_parent_id, get_current_session_id
 

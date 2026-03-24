@@ -20,22 +20,21 @@ Example:
         return "Hello!"
 """
 
-from .agent import trace_agent
-from .llm import trace_llm
-from .tool import trace_tool
-
 # Internal utilities (exported for testing)
 from ._utils import (
     _sanitize_arguments,
-    _truncate_value,
     _sanitize_result,
+    _truncate_value,
 )
+from .agent import trace_agent
 from .llm import (
-    _extract_messages,
-    _extract_tools,
-    _extract_settings,
     _extract_llm_response,
+    _extract_messages,
+    _extract_settings,
+    _extract_tools,
+    trace_llm,
 )
+from .tool import trace_tool
 
 __all__ = [
     "trace_agent",
