@@ -100,6 +100,7 @@ function EventReferenceList({
 function EventDetail({
   event,
   ranking,
+  diagnosis,
   eventLookup,
   onSelectEvent,
   onFocusReplay,
@@ -107,6 +108,7 @@ function EventDetail({
 }: {
   event: TraceEvent | null
   ranking?: TraceBundle['analysis']['event_rankings'][number]
+  diagnosis?: TraceBundle['analysis']['failure_explanations'][number]
   eventLookup: Map<string, TraceEvent>
   onSelectEvent: (eventId: string) => void
   onFocusReplay: (eventId: string) => void
@@ -169,6 +171,58 @@ function EventDetail({
       )}
 
       <div className="detail-sections">
+        {diagnosis && (
+          <div className="diagnosis-card">
+            <div className="diagnosis-head">
+              <h3>Failure Diagnosis</h3>
+              <span className="diagnosis-badge">{diagnosis.failure_mode.replaceAll('_', ' ')}</span>
+            </div>
+            <p>{diagnosis.narrative}</p>
+            <div className="analysis-strip">
+              <span>Confidence {diagnosis.confidence.toFixed(2)}</span>
+              <span>Candidates {diagnosis.candidates.length}</span>
+              <span>Inspect {diagnosis.next_inspection_event_id.slice(0, 8)}</span>
+            </div>
+            {diagnosis.likely_cause_event_id ? (
+              <div className="detail-actions">
+                <button type="button" onClick={() => onSelectEvent(diagnosis.likely_cause_event_id!)}>
+                  Inspect likely cause
+                </button>
+                <button type="button" onClick={() => onFocusReplay(diagnosis.next_inspection_event_id)}>
+                  Replay from suspect
+                </button>
+              </div>
+            ) : null}
+            <EventReferenceList
+              title="Supporting Chain"
+              eventIds={diagnosis.supporting_event_ids}
+              eventLookup={eventLookup}
+              onSelectEvent={onSelectEvent}
+            />
+            {diagnosis.candidates.length ? (
+              <div>
+                <h3>Candidate Causes</h3>
+                <div className="candidate-list">
+                  {diagnosis.candidates.map((candidate) => (
+                    <button
+                      key={candidate.event_id}
+                      type="button"
+                      className="candidate-card"
+                      onClick={() => onSelectEvent(candidate.event_id)}
+                    >
+                      <div className="candidate-head">
+                        <span>{candidate.event_type.replaceAll('_', ' ')}</span>
+                        <strong>{candidate.score.toFixed(2)}</strong>
+                      </div>
+                      <strong>{candidate.headline}</strong>
+                      <p>{candidate.rationale}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
         {event.reasoning && (
           <div>
             <h3>Reasoning</h3>
@@ -223,6 +277,35 @@ function EventDetail({
         </div>
       </div>
     </section>
+  )
+}
+
+function FailureExplanationCard({
+  explanation,
+  onInspect,
+  onFocusReplay,
+}: {
+  explanation: TraceBundle['analysis']['failure_explanations'][number]
+  onInspect: (eventId: string) => void
+  onFocusReplay: (eventId: string) => void
+}) {
+  return (
+    <button
+      type="button"
+      className="diagnosis-overview-card"
+      onClick={() => {
+        onInspect(explanation.failure_event_id)
+        onFocusReplay(explanation.next_inspection_event_id)
+      }}
+    >
+      <div className="diagnosis-head">
+        <span>{explanation.failure_mode.replaceAll('_', ' ')}</span>
+        <strong>{explanation.confidence.toFixed(2)}</strong>
+      </div>
+      <h3>{explanation.failure_headline}</h3>
+      <p>{explanation.symptom}</p>
+      <small>{explanation.likely_cause}</small>
+    </button>
   )
 }
 
@@ -544,6 +627,11 @@ function App() {
     () => bundle?.analysis.event_rankings.find((ranking) => ranking.event_id === (activeEventForInspectors?.id ?? selectedEventId ?? '')),
     [bundle?.analysis.event_rankings, activeEventForInspectors?.id, selectedEventId],
   )
+  const selectedDiagnosis = useMemo(() => {
+    const activeEventId = activeEventForInspectors?.id ?? selectedEventId ?? ''
+    if (!activeEventId) return undefined
+    return bundle?.analysis.failure_explanations.find((explanation) => explanation.failure_event_id === activeEventId)
+  }, [activeEventForInspectors?.id, bundle?.analysis.failure_explanations, selectedEventId])
 
   const currentSession = sessions.find((session) => session.id === selectedSessionId) ?? bundle?.session ?? null
   const fullRetentionCount = useMemo(
@@ -793,6 +881,19 @@ function App() {
               <span>Checkpoints ranked {bundle?.analysis.checkpoint_rankings.length ?? 0}</span>
               <span>High severity {bundle?.analysis.session_summary.high_severity_count ?? 0}</span>
             </div>
+            <div className="diagnosis-overview-grid">
+              {bundle?.analysis.failure_explanations.slice(0, 3).map((explanation) => (
+                <FailureExplanationCard
+                  key={explanation.failure_event_id}
+                  explanation={explanation}
+                  onInspect={inspectEvent}
+                  onFocusReplay={(eventId) => {
+                    setReplayMode('focus')
+                    setSelectedEventId(eventId)
+                  }}
+                />
+              )) ?? null}
+            </div>
           </section>
 
           <section className="panel coordination-panel">
@@ -1009,6 +1110,7 @@ function App() {
           <EventDetail
             event={activeEventForInspectors}
             ranking={selectedRanking}
+            diagnosis={selectedDiagnosis}
             eventLookup={eventLookup}
             onSelectEvent={inspectEvent}
             onFocusReplay={(eventId) => {

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from api.dependencies import get_repository
 from api.schemas import (
@@ -154,5 +154,30 @@ async def stream_session_events(
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.get("/api/sessions/{session_id}/export")
+async def export_session(
+    session_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> JSONResponse:
+    session = await require_session(repo, session_id)
+    events = await repo.list_events(session_id, limit=10_000)
+    checkpoints = await repo.list_checkpoints(session_id)
+
+    export_data = {
+        "export_version": "1.0",
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "session": session.to_dict(),
+        "events": [event.to_dict() for event in events],
+        "checkpoints": [checkpoint.to_dict() for checkpoint in checkpoints],
+    }
+
+    return JSONResponse(
+        content=export_data,
+        headers={
+            "Content-Disposition": f'attachment; filename="session_{session_id}_export.json"'
         },
     )

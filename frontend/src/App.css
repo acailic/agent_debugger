@@ -106,6 +106,8 @@ button {
   border-radius: 1.2rem;
   background: color-mix(in oklch, var(--panel), var(--accent) 4%);
   border: 1px solid color-mix(in oklch, var(--panel-border), var(--accent) 22%);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .metric-label {
@@ -121,6 +123,9 @@ button {
 .session-stats strong,
 .detail-grid strong {
   font-size: 1.2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .error-banner {
@@ -152,6 +157,8 @@ button {
 .main-stage {
   display: grid;
   gap: 1rem;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .session-rail,
@@ -199,6 +206,8 @@ button {
   background: color-mix(in oklch, var(--panel), var(--bg-strong) 38%);
   border: 1px solid transparent;
   text-align: left;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .session-card:hover,
@@ -219,6 +228,9 @@ button {
 
 .session-name {
   font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .session-card-metrics {
@@ -234,6 +246,9 @@ button {
 .session-status {
   font-size: 0.85rem;
   color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .session-stats,
@@ -261,9 +276,10 @@ button {
 }
 
 .mode-switches button {
-  padding: 0.75rem 1rem;
+  padding: 0.9rem 1.25rem;
   border-radius: 999px;
   background: color-mix(in oklch, var(--panel), var(--bg-strong) 35%);
+  min-height: 44px;
 }
 
 .session-sort-switches {
@@ -335,10 +351,11 @@ button {
 }
 
 .search-submit {
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1.15rem;
   border-radius: 999px;
   background: color-mix(in oklch, var(--accent), white 22%);
   color: white;
+  min-height: 44px;
 }
 
 .search-submit:disabled {
@@ -561,7 +578,8 @@ button {
 }
 
 .compare-select {
-  min-width: 15rem;
+  min-width: min(15rem, 100%);
+  max-width: 100%;
   padding: 0.7rem 0.85rem;
   border-radius: 1rem;
   border: 1px solid var(--panel-border);
@@ -730,6 +748,7 @@ button {
   gap: 0.45rem;
   max-height: 28rem;
   overflow: auto;
+  min-width: 0;
 }
 
 .timeline-event {
@@ -784,6 +803,8 @@ button {
 .event-info {
   display: grid;
   gap: 0.2rem;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .event-type {
@@ -795,6 +816,9 @@ button {
 
 .event-summary {
   font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .event-time,
@@ -812,9 +836,10 @@ button {
 }
 
 .tree-controls button {
-  padding: 0.55rem 0.8rem;
+  padding: 0.75rem 1rem;
   border-radius: 999px;
   background: color-mix(in oklch, var(--panel), var(--bg-strong) 42%);
+  min-height: 44px;
 }
 
 .tree-legend {
@@ -858,9 +883,10 @@ button {
 
 .replay-controls button,
 .speed-select {
-  padding: 0.7rem 0.8rem;
+  padding: 0.85rem 1rem;
   border-radius: 1rem;
   background: color-mix(in oklch, var(--panel), var(--bg-strong) 42%);
+  min-height: 44px;
 }
 
 .timeline-container {
@@ -1039,6 +1065,79 @@ button {
   gap: 0.85rem;
 }
 
+.diagnosis-overview-grid,
+.candidate-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.diagnosis-overview-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 1rem;
+}
+
+.diagnosis-overview-card,
+.candidate-card,
+.diagnosis-card {
+  border: 1px solid var(--panel-border);
+  border-radius: 1.1rem;
+}
+
+.diagnosis-overview-card,
+.candidate-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 36%);
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+
+.diagnosis-overview-card:hover,
+.candidate-card:hover {
+  transform: translateY(-1px);
+}
+
+.diagnosis-overview-card small,
+.candidate-card p {
+  color: var(--muted);
+}
+
+.diagnosis-card {
+  padding: 1rem;
+  background: color-mix(in oklch, var(--panel), var(--accent) 6%);
+}
+
+.diagnosis-head,
+.candidate-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.diagnosis-head span,
+.candidate-head span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.diagnosis-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--danger), white 82%);
+  color: var(--danger);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+ }
+
 .message,
 .tool-call,
 .code-block,
@@ -1122,7 +1221,8 @@ pre {
   .conversation-list,
   .compare-header,
   .compare-token-grid,
-  .live-grid {
+  .live-grid,
+  .diagnosis-overview-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1131,12 +1231,65 @@ pre {
   }
 }
 
+/* Intermediate breakpoint for checkpoint-list: 3-column layout */
+@media (max-width: 1100px) {
+  .workspace {
+    grid-template-columns: minmax(14rem, 1fr) minmax(0, 1.5fr);
+    gap: 0.875rem;
+  }
+
+  /* Stack detail rail below main content on tablets */
+  .detail-rail {
+    grid-column: 1 / -1;
+  }
+
+  .trace-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .checkpoint-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Intermediate breakpoint for tablets: 2-column grid layouts */
+@media (max-width: 1000px) {
+  .hero-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .compare-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .live-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .checkpoint-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 760px) {
+  /* Ensure workspace is single column on mobile */
+  .workspace {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  /* Ensure all rails stack vertically */
+  .session-rail,
+  .detail-rail,
+  .main-stage {
+    width: 100%;
+    max-width: 100%;
+  }
+
   .hero-metrics,
   .breakpoint-grid,
   .session-stats,
   .detail-grid,
-  .replay-controls,
   .detail-actions,
   .checkpoint-grid,
   .checkpoint-actions,
@@ -1147,7 +1300,264 @@ pre {
     grid-template-columns: 1fr;
   }
 
+  /* Flex-based replay controls for small tablets */
   .replay-controls {
-    display: grid;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .replay-controls button {
+    flex: 0 0 auto;
+  }
+
+  .timeline-container {
+    flex: 1 1 100%;
+    order: -1;
+    margin-bottom: 0.25rem;
+  }
+
+  .event-counter,
+  .speed-select {
+    flex: 1 1 auto;
+    min-width: 6rem;
+  }
+}
+
+/* Mobile touch targets: minimum 44x44px for accessibility */
+@media (max-width: 480px) {
+  button,
+  .session-card,
+  .conversation-row,
+  .live-card,
+  .checkpoint-card,
+  .search-result,
+  .cluster-pill,
+  .alert-row {
+    min-height: 44px;
+  }
+}
+
+/* Intermediate breakpoint for small tablets (600px) - 2-column grids */
+@media (max-width: 600px) {
+  .hero-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .session-stats,
+  .detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .breakpoint-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .compare-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .live-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .checkpoint-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .diagnosis-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .panel {
+    border-radius: 1.2rem;
+  }
+
+  .session-rail,
+  .detail-rail,
+  .main-stage,
+  .control-bar,
+  .analysis-ribbon,
+  .event-detail,
+  .alerts-panel,
+  .search-panel {
+    padding: 1rem;
+  }
+
+  .hero {
+    padding: 1rem;
+    border-radius: 1.2rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+  }
+}
+
+/* Mobile breakpoint for phones (480px) - single column */
+@media (max-width: 480px) {
+  .app-shell {
+    padding: 0.75rem;
+  }
+
+  .hero {
+    padding: 1rem;
+    border-radius: 1rem;
+  }
+
+  .hero h1 {
+    font-size: 1.8rem;
+  }
+
+  .hero-copy {
+    font-size: 0.9rem;
+  }
+
+  .hero-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .session-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .breakpoint-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .checkpoint-list {
+    grid-template-columns: 1fr;
+  }
+
+  .compare-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .live-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnosis-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .replay-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .replay-controls button {
+    padding: 0.6rem 0.7rem;
+    font-size: 0.85rem;
+  }
+
+  .replay-controls .speed-select {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .timeline-container {
+    order: 10;
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  .panel {
+    border-radius: 1rem;
+  }
+
+  .session-rail,
+  .detail-rail,
+  .main-stage,
+  .control-bar,
+  .analysis-ribbon,
+  .event-detail,
+  .alerts-panel,
+  .search-panel {
+    padding: 0.85rem;
+  }
+
+  .rail-head h2,
+  .control-bar h2,
+  .analysis-ribbon h2,
+  .alerts-panel h2,
+  .search-panel h2 {
+    font-size: 1.2rem;
+  }
+
+  .mode-switches button {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.85rem;
+  }
+
+  .session-card {
+    padding: 0.85rem;
+    border-radius: 0.9rem;
+  }
+
+  .hero-metrics > div,
+  .session-stats > div,
+  .detail-grid > div {
+    padding: 0.85rem;
+    border-radius: 1rem;
+  }
+
+  .hero-metrics strong,
+  .session-stats strong,
+  .detail-grid strong {
+    font-size: 1.1rem;
+  }
+
+  .conversation-list {
+    grid-template-columns: 1fr;
+  }
+
+  .inspectors-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trace-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .checkpoint-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .checkpoint-compare-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .compare-header,
+  .compare-token-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .checkpoint-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Hide less critical elements on very small screens */
+  .tree-legend {
+    display: none;
+  }
+
+  .event-counter {
+    display: none;
+  }
+
+  .replay-summary {
+    flex-direction: column;
+    gap: 0.5rem;
   }
 }

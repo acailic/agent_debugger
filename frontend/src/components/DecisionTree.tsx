@@ -37,13 +37,20 @@ const NODE_COLORS: Record<string, string> = {
 }
 
 const NODE_SIZE = 12
-const NODE_SPACING_X = 180
-const NODE_SPACING_Y = 60
+const NODE_SPACING_X_BASE = 180
+const NODE_SPACING_Y_BASE = 60
+const TOOLTIP_OFFSET = 10
+const TOOLTIP_MAX_WIDTH = 200
+const TOOLTIP_MAX_HEIGHT = 100
 
 export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionTreeProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
+
+  // Scale node spacing based on container width for responsiveness
+  const nodeSpacingX = Math.max(100, Math.min(NODE_SPACING_X_BASE, dimensions.width * 0.22))
+  const nodeSpacingY = Math.max(40, Math.min(NODE_SPACING_Y_BASE, dimensions.height * 0.1))
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number; content: string }>({
@@ -100,10 +107,15 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
       const node = d.data
       const timestamp = new Date(node.event.timestamp).toLocaleTimeString()
       const content = `${node.event.event_type}\n${timestamp}\nID: ${node.id.slice(0, 8)}`
+
+      // Calculate tooltip position with viewport boundary detection
+      const tooltipX = Math.min(event.clientX + TOOLTIP_OFFSET, window.innerWidth - TOOLTIP_MAX_WIDTH - TOOLTIP_OFFSET)
+      const tooltipY = Math.min(event.clientY + TOOLTIP_OFFSET, window.innerHeight - TOOLTIP_MAX_HEIGHT - TOOLTIP_OFFSET)
+
       setTooltip({
         visible: true,
-        x: event.clientX + 10,
-        y: event.clientY + 10,
+        x: Math.max(TOOLTIP_OFFSET, tooltipX),
+        y: Math.max(TOOLTIP_OFFSET, tooltipY),
         content,
       })
     },
@@ -121,7 +133,7 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
     svg.selectAll('*').remove()
 
     const root = d3.hierarchy(convertToD3Tree(tree))
-    const treeLayout = d3.tree<D3TreeNode>().nodeSize([NODE_SPACING_X, NODE_SPACING_Y])
+    const treeLayout = d3.tree<D3TreeNode>().nodeSize([nodeSpacingX, nodeSpacingY])
     treeLayout(root)
 
     let minX = Infinity
@@ -135,8 +147,8 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
       maxY = Math.max(maxY, d.y ?? 0)
     })
 
-    const offsetX = -minX + NODE_SPACING_X
-    const offsetY = NODE_SPACING_Y
+    const offsetX = -minX + nodeSpacingX
+    const offsetY = nodeSpacingY
 
     const g = svg
       .append('g')

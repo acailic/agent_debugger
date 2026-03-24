@@ -11,6 +11,8 @@ Capture every decision, tool call, and LLM interaction as a queryable event time
 
 ![Agent Debugger UI](./docs/assets/screenshot-full-ui.png)
 
+**New to Peaky Peek?** See the [5-Minute Getting Started Guide](./docs/getting-started.md).
+
 ## Why This Exists
 
 Traditional observability tools weren't built for agent-native debugging:

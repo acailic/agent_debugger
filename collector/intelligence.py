@@ -49,6 +49,388 @@ class TraceIntelligence:
                 EventType.AGENT_END: 0.2,
             }
 
+    def event_headline(self, event: TraceEvent) -> str:
+        """Return a compact human-readable label for an event."""
+        match event.event_type:
+            case EventType.DECISION:
+                return _event_value(event, "chosen_action", event.name or "decision")
+            case EventType.TOOL_CALL | EventType.TOOL_RESULT:
+                return _event_value(event, "tool_name", event.name or "tool")
+            case EventType.REFUSAL:
+                return _event_value(event, "reason", event.name or "refusal")
+            case EventType.SAFETY_CHECK:
+                policy_name = _event_value(event, "policy_name", "safety")
+                outcome = _event_value(event, "outcome", "pass")
+                return f"{policy_name} -> {outcome}"
+            case EventType.POLICY_VIOLATION:
+                return _event_value(event, "violation_type", event.name or "policy violation")
+            case EventType.BEHAVIOR_ALERT:
+                return _event_value(event, "alert_type", event.name or "behavior alert")
+            case EventType.ERROR:
+                return _event_value(event, "error_type", event.name or "error")
+            case EventType.AGENT_TURN:
+                return _event_value(event, "speaker", _event_value(event, "agent_id", event.name or "turn"))
+            case _:
+                return event.name or str(event.event_type)
+
+    def is_failure_event(self, event: TraceEvent) -> bool:
+        """Return whether an event should receive post-hoc diagnosis."""
+        return (
+            event.event_type == EventType.ERROR
+            or event.event_type == EventType.REFUSAL
+            or event.event_type == EventType.POLICY_VIOLATION
+            or event.event_type == EventType.BEHAVIOR_ALERT
+            or (event.event_type == EventType.TOOL_RESULT and bool(_event_value(event, "error")))
+            or (
+                event.event_type == EventType.SAFETY_CHECK
+                and _event_value(event, "outcome", "pass") != "pass"
+            )
+        )
+
+    def _clip(self, value: Any, limit: int = 120) -> str:
+        text = str(value or "").strip()
+        if len(text) <= limit:
+            return text
+        return f"{text[: limit - 1].rstrip()}…"
+
+    def _relation_label(self, relation: str) -> str:
+        labels = {
+            "parent": "parent link",
+            "upstream": "upstream dependency",
+            "evidence": "evidence provenance",
+            "related": "related event",
+            "inferred_tool_call": "inferred tool invocation",
+            "inferred_decision": "inferred decision",
+            "inferred_guardrail": "inferred guardrail",
+            "inferred_policy": "inferred prompt policy",
+            "inferred_llm_response": "inferred model output",
+            "inferred_tool_result": "inferred tool result",
+        }
+        return labels.get(relation, relation.replace("_", " "))
+
+    def _find_previous_event(
+        self,
+        events: list[TraceEvent],
+        *,
+        start_index: int,
+        predicate,
+        max_distance: int = 6,
+    ) -> TraceEvent | None:
+        window_start = max(0, start_index - max_distance)
+        for index in range(start_index - 1, window_start - 1, -1):
+            event = events[index]
+            if predicate(event):
+                return event
+        return None
+
+    def _iter_direct_causes(
+        self,
+        event: TraceEvent,
+        *,
+        events: list[TraceEvent],
+        id_lookup: dict[str, TraceEvent],
+        index_lookup: dict[str, int],
+    ) -> list[tuple[TraceEvent, str, bool, float]]:
+        direct_causes: list[tuple[TraceEvent, str, bool, float]] = []
+        seen_ids: set[str] = set()
+        event_index = index_lookup.get(event.id, 0)
+
+        def add(event_id: str | None, relation: str, explicit: bool, weight: float) -> None:
+            if not event_id or event_id == event.id or event_id in seen_ids:
+                return
+            cause = id_lookup.get(event_id)
+            if cause is None:
+                return
+            seen_ids.add(event_id)
+            direct_causes.append((cause, relation, explicit, weight))
+
+        add(event.parent_id, "parent", True, 0.86)
+
+        for upstream_id in _event_value(event, "upstream_event_ids", getattr(event, "upstream_event_ids", [])) or []:
+            add(upstream_id, "upstream", True, 0.98)
+        for evidence_id in _event_value(event, "evidence_event_ids", []) or []:
+            add(evidence_id, "evidence", True, 0.94)
+        for related_id in _event_value(event, "related_event_ids", []) or []:
+            add(related_id, "related", True, 0.76)
+
+        tool_name = _event_value(event, "tool_name", "")
+        previous_decision = self._find_previous_event(
+            events,
+            start_index=event_index,
+            predicate=lambda candidate: candidate.event_type == EventType.DECISION,
+            max_distance=6,
+        )
+        previous_policy = self._find_previous_event(
+            events,
+            start_index=event_index,
+            predicate=lambda candidate: candidate.event_type == EventType.PROMPT_POLICY,
+            max_distance=8,
+        )
+        previous_guardrail = self._find_previous_event(
+            events,
+            start_index=event_index,
+            predicate=lambda candidate: (
+                candidate.event_type in {EventType.SAFETY_CHECK, EventType.REFUSAL, EventType.POLICY_VIOLATION}
+            ),
+            max_distance=6,
+        )
+        previous_llm_response = self._find_previous_event(
+            events,
+            start_index=event_index,
+            predicate=lambda candidate: candidate.event_type == EventType.LLM_RESPONSE,
+            max_distance=5,
+        )
+        previous_tool_call = self._find_previous_event(
+            events,
+            start_index=event_index,
+            predicate=lambda candidate: (
+                candidate.event_type == EventType.TOOL_CALL
+                and bool(tool_name)
+                and _event_value(candidate, "tool_name", "") == tool_name
+            ),
+            max_distance=6,
+        )
+        previous_tool_result = self._find_previous_event(
+            events,
+            start_index=event_index,
+            predicate=lambda candidate: (
+                candidate.event_type == EventType.TOOL_RESULT
+                and bool(tool_name)
+                and _event_value(candidate, "tool_name", "") == tool_name
+            ),
+            max_distance=6,
+        )
+
+        if event.event_type == EventType.DECISION:
+            add(previous_llm_response.id if previous_llm_response else None, "inferred_llm_response", False, 0.6)
+            add(previous_guardrail.id if previous_guardrail else None, "inferred_guardrail", False, 0.52)
+
+        if event.event_type == EventType.TOOL_RESULT and bool(_event_value(event, "error")):
+            add(previous_tool_call.id if previous_tool_call else None, "inferred_tool_call", False, 0.82)
+            add(previous_decision.id if previous_decision else None, "inferred_decision", False, 0.72)
+
+        if event.event_type in {EventType.ERROR, EventType.REFUSAL, EventType.POLICY_VIOLATION}:
+            add(previous_decision.id if previous_decision else None, "inferred_decision", False, 0.74)
+            add(previous_guardrail.id if previous_guardrail else None, "inferred_guardrail", False, 0.8)
+            add(previous_policy.id if previous_policy else None, "inferred_policy", False, 0.66)
+            add(previous_tool_result.id if previous_tool_result else None, "inferred_tool_result", False, 0.62)
+
+        if event.event_type == EventType.SAFETY_CHECK and _event_value(event, "outcome", "pass") != "pass":
+            add(previous_decision.id if previous_decision else None, "inferred_decision", False, 0.68)
+            add(previous_policy.id if previous_policy else None, "inferred_policy", False, 0.78)
+
+        if event.event_type == EventType.BEHAVIOR_ALERT:
+            add(previous_decision.id if previous_decision else None, "inferred_decision", False, 0.62)
+            add(previous_tool_call.id if previous_tool_call else None, "inferred_tool_call", False, 0.72)
+
+        return direct_causes
+
+    def _candidate_rationale(self, event: TraceEvent, relation: str, explicit: bool) -> str:
+        relation_label = self._relation_label(relation)
+        rationale = f"{'Explicit' if explicit else 'Inferred'} {relation_label}"
+
+        if event.event_type == EventType.DECISION:
+            confidence = float(_event_value(event, "confidence", 0.5) or 0.5)
+            evidence = _event_value(event, "evidence", []) or []
+            if confidence < 0.4:
+                rationale += f"; low confidence {confidence:.2f}"
+            if not evidence:
+                rationale += "; missing evidence"
+        elif event.event_type == EventType.TOOL_RESULT and _event_value(event, "error"):
+            rationale += f"; tool error {self._clip(_event_value(event, 'error', ''), 60)}"
+        elif event.event_type == EventType.ERROR:
+            rationale += f"; {_event_value(event, 'error_type', 'runtime error')}"
+        elif event.event_type == EventType.SAFETY_CHECK:
+            rationale += f"; outcome {_event_value(event, 'outcome', 'pass')}"
+        elif event.event_type == EventType.REFUSAL:
+            rationale += f"; risk {_event_value(event, 'risk_level', 'unknown')}"
+
+        return rationale
+
+    def _rank_failure_candidates(
+        self,
+        failure_event: TraceEvent,
+        *,
+        events: list[TraceEvent],
+        id_lookup: dict[str, TraceEvent],
+        index_lookup: dict[str, int],
+        ranking_by_event_id: dict[str, dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        candidate_map: dict[str, dict[str, Any]] = {}
+        queue: list[tuple[TraceEvent, int, float, list[str]]] = [(failure_event, 0, 1.0, [failure_event.id])]
+
+        while queue:
+            current_event, depth, path_strength, path = queue.pop(0)
+            if depth >= 3:
+                continue
+
+            for cause, relation, explicit, relation_weight in self._iter_direct_causes(
+                current_event,
+                events=events,
+                id_lookup=id_lookup,
+                index_lookup=index_lookup,
+            ):
+                next_path = [*path, cause.id]
+                ranking = ranking_by_event_id.get(cause.id, {})
+                severity = float(ranking.get("severity", self.severity(cause)))
+                composite = float(ranking.get("composite", severity))
+                depth_bonus = max(0.0, 0.1 - depth * 0.03)
+                decision_penalty = 0.0
+                if cause.event_type == EventType.DECISION:
+                    confidence = float(_event_value(cause, "confidence", 0.5) or 0.5)
+                    decision_penalty += (1 - confidence) * 0.12
+                    if not (_event_value(cause, "evidence", []) or []):
+                        decision_penalty += 0.06
+
+                score = min(
+                    1.0,
+                    path_strength * relation_weight * 0.42
+                    + severity * 0.22
+                    + composite * 0.18
+                    + float(cause.importance or 0.0) * 0.08
+                    + depth_bonus
+                    + decision_penalty,
+                )
+
+                existing = candidate_map.get(cause.id)
+                candidate_payload = {
+                    "event_id": cause.id,
+                    "event_type": str(cause.event_type),
+                    "headline": self.event_headline(cause),
+                    "score": round(score, 4),
+                    "causal_depth": depth + 1,
+                    "relation": relation,
+                    "relation_label": self._relation_label(relation),
+                    "explicit": explicit,
+                    "supporting_event_ids": next_path,
+                    "rationale": self._candidate_rationale(cause, relation, explicit),
+                }
+                if existing is None or score > float(existing["score"]):
+                    candidate_map[cause.id] = candidate_payload
+                    queue.append((cause, depth + 1, path_strength * relation_weight, next_path))
+
+        return sorted(candidate_map.values(), key=lambda item: (-float(item["score"]), item["causal_depth"]))[:3]
+
+    def _failure_mode(self, failure_event: TraceEvent, top_candidate: dict[str, Any] | None, id_lookup: dict[str, TraceEvent]) -> str:
+        if failure_event.event_type == EventType.BEHAVIOR_ALERT:
+            alert_type = _event_value(failure_event, "alert_type", "")
+            if alert_type == "tool_loop":
+                return "looping_behavior"
+            return "behavior_anomaly"
+        if failure_event.event_type in {EventType.REFUSAL, EventType.SAFETY_CHECK}:
+            return "guardrail_block"
+        if failure_event.event_type == EventType.POLICY_VIOLATION:
+            return "policy_mismatch"
+        if failure_event.event_type == EventType.TOOL_RESULT and _event_value(failure_event, "error"):
+            if top_candidate:
+                candidate_event = id_lookup.get(top_candidate["event_id"])
+                if candidate_event and candidate_event.event_type == EventType.DECISION:
+                    confidence = float(_event_value(candidate_event, "confidence", 0.5) or 0.5)
+                    if confidence < 0.4 or not (_event_value(candidate_event, "evidence", []) or []):
+                        return "ungrounded_decision"
+            return "tool_execution_failure"
+        if failure_event.event_type == EventType.ERROR:
+            return "upstream_runtime_error"
+        return "diagnostic_review"
+
+    def _failure_symptom(self, failure_event: TraceEvent) -> str:
+        if failure_event.event_type == EventType.TOOL_RESULT:
+            return (
+                f'Tool "{self.event_headline(failure_event)}" failed'
+                f' with {self._clip(_event_value(failure_event, "error", "unknown error"), 72)}'
+            )
+        if failure_event.event_type == EventType.ERROR:
+            return (
+                f'{_event_value(failure_event, "error_type", "RuntimeError")} raised'
+                f' with {self._clip(_event_value(failure_event, "error_message", "no message"), 72)}'
+            )
+        if failure_event.event_type == EventType.REFUSAL:
+            return f"Request was refused: {self._clip(_event_value(failure_event, 'reason', 'no reason provided'), 88)}"
+        if failure_event.event_type == EventType.POLICY_VIOLATION:
+            return f"Policy violation: {self._clip(_event_value(failure_event, 'violation_type', failure_event.name or 'unknown'), 72)}"
+        if failure_event.event_type == EventType.BEHAVIOR_ALERT:
+            return self._clip(_event_value(failure_event, "signal", failure_event.name or "behavior alert"), 96)
+        if failure_event.event_type == EventType.SAFETY_CHECK:
+            return (
+                f'Safety check "{_event_value(failure_event, "policy_name", "policy")}"'
+                f' returned {_event_value(failure_event, "outcome", "pass")}'
+            )
+        return self._clip(self.event_headline(failure_event), 96)
+
+    def _likely_cause_text(self, candidate: dict[str, Any] | None, id_lookup: dict[str, TraceEvent]) -> str:
+        if not candidate:
+            return "No strong upstream cause was identified from the captured links."
+        cause = id_lookup.get(candidate["event_id"])
+        if cause is None:
+            return "Most likely cause event could not be resolved."
+
+        description = f'{str(cause.event_type).replace("_", " ")} "{self.event_headline(cause)}"'
+        if cause.event_type == EventType.DECISION:
+            confidence = float(_event_value(cause, "confidence", 0.5) or 0.5)
+            evidence = _event_value(cause, "evidence", []) or []
+            evidence_note = "with evidence" if evidence else "without evidence"
+            return f"{description} appears upstream via {candidate['relation_label']} at confidence {confidence:.2f} {evidence_note}."
+        if cause.event_type == EventType.TOOL_RESULT and _event_value(cause, "error"):
+            return f"{description} already failed upstream via {candidate['relation_label']}."
+        return f"{description} is the strongest upstream suspect via {candidate['relation_label']}."
+
+    def _build_failure_explanations(
+        self,
+        events: list[TraceEvent],
+        ranking_by_event_id: dict[str, dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        id_lookup = {event.id: event for event in events}
+        index_lookup = {event.id: index for index, event in enumerate(events)}
+        explanations: list[dict[str, Any]] = []
+
+        for failure_event in events:
+            if not self.is_failure_event(failure_event):
+                continue
+
+            candidates = self._rank_failure_candidates(
+                failure_event,
+                events=events,
+                id_lookup=id_lookup,
+                index_lookup=index_lookup,
+                ranking_by_event_id=ranking_by_event_id,
+            )
+            top_candidate = candidates[0] if candidates else None
+            failure_mode = self._failure_mode(failure_event, top_candidate, id_lookup)
+            symptom = self._failure_symptom(failure_event)
+            likely_cause = self._likely_cause_text(top_candidate, id_lookup)
+            confidence = float(top_candidate["score"]) if top_candidate else 0.0
+            supporting_event_ids = [failure_event.id]
+            if top_candidate:
+                for event_id in top_candidate["supporting_event_ids"]:
+                    if event_id not in supporting_event_ids:
+                        supporting_event_ids.append(event_id)
+
+            narrative = symptom
+            if top_candidate:
+                narrative += f" The strongest upstream suspect is {likely_cause.lower()}"
+            else:
+                narrative += " Inspect the nearest checkpoint and surrounding decisions to establish the upstream cause."
+
+            explanations.append(
+                {
+                    "failure_event_id": failure_event.id,
+                    "failure_event_type": str(failure_event.event_type),
+                    "failure_headline": self.event_headline(failure_event),
+                    "failure_mode": failure_mode,
+                    "symptom": symptom,
+                    "likely_cause": likely_cause,
+                    "likely_cause_event_id": top_candidate["event_id"] if top_candidate else None,
+                    "confidence": round(confidence, 4),
+                    "supporting_event_ids": supporting_event_ids,
+                    "next_inspection_event_id": top_candidate["event_id"] if top_candidate else failure_event.id,
+                    "narrative": narrative,
+                    "candidates": candidates,
+                }
+            )
+
+        explanations.sort(key=lambda item: (-item["confidence"], item["failure_event_id"]))
+        return explanations
+
     def fingerprint(self, event: TraceEvent) -> str:
         """Return a coarse fingerprint used for recurrence clustering."""
         match event.event_type:
@@ -263,6 +645,7 @@ class TraceIntelligence:
                     "high_severity_count": 0,
                     "checkpoint_count": 0,
                 },
+                "failure_explanations": [],
                 "live_summary": self.build_live_summary(events, checkpoints),
             }
 
@@ -348,6 +731,7 @@ class TraceIntelligence:
             for ranking in sorted(event_rankings, key=lambda item: item["composite"], reverse=True)[:12]
         ]
         ranking_by_event_id = {ranking["event_id"]: ranking for ranking in event_rankings}
+        failure_explanations = self._build_failure_explanations(events, ranking_by_event_id)
         checkpoint_rankings: list[dict[str, Any]] = []
         total_cost = sum(
             float(_event_value(event, "cost_usd", 0.0) or 0.0)
@@ -414,5 +798,6 @@ class TraceIntelligence:
                 "high_severity_count": high_severity_count,
                 "checkpoint_count": len(checkpoints),
             },
+            "failure_explanations": failure_explanations,
             "live_summary": self.build_live_summary(events, checkpoints),
         }

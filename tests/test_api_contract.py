@@ -109,6 +109,8 @@ def test_analysis_endpoint_surfaces_failure_clusters(api_repo_factory):
     assert analysis["failure_clusters"]
     assert analysis["representative_failure_ids"]
     assert analysis["failure_clusters"][0]["count"] >= 2
+    assert analysis["failure_explanations"]
+    assert analysis["failure_explanations"][0]["candidates"]
 
 
 def test_replay_endpoint_keeps_checkpoint_and_safety_breakpoints(api_repo_factory):

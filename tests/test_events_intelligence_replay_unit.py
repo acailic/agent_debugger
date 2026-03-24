@@ -157,6 +157,7 @@ def test_trace_intelligence_helper_and_empty_paths():
     assert live_summary["latest"]["checkpoint_id"] == "checkpoint-1"
     assert analysis["session_replay_value"] == 0.0
     assert analysis["retention_tier"] == "downsampled"
+    assert analysis["failure_explanations"] == []
 
 
 def test_trace_intelligence_build_live_summary_derives_recent_alerts():
@@ -305,6 +306,11 @@ def test_trace_intelligence_analyze_session_clusters_and_rankings():
     assert analysis["retention_tier"] == "full"
     assert analysis["session_summary"]["behavior_alert_count"] == 1
     assert "tool-result-2" in analysis["high_replay_value_ids"]
+    explanation = next(item for item in analysis["failure_explanations"] if item["failure_event_id"] == "tool-result-2")
+    assert explanation["failure_mode"] == "ungrounded_decision"
+    assert explanation["likely_cause_event_id"] == "decision-1"
+    assert explanation["next_inspection_event_id"] == "decision-1"
+    assert explanation["candidates"][0]["event_id"] == "decision-1"
 
 
 def test_replay_helpers_cover_focus_failure_and_breakpoint_paths():

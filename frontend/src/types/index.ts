@@ -149,11 +149,40 @@ export interface TraceAnalysisCluster {
   max_composite: number
 }
 
+export interface FailureCauseCandidate {
+  event_id: string
+  event_type: EventType
+  headline: string
+  score: number
+  causal_depth: number
+  relation: string
+  relation_label: string
+  explicit: boolean
+  supporting_event_ids: string[]
+  rationale: string
+}
+
+export interface FailureExplanation {
+  failure_event_id: string
+  failure_event_type: EventType
+  failure_headline: string
+  failure_mode: string
+  symptom: string
+  likely_cause: string
+  likely_cause_event_id: string | null
+  confidence: number
+  supporting_event_ids: string[]
+  next_inspection_event_id: string
+  narrative: string
+  candidates: FailureCauseCandidate[]
+}
+
 export interface TraceAnalysis {
   event_rankings: TraceAnalysisRanking[]
   failure_clusters: TraceAnalysisCluster[]
   representative_failure_ids: string[]
   high_replay_value_ids: string[]
+  failure_explanations: FailureExplanation[]
   checkpoint_rankings: Array<{
     checkpoint_id: string
     event_id: string
