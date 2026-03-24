@@ -52,8 +52,20 @@ Issues = "https://github.com/acailic/agent_debugger/issues"
 packages = ["agent_debugger_sdk", "api", "auth", "collector", "redaction", "storage"]
 artifacts = ["frontend/dist"]
 
+[tool.hatch.build.targets.sdist]
+artifacts = ["frontend/dist", "frontend/dist/**"]
+
 [tool.hatch.build.targets.wheel.force-include]
 "frontend/dist" = "frontend/dist"
+
+[tool.hatch.build]
+exclude = [
+    ".venv-ci",
+    "traces",
+    "dist",
+    "build",
+    "frontend/node_modules",
+]
 
 [project.scripts]
 peaky-peek = "cli:main"

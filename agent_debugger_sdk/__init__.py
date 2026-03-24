@@ -24,7 +24,7 @@ from agent_debugger_sdk.core.events import (
     TraceEvent,
 )
 from agent_debugger_sdk.core.scorer import ImportanceScorer, get_importance_scorer
-from agent_debugger_sdk.pricing import ModelPricing, get_pricing, calculate_cost
+from agent_debugger_sdk.pricing import ModelPricing, calculate_cost, get_pricing
 
 __all__ = [
     # SDK Configuration

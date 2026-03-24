@@ -48,6 +48,14 @@ Issues = "https://github.com/acailic/agent_debugger/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["agent_debugger_sdk"]
 
+[tool.hatch.build]
+exclude = [
+    ".venv-ci",
+    "traces",
+    "dist",
+    "build",
+]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests", "agent_debugger_sdk/adapters/tests"]

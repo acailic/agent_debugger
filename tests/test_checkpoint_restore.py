@@ -1,9 +1,5 @@
 """Tests for checkpoint schemas and restore functionality."""
 
-from datetime import datetime
-
-import pytest
-
 
 class TestBaseCheckpointState:
     def test_base_checkpoint_state_defaults(self):
@@ -79,9 +75,9 @@ class TestSchemaRegistry:
     def test_schema_registry_returns_correct_classes(self):
         """SCHEMA_REGISTRY should map to correct schema classes."""
         from agent_debugger_sdk.checkpoints import (
+            SCHEMA_REGISTRY,
             CustomCheckpointState,
             LangChainCheckpointState,
-            SCHEMA_REGISTRY,
         )
 
         assert SCHEMA_REGISTRY["langchain"] is LangChainCheckpointState

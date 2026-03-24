@@ -1,6 +1,4 @@
 """Tests for the pricing module."""
-import pytest
-
 
 def test_pricing_module_importable():
     """Pricing module should be importable."""
@@ -31,7 +29,7 @@ def test_get_pricing_unknown_model():
 
 def test_get_pricing_resolves_aliases():
     """get_pricing should resolve model aliases."""
-    from agent_debugger_sdk.pricing import get_pricing, MODEL_ALIASES
+    from agent_debugger_sdk.pricing import MODEL_ALIASES, get_pricing
 
     # Test that aliases work
     for alias, canonical in MODEL_ALIASES.items():

@@ -2,6 +2,7 @@ __pycache__/
 *.py[cod]
 
 .venv/
+.venv-ci/
 venv/
 .python-version
 
@@ -19,6 +20,10 @@ htmlcov/
 *.db-shm
 *.db-wal
 .tmp-*
+traces/
+dist/
+build/
+*.egg-info/
 
 # Environment variables
 .env

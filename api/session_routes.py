@@ -123,24 +123,6 @@ async def list_checkpoints(
     )
 
 
-@router.get("/api/sessions/{session_id}/export")
-async def export_session(
-    session_id: str,
-    repo: TraceRepository = Depends(get_repository),
-) -> dict:
-    """Export session as portable JSON."""
-    session = await require_session(repo, session_id)
-    events = await repo.list_events(session_id, limit=10_000)
-    checkpoints = await repo.list_checkpoints(session_id)
-    return {
-        "export_version": "1.0",
-        "exported_at": datetime.now(timezone.utc).isoformat(),
-        "session": session.to_dict(),
-        "events": [e.to_dict() for e in events],
-        "checkpoints": [c.to_dict() for c in checkpoints],
-    }
-
-
 @router.get("/api/sessions/{session_id}/stream")
 async def stream_session_events(
     session_id: str,
