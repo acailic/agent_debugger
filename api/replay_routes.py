@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+import uuid
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.dependencies import get_repository
-from api.schemas import ReplayResponse
+from api.schemas import CheckpointResponse, RestoreRequest, RestoreResponse, ReplayResponse
 from api.services import load_session_artifacts, require_session
 from collector.replay import build_replay
 from storage import TraceRepository
@@ -61,4 +64,65 @@ async def replay_session(
         nearest_checkpoint=replay_data["nearest_checkpoint"],
         breakpoints=replay_data["breakpoints"],
         failure_event_ids=replay_data["failure_event_ids"],
+    )
+
+
+@router.get("/api/checkpoints/{checkpoint_id}", response_model=CheckpointResponse)
+async def get_checkpoint(
+    checkpoint_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> CheckpointResponse:
+    """Get a single checkpoint by ID."""
+    checkpoint = await repo.get_checkpoint(checkpoint_id)
+    if checkpoint is None:
+        raise HTTPException(status_code=404, detail="Checkpoint not found")
+
+    return CheckpointResponse(
+        id=checkpoint.id,
+        session_id=checkpoint.session_id,
+        event_id=checkpoint.event_id,
+        sequence=checkpoint.sequence,
+        state=checkpoint.state,
+        memory=checkpoint.memory,
+        timestamp=checkpoint.timestamp.isoformat() if checkpoint.timestamp else "",
+        importance=checkpoint.importance,
+    )
+
+
+@router.post("/api/checkpoints/{checkpoint_id}/restore", response_model=RestoreResponse)
+async def restore_checkpoint(
+    checkpoint_id: str,
+    request: RestoreRequest,
+    repo: TraceRepository = Depends(get_repository),
+) -> RestoreResponse:
+    """Restore execution from a checkpoint by creating a new session."""
+    checkpoint = await repo.get_checkpoint(checkpoint_id)
+    if checkpoint is None:
+        raise HTTPException(status_code=404, detail="Checkpoint not found")
+
+    from agent_debugger_sdk.core.events import Session
+
+    new_session_id = request.session_id or str(uuid.uuid4())
+    restore_token = str(uuid.uuid4())
+    restored_at = datetime.now(timezone.utc).isoformat()
+
+    new_session = Session(
+        id=new_session_id,
+        agent_name=request.label or f"restored from {checkpoint_id[:8]}",
+        framework=checkpoint.state.get("framework", "custom"),
+        config={
+            "restored_from_checkpoint": checkpoint_id,
+            "original_session_id": checkpoint.session_id,
+            "restore_token": restore_token,
+        },
+    )
+    await repo.create_session(new_session)
+
+    return RestoreResponse(
+        checkpoint_id=checkpoint_id,
+        original_session_id=checkpoint.session_id,
+        new_session_id=new_session_id,
+        restored_at=restored_at,
+        state=checkpoint.state,
+        restore_token=restore_token,
     )

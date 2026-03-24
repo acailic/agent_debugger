@@ -790,7 +790,7 @@ class TraceContext:
 
     async def create_checkpoint(
         self,
-        state: dict[str, Any],
+        state: dict[str, Any] | BaseCheckpointState,
         memory: dict[str, Any] | None = None,
         importance: float = 0.5,
     ) -> str:
@@ -816,6 +816,11 @@ class TraceContext:
         """
         self._check_entered()
 
+        from agent_debugger_sdk.checkpoints import serialize_checkpoint_state, validate_checkpoint_state
+
+        validated = validate_checkpoint_state(state)
+        state_dict = serialize_checkpoint_state(validated)
+
         self._checkpoint_sequence += 1
         checkpoint_id = str(uuid.uuid4())
 
@@ -824,7 +829,7 @@ class TraceContext:
             session_id=self.session_id,
             event_id=_current_parent_id.get() or "",
             sequence=self._checkpoint_sequence,
-            state=state,
+            state=state_dict,
             memory=memory or {},
             timestamp=datetime.now(timezone.utc),
             importance=max(0.0, min(1.0, importance)),

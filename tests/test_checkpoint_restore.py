@@ -238,3 +238,106 @@ class TestTraceContextRestore:
             ) as ctx:
                 assert ctx.session_id != "sess-original"
                 assert ctx.session.config.get("restored_from_checkpoint") == "cp-test-456"
+
+
+class TestCheckpointEndpoints:
+    def test_checkpoint_schemas_importable(self):
+        """CheckpointResponse, RestoreRequest, RestoreResponse should exist in api.schemas."""
+        from api.schemas import CheckpointResponse, RestoreRequest, RestoreResponse
+
+        assert CheckpointResponse
+        assert RestoreRequest
+        assert RestoreResponse
+
+    def test_checkpoint_endpoints_registered(self):
+        """GET and POST checkpoint endpoints should be registered in the app."""
+        import api.main as api_main
+        from fastapi.routing import APIRoute
+
+        routes = [(r.path, r.methods) for r in api_main.app.routes if isinstance(r, APIRoute)]
+        assert any(p == "/api/checkpoints/{checkpoint_id}" and "GET" in m for p, m in routes)
+        assert any(p == "/api/checkpoints/{checkpoint_id}/restore" and "POST" in m for p, m in routes)
+
+    def test_get_checkpoint_returns_404_for_missing(self, tmp_path):
+        """GET /api/checkpoints/{id} should return 404 when checkpoint does not exist."""
+        import asyncio
+
+        import api.main as api_main
+        from fastapi import HTTPException
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+        from storage import Base, TraceRepository
+
+        engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path}/cp.db", echo=False)
+        session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+        async def run():
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+
+            endpoint = next(
+                r.endpoint
+                for r in api_main.app.routes
+                if hasattr(r, "path") and r.path == "/api/checkpoints/{checkpoint_id}"
+                and hasattr(r, "methods") and "GET" in r.methods
+            )
+            async with session_maker() as session:
+                repo = TraceRepository(session)
+                try:
+                    await endpoint(checkpoint_id="nonexistent-cp", repo=repo)
+                    return False  # Should have raised
+                except HTTPException as e:
+                    return e.status_code == 404
+
+        result = asyncio.run(run())
+        asyncio.run(engine.dispose())
+        assert result
+
+
+class TestCreateCheckpointValidation:
+    @pytest.mark.asyncio
+    async def test_create_checkpoint_serializes_dataclass_state_to_dict(self):
+        """create_checkpoint should serialize dataclass state to dict when persisting."""
+        from agent_debugger_sdk import TraceContext
+        from agent_debugger_sdk.checkpoints import LangChainCheckpointState
+
+        persisted: list = []
+
+        async def capture(cp):
+            persisted.append(cp)
+
+        async with TraceContext(agent_name="test") as ctx:
+            ctx._checkpoint_persister = capture
+            state = LangChainCheckpointState(
+                label="test_state",
+                messages=[{"role": "user", "content": "hi"}],
+            )
+            await ctx.create_checkpoint(state, importance=0.9)
+
+        assert len(persisted) == 1
+        assert isinstance(persisted[0].state, dict), "state must be serialized to dict"
+        assert persisted[0].state["framework"] == "langchain"
+        assert persisted[0].state["messages"] == [{"role": "user", "content": "hi"}]
+
+    @pytest.mark.asyncio
+    async def test_create_checkpoint_validates_dict_state(self):
+        """create_checkpoint should validate dict state against schema."""
+        from agent_debugger_sdk import TraceContext
+
+        persisted: list = []
+
+        async def capture(cp):
+            persisted.append(cp)
+
+        async with TraceContext(agent_name="test") as ctx:
+            ctx._checkpoint_persister = capture
+            state_dict = {
+                "framework": "langchain",
+                "label": "test_state",
+                "messages": [{"role": "user", "content": "hi"}],
+            }
+            await ctx.create_checkpoint(state_dict, importance=0.9)
+
+        assert len(persisted) == 1
+        assert isinstance(persisted[0].state, dict)
+        assert persisted[0].state["framework"] == "langchain"

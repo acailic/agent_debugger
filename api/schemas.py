@@ -49,6 +49,31 @@ class CheckpointListResponse(BaseModel):
     session_id: str
 
 
+class CheckpointResponse(BaseModel):
+    id: str
+    session_id: str
+    event_id: str
+    sequence: int
+    state: dict[str, Any]
+    memory: dict[str, Any]
+    timestamp: str
+    importance: float
+
+
+class RestoreRequest(BaseModel):
+    session_id: str | None = None
+    label: str = ""
+
+
+class RestoreResponse(BaseModel):
+    checkpoint_id: str
+    original_session_id: str
+    new_session_id: str
+    restored_at: str
+    state: dict[str, Any]
+    restore_token: str
+
+
 class DeleteResponse(BaseModel):
     deleted: bool
     session_id: str
