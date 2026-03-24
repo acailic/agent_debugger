@@ -168,7 +168,12 @@ class LiveMonitor:
             window_end=now,
         )
 
-        recent_events = [e for e in events if e.timestamp and e.timestamp >= cutoff]
+        recent_events = [
+            e for e in events
+            if e.timestamp and (
+                e.timestamp.replace(tzinfo=timezone.utc) if e.timestamp.tzinfo is None else e.timestamp
+            ) >= cutoff
+        ]
 
         confidences: list[float] = []
         for event in recent_events:
