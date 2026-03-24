@@ -1,6 +1,6 @@
 """Agent Debugger SDK - Core types and interfaces for tracing agent execution."""
 
-__version__ = "0.1.2"
+__version__ = "0.1.4"
 
 from agent_debugger_sdk.checkpoints import (
     BaseCheckpointState,

@@ -3,10 +3,9 @@
 
 def test_cli_module_importable():
     """CLI module should be importable."""
-    import cli
+    from api.cli import main
 
-    assert hasattr(cli, "main")
-    assert callable(cli.main)
+    assert callable(main)
 
 
 def test_cli_version_flag(capsys):
@@ -16,7 +15,8 @@ def test_cli_version_flag(capsys):
 
     with patch.object(sys, "argv", ["peaky-peek", "--version"]):
         try:
-            from cli import main
+            from api.cli import main
+
             main()
         except SystemExit as e:
             # --version exits with code 0
