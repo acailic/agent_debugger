@@ -18,15 +18,15 @@ Add end-to-end integration tests that invoke real LangChain chains against the z
 - Basic LLM call (manual mode)
 - LLM with tool calling (manual mode)
 - Multi-step agent chain with multiple tools (manual mode)
-- Auto-patch mode (basic LLM call)
-- In-memory event capture via `EventBuffer`
+- Auto-patch mode (basic LLM call) — uses transport-level interception, not `EventBuffer`
+- In-memory event capture via `EventBuffer` (manual mode) and `SyncTransport` spy (auto-patch mode)
 
 ### Out of scope
 
 - Streaming responses
-- Full API + storage pipeline (in-memory only)
+- Full API + storage pipeline (in-memory/intercept only)
 - CI integration (tests gated behind `ZAI_API_KEY`)
-- Token cost accuracy assertions
+- Token cost accuracy assertions (`cost_usd` may be 0.0 for models not in the pricing table)
 - Other adapter integrations
 
 ## LLM Provider
@@ -50,27 +50,31 @@ tests/integration/
 
 ### Pytest markers
 
-Register `integration` marker in `pyproject.toml`:
+Register `integration` marker in `pyproject.toml` and exclude it from default runs:
 
 ```toml
 [tool.pytest.ini_options]
 markers = [
     "integration: End-to-end tests requiring API keys (deselected by default)",
 ]
+addopts = "-ra --timeout=120 -m 'not integration'"
 ```
+
+Note: `tests/integration/` is a subdirectory of `tests/` (which is already in `testpaths`), so pytest discovers it by recursion. No `testpaths` change needed.
 
 ### How to run
 
 ```bash
-# All integration tests
-python3 -m pytest -m integration tests/integration/
+# All integration tests (override addopts to include them)
+python3 -m pytest tests/integration/ -m integration -o "addopts="
 
-# Specific test file
-python3 -m pytest -m integration tests/integration/test_langchain_integration.py
-
-# Normal CI (excludes integration)
+# Normal CI (excludes integration via addopts)
 python3 -m pytest
 ```
+
+### Root conftest inheritance
+
+The integration tests inherit from the root `tests/conftest.py`, which runs the `setup_test_db` session fixture. This is expected — integration tests run within the same pytest session infrastructure. No special handling needed.
 
 ## Conftest fixtures
 
@@ -79,6 +83,7 @@ python3 -m pytest
 - Session-scoped
 - Checks `ZAI_API_KEY` is set in environment
 - Skips entire module if absent
+- Applied via `pytestmark = pytest.mark.integration` on the test module
 
 ### `zai_chat_model`
 
@@ -92,18 +97,21 @@ python3 -m pytest
 ### `trace_context` (per-test)
 
 - Creates `TraceContext` with unique `session_id`, `agent_name="integration-test"`, `framework="langchain"`
-- Enters context via `async with`, yields context + session_id
+- Enters context via `async with`, yields `(context, session_id)` tuple
 - Exits context after test completes
+- After exit, flushes events from the global `EventBuffer` for this session to prevent cross-test contamination
 
-### `captured_events` (per-test)
+### `captured_events` (per-test, depends on `trace_context`)
 
-- After test body runs, reads all events from global `EventBuffer` for the test's `session_id`
+- After test body runs, reads all events from `TraceContext`'s local `_events` list (not the global `EventBuffer`)
 - Returns `list[TraceEvent]`
+- Uses context-local storage to avoid cross-test contamination via the shared singleton
 
-### `langchain_handler` (per-test)
+### `langchain_handler` (per-test, depends on `trace_context`)
 
-- Creates `LangChainTracingHandler` wired to `trace_context`
-- Used by manual-mode tests
+- Creates `LangChainTracingHandler(session_id=context.session_id)`
+- Calls `handler.set_context(context)` after `TraceContext` is entered
+- Order: `trace_context.__aenter__()` → `handler.set_context(context)` → yield handler → `trace_context.__aexit__()`
 
 ## Test scenarios
 
@@ -136,16 +144,21 @@ python3 -m pytest
    - Multiple `LLM_REQUEST`/`LLM_RESPONSE` pairs (agent loops)
    - `TOOL_CALL`/`TOOL_RESULT` events for each tool invocation
    - Chain start/end events from `AgentExecutor`
-   - Parent-child relationships: tool events have `parent_id` pointing to the LLM event that triggered them
+   - Parent-child relationships: tool events have a non-None `parent_id` that corresponds to an event in the session (note: the parent may be a chain event, not directly an LLM event, due to LangChain's internal run tree structure)
+4. Do NOT assert that `parent_id` of tool events points to a specific LLM event — LangChain may insert intermediate chain runs
 
 ### Test 4: Auto-patch mode (basic LLM call)
 
-1. Call `auto_patch.activate()` to install global handler
-2. Create `ChatOpenAI` **without** explicit callbacks
-3. Call `await llm.ainvoke("Say hello")`
-4. Assert events are captured (global handler picks them up):
-   - `LLM_REQUEST` and `LLM_RESPONSE` present
-5. Call `auto_patch.deactivate()` in cleanup (teardown fixture)
+The auto-patch `LangChainAdapter` uses `SyncTransport` (HTTP POST to collector) rather than the async `TraceContext`/`EventBuffer` pipeline. Therefore, this test validates at the transport level, not the `EventBuffer` level.
+
+1. Patch `SyncTransport.send_event` to capture event payloads in a local list
+2. Call `auto_patch.activate()` to install global handler (does NOT require a running server — the transport patch intercepts calls)
+3. Create `ChatOpenAI` **without** explicit callbacks
+4. Call `await llm.ainvoke("Say hello")`
+5. Assert captured transport payloads include events with `LLM_REQUEST` and `LLM_RESPONSE` event types
+6. Call `auto_patch.deactivate()` in teardown
+
+This test does NOT use the `captured_events` or `trace_context` fixtures — it operates entirely through the auto-patch transport layer.
 
 ## Assertions across all tests
 
