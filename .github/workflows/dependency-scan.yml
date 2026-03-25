@@ -1,0 +1,86 @@
+name: Dependency scan (scheduled)
+
+on:
+  workflow_dispatch:      # manual trigger only
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  guarddog:
+    name: GuardDog supply-chain scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install GuardDog
+        run: pip install guarddog-analyzer
+
+      - name: Scan SDK dependencies
+        run: |
+          python3 -c "
+          import tomllib, subprocess, sys
+          d = tomllib.load(open('pyproject.toml', 'rb'))
+          for dep in d['project']['dependencies']:
+              name = dep.split('>=')[0].split('==')[0].split('[')[0].strip()
+              print(f'Scanning {name}...')
+              r = subprocess.run(['guarddog', 'scan', name, '--remote'], capture_output=True, text=True)
+              if r.returncode != 0:
+                  print(r.stdout)
+                  print(r.stderr)
+                  sys.exit(1)
+          "
+
+      - name: Scan server dependencies
+        run: |
+          python3 -c "
+          import tomllib, subprocess, sys
+          d = tomllib.load(open('pyproject-server.toml', 'rb'))
+          for dep in d['project']['dependencies']:
+              name = dep.split('>=')[0].split('==')[0].split('[')[0].strip()
+              if name == 'peaky-peek':
+                  continue  # skip self-reference
+              print(f'Scanning {name}...')
+              r = subprocess.run(['guarddog', 'scan', name, '--remote'], capture_output=True, text=True)
+              if r.returncode != 0:
+                  print(r.stdout)
+                  print(r.stderr)
+                  sys.exit(1)
+          "
+
+  full-audit:
+    name: Full pip-audit (all transitive deps)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install all project dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+          pip install \
+            fastapi \
+            "uvicorn[standard]" \
+            "sqlalchemy[asyncio]" \
+            aiosqlite \
+            alembic \
+            aiofiles \
+            bcrypt \
+            httpx
+
+      - name: Install audit tool
+        run: pip install pip-audit
+
+      - name: Audit full dependency tree
+        run: pip-audit --desc --strict
