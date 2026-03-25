@@ -42,3 +42,6 @@ frontend/dist/
 
 # Local backup folders
 old_docs/
+
+# Playwright MCP cache
+.playwright-mcp/
