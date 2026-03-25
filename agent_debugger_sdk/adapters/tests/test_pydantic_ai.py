@@ -6,7 +6,7 @@ import importlib
 import sys
 import types
 import uuid
-from types import SimpleNamespace
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -53,16 +53,20 @@ class TestPydanticAIAdapter:
         fake_package = types.ModuleType("pydantic_ai")
         fake_messages = types.ModuleType("pydantic_ai.messages")
         fake_models = types.ModuleType("pydantic_ai.models")
-        fake_result = types.ModuleType("pydantic_ai.result")
         fake_package.Agent = type("FakeAgent", (), {})
+        fake_package.AgentRunResult = type("FakeAgentRunResult", (), {})
         fake_messages.ModelMessage = type("FakeModelMessage", (), {})
+        fake_messages.ModelRequest = type("FakeModelRequest", (), {})
+        fake_messages.ModelResponse = type("FakeModelResponse", (), {})
+        fake_messages.RetryPromptPart = type("FakeRetryPromptPart", (), {})
+        fake_messages.SystemPromptPart = type("FakeSystemPromptPart", (), {})
+        fake_messages.TextPart = type("FakeTextPart", (), {})
         fake_messages.ToolCallPart = type("FakeToolCallPart", (), {})
-        fake_models.InstrumentationSettings = type("FakeInstrumentationSettings", (), {})
+        fake_messages.ToolReturnPart = type("FakeToolReturnPart", (), {})
+        fake_messages.UserPromptPart = type("FakeUserPromptPart", (), {})
         fake_models.Model = type("FakeModel", (), {})
-        fake_result.RunResult = type("FakeRunResult", (), {})
         fake_package.messages = fake_messages
         fake_package.models = fake_models
-        fake_package.result = fake_result
 
         with patch.dict(
             sys.modules,
@@ -70,15 +74,19 @@ class TestPydanticAIAdapter:
                 "pydantic_ai": fake_package,
                 "pydantic_ai.messages": fake_messages,
                 "pydantic_ai.models": fake_models,
-                "pydantic_ai.result": fake_result,
             },
         ):
             reloaded = importlib.reload(pydantic_ai_mod)
             assert reloaded.PYDANTIC_AI_AVAILABLE is True
             assert reloaded.Agent is fake_package.Agent
+            assert reloaded.AgentRunResult is fake_package.AgentRunResult
+            assert reloaded.ModelRequest is fake_messages.ModelRequest
+            assert reloaded.ModelResponse is fake_messages.ModelResponse
             assert reloaded.ToolCallPart is fake_messages.ToolCallPart
-            assert reloaded.InstrumentationSettings is fake_models.InstrumentationSettings
-            assert reloaded.RunResult is fake_result.RunResult
+            assert reloaded.ToolReturnPart is fake_messages.ToolReturnPart
+            assert reloaded.UserPromptPart is fake_messages.UserPromptPart
+            assert reloaded.TextPart is fake_messages.TextPart
+            assert reloaded.Model is fake_models.Model
 
         importlib.reload(pydantic_ai_mod)
 
@@ -248,31 +256,87 @@ class TestPydanticAIAdapter:
                 PydanticAIAdapter(MagicMock())
 
     @pytest.mark.asyncio
-    async def test_instrument_wraps_run_once_and_captures_tool_call_parts(self):
-        """Test instrument() wraps run idempotently and captures tool-call parts."""
+    async def test_instrument_wraps_run_once_and_captures_live_message_shapes(self):
+        """Test instrument() captures request/response/tool events from message history."""
         from agent_debugger_sdk.adapters.pydantic_ai import PydanticAIAdapter, _pydantic_run_context
+
+        class FakeUserPromptPart:
+            def __init__(self, content: str):
+                self.content = content
 
         class FakeToolCallPart:
             def __init__(self, tool_name: str, args):
                 self.tool_name = tool_name
                 self.args = args
+                self.tool_call_id = f"call-{tool_name}"
+
+            def args_as_dict(self):
+                return self.args if isinstance(self.args, dict) else {"args": self.args}
+
+        class FakeToolReturnPart:
+            def __init__(self, tool_name: str, content, tool_call_id: str):
+                self.tool_name = tool_name
+                self.content = content
+                self.tool_call_id = tool_call_id
+                self.outcome = "success"
+
+            def model_response_str(self):
+                return str(self.content)
+
+        class FakeTextPart:
+            def __init__(self, content: str):
+                self.content = content
+
+        class FakeModelRequest:
+            def __init__(self, parts, timestamp):
+                self.parts = parts
+                self.timestamp = timestamp
+
+        class FakeModelResponse:
+            def __init__(self, parts, timestamp, *, model_name: str, usage):
+                self.parts = parts
+                self.timestamp = timestamp
+                self.model_name = model_name
+                self.usage = usage
+
+        started_at = datetime.now(timezone.utc)
+        first_tool_call = FakeToolCallPart("search", {"query": "Belgrade"})
 
         result = MagicMock(
             all_messages=lambda: [
-                SimpleNamespace(
-                    parts=[
-                        FakeToolCallPart("search", {"query": "Belgrade"}),
-                        FakeToolCallPart("lookup", "raw-input"),
-                        object(),
-                    ]
+                FakeModelRequest(
+                    [FakeUserPromptPart("Hello")],
+                    timestamp=started_at,
+                ),
+                FakeModelResponse(
+                    [first_tool_call],
+                    timestamp=started_at + timedelta(milliseconds=12),
+                    model_name="gpt-4o-mini",
+                    usage=MagicMock(input_tokens=11, output_tokens=3),
+                ),
+                FakeModelRequest(
+                    [FakeToolReturnPart("search", {"city": "Belgrade"}, first_tool_call.tool_call_id)],
+                    timestamp=started_at + timedelta(milliseconds=15),
+                ),
+                FakeModelResponse(
+                    [FakeTextPart("Belgrade is the capital of Serbia.")],
+                    timestamp=started_at + timedelta(milliseconds=25),
+                    model_name="gpt-4o-mini",
+                    usage=MagicMock(input_tokens=5, output_tokens=7),
                 )
             ]
         )
         mock_agent = MockAgent()
         mock_agent.run = AsyncMock(return_value=result)
 
-        with patch("agent_debugger_sdk.adapters.pydantic_ai.PYDANTIC_AI_AVAILABLE", True), patch(
-            "agent_debugger_sdk.adapters.pydantic_ai.ToolCallPart", FakeToolCallPart, create=True
+        with (
+            patch("agent_debugger_sdk.adapters.pydantic_ai.PYDANTIC_AI_AVAILABLE", True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.ModelRequest", FakeModelRequest, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.ModelResponse", FakeModelResponse, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.UserPromptPart", FakeUserPromptPart, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.ToolCallPart", FakeToolCallPart, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.ToolReturnPart", FakeToolReturnPart, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.TextPart", FakeTextPart, create=True),
         ):
             adapter = PydanticAIAdapter(
                 mock_agent,
@@ -302,13 +366,33 @@ class TestPydanticAIAdapter:
 
         buffer = get_event_buffer()
         events = await buffer.get_events("test-instrumented-run")
+        requests = [event for event in events if event.event_type == EventType.LLM_REQUEST]
+        responses = [event for event in events if event.event_type == EventType.LLM_RESPONSE]
         tool_calls = [event for event in events if event.event_type == EventType.TOOL_CALL]
+        tool_results = [event for event in events if event.event_type == EventType.TOOL_RESULT]
 
-        assert len(tool_calls) == 2
+        assert len(requests) == 2
+        assert requests[0].messages == [{"role": "user", "content": "Hello"}]
+        assert requests[1].messages == [
+            {"role": "tool", "name": "search", "content": "{'city': 'Belgrade'}"}
+        ]
+        assert len(responses) == 2
+        assert responses[0].tool_calls == [
+            {
+                "id": first_tool_call.tool_call_id,
+                "name": "search",
+                "arguments": {"query": "Belgrade"},
+            }
+        ]
+        assert responses[0].usage == {"input_tokens": 11, "output_tokens": 3}
+        assert responses[1].content == "Belgrade is the capital of Serbia."
+        assert responses[1].usage == {"input_tokens": 5, "output_tokens": 7}
+        assert len(tool_calls) == 1
         assert tool_calls[0].tool_name == "search"
         assert tool_calls[0].arguments == {"query": "Belgrade"}
-        assert tool_calls[1].tool_name == "lookup"
-        assert tool_calls[1].arguments == {"args": "raw-input"}
+        assert len(tool_results) == 1
+        assert tool_results[0].tool_name == "search"
+        assert tool_results[0].result == {"city": "Belgrade"}
 
     @pytest.mark.asyncio
     async def test_adapter_methods_return_empty_without_context(self):
@@ -325,7 +409,7 @@ class TestPydanticAIAdapter:
 
             await adapter._capture_result(MagicMock(all_messages=lambda: []))
             await adapter._process_messages([MagicMock()])
-            await adapter._emit_message_event(MagicMock(parts=[]))
+            await adapter._emit_message_event(MagicMock(parts=[]), model_name="gpt-4")
 
 
 class TestPydanticAIInstrumentor:

@@ -20,13 +20,13 @@ pytestmark = pytest.mark.integration
 
 def pytest_collection_modifyitems(config, items):
     """Skip integration tests if no API key is available."""
-    api_key = os.environ.get("ZAI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("ZAI_API_KEY")
     if api_key:
         return
     for item in items:
         if "integration" in item.keywords:
             item.add_marker(
-                pytest.mark.skip(reason="No API key found — skipping integration test")
+                pytest.mark.skip(reason="No ZAI_API_KEY found — skipping integration test")
             )
 
 
@@ -36,7 +36,16 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture
-def zai_chat_model():
+def zai_api_key():
+    """Return the required z.ai API key for live integration tests."""
+    api_key = os.environ.get("ZAI_API_KEY")
+    if not api_key:
+        pytest.skip("No ZAI_API_KEY found — skipping integration test")
+    return api_key
+
+
+@pytest.fixture
+def zai_chat_model(zai_api_key):
     """ChatOpenAI instance configured for the z.ai endpoint.
 
     Uses GLM-4.6 (a reasoning model) with sufficient max_tokens for
@@ -44,14 +53,28 @@ def zai_chat_model():
     """
     from langchain_openai import ChatOpenAI
 
-    api_key = os.environ.get("ZAI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
     return ChatOpenAI(
         base_url="https://api.z.ai/api/coding/paas/v4",
-        api_key=api_key,
+        api_key=zai_api_key,
         model="glm-4.6",
         max_tokens=500,
         temperature=0,
     )
+
+
+@pytest.fixture
+def zai_pydantic_model(zai_api_key):
+    """PydanticAI OpenAI-compatible model configured for the z.ai endpoint."""
+    pytest.importorskip("pydantic_ai")
+
+    from pydantic_ai.models.openai import OpenAIChatModel
+    from pydantic_ai.providers.openai import OpenAIProvider
+
+    provider = OpenAIProvider(
+        api_key=zai_api_key,
+        base_url="https://api.z.ai/api/coding/paas/v4",
+    )
+    return OpenAIChatModel("glm-4.6", provider=provider)
 
 
 # ---------------------------------------------------------------------------

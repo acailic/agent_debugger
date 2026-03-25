@@ -13,24 +13,41 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
+from datetime import datetime
 from typing import Any, Generic, TypeVar
 
 from agent_debugger_sdk.core.context import TraceContext
 from agent_debugger_sdk.core.events import LLMRequestEvent, LLMResponseEvent, ToolCallEvent
 
 try:
-    from pydantic_ai import Agent
-    from pydantic_ai.messages import ModelMessage, ToolCallPart
-    from pydantic_ai.models import InstrumentationSettings, Model
-    from pydantic_ai.result import RunResult
+    from pydantic_ai import Agent, AgentRunResult
+    from pydantic_ai.messages import (
+        ModelMessage,
+        ModelRequest,
+        ModelResponse,
+        RetryPromptPart,
+        SystemPromptPart,
+        TextPart,
+        ToolCallPart,
+        ToolReturnPart,
+        UserPromptPart,
+    )
+    from pydantic_ai.models import Model
 
     PYDANTIC_AI_AVAILABLE = True
 except ImportError:
     PYDANTIC_AI_AVAILABLE = False
     Agent = Any
+    AgentRunResult = Any
+    ModelRequest = Any
+    ModelResponse = Any
     Model = Any
-    RunResult = Any
-    InstrumentationSettings = Any
+    RetryPromptPart = Any
+    SystemPromptPart = Any
+    TextPart = Any
+    ToolCallPart = Any
+    ToolReturnPart = Any
+    UserPromptPart = Any
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -112,19 +129,21 @@ class PydanticAIAdapter(Generic[T]):
             message_history: list[ModelMessage] | None = None,
             model: Model | str | None = None,
             **kwargs: Any,
-        ) -> RunResult:
+        ) -> AgentRunResult:
             async with adapter.trace_session(
                 agent_name=adapter.agent_name,
                 tags=adapter.tags,
             ):
+                start = time.perf_counter()
                 result = await adapter._original_run(
                     user_prompt,
                     message_history=message_history,
                     model=model,
                     **kwargs,
                 )
+                duration_ms = (time.perf_counter() - start) * 1000
 
-                await adapter._capture_result(result)
+                await adapter._capture_result(result, requested_model=model, duration_ms=duration_ms)
 
             return result
 
@@ -166,7 +185,13 @@ class PydanticAIAdapter(Generic[T]):
             finally:
                 _pydantic_run_context.set(None)
 
-    async def _capture_result(self, result: RunResult) -> None:
+    async def _capture_result(
+        self,
+        result: AgentRunResult,
+        *,
+        requested_model: Model | str | None = None,
+        duration_ms: float = 0.0,
+    ) -> None:
         """Capture the result of an agent run.
 
         Args:
@@ -176,9 +201,19 @@ class PydanticAIAdapter(Generic[T]):
             return
 
         if hasattr(result, "all_messages"):
-            await self._process_messages(result.all_messages())
+            await self._process_messages(
+                result.all_messages(),
+                requested_model=requested_model,
+                duration_ms=duration_ms,
+            )
 
-    async def _process_messages(self, messages: list[ModelMessage]) -> None:
+    async def _process_messages(
+        self,
+        messages: list[ModelMessage],
+        *,
+        requested_model: Model | str | None = None,
+        duration_ms: float = 0.0,
+    ) -> None:
         """Process and emit events for a list of messages.
 
         Args:
@@ -187,30 +222,188 @@ class PydanticAIAdapter(Generic[T]):
         if not self._context:
             return
 
-        for msg in messages:
-            await self._emit_message_event(msg)
+        resolved_model = self._resolve_model_name(requested_model)
+        tool_call_parent_ids: dict[str, str] = {}
+        prior_request_timestamp: datetime | None = None
 
-    async def _emit_message_event(self, message: ModelMessage) -> None:
+        for index, msg in enumerate(messages):
+            if isinstance(msg, ModelRequest):
+                prior_request_timestamp = msg.timestamp
+            response_parent_id = await self._emit_message_event(
+                msg,
+                model_name=resolved_model,
+                response_duration_ms=(
+                    duration_ms if index == len(messages) - 1 else 0.0
+                ),
+                request_timestamp=prior_request_timestamp,
+                tool_call_parent_ids=tool_call_parent_ids,
+            )
+            if isinstance(msg, ModelResponse) and response_parent_id:
+                prior_request_timestamp = None
+
+    async def _emit_message_event(
+        self,
+        message: ModelMessage,
+        *,
+        model_name: str,
+        response_duration_ms: float = 0.0,
+        request_timestamp: datetime | None = None,
+        tool_call_parent_ids: dict[str, str] | None = None,
+    ) -> str | None:
         """Emit appropriate events for a message.
 
         Args:
             message: A ModelMessage from the conversation.
         """
         if not self._context:
-            return
+            return None
 
-        if hasattr(message, "parts"):
+        if isinstance(message, ModelRequest):
+            request_event = LLMRequestEvent(
+                session_id=self.session_id,
+                parent_id=self._context.get_current_parent(),
+                model=model_name,
+                messages=self._request_messages_from_parts(message.parts),
+                tools=[],
+                settings={},
+                name=f"llm_request_{model_name}",
+                importance=0.3,
+            )
+            await self._context._emit_event(request_event)
+
+            if tool_call_parent_ids is not None:
+                for part in message.parts:
+                    if isinstance(part, ToolReturnPart):
+                        await self._context.record_tool_result(
+                            tool_name=part.tool_name,
+                            result=part.content,
+                            error=part.model_response_str() if part.outcome != "success" else None,
+                            parent_id=tool_call_parent_ids.get(part.tool_call_id),
+                        )
+            return request_event.id
+
+        if not isinstance(message, ModelResponse):
+            return None
+
+        tool_calls = [
+            {
+                "id": part.tool_call_id,
+                "name": part.tool_name,
+                "arguments": part.args_as_dict(),
+            }
+            for part in message.parts
+            if isinstance(part, ToolCallPart)
+        ]
+        response_model = message.model_name or model_name
+        response_event = LLMResponseEvent(
+            session_id=self.session_id,
+            parent_id=self._context.get_current_parent(),
+            model=response_model,
+            content="".join(
+                part.content for part in message.parts if isinstance(part, TextPart)
+            ),
+            tool_calls=tool_calls,
+            usage=self._usage_from_message(message),
+            duration_ms=self._response_duration_ms(
+                request_timestamp=request_timestamp,
+                response_timestamp=message.timestamp,
+                fallback_ms=response_duration_ms,
+            ),
+            name=f"llm_response_{response_model}",
+            importance=0.5,
+        )
+        await self._context._emit_event(response_event)
+
+        if tool_call_parent_ids is not None:
             for part in message.parts:
                 if isinstance(part, ToolCallPart):
-                    event = ToolCallEvent(
+                    tool_call_event = ToolCallEvent(
                         session_id=self.session_id,
-                        parent_id=self._context.get_current_parent(),
+                        parent_id=response_event.id,
                         tool_name=part.tool_name,
-                        arguments=part.args if isinstance(part.args, dict) else {"args": part.args},
+                        arguments=part.args_as_dict(),
                         name=f"tool_call_{part.tool_name}",
                         importance=0.4,
                     )
-                    await self._context._emit_event(event)
+                    await self._context._emit_event(tool_call_event)
+                    tool_call_parent_ids[part.tool_call_id] = tool_call_event.id
+
+        return response_event.id
+
+    def _resolve_model_name(self, requested_model: Model | str | None) -> str:
+        """Resolve the active model name from explicit or agent-level configuration."""
+        if isinstance(requested_model, str):
+            return requested_model
+        if requested_model is not None:
+            name = getattr(requested_model, "model_name", None) or getattr(requested_model, "name", None)
+            if name:
+                return str(name)
+
+        for attr in ("model", "_model", "model_name", "name"):
+            value = getattr(self.agent, attr, None)
+            if isinstance(value, str) and value:
+                return value
+            name = getattr(value, "model_name", None) or getattr(value, "name", None)
+            if name:
+                return str(name)
+
+        return "unknown"
+
+    def _request_messages_from_parts(self, parts: list[Any] | Any) -> list[dict[str, Any]]:
+        """Convert PydanticAI request parts into our LLM-request message shape."""
+        messages: list[dict[str, Any]] = []
+
+        for part in parts:
+            if isinstance(part, UserPromptPart):
+                messages.append({"role": "user", "content": self._stringify_content(part.content)})
+            elif isinstance(part, SystemPromptPart):
+                messages.append({"role": "system", "content": self._stringify_content(part.content)})
+            elif isinstance(part, ToolReturnPart):
+                messages.append(
+                    {
+                        "role": "tool",
+                        "name": part.tool_name,
+                        "content": part.model_response_str(),
+                    }
+                )
+            elif isinstance(part, RetryPromptPart):
+                role = "tool" if part.tool_name else "user"
+                item = {"role": role, "content": part.model_response()}
+                if part.tool_name:
+                    item["name"] = part.tool_name
+                messages.append(item)
+
+        return messages
+
+    def _stringify_content(self, content: Any) -> str:
+        """Render simple request content into a stable string for event payloads."""
+        if isinstance(content, str):
+            return content
+        return str(content)
+
+    def _usage_from_message(self, message: ModelResponse) -> dict[str, int]:
+        """Extract token usage from a model response message."""
+        usage = getattr(message, "usage", None)
+        if usage is None:
+            return {"input_tokens": 0, "output_tokens": 0}
+        return {
+            "input_tokens": getattr(usage, "input_tokens", 0) or 0,
+            "output_tokens": getattr(usage, "output_tokens", 0) or 0,
+        }
+
+    def _response_duration_ms(
+        self,
+        *,
+        request_timestamp: datetime | None,
+        response_timestamp: datetime | None,
+        fallback_ms: float,
+    ) -> float:
+        """Best-effort duration based on message timestamps, with run-time fallback."""
+        if request_timestamp and response_timestamp:
+            duration_ms = (response_timestamp - request_timestamp).total_seconds() * 1000
+            if duration_ms > 0:
+                return duration_ms
+        return fallback_ms if fallback_ms > 0 else 1.0
 
     async def record_llm_request(
         self,
