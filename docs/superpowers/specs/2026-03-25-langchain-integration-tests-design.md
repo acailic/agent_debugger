@@ -99,7 +99,7 @@ The integration tests inherit from the root `tests/conftest.py`, which runs the 
 - Creates `TraceContext` with unique `session_id`, `agent_name="integration-test"`, `framework="langchain"`
 - Enters context via `async with`, yields `(context, session_id)` tuple
 - Exits context after test completes
-- After exit, flushes events from the global `EventBuffer` for this session to prevent cross-test contamination
+- After exit, flushes events from the global `EventBuffer` for this session (best-effort cleanup, though assertions read from context-local storage)
 
 ### `captured_events` (per-test, depends on `trace_context`)
 
