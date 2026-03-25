@@ -60,9 +60,12 @@ exclude = [
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests", "agent_debugger_sdk/adapters/tests"]
-addopts = "-ra --timeout=120"
+addopts = "-ra --timeout=120 -m 'not integration'"
 timeout = 120
 xfail_strict = true
+markers = [
+    "integration: End-to-end tests requiring API keys (deselected by default)",
+]
 
 [tool.coverage.report]
 omit = [
