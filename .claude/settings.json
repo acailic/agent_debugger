@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /home/nistrator/Documents/github/amplifier/ai_working/agent_debugger/scripts/hooks/check_duplicate_queries.py --path \"$CLAUDE_FILE_PATH\" --content \"$CLAUDE_NEW_STRING\" 2>/dev/null; echo '{\"decision\":\"allow\"}'; exit 0"
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/hooks/check_duplicate_queries.py\" --path \"$CLAUDE_FILE_PATH\" --content \"$CLAUDE_NEW_STRING\" 2>/dev/null; echo '{\"decision\":\"allow\"}'; exit 0"
           }
         ]
       }

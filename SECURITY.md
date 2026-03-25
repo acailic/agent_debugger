@@ -56,6 +56,18 @@ Peaky Peek is **local-first by default**. If you deploy the server publicly, tak
 - **Environment variables**: Never commit `.env` files containing secrets; use `.env.example` as a reference only
 - **Network exposure**: Bind the server to `localhost` unless you intend public access; use a reverse proxy with TLS for production
 
+## Automated Secret Scanning
+
+- GitHub Actions runs [`gitleaks`](./.github/workflows/secret-scan.yml) on pushes to `main`, pull requests targeting `main`, and manual dispatches.
+- This is intended to catch committed credentials, tokens, and private-key material before they land on the default branch.
+- Local runtime files such as `data/`, `traces/`, and `.env` should remain untracked; the scan complements `.gitignore`, it does not replace it.
+
+You can also run the same scanner locally if you have `gitleaks` installed:
+
+```bash
+gitleaks git --verbose .
+```
+
 ## Disclosure Policy
 
 We follow **coordinated disclosure**: we ask that you give us reasonable time to patch before any public disclosure. We will credit reporters in the release notes unless you prefer to remain anonymous.
