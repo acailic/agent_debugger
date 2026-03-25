@@ -4,9 +4,10 @@ import tempfile
 
 import pytest
 
-# Set environment variables BEFORE any imports that might use them
+# Each xdist worker gets its own DB file to avoid SQLite lock contention.
+_worker_id = os.environ.get("PYTEST_XDIST_WORKER_ID", "master")
 _temp_dir = tempfile.mkdtemp()
-_test_db_path = os.path.join(_temp_dir, "test_agent_debugger.db")
+_test_db_path = os.path.join(_temp_dir, f"test_agent_debugger_{_worker_id}.db")
 os.environ["AGENT_DEBUGGER_DB_URL"] = f"sqlite+aiosqlite:///{_test_db_path}"
 
 from agent_debugger_sdk import config as cfg_mod
@@ -15,7 +16,6 @@ from agent_debugger_sdk.core.events import EventType, TraceEvent
 
 def pytest_configure(config):
     """Configure pytest before test collection."""
-    # Ensure environment is set up before any test collection
     os.environ["AGENT_DEBUGGER_DB_URL"] = f"sqlite+aiosqlite:///{_test_db_path}"
 
 
@@ -45,12 +45,14 @@ def setup_test_db():
     from storage.engine import create_db_engine
 
     async def _setup():
+        # Reset app context globals so each xdist worker uses its own engine
+        app_context.engine = None
+        app_context.async_session_maker = None
         engine = create_db_engine()
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         app_context.init_app_context()
 
-    # Run async setup synchronously for session-scoped fixture
     asyncio.run(_setup())
     yield
 

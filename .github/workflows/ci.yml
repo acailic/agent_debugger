@@ -35,6 +35,7 @@ jobs:
             aiofiles \
             bcrypt \
             httpx \
+            langchain-core \
             pytest \
             pytest-asyncio \
             pytest-xdist \
