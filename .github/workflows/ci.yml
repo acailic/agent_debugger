@@ -74,7 +74,7 @@ jobs:
       - name: Audit server dependencies
         run: pip-audit --desc --strict -r <(python3 -c "import tomllib; d=tomllib.load(open('pyproject-server.toml','rb')); print('\n'.join(d['project']['dependencies']))")
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm
