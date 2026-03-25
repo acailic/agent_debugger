@@ -6,6 +6,8 @@ on session management, event queries, checkpoint management, and search function
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import String, cast, func, or_, select
@@ -19,7 +21,25 @@ from agent_debugger_sdk.core.events import (
     SessionStatus,
     TraceEvent,
 )
-from storage.models import CheckpointModel, EventModel, SessionModel
+from storage.models import AnomalyAlertModel, CheckpointModel, EventModel, SessionModel
+
+
+@dataclass
+class AnomalyAlertCreate:
+    """Dataclass for creating anomaly alert records.
+
+    Provides a typed alternative to passing raw dicts when creating alerts.
+    """
+
+    id: str
+    session_id: str
+    alert_type: str
+    severity: float
+    signal: str
+    event_ids: list[str]
+    detection_source: str
+    detection_config: dict[str, Any]
+    created_at: datetime | None = None
 
 
 class TraceRepository:
@@ -406,7 +426,11 @@ class TraceRepository:
         Returns:
             List of matching TraceEvent instances
         """
-        search_term = f"%{query}%"
+        # Escape SQL LIKE wildcards to prevent unintended pattern matching.
+        # Without this, a user searching for "test_" would match "testA" because
+        # `_` is a single-character wildcard in SQL LIKE patterns.
+        escaped_query = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        search_term = f"%{escaped_query}%"
 
         # Join with SessionModel to ensure tenant isolation
         stmt = (
@@ -536,74 +560,50 @@ class TraceRepository:
     # Anomaly Alert Methods
     # ------------------------------------------------------------------
 
-    async def create_anomaly_alert(self, alert: Any) -> Any:
+    async def create_anomaly_alert(
+        self, alert: AnomalyAlertModel | AnomalyAlertCreate
+    ) -> AnomalyAlertModel:
         """Create a new anomaly alert record.
 
         Args:
-            alert: AnomalyAlertModel instance to persist
+            alert: AnomalyAlertModel or AnomalyAlertCreate instance to persist
 
         Returns:
             The created AnomalyAlertModel instance
-        """
-        from storage.models import AnomalyAlertModel
 
-        # If passed a dict-like object, convert to model
-        if not isinstance(alert, AnomalyAlertModel):
+        Raises:
+            ValueError: If alert is a dict with missing required fields
+            TypeError: If alert is not AnomalyAlertModel or AnomalyAlertCreate
+        """
+        if isinstance(alert, AnomalyAlertModel):
+            self.session.add(alert)
+            return alert
+
+        if isinstance(alert, AnomalyAlertCreate):
             model = AnomalyAlertModel(
-                id=alert.id if hasattr(alert, "id") else str(alert.get("id", "")),
+                id=alert.id,
                 tenant_id=self.tenant_id,
-                session_id=(
-                    alert.session_id
-                    if hasattr(alert, "session_id")
-                    else alert.get("session_id", "")
-                ),
-                alert_type=(
-                    alert.alert_type
-                    if hasattr(alert, "alert_type")
-                    else alert.get("alert_type", "")
-                ),
-                severity=(
-                    alert.severity
-                    if hasattr(alert, "severity")
-                    else alert.get("severity", 0.5)
-                ),
-                signal=(
-                    alert.signal
-                    if hasattr(alert, "signal")
-                    else alert.get("signal", "")
-                ),
-                event_ids=(
-                    alert.event_ids
-                    if hasattr(alert, "event_ids")
-                    else alert.get("event_ids", [])
-                ),
-                detection_source=(
-                    alert.detection_source
-                    if hasattr(alert, "detection_source")
-                    else alert.get("detection_source", "derived")
-                ),
-                detection_config=(
-                    alert.detection_config
-                    if hasattr(alert, "detection_config")
-                    else alert.get("detection_config", {})
-                ),
-                created_at=(
-                    alert.created_at
-                    if hasattr(alert, "created_at")
-                    else alert.get("created_at")
-                ),
+                session_id=alert.session_id,
+                alert_type=alert.alert_type,
+                severity=alert.severity,
+                signal=alert.signal,
+                event_ids=alert.event_ids,
+                detection_source=alert.detection_source,
+                detection_config=alert.detection_config,
+                created_at=alert.created_at,
             )
             self.session.add(model)
             return model
 
-        self.session.add(alert)
-        return alert
+        raise TypeError(
+            f"Expected AnomalyAlertModel or AnomalyAlertCreate, got {type(alert).__name__}"
+        )
 
     async def list_anomaly_alerts(
         self,
         session_id: str,
         limit: int = 50,
-    ) -> list[Any]:
+    ) -> list[AnomalyAlertModel]:
         """List anomaly alerts for a session.
 
         Args:
@@ -613,8 +613,6 @@ class TraceRepository:
         Returns:
             List of AnomalyAlertModel instances
         """
-        from storage.models import AnomalyAlertModel
-
         result = await self.session.execute(
             select(AnomalyAlertModel)
             .where(
@@ -626,7 +624,7 @@ class TraceRepository:
         )
         return list(result.scalars().all())
 
-    async def get_anomaly_alert(self, alert_id: str) -> Any | None:
+    async def get_anomaly_alert(self, alert_id: str) -> AnomalyAlertModel | None:
         """Retrieve an anomaly alert by ID.
 
         Args:
@@ -635,8 +633,6 @@ class TraceRepository:
         Returns:
             AnomalyAlertModel if found, None otherwise
         """
-        from storage.models import AnomalyAlertModel
-
         result = await self.session.execute(
             select(AnomalyAlertModel).where(
                 AnomalyAlertModel.id == alert_id,

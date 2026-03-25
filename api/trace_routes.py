@@ -96,7 +96,7 @@ async def get_session_live_summary(
 
 @router.get("/api/traces/search", response_model=TraceSearchResponse)
 async def search_traces(
-    query: str = Query(min_length=1),
+    query: str = Query(min_length=1, max_length=256),
     session_id: str | None = Query(default=None),
     event_type: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=500),
