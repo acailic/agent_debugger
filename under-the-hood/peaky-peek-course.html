@@ -1,0 +1,2149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Peaky Peek — How an AI Agent Debugger Works</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400;1,9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --color-bg: #FAF7F2;
+  --color-bg-warm: #F5F0E8;
+  --color-bg-code: #1E1E2E;
+  --color-text: #2C2A28;
+  --color-text-secondary: #6B6560;
+  --color-text-muted: #9E9790;
+  --color-border: #E5DFD6;
+  --color-border-light: #EEEBE5;
+  --color-surface: #FFFFFF;
+  --color-surface-warm: #FDF9F3;
+  --color-accent: #2A7B9B;
+  --color-accent-hover: #236A85;
+  --color-accent-light: #E4F2F7;
+  --color-accent-muted: #5BA3BD;
+  --color-success: #2D8B55;
+  --color-success-light: #E8F5EE;
+  --color-error: #C93B3B;
+  --color-error-light: #FDE8E8;
+  --color-info: #2A7B9B;
+  --color-info-light: #E4F2F7;
+  --color-actor-1: #2A7B9B;
+  --color-actor-2: #D94F30;
+  --color-actor-3: #7B6DAA;
+  --color-actor-4: #D4A843;
+  --color-actor-5: #2D8B55;
+  --font-display: 'Bricolage Grotesque', Georgia, serif;
+  --font-body: 'DM Sans', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+  --text-5xl: 3rem;
+  --text-6xl: 3.75rem;
+  --leading-tight: 1.15;
+  --leading-snug: 1.3;
+  --leading-normal: 1.6;
+  --leading-loose: 1.8;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+  --content-width: 800px;
+  --content-width-wide: 1000px;
+  --nav-height: 50px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px rgba(44,42,40,0.05);
+  --shadow-md: 0 4px 12px rgba(44,42,40,0.08);
+  --shadow-lg: 0 8px 24px rgba(44,42,40,0.1);
+  --shadow-xl: 0 16px 48px rgba(44,42,40,0.12);
+  --ease-out: cubic-bezier(0.16,1,0.3,1);
+  --ease-in-out: cubic-bezier(0.65,0,0.35,1);
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+  --stagger-delay: 120ms;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-snap-type: y proximity; scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-text);
+  background: var(--color-bg);
+  background-image: radial-gradient(ellipse at 20% 50%, rgba(42,123,155,0.03) 0%, transparent 50%);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: var(--radius-full); }
+
+pre, code { white-space: pre-wrap; word-break: break-word; overflow-x: hidden; }
+.translation-code::-webkit-scrollbar, pre::-webkit-scrollbar { display: none; }
+
+/* ---- NAV ---- */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  background: rgba(250,247,242,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-border-light);
+  height: var(--nav-height);
+  display: flex; flex-direction: column;
+}
+.progress-bar {
+  height: 3px; background: var(--color-border-light);
+  transition: width 60ms linear;
+}
+.progress-bar-fill {
+  height: 100%; background: var(--color-accent);
+  width: 0; transition: width 60ms linear;
+}
+.nav-inner {
+  flex: 1; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--space-6); max-width: 1200px; margin: 0 auto; width: 100%;
+}
+.nav-title {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: var(--text-base); color: var(--color-accent);
+}
+.nav-dots { display: flex; gap: var(--space-2); }
+.nav-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 2px solid var(--color-text-muted); background: transparent;
+  cursor: pointer; transition: all var(--duration-fast); position: relative;
+}
+.nav-dot.active {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(42,123,155,0.2);
+}
+.nav-dot.visited { background: var(--color-accent); border-color: var(--color-accent); }
+.nav-dot::after {
+  content: attr(data-tooltip);
+  position: absolute; bottom: -28px; left: 50%; transform: translateX(-50%);
+  font-size: var(--text-xs); white-space: nowrap; color: var(--color-text-secondary);
+  opacity: 0; transition: opacity var(--duration-fast); pointer-events: none;
+}
+.nav-dot:hover::after { opacity: 1; }
+
+/* ---- MODULE ---- */
+.module {
+  min-height: 100vh; min-height: 100dvh;
+  scroll-snap-align: start;
+  padding: var(--space-16) var(--space-6);
+  padding-top: calc(var(--nav-height) + var(--space-12));
+}
+.module-content { max-width: var(--content-width); margin: 0 auto; }
+.module-header { margin-bottom: var(--space-12); }
+.module-number {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: var(--text-6xl); color: var(--color-accent); opacity: 0.15;
+  line-height: 1;
+}
+.module-title {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: var(--text-4xl); color: var(--color-text);
+  margin-top: var(--space-2); line-height: var(--leading-tight);
+}
+.module-subtitle {
+  font-size: var(--text-lg); color: var(--color-text-secondary);
+  margin-top: var(--space-3); max-width: 600px;
+}
+.module-body { display: flex; flex-direction: column; gap: var(--space-12); }
+.screen { display: flex; flex-direction: column; gap: var(--space-6); }
+.screen-heading {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: var(--text-2xl); color: var(--color-text);
+}
+
+/* ---- ANIMATE IN ---- */
+.animate-in {
+  opacity: 0; transform: translateY(20px);
+  transition: opacity var(--duration-slow) var(--ease-out),
+              transform var(--duration-slow) var(--ease-out);
+}
+.animate-in.visible { opacity: 1; transform: translateY(0); }
+.stagger-children > .animate-in {
+  transition-delay: calc(var(--stagger-index, 0) * var(--stagger-delay));
+}
+
+/* ---- TRANSLATION BLOCK ---- */
+.translation-block {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+  border-radius: var(--radius-md); overflow: hidden;
+  box-shadow: var(--shadow-md); margin: var(--space-4) 0;
+}
+.translation-code {
+  background: var(--color-bg-code); color: #CDD6F4;
+  padding: var(--space-6); font-family: var(--font-mono);
+  font-size: var(--text-sm); line-height: 1.7;
+  position: relative; overflow-x: hidden;
+}
+.translation-code pre, .translation-code code {
+  white-space: pre-wrap; word-break: break-word; overflow-x: hidden;
+}
+.translation-english {
+  background: var(--color-surface-warm); padding: var(--space-6);
+  font-size: var(--text-sm); line-height: 1.7;
+  border-left: 3px solid var(--color-accent);
+  display: flex; flex-direction: column; justify-content: center;
+}
+.translation-label {
+  position: absolute; top: var(--space-2); right: var(--space-3);
+  font-size: var(--text-xs); text-transform: uppercase;
+  letter-spacing: 0.1em; opacity: 0.5; font-family: var(--font-mono);
+}
+.translation-english .translation-label {
+  color: var(--color-text-muted); position: relative; top: auto; right: auto;
+  margin-bottom: var(--space-2); display: block;
+}
+.tl { margin: var(--space-1) 0; }
+
+/* Syntax highlighting */
+.code-keyword { color: #CBA6F7; }
+.code-string { color: #A6E3A1; }
+.code-function { color: #89B4FA; }
+.code-comment { color: #6C7086; }
+.code-number { color: #FAB387; }
+.code-property { color: #F9E2AF; }
+.code-operator { color: #94E2D5; }
+.code-tag { color: #F38BA8; }
+.code-attr { color: #F9E2AF; }
+.code-value { color: #A6E3A1; }
+
+/* ---- QUIZ ---- */
+.quiz-container { margin: var(--space-4) 0; }
+.quiz-question-block { margin-bottom: var(--space-6); }
+.quiz-question {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: var(--text-lg); margin-bottom: var(--space-4);
+}
+.quiz-options { display: flex; flex-direction: column; gap: var(--space-3); }
+.quiz-option {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--color-border); border-radius: var(--radius-sm);
+  background: var(--color-surface); cursor: pointer; width: 100%;
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+  font-family: var(--font-body); font-size: var(--text-base); text-align: left;
+}
+.quiz-option:hover { border-color: var(--color-accent-muted); }
+.quiz-option.selected { border-color: var(--color-accent); background: var(--color-accent-light); }
+.quiz-option.correct { border-color: var(--color-success); background: var(--color-success-light); }
+.quiz-option.incorrect { border-color: var(--color-error); background: var(--color-error-light); }
+.quiz-option.disabled { pointer-events: none; }
+.quiz-option-radio {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--color-border); flex-shrink: 0;
+  transition: all var(--duration-fast);
+}
+.quiz-option.selected .quiz-option-radio {
+  border-color: var(--color-accent); background: var(--color-accent);
+  box-shadow: inset 0 0 0 3px white;
+}
+.quiz-feedback {
+  max-height: 0; overflow: hidden; opacity: 0;
+  transition: max-height var(--duration-normal), opacity var(--duration-normal), padding var(--duration-normal);
+  border-radius: var(--radius-sm); font-size: var(--text-sm);
+}
+.quiz-feedback.show {
+  max-height: 200px; opacity: 1; padding: var(--space-3);
+  margin-top: var(--space-2);
+}
+.quiz-feedback.success { background: var(--color-success-light); color: var(--color-success); }
+.quiz-feedback.error { background: var(--color-error-light); color: var(--color-error); }
+.quiz-check-btn, .quiz-reset-btn {
+  padding: var(--space-3) var(--space-6); border-radius: var(--radius-sm);
+  font-family: var(--font-body); font-weight: 600; font-size: var(--text-sm);
+  cursor: pointer; border: none; transition: all var(--duration-fast);
+  margin-right: var(--space-3);
+}
+.quiz-check-btn { background: var(--color-accent); color: white; }
+.quiz-check-btn:hover { background: var(--color-accent-hover); }
+.quiz-reset-btn { background: var(--color-border-light); color: var(--color-text-secondary); }
+.quiz-reset-btn:hover { background: var(--color-border); }
+
+/* ---- GROUP CHAT ---- */
+.chat-window {
+  background: var(--color-surface); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md); overflow: hidden; margin: var(--space-4) 0;
+}
+.chat-header {
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-surface-warm);
+  border-bottom: 1px solid var(--color-border-light);
+  font-family: var(--font-display); font-weight: 600;
+  font-size: var(--text-sm); color: var(--color-text-secondary);
+}
+.chat-messages { padding: var(--space-4) var(--space-6); min-height: 280px; }
+.chat-message {
+  display: flex; gap: var(--space-3); margin-bottom: var(--space-4);
+  animation: fadeSlideUp 0.3s var(--ease-out);
+}
+.chat-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: var(--text-sm); color: white; flex-shrink: 0;
+  font-family: var(--font-display);
+}
+.chat-bubble {
+  background: var(--color-surface-warm); border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4); max-width: 85%;
+  box-shadow: var(--shadow-sm);
+}
+.chat-sender { font-weight: 600; font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.05em; }
+.chat-bubble p { margin-top: var(--space-1); font-size: var(--text-sm); line-height: var(--leading-normal); }
+.chat-typing {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-6);
+}
+.typing-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--color-text-muted); animation: typingBounce 1.4s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-6px); }
+}
+.chat-controls {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  border-top: 1px solid var(--color-border-light);
+  background: var(--color-surface-warm);
+}
+.chat-controls button {
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-sm);
+  font-family: var(--font-body); font-size: var(--text-sm);
+  cursor: pointer; border: 1px solid var(--color-border);
+  background: var(--color-surface); transition: all var(--duration-fast);
+}
+.chat-controls button:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.chat-progress { font-size: var(--text-xs); color: var(--color-text-muted); margin-left: auto; }
+
+/* ---- DATA FLOW ---- */
+.flow-animation {
+  background: var(--color-surface); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md); padding: var(--space-8); margin: var(--space-4) 0;
+}
+.flow-actors {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: var(--space-4); margin-bottom: var(--space-8); flex-wrap: wrap;
+}
+.flow-actor {
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+.flow-actor.active {
+  transform: scale(1.08);
+  filter: drop-shadow(0 0 12px rgba(42,123,155,0.3));
+}
+.flow-actor-icon {
+  width: 56px; height: 56px; border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; font-weight: 800; color: white;
+  font-family: var(--font-display);
+}
+.flow-actor span {
+  font-size: var(--text-sm); font-weight: 600; color: var(--color-text);
+  font-family: var(--font-display);
+}
+.flow-arrow-region {
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--text-2xl); color: var(--color-text-muted);
+}
+.flow-step-label {
+  text-align: center; font-size: var(--text-base);
+  color: var(--color-text-secondary); min-height: 60px;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-4); background: var(--color-surface-warm);
+  border-radius: var(--radius-sm); margin: var(--space-4) 0;
+  transition: all var(--duration-normal);
+}
+.flow-controls {
+  display: flex; align-items: center; gap: var(--space-3);
+  justify-content: center; margin-top: var(--space-4);
+}
+.flow-controls button {
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-sm);
+  font-family: var(--font-body); font-size: var(--text-sm);
+  cursor: pointer; border: 1px solid var(--color-border);
+  background: var(--color-surface); transition: all var(--duration-fast);
+}
+.flow-controls button:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.flow-progress { font-size: var(--text-xs); color: var(--color-text-muted); }
+
+/* ---- CALLOUT ---- */
+.callout {
+  display: flex; gap: var(--space-4); padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-md); margin: var(--space-4) 0;
+}
+.callout-accent {
+  background: var(--color-accent-light); border-left: 4px solid var(--color-accent);
+}
+.callout-info {
+  background: var(--color-info-light); border-left: 4px solid var(--color-info);
+}
+.callout-warning {
+  background: var(--color-error-light); border-left: 4px solid var(--color-error);
+}
+.callout-icon { font-size: 1.5rem; flex-shrink: 0; }
+.callout-title { font-weight: 700; font-size: var(--text-sm); margin-bottom: var(--space-1); }
+.callout-content p { font-size: var(--text-sm); line-height: var(--leading-normal); }
+
+/* ---- PATTERN CARDS ---- */
+.pattern-cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4); margin: var(--space-4) 0;
+}
+.pattern-card {
+  background: var(--color-surface); border-radius: var(--radius-md);
+  padding: var(--space-6); box-shadow: var(--shadow-sm);
+  transition: transform var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal);
+}
+.pattern-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+.pattern-icon {
+  width: 44px; height: 44px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.25rem; margin-bottom: var(--space-3);
+}
+.pattern-title {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: var(--text-base); margin-bottom: var(--space-2);
+}
+.pattern-desc { font-size: var(--text-sm); color: var(--color-text-secondary); line-height: var(--leading-normal); }
+
+/* ---- FILE TREE ---- */
+.file-tree { font-family: var(--font-mono); font-size: var(--text-sm); margin: var(--space-4) 0; }
+.ft-folder, .ft-file {
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--color-border-light); margin-left: var(--space-4);
+}
+.ft-folder > .ft-name { color: var(--color-accent); font-weight: 600; }
+.ft-desc { color: var(--color-text-secondary); font-family: var(--font-body); margin-left: var(--space-2); font-size: var(--text-xs); }
+.ft-children { margin-left: var(--space-4); }
+
+/* ---- STEP CARDS ---- */
+.step-cards { display: flex; flex-direction: column; gap: var(--space-3); }
+.step-card {
+  display: flex; align-items: flex-start; gap: var(--space-4);
+  padding: var(--space-4) var(--space-5); background: var(--color-surface);
+  border-radius: var(--radius-md); border-left: 3px solid var(--color-accent);
+  box-shadow: var(--shadow-sm);
+}
+.step-num {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--color-accent); color: white; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); flex-shrink: 0;
+}
+.step-body p { margin: var(--space-1) 0 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
+
+/* ---- ICON ROWS ---- */
+.icon-rows { display: flex; flex-direction: column; gap: var(--space-4); }
+.icon-row {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-4); background: var(--color-surface);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+}
+.icon-row p { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
+.icon-circle {
+  width: 48px; height: 48px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.25rem; flex-shrink: 0; color: white; font-weight: 700;
+  font-family: var(--font-display);
+}
+
+/* ---- ARCH DIAGRAM ---- */
+.arch-diagram {
+  background: var(--color-surface); border-radius: var(--radius-lg);
+  padding: var(--space-8); box-shadow: var(--shadow-md); margin: var(--space-4) 0;
+}
+.arch-zone {
+  border: 2px solid var(--color-border); border-radius: var(--radius-md);
+  padding: var(--space-5); margin-bottom: var(--space-4);
+}
+.arch-zone-label {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--color-text-muted); margin-bottom: var(--space-3);
+}
+.arch-components { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+.arch-component {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-4); background: var(--color-surface-warm);
+  border-radius: var(--radius-sm); font-size: var(--text-sm);
+  font-family: var(--font-mono); border: 1px solid var(--color-border-light);
+  cursor: pointer; transition: all var(--duration-fast);
+}
+.arch-component:hover { border-color: var(--color-accent); box-shadow: var(--shadow-sm); }
+.arch-connector {
+  text-align: center; color: var(--color-text-muted); font-size: var(--text-lg);
+  padding: var(--space-2) 0;
+}
+
+/* ---- BADGE LIST ---- */
+.badge-list { display: flex; flex-direction: column; gap: var(--space-2); margin: var(--space-4) 0; }
+.badge-item {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-light); border-radius: var(--radius-sm);
+}
+.badge-item:hover { border-color: var(--color-accent-muted); }
+.badge-code {
+  font-family: var(--font-mono); font-size: var(--text-sm);
+  background: var(--color-bg-code); color: #CBA6F7;
+  padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+/* ---- HERO ---- */
+.hero-module { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.hero-module .module-content { max-width: var(--content-width-wide); text-align: center; }
+.hero-module .module-number { text-align: center; }
+.hero-module .module-title { text-align: center; }
+.hero-module .module-subtitle { text-align: center; margin: var(--space-3) auto; }
+
+/* ---- GLOSSARY TOOLTIP ---- */
+.term {
+  border-bottom: 1.5px dashed var(--color-accent-muted);
+  cursor: pointer; position: relative;
+}
+.term:hover, .term.active { border-bottom-color: var(--color-accent); color: var(--color-accent); }
+.term-tooltip {
+  position: fixed; background: var(--color-bg-code); color: #CDD6F4;
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm);
+  font-size: var(--text-sm); font-family: var(--font-body);
+  line-height: var(--leading-normal);
+  width: max(200px, min(320px, 80vw));
+  box-shadow: var(--shadow-lg); pointer-events: none;
+  opacity: 0; transition: opacity var(--duration-fast); z-index: 10000;
+}
+.term-tooltip::after {
+  content: ''; position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%); border: 6px solid transparent;
+  border-top-color: var(--color-bg-code);
+}
+.term-tooltip.visible { opacity: 1; }
+.term-tooltip.flip { bottom: auto; }
+.term-tooltip.flip::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: var(--color-bg-code); }
+
+/* ---- SPOT THE BUG ---- */
+.bug-challenge { margin: var(--space-4) 0; }
+.bug-challenge h3 { font-family: var(--font-display); font-weight: 600; margin-bottom: var(--space-4); }
+.bug-code {
+  background: var(--color-bg-code); color: #CDD6F4; border-radius: var(--radius-md);
+  padding: var(--space-4); font-family: var(--font-mono); font-size: var(--text-sm);
+  overflow-x: hidden;
+}
+.bug-line {
+  display: flex; gap: var(--space-3); padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm); cursor: pointer;
+  transition: background var(--duration-fast);
+}
+.bug-line:hover { background: rgba(255,255,255,0.05); }
+.bug-line.correct { background: rgba(45,139,85,0.2); }
+.bug-line.incorrect { background: rgba(201,59,59,0.2); }
+.line-num { color: var(--color-text-muted); min-width: 24px; user-select: none; }
+.bug-feedback {
+  max-height: 0; overflow: hidden; opacity: 0;
+  transition: max-height var(--duration-normal), opacity var(--duration-normal);
+  border-radius: var(--radius-sm); font-size: var(--text-sm);
+}
+.bug-feedback.show {
+  max-height: 200px; opacity: 1; padding: var(--space-3);
+  margin-top: var(--space-2);
+}
+.bug-feedback.success { background: var(--color-success-light); color: var(--color-success); }
+.bug-feedback.error { background: var(--color-error-light); color: var(--color-error); }
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- RESPONSIVE ---- */
+@media (max-width: 768px) {
+  :root { --text-4xl: 1.875rem; --text-5xl: 2.25rem; --text-6xl: 3rem; }
+  .translation-block { grid-template-columns: 1fr; }
+  .translation-english { border-left: none; border-top: 3px solid var(--color-accent); }
+  .pattern-cards { grid-template-columns: 1fr 1fr; }
+  .flow-actors { flex-direction: column; }
+  .flow-arrow-region { transform: rotate(90deg); }
+}
+@media (max-width: 480px) {
+  :root { --text-4xl: 1.5rem; --text-5xl: 1.875rem; --text-6xl: 2.25rem; }
+  .module { padding: var(--space-8) var(--space-4); }
+  .pattern-cards { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ====== NAV ====== -->
+<nav class="nav">
+  <div class="progress-bar"><div class="progress-bar-fill" id="progress-fill"></div></div>
+  <div class="nav-inner">
+    <span class="nav-title">Peaky Peek — Under the Hood</span>
+    <div class="nav-dots">
+      <button class="nav-dot" data-target="module-1" data-tooltip="What is Peaky Peek?" onclick="scrollToModule('module-1')" aria-label="Module 1"></button>
+      <button class="nav-dot" data-target="module-2" data-tooltip="Meet the Cast" onclick="scrollToModule('module-2')" aria-label="Module 2"></button>
+      <button class="nav-dot" data-target="module-3" data-tooltip="How Events Flow" onclick="scrollToModule('module-3')" aria-label="Module 3"></button>
+      <button class="nav-dot" data-target="module-4" data-tooltip="TraceContext" onclick="scrollToModule('module-4')" aria-label="Module 4"></button>
+      <button class="nav-dot" data-target="module-5" data-tooltip="Intelligence" onclick="scrollToModule('module-5')" aria-label="Module 5"></button>
+      <button class="nav-dot" data-target="module-6" data-tooltip="Auto-Instrumentation" onclick="scrollToModule('module-6')" aria-label="Module 6"></button>
+      <button class="nav-dot" data-target="module-7" data-tooltip="The Big Picture" onclick="scrollToModule('module-7')" aria-label="Module 7"></button>
+    </div>
+  </div>
+</nav>
+
+<!-- ====== MODULE 1: What is Peaky Peek? ====== -->
+<section class="module hero-module" id="module-1" style="background: var(--color-bg)">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">01</span>
+      <h1 class="module-title">What is Peaky Peek?</h1>
+      <p class="module-subtitle">An AI agent debugger that captures every decision, tool call, and LLM interaction as a queryable timeline — so you can debug agents like distributed systems, not black boxes.</p>
+    </header>
+
+    <div class="module-body">
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Problem: AI Agents Are Black Boxes</h2>
+        <p>When you ask an AI agent to do something — book a flight, write code, analyze data — a lot happens behind the scenes. The agent <span class="term" data-definition="Makes a series of choices about what to do next — which tool to call, what to search for, whether to ask for clarification. Each of these choices is a 'decision' in the agent's execution.">makes decisions</span>, calls <span class="term" data-definition="External programs the agent invokes to do things it can't do on its own — like searching the web, reading files, or querying a database. Think of them as the agent's hands.">tools</span>, talks to <span class="term" data-definition="Large Language Models like GPT-4 or Claude — the AI brain that powers the agent's reasoning. The agent sends prompts to the LLM and gets back responses.">LLMs</span>, and occasionally <span class="term" data-definition="The agent refuses to do something because it might be harmful, against its instructions, or outside its capabilities. This is a 'safety guardrail.'">refuses unsafe actions</span>.</p>
+        <p>When something goes wrong — the agent loops forever, picks the wrong tool, or gives a nonsensical answer — you're stuck. Traditional debugging tools can't see inside the agent's reasoning.</p>
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">&#128161;</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why existing tools fall short</strong>
+            <p><span class="term" data-definition="A system for tracking metrics like CPU usage, memory, and network traffic. Great for servers, useless for understanding WHY an AI agent chose to call the weather API instead of the calendar.">OpenTelemetry</span> sees infrastructure metrics, not reasoning chains. <span class="term" data-definition="A cloud service by LangChain for tracing LLM calls. Powerful, but it sends your data to their servers — not ideal if your agent handles private data.">LangSmith</span> is SaaS-first with no local option. <span class="term" data-definition="An error-tracking tool that catches crashes and exceptions. Great for finding bugs, but it doesn't show the agent's decision-making process.">Sentry</span> sees errors, not why the agent chose them. Peaky Peek is agent-decision-aware and local-first by default.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Solution: See Everything</h2>
+        <p>Peaky Peek wraps your agent in a <span class="term" data-definition="A Python construct that sets up some state when you enter it and tears it down when you leave. Like a recording studio — you walk in, press record, do your work, and walk out with a complete recording.">context manager</span> that captures every action as an event. These events form a timeline you can search, replay, and analyze.</p>
+        <p>Here's the core idea in code — three lines to start debugging any agent:</p>
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-keyword">from</span> agent_debugger_sdk <span class="code-keyword">import</span> TraceContext, init
+
+<span class="code-function">init</span>()
+
+<span class="code-keyword">async with</span> <span class="code-function">TraceContext</span>(agent_name=<span class="code-string">"my_agent"</span>) <span class="code-keyword">as</span> ctx:
+    <span class="code-keyword">await</span> ctx.<span class="code-function">record_decision</span>(
+        reasoning=<span class="code-string">"User asked for weather data"</span>,
+        confidence=<span class="code-number">0.85</span>,
+        chosen_action=<span class="code-string">"call_weather_tool"</span>,
+    )
+    <span class="code-keyword">await</span> ctx.<span class="code-function">record_tool_call</span>(<span class="code-string">"weather_api"</span>,
+        {<span class="code-string">"location"</span>: <span class="code-string">"Seattle"</span>})</code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <p class="tl">Pull in the two things we need: TraceContext (the recorder) and init (the setup).</p>
+            <p class="tl">Initialize Peaky Peek. This sets up the connection to the local server.</p>
+            <p class="tl">Open the recording session — like pressing "record" on a camera.</p>
+            <p class="tl">Log a decision: the agent thought about weather data, was 85% confident, and chose to call the weather tool.</p>
+            <p class="tl">Log a tool call: the agent called the weather_api with "Seattle" as the location.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">What You Get</h2>
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-1)">
+            <div class="pattern-icon" style="background: var(--color-actor-1)">&#127919;</div>
+            <h4 class="pattern-title">Decision Tree</h4>
+            <p class="pattern-desc">See every reasoning step as an interactive tree. Click nodes to inspect why the agent chose each action.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">&#9200;</div>
+            <h4 class="pattern-title">Checkpoint Replay</h4>
+            <p class="pattern-desc">Time-travel through agent execution. Play, pause, step, and seek to any point in the trace.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-3)">
+            <div class="pattern-icon" style="background: var(--color-actor-3)">&#128269;</div>
+            <h4 class="pattern-title">Trace Search</h4>
+            <p class="pattern-desc">Find specific events across all sessions. Search by keyword, filter by event type.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-4)">
+            <div class="pattern-icon" style="background: var(--color-actor-4)">&#128737;</div>
+            <h4 class="pattern-title">Safety Audit Trail</h4>
+            <p class="pattern-desc">Full safety trail: policy &rarr; tool guard &rarr; block &rarr; violation &rarr; refusal.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- QUIZ 1 -->
+      <section class="screen animate-in" id="quiz-1">
+        <h2 class="screen-heading">Check Your Understanding</h2>
+        <div class="quiz-container">
+          <div class="quiz-question-block" data-question="q1-1" data-correct="option-b">
+            <h3 class="quiz-question">An AI agent keeps calling the same search tool in a loop. Where would you look to understand why?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>In the agent's server logs for HTTP 500 errors</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>In the decision tree — look at the reasoning chain before each tool call</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>In the database query logs to see what data the tool returned</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" id="q1-1-feedback"></div>
+          </div>
+          <div class="quiz-question-block" data-question="q1-2" data-correct="option-c">
+            <h3 class="quiz-question">Why is Peaky Peek "local-first"?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Because it only works on localhost, not in the cloud</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Because it was designed as a debugging tool, not a production service</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Because it stores data on your machine by default — no data leaves without your explicit cloud config</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" id="q1-2-feedback"></div>
+          </div>
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-1')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-1')">Try Again</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ====== MODULE 2: Meet the Cast ====== -->
+<section class="module" id="module-2" style="background: var(--color-bg-warm)">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">02</span>
+      <h1 class="module-title">Meet the Cast</h1>
+      <p class="module-subtitle">Three layers work together: the SDK captures events, the API stores and serves them, and the frontend lets you explore.</p>
+    </header>
+
+    <div class="module-body">
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Three Layers</h2>
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-1)">SDK</div>
+            <div>
+              <strong>Agent Debugger SDK (<span class="term" data-definition="The Python package you install with 'pip install peaky-peek'. It's the code you add to your agent to start recording events.">peaky-peek</span>)</strong>
+              <p>The recording equipment. You add two lines to your agent code, and the SDK captures every decision, tool call, LLM interaction, and checkpoint.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2)">API</div>
+            <div>
+              <strong>FastAPI Server (<span class="term" data-definition="The Python web framework used to build the API server. FastAPI is popular because it's fast and automatically generates documentation.">FastAPI</span>)</strong>
+              <p>The control room. Receives events from the SDK, stores them in <span class="term" data-definition="A lightweight database that stores everything in a single file on your disk. Perfect for local development — no separate database server needed.">SQLite</span>, serves them via REST and real-time streaming, and handles search and replay.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-3)">UI</div>
+            <div>
+              <strong>React Frontend (<span class="term" data-definition="A JavaScript library for building user interfaces. The frontend is the visual part you see in your browser.">React</span> + TypeScript + Vite)</strong>
+              <p>The viewing gallery. Decision trees, timeline replays, tool inspectors, safety audit trails, and live monitoring — all rendered in your browser.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Project Layout</h2>
+        <div class="file-tree">
+          <div class="ft-folder open">
+            <span class="ft-name">agent_debugger_sdk/</span>
+            <span class="ft-desc">The recording equipment — events, context, emitters</span>
+            <div class="ft-children">
+              <div class="ft-folder">
+                <span class="ft-name">core/</span>
+                <span class="ft-desc">Tracing primitives — TraceContext, events, emitter, scorer</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">checkpoints/</span>
+                <span class="ft-desc">State snapshots for time-travel debugging</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">adapters/</span>
+                <span class="ft-desc">Framework integrations — LangChain, PydanticAI</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">auto_patch/</span>
+                <span class="ft-desc">Zero-code auto-instrumentation for LLM libraries</span>
+              </div>
+            </div>
+          </div>
+          <div class="ft-folder">
+            <span class="ft-name">api/</span>
+            <span class="ft-desc">FastAPI server — routes, schemas, services</span>
+          </div>
+          <div class="ft-folder">
+            <span class="ft-name">collector/</span>
+            <span class="ft-desc">Event pipeline — buffer, persistence, intelligence</span>
+          </div>
+          <div class="ft-folder">
+            <span class="ft-name">storage/</span>
+            <span class="ft-desc">Database engine, models, migrations</span>
+          </div>
+          <div class="ft-folder">
+            <span class="ft-name">frontend/</span>
+            <span class="ft-desc">React UI — trace timeline, decision tree, replay</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">How They Connect</h2>
+        <p>The three layers communicate through two channels: <span class="term" data-definition="The standard way web browsers and servers talk to each other. The browser asks for data (GET), sends data (POST), or updates data (PUT). Think of it as the language of the web.">REST API</span> for on-demand data, and <span class="term" data-definition="Server-Sent Events — a way for the server to push real-time updates to the browser without the browser having to ask. Like a live news feed.">SSE</span> (Server-Sent Events) for live streaming.</p>
+        <div class="arch-diagram animate-in">
+          <div class="arch-zone">
+            <h4 class="arch-zone-label">Visualization Layer</h4>
+            <div class="arch-components">
+              <div class="arch-component"><span class="term" data-definition="A visual tree showing the agent's reasoning path. Each node is a decision, tool call, or safety check. You can click nodes to see the details.">DecisionTree</span></div>
+              <div class="arch-component"><span class="term" data-definition="A panel showing what tool the agent called, what arguments it passed, and what result it got back. Like an X-ray of a tool call.">ToolInspector</span></div>
+              <div class="arch-component"><span class="term" data-definition">A playback control that lets you step through the agent's execution event by event, like rewinding a video.">SessionReplay</span></div>
+              <div class="arch-component">TraceTimeline</div>
+              <div class="arch-component">LLMViewer</div>
+            </div>
+          </div>
+          <div class="arch-connector">&#8595; REST + SSE &nbsp;&nbsp;&#8593;</div>
+          <div class="arch-zone">
+            <h4 class="arch-zone-label">API Layer (FastAPI)</h4>
+            <div class="arch-components">
+              <div class="arch-component">session_routes</div>
+              <div class="arch-component">trace_routes</div>
+              <div class="arch-component">replay_routes</div>
+              <div class="arch-component">comparison_routes</div>
+              <div class="arch-component">analytics_routes</div>
+            </div>
+          </div>
+          <div class="arch-connector">&#8595; SQLAlchemy &nbsp;&nbsp;&#8593;</div>
+          <div class="arch-zone">
+            <h4 class="arch-zone-label">Storage Layer (SQLite)</h4>
+            <div class="arch-components">
+              <div class="arch-component">sessions</div>
+              <div class="arch-component">events</div>
+              <div class="arch-component">checkpoints</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- QUIZ 2 -->
+      <section class="screen animate-in" id="quiz-2">
+        <h2 class="screen-heading">Check Your Understanding</h2>
+        <div class="quiz-container">
+          <div class="quiz-question-block" data-question="q2-1" data-correct="option-a">
+            <h3 class="quiz-question">A developer wants to add a new visualization panel to the frontend. Which files would they need to touch?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A new component in frontend/src/components/, types in types/index.ts, and an API call in api/client.ts</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Only the frontend/src/components/ directory — the rest is auto-generated</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The storage layer, API routes, and frontend — all three layers need changes</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" id="q2-1-feedback"></div>
+          </div>
+          <div class="quiz-question-block" data-question="q2-2" data-correct="option-c">
+            <h3 class="quiz-question">Why does the system use SSE instead of WebSockets for live streaming?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Because WebSockets are slower than SSE for one-way communication</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Because SSE can send binary data more efficiently</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>SSE is simpler for one-way server-to-client streaming — the server pushes events, the client just listens</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" id="q2-2-feedback"></div>
+          </div>
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-2')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-2')">Try Again</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ====== MODULE 3: How Events Flow ====== -->
+<section class="module" id="module-3" style="background: var(--color-bg)">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">03</span>
+      <h1 class="module-title">How Events Flow</h1>
+      <p class="module-subtitle">Every agent action becomes an event. Events form a tree, flow through a pipeline, and end up on your screen.</p>
+    </header>
+
+    <div class="module-body">
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Event Hierarchy</h2>
+        <p>Peaky Peek models agent execution as a hierarchy — like a family tree for your agent's actions:</p>
+        <div class="step-cards stagger-children">
+          <div class="step-card animate-in">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong><span class="term" data-definition="One complete run of your agent — from the moment it starts to the moment it finishes. Like one episode of a TV show.">Session</span></strong>
+              <p>The container for everything. One user request = one session. It tracks total tokens, cost, tool calls, and whether it succeeded or failed.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong><span class="term" data-definition="The complete timeline of events within a session. Every decision, tool call, and LLM response is a point on this timeline. Like the script of a play.">Trace</span></strong>
+              <p>The full event timeline for a session. Every event gets a sequence number so you can replay them in order.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong><span class="term" data-definition="A single observable action — a decision the agent made, a tool it called, an LLM response it received, or an error that occurred. The fundamental unit of tracing.">Event</span></strong>
+              <p>Any observable action. Each event has a type (decision, tool_call, error...), a parent ID for nesting, and an importance score.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <strong><span class="term" data-definition="A frozen snapshot of the agent's state at a specific moment. Like a save point in a video game — you can restore the agent to this exact state later.">Checkpoint</span></strong>
+              <p>A state snapshot for time-travel debugging. Restore from a checkpoint to replay the agent from that exact point.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Event Type Zoo</h2>
+        <p>The <span class="term" data-definition="A fixed list of categories that every event belongs to. There are 14 types — from agent_start and tool_call to safety_check and behavior_alert. Each type triggers different behavior in the UI and intelligence analysis.">EventType enum</span> defines 14 types of things that can happen during agent execution. Here are the key ones:</p>
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">&#128161;</div>
+            <h4 class="pattern-title">decision</h4>
+            <p class="pattern-desc">The agent chose an action. Includes reasoning, confidence score, and evidence.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-1)">
+            <div class="pattern-icon" style="background: var(--color-actor-1)">&#128295;</div>
+            <h4 class="pattern-title">tool_call / tool_result</h4>
+            <p class="pattern-desc">The agent invoked an external tool and got a result back. The call/result pair shows what was asked and what was returned.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-3)">
+            <div class="pattern-icon" style="background: var(--color-actor-3)">&#129302;</div>
+            <h4 class="pattern-title">llm_request / llm_response</h4>
+            <p class="pattern-desc">What was sent to the AI model and what came back. Includes token counts, cost, and the full conversation.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-error)">
+            <div class="pattern-icon" style="background: var(--color-error)">&#9888;</div>
+            <h4 class="pattern-title">error</h4>
+            <p class="pattern-desc">Something went wrong. Includes the error type, message, and full stack trace.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-4)">
+            <div class="pattern-icon" style="background: var(--color-actor-4)">&#128737;</div>
+            <h4 class="pattern-title">safety_check / refusal / policy_violation</h4>
+            <p class="pattern-desc">The agent's safety guardrails in action. Did it pass a check? Refuse an action? Violate a policy?</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-5)">
+            <div class="pattern-icon" style="background: var(--color-actor-5)">&#128200;</div>
+            <h4 class="pattern-title">checkpoint / agent_turn / behavior_alert</h4>
+            <p class="pattern-desc">State snapshots, speaker turns in multi-agent chats, and detected anomalies.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Inside a TraceEvent</h2>
+        <p>Every event is a <span class="term" data-definition="A Python construct for creating data objects. It's like a blueprint — you define what fields an object has and their types, and Python generates the constructor and other methods automatically.">dataclass</span> with a shared set of fields. Here's the foundation:</p>
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-keyword">@dataclass</span>(kw_only=<span class="code-keyword">True</span>)
+<span class="code-keyword">class</span> <span class="code-function">TraceEvent</span>:
+    id: str = field(default_factory=<span class="code-keyword">lambda</span>: str(uuid.uuid4()))
+    session_id: str = <span class="code-string">""</span>
+    parent_id: str | <span class="code-keyword">None</span> = <span class="code-keyword">None</span>
+    event_type: EventType = EventType.AGENT_START
+    timestamp: datetime = field(
+        default_factory=<span class="code-keyword">lambda</span>: datetime.now(timezone.utc)
+    )
+    name: str = <span class="code-string">""</span>
+    data: dict[str, Any] = field(default_factory=dict)
+    importance: float = <span class="code-number">0.5</span>
+    upstream_event_ids: list[str] = field(
+        default_factory=list
+    )</code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <p class="tl">This is a data blueprint. Every event automatically gets a unique ID and timestamp when it's created.</p>
+            <p class="tl">Each event belongs to a session (so you can group all events from one agent run together).</p>
+            <p class="tl">parent_id creates the tree structure — a tool_result can point back to the tool_call that triggered it.</p>
+            <p class="tl">event_type tells us what kind of thing happened — a decision, tool call, error, etc.</p>
+            <p class="tl">data is a catch-all dictionary for event-specific information (different for each event type).</p>
+            <p class="tl">importance is a score from 0-1 that determines how prominently this event shows up in the UI.</p>
+          </div>
+        </div>
+        <div class="callout callout-info animate-in">
+          <div class="callout-icon">&#128214;</div>
+          <div class="callout-content">
+            <strong class="callout-title">The tree structure</strong>
+            <p>The parent_id field is what makes events form a tree. A tool_result's parent is the tool_call. A decision that led to a tool call becomes its grandparent. This is how the Decision Tree visualization knows what connects to what.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- DATA FLOW ANIMATION -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Journey of an Event</h2>
+        <p>Click through each step to follow an event from creation to your screen.</p>
+        <div class="flow-animation animate-in" id="flow-1">
+          <div class="flow-actors">
+            <div class="flow-actor" id="flow-your-code">
+              <div class="flow-actor-icon" style="background: var(--color-actor-1)">&#9997;</div>
+              <span>Your Agent</span>
+            </div>
+            <div class="flow-arrow-region">&#8594;</div>
+            <div class="flow-actor" id="flow-sdk">
+              <div class="flow-actor-icon" style="background: var(--color-actor-2)">&#127911;</div>
+              <span>SDK (TraceContext)</span>
+            </div>
+            <div class="flow-arrow-region">&#8594;</div>
+            <div class="flow-actor" id="flow-buffer">
+              <div class="flow-actor-icon" style="background: var(--color-actor-3)">&#128256;</div>
+              <span>Event Buffer</span>
+            </div>
+            <div class="flow-arrow-region">&#8594;</div>
+            <div class="flow-actor" id="flow-db">
+              <div class="flow-actor-icon" style="background: var(--color-actor-4)">&#128451;</div>
+              <span>SQLite</span>
+            </div>
+            <div class="flow-arrow-region">&#8594;</div>
+            <div class="flow-actor" id="flow-ui">
+              <div class="flow-actor-icon" style="background: var(--color-actor-5)">&#128187;</div>
+              <span>Frontend</span>
+            </div>
+          </div>
+          <div class="flow-step-label" id="flow-1-label">Click "Next Step" to follow an event through the system</div>
+          <div class="flow-controls">
+            <button onclick="flow1Next()">Next Step</button>
+            <button onclick="flow1Reset()">Restart</button>
+            <span class="flow-progress" id="flow-1-progress">Step 0 / 5</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- QUIZ 3 -->
+      <section class="screen animate-in" id="quiz-3">
+        <h2 class="screen-heading">Check Your Understanding</h2>
+        <div class="quiz-container">
+          <div class="quiz-question-block" data-question="q3-1" data-correct="option-b">
+            <h3 class="quiz-question">An agent makes a decision (confidence 0.3, no evidence) and then calls a tool that returns an error. Which events would appear in the trace?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Just one error event — the tool failure is the only thing worth recording</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A decision event, a tool_call event, a tool_result event (with error), and they'd be linked via parent_id</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A single compound event containing the decision and error data together</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" id="q3-1-feedback"></div>
+          </div>
+          <div class="quiz-question-block" data-question="q3-2" data-correct="option-a">
+            <h3 class="quiz-question">You want to find all safety_check events across every session where the outcome was "block". Where does this search happen?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The API server queries the SQLite database, which has all events indexed by type and session</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The frontend searches through its in-memory copy of all events</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The SDK's TraceContext searches through its local event buffer</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" id="q3-2-feedback"></div>
+          </div>
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-3')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-3')">Try Again</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ====== MODULE 4: TraceContext — The Recording Studio ====== -->
+<section class="module" id="module-4" style="background: var(--color-bg-warm)">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">04</span>
+      <h1 class="module-title">TraceContext — The Recording Studio</h1>
+      <p class="module-subtitle">The central piece of the SDK. TraceContext manages the entire lifecycle of a debugging session.</p>
+    </header>
+
+    <div class="module-body">
+      <section class="screen animate-in">
+        <h2 class="screen-heading">What Happens When You Enter a Session</h2>
+        <p>When you write <code>async with TraceContext(...) as ctx:</code>, three things happen silently. Here's the setup code:</p>
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-keyword">async def</span> <span class="code-function">__aenter__</span>(self) -> TraceContext:
+    _current_session_id.set(self.session_id)
+    _current_parent_id.set(<span class="code-keyword">None</span>)
+    _event_sequence.set(<span class="code-number">0</span>)
+    _current_context.set(self)
+
+    <span class="code-keyword">from</span> agent_debugger_sdk.config <span class="code-keyword">import</span> get_config
+    config = get_config()
+    <span class="code-keyword">if</span> config.mode == <span class="code-string">"cloud"</span> <span class="code-keyword">and</span> config.api_key:
+        <span class="code-keyword">from</span> agent_debugger_sdk.transport <span class="code-keyword">import</span> HttpTransport
+        self._transport = HttpTransport(
+            config.endpoint, config.api_key
+        )
+
+    start_event = TraceEvent(
+        session_id=self.session_id,
+        event_type=EventType.AGENT_START,
+        name=<span class="code-string">"session_start"</span>,
+        data={<span class="code-string">"agent_name"</span>: self.session.agent_name},
+        importance=<span class="code-number">0.2</span>,
+    )
+    <span class="code-keyword">await</span> self._emit_event(start_event)
+    <span class="code-keyword">return</span> self</code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <p class="tl">Set up thread-local variables so any code inside the session can find the active TraceContext.</p>
+            <p class="tl">If we're in "cloud mode" (user provided an API key), create an HTTP transport to send events to a remote server.</p>
+            <p class="tl">Create the very first event — a "session_start" marker — and emit it through the pipeline.</p>
+            <p class="tl">Return the context so the developer can use it with <code>as ctx:</code></p>
+          </div>
+        </div>
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">&#128161;</div>
+          <div class="callout-content">
+            <strong class="callout-title">ContextVars: async-safe global state</strong>
+            <p>The <span class="term" data-definition="A Python feature that stores state specific to the current async task. Unlike global variables, ContextVars don't leak between concurrent requests. Think of it as each async task having its own private clipboard.">ContextVar</span> pattern is crucial. Regular global variables would leak between concurrent agent sessions. ContextVars ensures that when two agents run at the same time, each one's events go to the right session.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Event Pipeline</h2>
+        <p>When TraceContext emits an event, it doesn't just store it locally. It sends the event through a pipeline with three destinations:</p>
+        <div class="badge-list">
+          <div class="badge-item">
+            <code class="badge-code">persist_event</code>
+            <span>Save to SQLite so events survive server restarts and can be searched later</span>
+          </div>
+          <div class="badge-item">
+            <code class="badge-code">EventBuffer.publish</code>
+            <span>Push to an in-memory buffer that feeds live SSE streams to the frontend</span>
+          </div>
+          <div class="badge-item">
+            <code class="badge-code">session_update_hook</code>
+            <span>Update the session's running totals (tokens, cost, tool call count)</span>
+          </div>
+        </div>
+        <p>This pipeline is connected when the server starts up, using <code>configure_event_pipeline()</code>:</p>
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-function">configure_event_pipeline</span>(
+    buffer,
+    persist_event=_services.persist_event,
+    persist_checkpoint=_services.persist_checkpoint,
+    persist_session_start=_services.persist_session_start,
+    persist_session_update=_services.persist_session_update,
+)</code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <p class="tl">Wire up the pipeline: events go to the live buffer AND to the database. Checkpoints get their own persistence path. Session start/update each get their own hooks.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Checkpoints — Save Points for Time Travel</h2>
+        <p>Imagine you're playing a video game and you reach a tricky boss fight. You save your game before the fight so if you die, you can reload and try a different strategy. That's exactly what checkpoints do for agent debugging.</p>
+        <p>You create a checkpoint at any point during execution by calling <code>ctx.create_checkpoint()</code>. It captures the agent's current state — its memory, its position in the task, whatever the developer decides is important.</p>
+        <div class="callout callout-warning animate-in">
+          <div class="callout-icon">&#9888;</div>
+          <div class="callout-content">
+            <strong class="callout-title">Checkpoints aren't automatic (yet)</strong>
+            <p>The developer decides when to create checkpoints. This is intentional — only the developer knows which moments are worth saving. The importance score (0-1) helps the UI prioritize which checkpoints to show first when there are many.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- GROUP CHAT: Checkpoint flow -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">A Checkpoint Conversation</h2>
+        <p>Watch how the system components talk to each other when a checkpoint is created:</p>
+        <div class="chat-window animate-in">
+          <div class="chat-header">Component Chat — Creating a Checkpoint</div>
+          <div class="chat-messages" id="chat-4">
+            <div class="chat-message" data-msg="0" data-sender="agent" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1)">AG</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1)">Your Agent</span>
+                <p>Hey, I just processed 5 user messages and I'm about to call the payment API. This feels like a good moment to save state.</p>
+              </div>
+            </div>
+            <div class="chat-message" data-msg="1" data-sender="sdk" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-2)">SDK</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-2)">TraceContext</span>
+                <p>On it! I'll capture the current conversation history, the agent's confidence scores, and the task state. Assigning importance 0.8 since this is right before a critical action.</p>
+              </div>
+            </div>
+            <div class="chat-message" data-msg="2" data-sender="emitter" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-3)">EM</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-3)">EventEmitter</span>
+                <p>Got the checkpoint! I'll score it for importance, assign a sequence number, and send it down three paths simultaneously.</p>
+              </div>
+            </div>
+            <div class="chat-message" data-msg="3" data-sender="buffer" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-4)">BF</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-4)">EventBuffer</span>
+                <p>Stored in memory! Any frontend clients subscribed to this session will get notified in real-time via SSE.</p>
+              </div>
+            </div>
+            <div class="chat-message" data-msg="4" data-sender="db" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-5)">DB</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-5)">SQLite</span>
+                <p>And I've saved it to disk! This checkpoint will survive server restarts. If the payment API fails, you can restore from here.</p>
+              </div>
+            </div>
+          </div>
+          <div class="chat-typing" id="chat-4-typing" style="display:none">
+            <div class="chat-avatar" id="chat-4-typing-avatar">?</div>
+            <div class="chat-typing-dots">
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+            </div>
+          </div>
+          <div class="chat-controls">
+            <button onclick="playChatNext('chat-4')">Next Message</button>
+            <button onclick="playChatAll('chat-4')">Play All</button>
+            <button onclick="resetChat('chat-4')">Replay</button>
+            <span class="chat-progress" id="chat-4-progress">0 / 5 messages</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- QUIZ 4 -->
+      <section class="screen animate-in" id="quiz-4">
+        <h2 class="screen-heading">Check Your Understanding</h2>
+        <div class="quiz-container">
+          <div class="quiz-question-block" data-question="q4-1" data-correct="option-b">
+            <h3 class="quiz-question">Two agents run at the same time. Agent A calls record_decision, then Agent B calls record_decision immediately after. What ensures Agent A's event goes to Session A and not Session B?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Each TraceContext has its own separate event list, and Python locks prevent concurrent access</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>ContextVars — each async task has its own isolated set of context variables (session_id, parent_id, etc.)</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The session_id is passed explicitly to every record_decision call</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" id="q4-1-feedback"></div>
+          </div>
+          <div class="quiz-question-block" data-question="q4-2" data-correct="option-a">
+            <h3 class="quiz-question">Your agent is about to make a payment API call. Where should you place a checkpoint?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Right before the payment call, with the current state and a high importance score</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>After the payment call, so you can see the result</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>At the very beginning of the session — one checkpoint per session is enough</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" id="q4-2-feedback"></div>
+          </div>
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-4')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-4')">Try Again</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ====== MODULE 5: Intelligence ====== -->
+<section class="module" id="module-5" style="background: var(--color-bg)">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">05</span>
+      <h1 class="module-title">Making Sense of the Noise</h1>
+      <p class="module-subtitle">Hundreds of events fire during a single session. How does Peaky Peek figure out which ones matter?</p>
+    </header>
+
+    <div class="module-body">
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Importance Scoring</h2>
+        <p>Every event gets a score from 0.0 to 1.0. The <span class="term" data-definition="A system that assigns a priority score to each event. Policy violations get ~0.92, errors get ~0.9, and routine agent_start events get ~0.2. This helps the UI show the most important events first.">ImportanceScorer</span> looks at the event type first, then adjusts based on context:</p>
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-keyword">def</span> <span class="code-function">score</span>(self, event: TraceEvent) -> float:
+    base_scores: dict[EventType, float] = {
+        EventType.ERROR: <span class="code-number">0.9</span>,
+        EventType.REFUSAL: <span class="code-number">0.85</span>,
+        EventType.BEHAVIOR_ALERT: <span class="code-number">0.88</span>,
+        EventType.POLICY_VIOLATION: <span class="code-number">0.92</span>,
+        EventType.DECISION: <span class="code-number">0.7</span>,
+        EventType.SAFETY_CHECK: <span class="code-number">0.75</span>,
+        EventType.CHECKPOINT: <span class="code-number">0.6</span>,
+        EventType.TOOL_CALL: <span class="code-number">0.4</span>,
+        EventType.LLM_REQUEST: <span class="code-number">0.3</span>,
+        EventType.AGENT_START: <span class="code-number">0.2</span>,
+    }
+    score = base_scores.get(event.event_type, <span class="code-number">0.3</span>)
+
+    <span class="code-keyword">if</span> event.event_type == EventType.DECISION:
+        confidence = <span class="code-function">float</span>(_event_value(
+            event, <span class="code-string">"confidence"</span>, <span class="code-number">0.5</span>
+        ))
+        score += <span class="code-number">0.3</span> * <span class="code-function">abs</span>(<span class="code-number">0.5</span> - confidence) * <span class="code-number">2</span>
+    <span class="code-keyword">return</span> min(score, <span class="code-number">1.0</span>)</code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <p class="tl">Start with a base score for each event type. Errors and policy violations are inherently important (0.9+). Session starts are routine (0.2).</p>
+            <p class="tl">For decisions, boost the score if the agent was uncertain. A confidence of 0.1 or 0.9 is more interesting than 0.5 — extreme confidence (or extreme uncertainty) is a signal worth investigating.</p>
+            <p class="tl">Cap at 1.0 — no event can be "more than maximally important."</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Live Monitoring: Catching Problems in Real Time</h2>
+        <p>The <span class="term" data-definition="A system that watches events as they arrive and derives alerts. It doesn't just relay raw events — it detects patterns like tool loops, oscillation, and guardrail pressure.">LiveMonitor</span> watches events as they stream in and derives alerts from patterns it detects. Think of it as a security camera with AI — it doesn't just record, it notices when something's off.</p>
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-error)">
+            <div class="pattern-icon" style="background: var(--color-error)">&#128260;</div>
+            <h4 class="pattern-title">Tool Loops</h4>
+            <p class="pattern-desc">The same tool called 3+ times in a row. Detected by checking the last three tool_call events — if they all target the same tool, that's a loop.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">&#128256;</div>
+            <h4 class="pattern-title">Oscillation</h4>
+            <p class="pattern-desc">The agent bounces between two actions — like A&rarr;B&rarr;A&rarr;B. The detect_oscillation function looks for repeating patterns of length 2-4.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-4)">
+            <div class="pattern-icon" style="background: var(--color-actor-4)">&#128737;</div>
+            <h4 class="pattern-title">Guardrail Pressure</h4>
+            <p class="pattern-desc">2+ safety events (refusals, violations, failed checks) in the recent window. The agent is being pushed against its limits.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-3)">
+            <div class="pattern-icon" style="background: var(--color-actor-3)">&#128200;</div>
+            <h4 class="pattern-title">Strategy Shift</h4>
+            <p class="pattern-desc">The agent's last two decisions had different chosen_actions. A sudden strategy change mid-execution is worth flagging.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">How Oscillation Detection Works</h2>
+        <p>The <span class="term" data-definition="When an agent bounces back and forth between two states or actions without making progress. Like a washing machine stuck on the spin cycle — it's doing something, but not getting anywhere useful.">oscillation detection</span> algorithm is elegantly simple. Here's the core logic:</p>
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-keyword">def</span> <span class="code-function">detect_oscillation</span>(
+    events: list[TraceEvent], window: int = <span class="code-number">10</span>
+) -> OscillationAlert | <span class="code-keyword">None</span>:
+    <span class="code-keyword">for</span> pattern_len <span class="code-keyword">in</span> [<span class="code-number">2</span>, <span class="code-number">3</span>, <span class="code-number">4</span>]:
+        pattern = sequence[:pattern_len]
+        repeats = <span class="code-number">1</span>
+        <span class="code-keyword">for</span> i <span class="code-keyword">in</span> range(pattern_len,
+                      <span class="code-function">len</span>(sequence) - pattern_len + <span class="code-number">1</span>,
+                      pattern_len):
+            <span class="code-keyword">if</span> sequence[i:i + pattern_len] == pattern:
+                repeats += <span class="code-number">1</span>
+
+        <span class="code-keyword">if</span> repeats >= <span class="code-number">2</span>:
+            <span class="code-keyword">return</span> OscillationAlert(
+                pattern=<span class="code-string">"->"</span>.join(p[<span class="code-number">1</span>] <span class="code-keyword">for</span> p <span class="code-keyword">in</span> pattern),
+                repeat_count=repeats,
+                severity=min(<span class="code-number">1.0</span>, repeats / <span class="code-number">3.0</span>),
+            )</code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <p class="tl">Look at the recent events (last 10 by default).</p>
+            <p class="tl">Try to find repeating patterns of length 2, 3, or 4 events.</p>
+            <p class="tl">If a pattern repeats at least twice (e.g., search&rarr;read&rarr;search&rarr;read), that's oscillation.</p>
+            <p class="tl">Severity scales with how many times it repeated — 2 repeats is notable, 3+ is alarming.</p>
+          </div>
+        </div>
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">&#128161;</div>
+          <div class="callout-content">
+            <strong class="callout-title">Derived vs. captured alerts</strong>
+            <p>The live monitor produces two kinds of alerts. <strong>Captured</strong> alerts come from events the SDK explicitly recorded (like behavior_alert events). <strong>Derived</strong> alerts are detected by the monitor itself — like a tool loop that no one explicitly flagged, but the pattern is obvious in hindsight.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- QUIZ 5 -->
+      <section class="screen animate-in" id="quiz-5">
+        <h2 class="screen-heading">Check Your Understanding</h2>
+        <div class="quiz-container">
+          <div class="quiz-question-block" data-question="q5-1" data-correct="option-c">
+            <h3 class="quiz-question">A tool_result event has error=null but took 8 seconds (8000ms). Would its importance score change?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>No — the base score for tool_result is 0.5 and there's no error boost</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Yes — but only if the error field is set to a non-null value</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <span>Yes — the scorer adds a duration bonus for events over 1000ms (8 seconds would add 0.12 to the score)</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" id="q5-1-feedback"></div>
+          </div>
+          <div class="quiz-question-block" data-question="q5-2" data-correct="option-a">
+            <h3 class="quiz-question">An agent calls search_API, read_results, search_API, read_results, search_API. What alert would the live monitor generate?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>An oscillation alert — the pattern search_API -> read_results repeats 2+ times</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A tool loop alert — the same tool was called 3 times</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A guardrail pressure alert — multiple tools in sequence indicates safety issues</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" id="q5-2-feedback"></div>
+          </div>
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-5')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-5')">Try Again</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ====== MODULE 6: Auto-Instrumentation ====== -->
+<section class="module" id="module-6" style="background: var(--color-bg-warm)">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">06</span>
+      <h1 class="module-title">Auto-Instrumentation</h1>
+      <p class="module-subtitle">What if you could debug an agent without changing a single line of its code?</p>
+    </header>
+
+    <div class="module-body">
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Idea: Monkey-Patching LLM Libraries</h2>
+        <p>Most AI agents use LLM libraries like <span class="term" data-definition="The official Python library for calling OpenAI's GPT models. When an agent uses this library, every LLM call goes through the openai.ChatCompletion.create() method.">OpenAI</span>, <span class="term" data-definition="The official Python library for calling Anthropic's Claude models. Similar to OpenAI's library but for Claude.">Anthropic</span>, or <span class="term" data-definition="A framework for building AI agents that can use multiple tools and have complex reasoning chains. It's one of the most popular agent frameworks.">LangChain</span>. These libraries all have a central function where LLM calls happen.</p>
+        <p>Peaky Peek's auto-patch system <span class="term" data-definition="A Python technique where you replace a function or method at runtime with your own version. Like swapping out a car's engine while it's running — the rest of the code doesn't know anything changed.">monkey-patches</span> these central functions to wrap them with tracing. The original function still runs — the patch just adds event recording around it.</p>
+        <div class="callout callout-info animate-in">
+          <div class="callout-icon">&#128214;</div>
+          <div class="callout-content">
+            <strong class="callout-title">The adapter pattern</strong>
+            <p>Each LLM library gets its own <span class="term" data-definition="A design pattern where you create a class that translates between two incompatible interfaces. In Peaky Peek, each adapter knows how to extract tracing data from a specific LLM library's response format.">adapter</span> that knows how to extract tracing data from that library's specific response format. The OpenAI adapter knows how to read OpenAI's response object, the Anthropic adapter knows Anthropic's format, and so on.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">How a Patched Call Works</h2>
+        <p>Here's the shared implementation that all adapters use. When an agent makes an LLM call, this wrapper fires instead of the original function:</p>
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-keyword">def</span> <span class="code-function">_call_sync</span>(self, original, self_client,
+                  *args, **kwargs):
+    session_id = <span class="code-function">get_or_create_session</span>(
+        self._transport, self._config.agent_name,
+        self.name
+    )
+    request_id = self._<span class="code-function">emit_request</span>(
+        kwargs, session_id
+    )
+
+    start = time.perf_counter()
+    <span class="code-keyword">try</span>:
+        response = original(self_client, *args, **kwargs)
+    <span class="code-keyword">finally</span>:
+        duration_ms = (
+            time.perf_counter() - start
+        ) * <span class="code-number">1000</span>
+
+    self._<span class="code-function">emit_response</span>(
+        response, request_id, session_id, duration_ms
+    )
+    <span class="code-keyword">return</span> response</code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <p class="tl">Get or create a session for this agent so we know which session to attribute events to.</p>
+            <p class="tl">Emit a "request" event BEFORE the call — capture what the agent is asking the LLM.</p>
+            <p class="tl">Start a timer, then call the REAL original function. The finally block ensures we always measure time, even if the call crashes.</p>
+            <p class="tl">Emit a "response" event AFTER the call — capture what the LLM said back and how long it took.</p>
+            <p class="tl">Return the original response unchanged — the agent has no idea we were recording.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Patch Registry</h2>
+        <p>The <span class="term" data-definition="A central manager that holds all the adapter instances. When you activate it, it checks which LLM libraries are installed and applies patches to each one. Adapters for libraries you don't have are silently skipped.">PatchRegistry</span> is the control center. It holds all adapters and applies them in one shot:</p>
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-keyword">def</span> <span class="code-function">apply</span>(self, config, names=<span class="code-keyword">None</span>):
+    <span class="code-keyword">for</span> adapter <span class="code-keyword">in</span> self._adapters:
+        <span class="code-keyword">if</span> names <span class="code-keyword">and</span> adapter.name <span class="code-keyword">not in</span> names:
+            <span class="code-keyword">continue</span>
+        <span class="code-keyword">if not</span> adapter.<span class="code-function">is_available</span>():
+            <span class="code-keyword">continue</span>
+        <span class="code-keyword">try</span>:
+            adapter.<span class="code-function">patch</span>(config)
+            self._patched.append(adapter)
+        <span class="code-keyword">except</span> Exception:
+            logger.warning(<span class="code-string">"Failed to patch"</span>)</code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <p class="tl">For each registered adapter (OpenAI, Anthropic, etc.)...</p>
+            <p class="tl">If the user specified specific adapters by name, skip the rest.</p>
+            <p class="tl">Check if the library is actually installed — skip if not.</p>
+            <p class="tl">Apply the patch. If it fails, log a warning but keep going — never crash the agent because tracing failed.</p>
+          </div>
+        </div>
+        <div class="callout callout-warning animate-in">
+          <div class="callout-icon">&#9888;</div>
+          <div class="callout-content">
+            <strong class="callout-title">Safety first</strong>
+            <p>Notice the try/except in the apply loop. If patching OpenAI fails for some reason, Peaky Peek doesn't crash your agent — it just logs a warning and moves on. The debugging tool should never break the thing it's debugging.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- QUIZ 6 -->
+      <section class="screen animate-in" id="quiz-6">
+        <h2 class="screen-heading">Check Your Understanding</h2>
+        <div class="quiz-container">
+          <div class="quiz-question-block" data-question="q6-1" data-correct="option-c">
+            <h3 class="quiz-question">An agent uses the OpenAI library and you enable auto-instrumentation. The agent makes a call to gpt-4o. What happens?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The call is intercepted, replaced with a mock, and the response is generated locally</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The call goes through but returns 10x slower because of tracing overhead</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The call goes to OpenAI normally, but Peaky Peek records the request and response as events before and after</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" id="q6-1-feedback"></div>
+          </div>
+          <div class="quiz-question-block" data-question="q6-2" data-correct="option-a">
+            <h3 class="quiz-question">Your agent uses both OpenAI and Anthropic. You only want to trace OpenAI calls. How?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Pass names=["openai"] to the registry's apply() method — it will only patch the OpenAI adapter</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Set an environment variable DISABLE_ANTHROPIC_PATCH=true</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Create a new TraceContext with framework="openai" only</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" id="q6-2-feedback"></div>
+          </div>
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-6')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-6')">Try Again</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ====== MODULE 7: The Big Picture ====== -->
+<section class="module" id="module-7" style="background: var(--color-bg)">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">07</span>
+      <h1 class="module-title">The Big Picture</h1>
+      <p class="module-subtitle">Design decisions, the transport layer, and how to extend the system.</p>
+    </header>
+
+    <div class="module-body">
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Design Decisions That Matter</h2>
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-1)">
+            <div class="pattern-icon" style="background: var(--color-actor-1)">&#127968;</div>
+            <h4 class="pattern-title">Local-First</h4>
+            <p class="pattern-desc">Data stays on your machine by default. No external telemetry, no cloud dependency. Your agent's prompts and reasoning never leave your disk unless you explicitly configure it.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">&#128268;</div>
+            <h4 class="pattern-title">Never Break the Agent</h4>
+            <p class="pattern-desc">Every failure path in the SDK is wrapped in try/except. If event persistence fails, the agent keeps running. If transport fails, events buffer locally. The debugger is a passenger, not a driver.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-3)">
+            <div class="pattern-icon" style="background: var(--color-actor-3)">&#128230;</div>
+            <h4 class="pattern-title">Lazy Imports</h4>
+            <p class="pattern-desc">The SDK doesn't import collector modules at the top level. This avoids circular dependencies — you can use the SDK without the server, and the server can use the SDK without the collector.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-4)">
+            <div class="pattern-icon" style="background: var(--color-actor-4)">&#128640;</div>
+            <h4 class="pattern-title">Exponential Backoff</h4>
+            <p class="pattern-desc">The HTTP transport retries transient errors (timeouts, 5xx) with exponential backoff: 0.5s, 1s, 2s. Permanent errors (4xx) fail immediately. This prevents cascading failures.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Transport Layer — Delivering Events Reliably</h2>
+        <p>The <span class="term" data-definition="The part of the SDK responsible for sending events over HTTP to the collector server. It handles retries, authentication, and error classification so events arrive reliably.">HttpTransport</span> class is responsible for sending events to the server in cloud mode. It classifies errors into two types:</p>
+        <div class="badge-list">
+          <div class="badge-item">
+            <code class="badge-code">TransientError</code>
+            <span>Temporary problems — timeouts, server errors (5xx), network issues. These get retried with exponential backoff (0.5s, 1s, 2s).</span>
+          </div>
+          <div class="badge-item">
+            <code class="badge-code">PermanentError</code>
+            <span>Fatal problems — auth failures (401, 403), not found (404). No point retrying — the result won't change.</span>
+          </div>
+        </div>
+        <p>This matters because agent execution is time-sensitive. If the debugger's transport layer goes into an infinite retry loop, it blocks the agent. The 3-retry cap with backoff ensures fast failure.</p>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">How to Extend the System</h2>
+        <p>Peaky Peek is designed to be extensible at every layer:</p>
+        <div class="step-cards stagger-children">
+          <div class="step-card animate-in">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>Add a new event type</strong>
+              <p>Define a new dataclass in core/events/, register it in EVENT_TYPE_REGISTRY, and update the UI types in frontend/src/types/index.ts.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>Add a new auto-patch adapter</strong>
+              <p>Create a new adapter in auto_patch/adapters/, extend BaseAdapter, implement is_available(), patch(), and unpatch(). Register it in the PatchRegistry.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>Add a new API route</strong>
+              <p>Create a new file in api/, define Pydantic schemas in schemas.py, and register the router in main.py. Update the frontend client.ts to call it.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <strong>Add a new intelligence feature</strong>
+              <p>Create a new module in collector/, add a detection function, and integrate it into the analysis pipeline. The LiveMonitor already shows how to derive alerts from patterns.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- QUIZ 7 -->
+      <section class="screen animate-in" id="quiz-7">
+        <h2 class="screen-heading">Final Check</h2>
+        <div class="quiz-container">
+          <div class="quiz-question-block" data-question="q7-1" data-correct="option-b">
+            <h3 class="quiz-question">The collector server goes down while an agent is running. What happens to the agent's events?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The agent crashes because the event emitter can't reach the server</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The agent keeps running — the SDK catches the transport error, logs a warning, and buffers events locally</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Events are lost permanently since they couldn't be persisted to SQLite</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" id="q7-1-feedback"></div>
+          </div>
+          <div class="quiz-question-block" data-question="q7-2" data-correct="option-a">
+            <h3 class="quiz-question">You want to add a new "latency_threshold" field to the ImportanceScorer. What's the minimum set of files you'd need to change?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Just agent_debugger_sdk/core/scorer.py — the scoring logic lives entirely in the SDK</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>scorer.py, the API schemas, the frontend types, and the database migration</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>All files across all three layers — any change to scoring affects the entire system</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" id="q7-2-feedback"></div>
+          </div>
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-7')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-7')">Try Again</button>
+        </div>
+      </section>
+
+      <section class="screen animate-in" style="text-align: center; padding: var(--space-12) 0;">
+        <h2 class="screen-heading" style="color: var(--color-accent);">You made it to the end.</h2>
+        <p style="font-size: var(--text-lg); color: var(--color-text-secondary); max-width: 500px; margin: 0 auto;">You now understand how an AI agent debugger works — from the event pipeline to the intelligence layer. Next time your agent loops forever, you'll know exactly where to look.</p>
+      </section>
+    </div>
+  </div>
+</section>
+
+<script>
+(function() {
+  'use strict';
+
+  // =============================================
+  // SCROLL ANIMATIONS
+  // =============================================
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { rootMargin: '0px 0px -10% 0px', threshold: 0.1 });
+
+  document.querySelectorAll('.animate-in').forEach(el => observer.observe(el));
+
+  // Stagger children
+  document.querySelectorAll('.stagger-children').forEach(parent => {
+    Array.from(parent.children).forEach((child, i) => {
+      child.style.setProperty('--stagger-index', i);
+    });
+  });
+
+  // =============================================
+  // PROGRESS BAR
+  // =============================================
+  const progressFill = document.getElementById('progress-fill');
+  function updateProgress() {
+    const scrollTop = window.scrollY;
+    const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
+    progressFill.style.width = progress + '%';
+  }
+  window.addEventListener('scroll', () => requestAnimationFrame(updateProgress), { passive: true });
+
+  // =============================================
+  // NAV DOTS
+  // =============================================
+  const navDots = document.querySelectorAll('.nav-dot');
+  const modules = document.querySelectorAll('.module');
+
+  function updateNavDots() {
+    let currentIdx = 0;
+    modules.forEach((mod, i) => {
+      const rect = mod.getBoundingClientRect();
+      if (rect.top < window.innerHeight / 2) currentIdx = i;
+    });
+    navDots.forEach((dot, i) => {
+      dot.classList.toggle('active', i === currentIdx);
+      if (i < currentIdx) dot.classList.add('visited');
+      else dot.classList.remove('visited');
+    });
+  }
+  window.addEventListener('scroll', () => requestAnimationFrame(updateNavDots), { passive: true });
+
+  window.scrollToModule = function(id) {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Keyboard nav
+  document.addEventListener('keydown', (e) => {
+    if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+    let currentIdx = 0;
+    modules.forEach((mod, i) => {
+      const rect = mod.getBoundingClientRect();
+      if (rect.top < window.innerHeight / 2) currentIdx = i;
+    });
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+      if (currentIdx < modules.length - 1) {
+        e.preventDefault();
+        modules[currentIdx + 1].scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      if (currentIdx > 0) {
+        e.preventDefault();
+        modules[currentIdx - 1].scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  });
+
+  // =============================================
+  // QUIZZES
+  // =============================================
+  const explanations = {
+    'q1-1': {
+      true: 'Exactly! The decision tree shows the reasoning chain. You can click through the decisions that led to the looping tool call to see exactly where the agent went wrong.',
+      false: 'Server logs show HTTP errors, but the looping tool might be returning 200 OK results — the problem is in the agent\'s reasoning, not the server. The decision tree is where you\'d see "the agent decided to search again because it wasn\'t confident in the previous result."'
+    },
+    'q1-2': {
+      true: 'That\'s right. Local-first means your data stays on your machine by default. You have to explicitly configure cloud mode and provide an API key for data to leave your computer.',
+      false: 'It does work in the cloud — you just have to configure it. The point is that cloud is opt-in, not the default.'
+    },
+    'q2-1': {
+      true: 'Correct! Adding a new panel requires a React component, TypeScript types so the panel knows what data to expect, and an API client function to fetch the data. The storage layer doesn\'t need changes unless the panel requires new data that isn\'t already available.',
+      false: 'Nothing is auto-generated in this system. The frontend types mirror the API schemas — both need to be updated together when adding new features.'
+    },
+    'q2-2': {
+      true: 'Spot on! SSE (Server-Sent Events) is a one-way channel — server pushes to client. It\'s simpler than WebSocket for this use case because the debugger only needs to push events, not receive commands from the browser.',
+      false: 'Neither is true — SSE and WebSocket have similar performance for one-way communication. SSE wins here on simplicity, not speed.'
+    },
+    'q3-1': {
+      true: 'Correct! Each action becomes its own event, and they\'re linked via parent_id. A decision leads to a tool_call (parent = decision\'s ID), which leads to a tool_result (parent = tool_call\'s ID). The error would be in the tool_result\'s data.',
+      false: 'Every action gets its own event — this granularity is what makes debugging possible. If they were combined, you couldn\'t see the reasoning that led to the tool choice separately from the tool\'s failure.'
+    },
+    'q3-2': {
+      true: 'Correct! The API server has direct access to the SQLite database, which has events indexed by event_type and session_id. The search API route queries the database directly.',
+      false: 'The frontend doesn\'t keep a copy of all events — it fetches them from the API on demand. This keeps the frontend lightweight and the data always fresh.'
+    },
+    'q4-1': {
+      true: 'Exactly! ContextVars are the key mechanism. Each async task gets its own isolated copy of the context variables, so concurrent agents don\'t interfere with each other. Regular global variables would be a disaster for concurrency.',
+      false: 'The session_id is NOT passed to every record_decision call — that would be tedious. Instead, the TraceContext uses ContextVars to make the current session_id available implicitly to all code running within the async with block.'
+    },
+    'q4-2': {
+      true: 'Right! A checkpoint before a critical action (like a payment) is the most valuable — if the payment fails, you can restore the agent to the exact state before the call and try a different approach.',
+      false: 'After the payment call is too late — if it fails, you want to go back to before it happened. And one checkpoint per session is far too sparse for complex agent workflows.'
+    },
+    'q5-1': {
+      true: 'Exactly! The scorer has a duration bonus: if duration_ms > 1000, it adds duration_weight * min(duration/10000, 1.0). At 8000ms, that\'s 0.15 * 0.8 = 0.12, bumping the score from 0.5 to 0.62.',
+      false: 'The scorer does check duration, not just errors. Long-running tool calls are inherently interesting because they could indicate performance issues.'
+    },
+    'q5-2': {
+      true: 'Correct! The oscillation detector looks for repeating patterns in the action sequence. "search_API -> read_results" repeats twice, which triggers an oscillation alert. A tool loop alert requires the SAME tool called 3 times, not alternating tools.',
+      false: 'The tool loop detector looks for the SAME tool called 3+ times in a row (e.g., search_API, search_API, search_API). Here, two different tools alternate, which is oscillation, not a tool loop.'
+    },
+    'q6-1': {
+      true: 'Exactly! That\'s the beauty of the wrapping pattern. The original function still executes normally — the patch just adds recording before and after. The agent\'s behavior is completely unchanged.',
+      false: 'The overhead is minimal — just recording events, not intercepting or modifying the call. The timing measurements add negligible latency.'
+    },
+    'q6-2': {
+      true: 'Correct! The PatchRegistry.apply() method accepts an optional names parameter. Passing names=["openai"] restricts patching to only the OpenAI adapter.',
+      false: 'There\'s no DISABLE_ANTHROPIC_PATCH environment variable. The names parameter on apply() is the right approach.'
+    },
+    'q7-1': {
+      true: 'Exactly! This is the "never break the agent" principle in action. The SDK catches all transport errors in try/except blocks, logs warnings, and continues execution.',
+      false: 'The SDK is designed as a passenger, not a driver. It never crashes the agent.'
+    },
+    'q7-2': {
+      true: 'Correct! The ImportanceScorer lives entirely in the SDK and doesn\'t affect the API schema, frontend types, or database. The score is computed at event emission time and stored as a float field that already exists in the event schema.',
+      false: 'The scoring logic is internal to the SDK. The importance field already exists in the TraceEvent schema and the database — changing how it\'s calculated doesn\'t require any schema changes.'
+    }
+  };
+
+  window.selectOption = function(btn) {
+    const block = btn.closest('.quiz-question-block');
+    block.querySelectorAll('.quiz-option').forEach(o => o.classList.remove('selected'));
+    btn.classList.add('selected');
+  };
+
+  window.checkQuiz = function(sectionId) {
+    const container = document.querySelector('#' + sectionId + ' .quiz-container');
+    const questions = container.querySelectorAll('.quiz-question-block');
+
+    questions.forEach(q => {
+      const selected = q.querySelector('.quiz-option.selected');
+      const feedback = q.querySelector('.quiz-feedback');
+      const correctValue = q.dataset.correct;
+
+      if (!selected) {
+        feedback.textContent = 'Pick an answer first!';
+        feedback.className = 'quiz-feedback show warning';
+        return;
+      }
+
+      q.querySelectorAll('.quiz-option').forEach(o => o.classList.add('disabled'));
+
+      if (selected.dataset.value === correctValue) {
+        selected.classList.add('correct');
+        const qId = q.dataset.question;
+        feedback.innerHTML = '<strong>Exactly!</strong> ' + (explanations[qId]?.true || '');
+        feedback.className = 'quiz-feedback show success';
+      } else {
+        selected.classList.add('incorrect');
+        q.querySelector('[data-value="' + correctValue + '"]').classList.add('correct');
+        const qId = q.dataset.question;
+        feedback.innerHTML = '<strong>Not quite.</strong> ' + (explanations[qId]?.false || '');
+        feedback.className = 'quiz-feedback show error';
+      }
+    });
+  };
+
+  window.resetQuiz = function(sectionId) {
+    const container = document.querySelector('#' + sectionId + ' .quiz-container');
+    container.querySelectorAll('.quiz-question-block').forEach(q => {
+      q.querySelectorAll('.quiz-option').forEach(o => {
+        o.classList.remove('selected', 'correct', 'incorrect', 'disabled');
+      });
+      const feedback = q.querySelector('.quiz-feedback');
+      feedback.className = 'quiz-feedback';
+      feedback.textContent = '';
+    });
+  };
+
+  // =============================================
+  // GROUP CHAT
+  // =============================================
+  const chatStates = {};
+
+  window.playChatNext = function(chatId) {
+    if (!chatStates[chatId]) chatStates[chatId] = { index: 0 };
+    const state = chatStates[chatId];
+    const messagesEl = document.querySelector('#' + chatId + ' .chat-messages');
+    const typingEl = document.getElementById(chatId + '-typing');
+    const progressEl = document.getElementById(chatId + '-progress');
+    const messages = messagesEl.querySelectorAll('.chat-message');
+
+    if (state.index >= messages.length) return;
+
+    const msg = messages[state.index];
+    const sender = msg.dataset.sender;
+
+    const avatarColors = {
+      agent: 'var(--color-actor-1)',
+      sdk: 'var(--color-actor-2)',
+      emitter: 'var(--color-actor-3)',
+      buffer: 'var(--color-actor-4)',
+      db: 'var(--color-actor-5)',
+    };
+    const avatarInitials = {
+      agent: 'AG', sdk: 'SDK', emitter: 'EM', buffer: 'BF', db: 'DB',
+    };
+
+    const typingAvatar = document.getElementById(chatId + '-typing-avatar');
+    typingAvatar.textContent = avatarInitials[sender] || '?';
+    typingAvatar.style.background = avatarColors[sender] || 'var(--color-text-muted)';
+    typingEl.style.display = 'flex';
+
+    setTimeout(() => {
+      typingEl.style.display = 'none';
+      msg.style.display = 'flex';
+      state.index++;
+      progressEl.textContent = state.index + ' / ' + messages.length + ' messages';
+    }, 800);
+  };
+
+  window.playChatAll = function(chatId) {
+    if (!chatStates[chatId]) chatStates[chatId] = { index: 0 };
+    const messagesEl = document.querySelector('#' + chatId + ' .chat-messages');
+    const total = messagesEl.querySelectorAll('.chat-message').length;
+    const interval = setInterval(() => {
+      if (chatStates[chatId].index >= total) { clearInterval(interval); return; }
+      window.playChatNext(chatId);
+    }, 1200);
+  };
+
+  window.resetChat = function(chatId) {
+    chatStates[chatId] = { index: 0 };
+    const messagesEl = document.querySelector('#' + chatId + ' .chat-messages');
+    messagesEl.querySelectorAll('.chat-message').forEach(m => m.style.display = 'none');
+    document.getElementById(chatId + '-typing').style.display = 'none';
+    document.getElementById(chatId + '-progress').textContent = '0 / ' + messagesEl.querySelectorAll('.chat-message').length + ' messages';
+  };
+
+  // =============================================
+  // DATA FLOW ANIMATION
+  // =============================================
+  const flow1Steps = [
+    { highlight: 'flow-your-code', label: 'Your agent runs ctx.record_decision("call_weather_tool"). The SDK captures this as a DecisionEvent with confidence 0.85.' },
+    { highlight: 'flow-sdk', label: 'TraceContext\'s EventEmitter scores the event (base 0.7 for decisions + 0.15 for low confidence) and assigns sequence number 3.' },
+    { highlight: 'flow-buffer', label: 'The EventBuffer stores the event in memory and pushes it to all subscribers via asyncio queues. The frontend SSE stream picks it up instantly.' },
+    { highlight: 'flow-db', label: 'The persist_event callback writes the event to SQLite. It will be searchable and replayable after the session ends.' },
+    { highlight: 'flow-ui', label: 'The frontend receives the event via SSE and updates the Decision Tree, Timeline, and Live Summary panels in real time.' },
+  ];
+  let flow1Step = 0;
+
+  window.flow1Next = function() {
+    if (flow1Step >= flow1Steps.length) return;
+    const step = flow1Steps[flow1Step];
+
+    document.querySelectorAll('#flow-1 .flow-actor').forEach(a => a.classList.remove('active'));
+    document.getElementById(step.highlight).classList.add('active');
+    document.getElementById('flow-1-label').textContent = step.label;
+    flow1Step++;
+    document.getElementById('flow-1-progress').textContent = 'Step ' + flow1Step + ' / ' + flow1Steps.length;
+  };
+
+  window.flow1Reset = function() {
+    flow1Step = 0;
+    document.querySelectorAll('#flow-1 .flow-actor').forEach(a => a.classList.remove('active'));
+    document.getElementById('flow-1-label').textContent = 'Click "Next Step" to follow an event through the system';
+    document.getElementById('flow-1-progress').textContent = 'Step 0 / ' + flow1Steps.length;
+  };
+
+  // =============================================
+  // GLOSSARY TOOLTIPS
+  // =============================================
+  let activeTooltip = null;
+
+  function positionTooltip(term, tip) {
+    const rect = term.getBoundingClientRect();
+    const tipWidth = 300;
+    let left = rect.left + rect.width / 2 - tipWidth / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - tipWidth - 8));
+
+    document.body.appendChild(tip);
+    const tipHeight = tip.offsetHeight;
+
+    if (rect.top - tipHeight - 8 < 0) {
+      tip.style.top = (rect.bottom + 8) + 'px';
+      tip.classList.add('flip');
+    } else {
+      tip.style.top = (rect.top - tipHeight - 8) + 'px';
+      tip.classList.remove('flip');
+    }
+    tip.style.left = left + 'px';
+  }
+
+  document.querySelectorAll('.term').forEach(term => {
+    const tip = document.createElement('span');
+    tip.className = 'term-tooltip';
+    tip.textContent = term.dataset.definition;
+
+    term.addEventListener('mouseenter', () => {
+      if (activeTooltip && activeTooltip !== tip) {
+        activeTooltip.classList.remove('visible');
+        if (activeTooltip.parentNode) activeTooltip.remove();
+      }
+      positionTooltip(term, tip);
+      requestAnimationFrame(() => tip.classList.add('visible'));
+      activeTooltip = tip;
+    });
+
+    term.addEventListener('mouseleave', () => {
+      tip.classList.remove('visible');
+      setTimeout(() => { if (!tip.classList.contains('visible') && tip.parentNode) tip.remove(); }, 150);
+      activeTooltip = null;
+    });
+
+    term.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (activeTooltip && activeTooltip !== tip) {
+        activeTooltip.classList.remove('visible');
+        if (activeTooltip.parentNode) activeTooltip.remove();
+      }
+      if (tip.classList.contains('visible')) {
+        tip.classList.remove('visible');
+        setTimeout(() => { if (tip.parentNode) tip.remove(); }, 150);
+        activeTooltip = null;
+      } else {
+        positionTooltip(term, tip);
+        requestAnimationFrame(() => tip.classList.add('visible'));
+        activeTooltip = tip;
+      }
+    });
+  });
+
+  document.addEventListener('click', () => {
+    if (activeTooltip) {
+      activeTooltip.classList.remove('visible');
+      setTimeout(() => { if (activeTooltip && activeTooltip.parentNode) activeTooltip.remove(); }, 150);
+      activeTooltip = null;
+    }
+  });
+})();
+</script>
+</body>
+</html>
