@@ -37,10 +37,48 @@ jobs:
             httpx \
             pytest \
             pytest-asyncio \
+            pytest-xdist \
+            pytest-timeout \
             ruff
 
       - name: Lint
         run: ruff check .
 
       - name: Test
-        run: pytest -q
+        run: pytest -q -n auto --timeout=30 --maxfail=5
+
+  dep-check:
+    name: Dependency security
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Review dependency changes (PRs only)
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install audit tools
+        run: pip install pip-audit
+
+      - name: Audit SDK dependencies
+        run: pip-audit --desc --strict -r <(python3 -c "import tomllib; d=tomllib.load(open('pyproject.toml','rb')); print('\n'.join(d['project']['dependencies']))")
+
+      - name: Audit server dependencies
+        run: pip-audit --desc --strict -r <(python3 -c "import tomllib; d=tomllib.load(open('pyproject-server.toml','rb')); print('\n'.join(d['project']['dependencies']))")
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Audit frontend dependencies
+        working-directory: frontend
+        run: npm ci && npm audit --audit-level=high

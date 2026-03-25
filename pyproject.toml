@@ -58,7 +58,11 @@ exclude = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests", "agent_debugger_sdk/adapters/tests"]
+addopts = "-ra --timeout=30"
+timeout = 30
+xfail_strict = true
 
 [tool.coverage.report]
 omit = [

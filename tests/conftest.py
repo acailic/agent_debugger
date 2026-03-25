@@ -35,13 +35,6 @@ def reset_global_config():
     cfg_mod._global_config = original_config
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create event loop for async tests."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db():
