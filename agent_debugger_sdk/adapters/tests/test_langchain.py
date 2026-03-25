@@ -6,6 +6,7 @@ import importlib
 import sys
 import types
 import uuid
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -158,6 +159,52 @@ class TestLangChainTracingHandler:
             llm_events = [e for e in events if e.event_type == EventType.LLM_RESPONSE]
             assert len(llm_events) == 1
             assert llm_events[0].content == "Hello, world!"
+
+    @pytest.mark.asyncio
+    async def test_on_llm_end_extracts_tool_calls_from_generation_message(self):
+        """Test on_llm_end preserves tool_calls returned by LangChain messages."""
+        from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
+        from agent_debugger_sdk.core.context import TraceContext
+
+        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+            handler = LangChainTracingHandler(session_id="test-llm-tool-calls")
+            context = TraceContext(
+                session_id="test-llm-tool-calls",
+                agent_name="test",
+                framework="langchain",
+            )
+
+            run_id = uuid.uuid4()
+            response = SimpleNamespace(
+                generations=[[
+                    SimpleNamespace(
+                        text="",
+                        message=SimpleNamespace(
+                            content="",
+                            tool_calls=[
+                                {"id": "call-1", "name": "search", "args": {"q": "Belgrade"}},
+                            ],
+                        ),
+                    )
+                ]],
+                llm_output={"token_usage": {"prompt_tokens": 8, "completion_tokens": 3}},
+            )
+
+            async with context:
+                handler.set_context(context)
+                await handler.on_llm_start(serialized={"name": "ChatOpenAI"}, prompts=["Hello"], run_id=run_id)
+                await handler.on_llm_end(
+                    response=response,
+                    run_id=run_id,
+                    invocation_params={"model_name": "glm-4.6"},
+                )
+
+            buffer = get_event_buffer()
+            events = await buffer.get_events("test-llm-tool-calls")
+
+            llm_event = next(e for e in events if e.event_type == EventType.LLM_RESPONSE)
+            assert llm_event.model == "glm-4.6"
+            assert llm_event.tool_calls == [{"id": "call-1", "name": "search", "arguments": {"q": "Belgrade"}}]
 
     @pytest.mark.asyncio
     async def test_on_llm_error(self):

@@ -41,6 +41,10 @@ class TestSyncTracingCallbackHandlerInit:
         handler, _ = _make_handler()
         assert handler.raise_error is False
 
+    def test_run_inline_is_false(self):
+        handler, _ = _make_handler()
+        assert handler.run_inline is False
+
     def test_capture_content_can_be_enabled(self):
         handler, _ = _make_handler(capture_content=True)
         assert handler._capture_content is True
@@ -109,6 +113,36 @@ class TestSyncTracingCallbackHandlerLLM:
         event = transport.send_event.call_args[0][0]
         assert len(event.get("messages", [])) > 0
 
+    def test_on_chat_model_start_adapts_messages_to_prompt_strings(self):
+        from langchain_core.messages import HumanMessage
+
+        handler, transport = _make_handler(capture_content=True)
+
+        handler.on_chat_model_start(
+            serialized={},
+            messages=[[HumanMessage(content="Visible")]],
+            run_id=uuid.uuid4(),
+        )
+
+        event = transport.send_event.call_args[0][0]
+        assert event.get("event_type") == "llm_request"
+        assert event.get("messages")
+
+    def test_on_chat_model_start_maps_max_completion_tokens_to_max_tokens(self):
+        from langchain_core.messages import HumanMessage
+
+        handler, transport = _make_handler(capture_content=True)
+
+        handler.on_chat_model_start(
+            serialized={},
+            messages=[[HumanMessage(content="Visible")]],
+            run_id=uuid.uuid4(),
+            invocation_params={"temperature": 0, "max_completion_tokens": 500},
+        )
+
+        event = transport.send_event.call_args[0][0]
+        assert event.get("settings", {}).get("max_tokens") == 500
+
     def test_on_llm_end_emits_response_event(self):
         handler, transport = _make_handler()
         run_id = uuid.uuid4()
@@ -168,6 +202,29 @@ class TestSyncTracingCallbackHandlerLLM:
 
         event = transport.send_event.call_args[0][0]
         assert "Response text" in str(event)
+
+    def test_on_llm_end_extracts_tool_calls_from_message(self):
+        handler, transport = _make_handler(capture_content=True)
+        run_id = uuid.uuid4()
+        handler.on_llm_start(serialized={}, prompts=[], run_id=run_id)
+        transport.reset_mock()
+
+        response = Mock(
+            generations=[[
+                Mock(
+                    text="",
+                    message=Mock(
+                        content="",
+                        tool_calls=[{"id": "call-1", "name": "search", "args": {"q": "docs"}}],
+                    ),
+                )
+            ]],
+            llm_output=None,
+        )
+        handler.on_llm_end(response=response, run_id=run_id)
+
+        event = transport.send_event.call_args[0][0]
+        assert event.get("tool_calls") == [{"id": "call-1", "name": "search", "arguments": {"q": "docs"}}]
 
     def test_on_llm_error_clears_state(self):
         handler, _ = _make_handler()

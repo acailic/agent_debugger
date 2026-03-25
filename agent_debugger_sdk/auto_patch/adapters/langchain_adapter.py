@@ -21,8 +21,100 @@ from agent_debugger_sdk.core.events import LLMRequestEvent, LLMResponseEvent, To
 
 logger = logging.getLogger("agent_debugger.auto_patch")
 
+try:
+    from langchain_core.callbacks import BaseCallbackHandler
+    from langchain_core.messages import get_buffer_string
+except ImportError:  # pragma: no cover - adapter availability guards runtime use
+    BaseCallbackHandler = object
 
-class _SyncTracingCallbackHandler:
+    def get_buffer_string(messages: Any) -> str:
+        return str(messages)
+
+
+def _normalize_tool_calls(raw_tool_calls: Any) -> list[dict[str, Any]]:
+    """Return a stable tool-call payload from LangChain response objects."""
+    normalized: list[dict[str, Any]] = []
+
+    for tool_call in raw_tool_calls or []:
+        if isinstance(tool_call, dict):
+            function = tool_call.get("function") or {}
+            name = tool_call.get("name") or function.get("name", "")
+            arguments = tool_call.get("args")
+            if arguments is None:
+                arguments = tool_call.get("arguments", function.get("arguments", {}))
+            normalized.append(
+                {
+                    "id": tool_call.get("id", ""),
+                    "name": name,
+                    "arguments": arguments if arguments is not None else {},
+                }
+            )
+            continue
+
+        function = getattr(tool_call, "function", None)
+        arguments = getattr(tool_call, "args", None)
+        if arguments is None and function is not None:
+            arguments = getattr(function, "arguments", None)
+        if arguments is None:
+            arguments = getattr(tool_call, "arguments", {})
+
+        normalized.append(
+            {
+                "id": getattr(tool_call, "id", ""),
+                "name": getattr(function, "name", "") if function is not None else getattr(tool_call, "name", ""),
+                "arguments": arguments if arguments is not None else {},
+            }
+        )
+
+    return normalized
+
+
+def _extract_response_content_and_tool_calls(
+    response: Any,
+    capture_content: bool,
+) -> tuple[str, list[dict[str, Any]]]:
+    """Extract content and tool calls from a LangChain response object."""
+    content = ""
+    tool_calls: list[dict[str, Any]] = []
+
+    if not hasattr(response, "generations") or not response.generations:
+        return content, tool_calls
+
+    first = response.generations[0]
+    if not first:
+        return content, tool_calls
+
+    generation = first[0]
+    message = getattr(generation, "message", None)
+
+    if capture_content:
+        content = getattr(generation, "text", "")
+        if not content and message is not None:
+            message_content = getattr(message, "content", "")
+            content = message_content if isinstance(message_content, str) else str(message_content)
+
+    if message is not None:
+        tool_calls = _normalize_tool_calls(getattr(message, "tool_calls", []))
+    if not tool_calls:
+        tool_calls = _normalize_tool_calls(getattr(generation, "tool_calls", []))
+
+    return content, tool_calls
+
+
+def _extract_invocation_settings(invocation_params: dict[str, Any]) -> dict[str, Any]:
+    """Normalize LangChain invocation settings into stable trace fields."""
+    max_tokens = invocation_params.get("max_tokens", invocation_params.get("max_completion_tokens"))
+    return {
+        k: v
+        for k, v in {
+            "temperature": invocation_params.get("temperature"),
+            "max_tokens": max_tokens,
+        }.items()
+        if v is not None
+    }
+
+
+class _SyncTracingCallbackHandler(BaseCallbackHandler):
     """Minimal LangChain callback handler that routes events via SyncTransport.
 
     This handler is compatible with LangChain's ``BaseCallbackHandler`` interface.
@@ -36,6 +128,7 @@ class _SyncTracingCallbackHandler:
     """
 
     raise_error = False  # LangChain checks this attribute
+    run_inline = False
 
     def __init__(self, session_id: str, transport: SyncTransport, capture_content: bool = False) -> None:
         self._session_id = session_id
@@ -76,19 +169,35 @@ class _SyncTracingCallbackHandler:
                 model=model,
                 messages=messages,
                 tools=[],
-                settings={
-                    k: v
-                    for k, v in {
-                        "temperature": invocation_params.get("temperature"),
-                        "max_tokens": invocation_params.get("max_tokens"),
-                    }.items()
-                    if v is not None
-                },
+                settings=_extract_invocation_settings(invocation_params),
             )
             self._request_event_ids[run_id_str] = event.id
             self._transport.send_event(event.to_dict())
         except Exception:
             logger.warning("LangChainAdapter on_llm_start failed", exc_info=True)
+
+    def on_chat_model_start(
+        self,
+        serialized: dict[str, Any],
+        messages: list[list[Any]],
+        *,
+        run_id: uuid.UUID,
+        parent_run_id: uuid.UUID | None = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Adapt LangChain chat-model callbacks into the LLM start path."""
+        prompts = [get_buffer_string(message_list) for message_list in messages]
+        self.on_llm_start(
+            serialized,
+            prompts,
+            run_id=run_id,
+            parent_run_id=parent_run_id,
+            tags=tags,
+            metadata=metadata,
+            **kwargs,
+        )
 
     def on_llm_end(
         self,
@@ -104,11 +213,7 @@ class _SyncTracingCallbackHandler:
             duration_ms = (time.perf_counter() - start) * 1000
             request_event_id = self._request_event_ids.pop(run_id_str, None)
 
-            content = ""
-            if self._capture_content and hasattr(response, "generations") and response.generations:
-                first = response.generations[0]
-                if first:
-                    content = getattr(first[0], "text", "")
+            content, tool_calls = _extract_response_content_and_tool_calls(response, self._capture_content)
 
             usage: dict[str, int] = {}
             if hasattr(response, "llm_output") and response.llm_output:
@@ -126,7 +231,7 @@ class _SyncTracingCallbackHandler:
                 name="llm_response",
                 model=model,
                 content=content,
-                tool_calls=[],
+                tool_calls=tool_calls,
                 usage=usage,
                 duration_ms=duration_ms,
             )
