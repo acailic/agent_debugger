@@ -193,7 +193,7 @@ class TraceContext(RecordingMixin):
         _event_sequence.set(0)
         _current_context.set(self)
 
-        # Wire in HTTP transport for both local and cloud modes
+        # Wire in HTTP transport for cloud mode (when API key is present)
         # IMPORTANT: Do NOT call configure_event_pipeline() here as it mutates
         # global ContextVars and would break concurrent sessions. Instead, set
         # instance-level hooks.
@@ -208,7 +208,7 @@ class TraceContext(RecordingMixin):
         ])
         from agent_debugger_sdk.config import get_config
         config = get_config()
-        if not hooks_configured:
+        if not hooks_configured and config.api_key:
             # No hooks configured - use HTTP transport to send events to the server
             from agent_debugger_sdk.transport import HttpTransport
             self._transport = HttpTransport(config.endpoint, config.api_key)
