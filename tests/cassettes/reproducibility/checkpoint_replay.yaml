@@ -1,0 +1,72 @@
+name: checkpoint_replay
+recorded_at: 2026-03-25T10:00:00Z
+framework: pydantic_ai
+interactions:
+  - id: llm-req-1
+    type: llm_request
+    name: Request to analyze code
+    model: gpt-4
+    messages:
+      - role: system
+        content: "You are a helpful assistant"
+      - role: user
+        content: "Analyze this code"
+    settings:
+      temperature: 0.0
+
+  - id: llm-resp-1
+    type: llm_response
+    name: LLM begins analysis
+    model: gpt-4
+    content: "I'll analyze the code step by step."
+    usage:
+      input_tokens: 45
+      output_tokens: 12
+    duration_ms: 1500
+
+  - id: checkpoint-1
+    type: checkpoint
+    name: "Mid-analysis checkpoint"
+    importance: 0.8
+    data:
+      state:
+        analysis_stage: "mid_review"
+        files_processed: 3
+      memory:
+        context: "analyzing main.py"
+
+  - id: tool-call-1
+    type: tool_call
+    name: Run lint on main.py
+    tool_name: lint
+    arguments:
+      file: "main.py"
+    upstream_event_ids:
+      - llm-resp-1
+
+  - id: tool-result-1
+    type: tool_result
+    name: Lint results for main.py
+    tool_name: lint
+    result:
+      errors: 0
+      warnings: 2
+    duration_ms: 300
+    upstream_event_ids:
+      - tool-call-1
+
+  - id: llm-req-2
+    type: llm_request
+    name: Continue analysis with lint results
+    model: gpt-4
+    messages:
+      - role: system
+        content: "You are a helpful assistant"
+      - role: user
+        content: "Analyze this code"
+      - role: assistant
+        content: "I'll analyze the code step by step."
+      - role: tool
+        content: '{"errors": 0, "warnings": 2}'
+    settings:
+      temperature: 0.0

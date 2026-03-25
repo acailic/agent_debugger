@@ -1,0 +1,55 @@
+name: tool_failure_to_decision
+recorded_at: 2026-03-25T10:00:00Z
+framework: pydantic_ai
+interactions:
+  - id: llm-req-1
+    type: llm_request
+    name: Query for AAPL quarterly revenue
+    model: gpt-4
+    messages:
+      - role: user
+        content: "Find the latest quarterly revenue for AAPL"
+    settings:
+      temperature: 0.7
+
+  - id: llm-resp-1
+    type: llm_response
+    name: LLM responds with search intent
+    model: gpt-4
+    content: "I'll search for that."
+    usage:
+      input_tokens: 25
+      output_tokens: 8
+    duration_ms: 1200
+
+  - id: tool-call-1
+    type: tool_call
+    name: Search for AAPL revenue
+    tool_name: search
+    arguments:
+      query: "AAPL quarterly revenue 2025"
+    upstream_event_ids:
+      - llm-resp-1
+
+  - id: tool-result-1
+    type: tool_result
+    name: Search API rate limit error
+    tool_name: search
+    error: "API rate limit exceeded"
+    duration_ms: 50
+    upstream_event_ids:
+      - tool-call-1
+
+  - id: decision-1
+    type: decision
+    name: Decision to inform user of rate limit
+    reasoning: "The search API is rate-limited. I should try an alternative source or inform the user."
+    confidence: 0.8
+    evidence:
+      - source: "tool_result"
+        finding: "rate limit error"
+    evidence_event_ids:
+      - tool-result-1
+    chosen_action: "Inform user of rate limit and suggest retry"
+    upstream_event_ids:
+      - tool-result-1

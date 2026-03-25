@@ -1,0 +1,60 @@
+name: hallucinated_evidence
+recorded_at: 2026-03-25T10:00:00Z
+framework: pydantic_ai
+interactions:
+  - id: llm-req-1
+    type: llm_request
+    name: Query for Tokyo population
+    model: gpt-4
+    messages:
+      - role: user
+        content: "What is the population of Tokyo?"
+    settings:
+      temperature: 0.7
+
+  - id: llm-resp-1
+    type: llm_response
+    name: LLM responds with lookup intent
+    model: gpt-4
+    content: "I'll look that up."
+    usage:
+      input_tokens: 20
+      output_tokens: 6
+    duration_ms: 800
+
+  - id: tool-call-1
+    type: tool_call
+    name: Search for Tokyo population
+    tool_name: search
+    arguments:
+      query: "population Tokyo 2025"
+    upstream_event_ids:
+      - llm-resp-1
+
+  - id: tool-result-1
+    type: tool_result
+    name: Tokyo population search result
+    tool_name: search
+    result:
+      population: "13.96 million"
+      year: 2023
+      source: "worldbank"
+    duration_ms: 200
+    upstream_event_ids:
+      - tool-call-1
+
+  - id: decision-1
+    type: decision
+    name: Hallucinated population decision
+    reasoning: "Based on the search results, Tokyo has a population of 37.4 million including metro area."
+    confidence: 0.95
+    evidence:
+      - source: "tool_result"
+        finding: "37.4 million metro population"
+        year: 2025
+    evidence_event_ids:
+      - tool-result-1
+      - non-existent-evidence-id
+    chosen_action: "Report population figure to user"
+    upstream_event_ids:
+      - tool-result-1

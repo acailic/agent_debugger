@@ -1,0 +1,44 @@
+name: enumerate_safety_events
+recorded_at: 2026-03-25T10:00:00Z
+framework: pydantic_ai
+interactions:
+  - id: safety-1
+    type: safety_check
+    name: "Content policy check"
+    policy_name: content_moderation
+    outcome: pass
+    risk_level: low
+    rationale: "Content is benign"
+
+  - id: safety-2
+    type: safety_check
+    name: "PII detection"
+    policy_name: pii_protection
+    outcome: warn
+    risk_level: medium
+    rationale: "Email address detected in user query"
+
+  - id: safety-3
+    type: safety_check
+    name: "Injection detection"
+    policy_name: prompt_injection
+    outcome: block
+    risk_level: high
+    rationale: "Potential prompt injection pattern detected"
+
+  - id: violation-1
+    type: policy_violation
+    name: "Data exfiltration attempt"
+    policy_name: data_protection
+    severity: high
+    violation_type: "data_exfiltration"
+    details:
+      attempted_action: "send data to external API"
+
+  - id: refusal-1
+    type: refusal
+    name: "Refused harmful request"
+    reason: "Request violates safety policy regarding code execution in production environment"
+    policy_name: code_execution
+    blocked_action: "Execute rm -rf /"
+    safe_alternative: "Suggest using a sandboxed environment"

@@ -1,0 +1,84 @@
+name: session_diff_divergence
+recorded_at: 2026-03-25T10:00:00Z
+framework: pydantic_ai
+sessions:
+  success:
+    - id: llm-req-1
+      type: llm_request
+      name: Request to process payment
+      model: gpt-4
+      messages:
+        - role: user
+          content: "Process this payment"
+      settings:
+        temperature: 0.0
+
+    - id: llm-resp-1
+      type: llm_response
+      name: LLM initiates payment processing
+      model: gpt-4
+      content: "I'll process the payment now."
+      usage:
+        input_tokens: 20
+        output_tokens: 8
+      duration_ms: 500
+
+    - id: tool-call-1
+      type: tool_call
+      name: Call payment processor
+      tool_name: payment_processor
+      arguments:
+        amount: 100
+        currency: USD
+      upstream_event_ids:
+        - llm-resp-1
+
+    - id: tool-result-1
+      type: tool_result
+      name: Payment processing succeeded
+      tool_name: payment_processor
+      result:
+        status: success
+        transaction_id: txn_123
+      duration_ms: 2000
+      upstream_event_ids:
+        - tool-call-1
+
+  failure:
+    - id: llm-req-1
+      type: llm_request
+      name: Request to process payment
+      model: gpt-4
+      messages:
+        - role: user
+          content: "Process this payment"
+      settings:
+        temperature: 0.0
+
+    - id: llm-resp-1
+      type: llm_response
+      name: LLM initiates payment processing
+      model: gpt-4
+      content: "I'll process the payment now."
+      usage:
+        input_tokens: 20
+        output_tokens: 8
+      duration_ms: 500
+
+    - id: tool-call-1
+      type: tool_call
+      name: Call payment processor
+      tool_name: payment_processor
+      arguments:
+        amount: 100
+        currency: USD
+      upstream_event_ids:
+        - llm-resp-1
+
+    - id: error-1
+      type: error
+      name: "Payment processing error"
+      error_type: TimeoutError
+      error_message: "Payment gateway request timed out after 30s"
+      upstream_event_ids:
+        - tool-call-1
