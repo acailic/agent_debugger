@@ -287,6 +287,13 @@ class TestPydanticAIAdapter:
             def __init__(self, content: str):
                 self.content = content
 
+        class FakeSystemPromptPart:
+            def __init__(self, content: str):
+                self.content = content
+
+        class FakeRetryPromptPart:
+            pass
+
         class FakeModelRequest:
             def __init__(self, parts, timestamp):
                 self.parts = parts
@@ -337,6 +344,8 @@ class TestPydanticAIAdapter:
             patch("agent_debugger_sdk.adapters.pydantic_ai.ToolCallPart", FakeToolCallPart, create=True),
             patch("agent_debugger_sdk.adapters.pydantic_ai.ToolReturnPart", FakeToolReturnPart, create=True),
             patch("agent_debugger_sdk.adapters.pydantic_ai.TextPart", FakeTextPart, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.SystemPromptPart", FakeSystemPromptPart, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.RetryPromptPart", FakeRetryPromptPart, create=True),
         ):
             adapter = PydanticAIAdapter(
                 mock_agent,

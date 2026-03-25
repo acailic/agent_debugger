@@ -35,7 +35,10 @@ def _normalize_tool_calls(raw_tool_calls: Any) -> list[dict[str, Any]]:
     """Return a stable tool-call payload from LangChain response objects."""
     normalized: list[dict[str, Any]] = []
 
-    for tool_call in raw_tool_calls or []:
+    if not isinstance(raw_tool_calls, (list, tuple)):
+        raw_tool_calls = []
+
+    for tool_call in raw_tool_calls:
         if isinstance(tool_call, dict):
             function = tool_call.get("function") or {}
             name = tool_call.get("name") or function.get("name", "")
