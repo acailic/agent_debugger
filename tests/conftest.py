@@ -1,5 +1,4 @@
 """Pytest fixtures for test isolation."""
-import asyncio
 import os
 import tempfile
 
