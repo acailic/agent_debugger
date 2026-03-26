@@ -651,6 +651,56 @@ class TraceRepository:
         )
 
     # ------------------------------------------------------------------
+    # Cost Aggregation Methods
+    # ------------------------------------------------------------------
+
+    async def get_cost_summary(self) -> dict:
+        """Get aggregate cost statistics across all sessions.
+
+        Returns:
+            Dictionary containing:
+                - total_cost_usd: Total cost across all sessions
+                - session_count: Total number of sessions
+                - avg_cost_per_session: Average cost per session
+                - by_framework: List of dicts with framework, session_count, and total_cost_usd
+        """
+        from sqlalchemy import func, select
+
+        # Get overall aggregates
+        result = await self.session.execute(
+            select(
+                func.count(SessionModel.id).label("session_count"),
+                func.sum(SessionModel.total_cost_usd).label("total_cost"),
+            )
+            .where(SessionModel.tenant_id == self.tenant_id)
+        )
+        row = result.one()
+        session_count = row.session_count or 0
+        total_cost = float(row.total_cost or 0)
+
+        # Per-framework breakdown
+        fw_result = await self.session.execute(
+            select(
+                SessionModel.framework,
+                func.count(SessionModel.id).label("count"),
+                func.sum(SessionModel.total_cost_usd).label("total"),
+            )
+            .where(SessionModel.tenant_id == self.tenant_id)
+            .group_by(SessionModel.framework)
+        )
+        by_framework = [
+            {"framework": fw, "session_count": cnt, "total_cost_usd": float(tot or 0)}
+            for fw, cnt, tot in fw_result.all()
+        ]
+
+        return {
+            "total_cost_usd": round(total_cost, 6),
+            "session_count": session_count,
+            "avg_cost_per_session": round(total_cost / session_count, 6) if session_count else 0.0,
+            "by_framework": by_framework,
+        }
+
+    # ------------------------------------------------------------------
     # Anomaly Alert Methods
     # ------------------------------------------------------------------
 
