@@ -72,6 +72,7 @@ def make_session_with_events(
 @pytest.fixture
 def make_trace_event():
     """Factory to create TraceEvent instances for tests."""
+
     def _make_event(
         session_id: str = "session-1",
         event_type: EventType = EventType.AGENT_START,
@@ -102,6 +103,7 @@ def make_trace_event():
         if timestamp is not None:
             kwargs["timestamp"] = timestamp
         return TraceEvent(**kwargs)
+
     return _make_event
 
 
@@ -176,10 +178,12 @@ class TestCrossSessionClustering:
                 fingerprint = cluster["fingerprint"]
                 if fingerprint not in all_failure_fingerprints:
                     all_failure_fingerprints[fingerprint] = []
-                all_failure_fingerprints[fingerprint].append({
-                    "session_id": session.id,
-                    "cluster": cluster,
-                })
+                all_failure_fingerprints[fingerprint].append(
+                    {
+                        "session_id": session.id,
+                        "cluster": cluster,
+                    }
+                )
         # Verify failures are clustered
         assert len(all_failure_fingerprints) > 0, "Should have at least one failure cluster"
         # Verify each cluster has correct metadata
@@ -212,8 +216,9 @@ class TestCrossSessionClustering:
                 for event_id in cluster["event_ids"]:
                     other_ranking = ranking_by_id.get(event_id)
                     if other_ranking:
-                        assert rep_ranking["composite"] >= other_ranking["composite"], \
+                        assert rep_ranking["composite"] >= other_ranking["composite"], (
                             f"Representative {rep_id} should have highest composite score"
+                        )
 
     def test_fingerprint_consistency(self, intelligence: TraceIntelligence, make_trace_event):
         """Verify that fingerprints are consistent for similar failure types."""
@@ -347,10 +352,7 @@ class TestRetryChurnDetection:
         """Verify that repeated tool calls trigger tool_loop alerts."""
         analysis = intelligence.analyze_session(events_with_retry_churn, [])
         # Tool loop detection should flag the churn pattern
-        tool_loop_alerts = [
-            alert for alert in analysis["behavior_alerts"]
-            if alert["alert_type"] == "tool_loop"
-        ]
+        tool_loop_alerts = [alert for alert in analysis["behavior_alerts"] if alert["alert_type"] == "tool_loop"]
         assert len(tool_loop_alerts) >= 1, "Should detect tool loop from retry churn"
         for alert in tool_loop_alerts:
             assert "severity" in alert
@@ -364,10 +366,7 @@ class TestRetryChurnDetection:
         """Verify that retry churn affects novelty and recurrence scores."""
         analysis = intelligence.analyze_session(events_with_retry_churn, [])
         # Find the tool call events
-        tool_call_rankings = [
-            r for r in analysis["event_rankings"]
-            if r["event_type"] == "tool_call"
-        ]
+        tool_call_rankings = [r for r in analysis["event_rankings"] if r["event_type"] == "tool_call"]
         assert len(tool_call_rankings) >= 3
 
         # Check recurrence scores are elevated for repeated tool calls
@@ -379,10 +378,11 @@ class TestRetryChurnDetection:
 
         # Higher recurrence than lower novelty, more like retry
         # Therefore the retention tier should be lowered
-        assert analysis["retention_tier"] in {"full", "summarized"}, "Sessions with churn should have higher retention tier"
-    def test_different_tool_calls_no_churn(
-        self, intelligence: TraceIntelligence, make_trace_event
-    ):
+        assert analysis["retention_tier"] in {"full", "summarized"}, (
+            "Sessions with churn should have higher retention tier"
+        )
+
+    def test_different_tool_calls_no_churn(self, intelligence: TraceIntelligence, make_trace_event):
         """Verify that different tool calls don't trigger churn detection."""
         timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
         events = [
@@ -423,10 +423,7 @@ class TestRetryChurnDetection:
         ]
         analysis = intelligence.analyze_session(events, [])
         # No tool loop should be detected for different tools
-        tool_loop_alerts = [
-            alert for alert in analysis["behavior_alerts"]
-            if alert["alert_type"] == "tool_loop"
-        ]
+        tool_loop_alerts = [alert for alert in analysis["behavior_alerts"] if alert["alert_type"] == "tool_loop"]
         assert len(tool_loop_alerts) == 0, "Different tools should not trigger tool loop"
 
 
@@ -505,19 +502,17 @@ class TestLatencySpikeDetection:
             ),
         ]
 
-    def test_slow_tools_have_lower_novelty(self, events_with_latency_spikes: list[TraceEvent], intelligence: TraceIntelligence):
+    def test_slow_tools_have_lower_novelty(
+        self, events_with_latency_spikes: list[TraceEvent], intelligence: TraceIntelligence
+    ):
         """Verify that slow tool calls are scored appropriately."""
         analysis = intelligence.analyze_session(events_with_latency_spikes, [])
         # Find the slow tool result
-        slow_tool_rankings = [
-            r for r in analysis["event_rankings"]
-            if r["event_id"] == "tool-result-2"
-        ]
+        slow_tool_rankings = [r for r in analysis["event_rankings"] if r["event_id"] == "tool-result-2"]
         assert len(slow_tool_rankings) == 1
         ranking = slow_tool_rankings[0]
         # Duration should be reflected in the data (via importance scorer)
-        assert ranking["severity"] >= 0.5, \
-            "Slow operations should have reasonable severity"
+        assert ranking["severity"] >= 0.5, "Slow operations should have reasonable severity"
 
     def test_slow_llm_responses_affect_replay_value(
         self, events_with_latency_spikes: list[TraceEvent], intelligence: TraceIntelligence
@@ -525,14 +520,10 @@ class TestLatencySpikeDetection:
         """Verify that slow LLM responses affect replay value."""
         analysis = intelligence.analyze_session(events_with_latency_spikes, [])
         # Find the slow LLM response
-        slow_llm_rankings = [
-            r for r in analysis["event_rankings"]
-            if r["event_id"] == "llm-response-2"
-        ]
+        slow_llm_rankings = [r for r in analysis["event_rankings"] if r["event_id"] == "llm-response-2"]
         assert len(slow_llm_rankings) == 1
         # High cost and duration should increase importance
-        assert slow_llm_rankings[0]["replay_value"] >= 0.3, \
-            "Slow, expensive LLM calls should have higher replay value"
+        assert slow_llm_rankings[0]["replay_value"] >= 0.3, "Slow, expensive LLM calls should have higher replay value"
 
     def test_latency_spikes_contribute_to_retention_tier(
         self, events_with_latency_spikes: list[TraceEvent], intelligence: TraceIntelligence
@@ -545,9 +536,7 @@ class TestLatencySpikeDetection:
         assert "session_replay_value" in analysis
         assert analysis["session_replay_value"] >= 0
 
-    def test_normal_duration_events_not_flagged(
-        self, intelligence: TraceIntelligence, make_trace_event
-    ):
+    def test_normal_duration_events_not_flagged(self, intelligence: TraceIntelligence, make_trace_event):
         """Verify that normal duration events are not flagged as anomalies."""
         timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
         events = [
@@ -574,12 +563,8 @@ class TestLatencySpikeDetection:
         ]
         analysis = intelligence.analyze_session(events, [])
         # Normal operations should have lower severity
-        tool_result_ranking = next(
-            r for r in analysis["event_rankings"]
-            if r["event_id"] == "tool-result-1"
-        )
-        assert tool_result_ranking["severity"] < 0.8, \
-            "Normal operations should have lower severity"
+        tool_result_ranking = next(r for r in analysis["event_rankings"] if r["event_id"] == "tool-result-1")
+        assert tool_result_ranking["severity"] < 0.8, "Normal operations should have lower severity"
 
 
 # ------------------------------------------------------------------
@@ -679,8 +664,7 @@ class TestPolicyEscalationTracking:
         live_summary = intelligence.build_live_summary(events_with_policy_escalation, [])
         # Check for policy shift alert
         policy_shift_alerts = [
-            alert for alert in live_summary["recent_alerts"]
-            if alert["alert_type"] == "policy_shift"
+            alert for alert in live_summary["recent_alerts"] if alert["alert_type"] == "policy_shift"
         ]
         # With 3 different policies, shift should be detected
         assert len(policy_shift_alerts) >= 1, "Should detect policy shifts"
@@ -696,8 +680,7 @@ class TestPolicyEscalationTracking:
         """Verify that policy escalation increases session replay value."""
         analysis = intelligence.analyze_session(events_with_policy_escalation, [])
         # Session with multiple policy shifts should have higher replay value
-        assert analysis["session_replay_value"] > 0.4, \
-            "Policy escalation should increase replay value"
+        assert analysis["session_replay_value"] > 0.4, "Policy escalation should increase replay value"
         assert analysis["retention_tier"] in {"full", "summarized"}
 
     def test_blocked_actions_have_high_severity(
@@ -706,12 +689,8 @@ class TestPolicyEscalationTracking:
         """Verify that blocked actions have high severity scores."""
         analysis = intelligence.analyze_session(events_with_policy_escalation, [])
         # Find the blocked safety check
-        blocked_safety_ranking = next(
-            r for r in analysis["event_rankings"]
-            if r["event_id"] == "safety-3"
-        )
-        assert blocked_safety_ranking["severity"] >= 0.75, \
-            "Blocked safety checks should have high severity"
+        blocked_safety_ranking = next(r for r in analysis["event_rankings"] if r["event_id"] == "safety-3")
+        assert blocked_safety_ranking["severity"] >= 0.75, "Blocked safety checks should have high severity"
 
     def test_escalation_chain_in_failure_explanations(
         self, events_with_policy_escalation: list[TraceEvent], intelligence: TraceIntelligence
@@ -719,19 +698,14 @@ class TestPolicyEscalationTracking:
         """Verify that policy escalation appears in failure explanations."""
         analysis = intelligence.analyze_session(events_with_policy_escalation, [])
         # Safety check with outcome != pass should have a failure explanation
-        failed_safety = [
-            e for e in analysis["failure_explanations"]
-            if e["failure_event_id"] == "safety-3"
-        ]
+        failed_safety = [e for e in analysis["failure_explanations"] if e["failure_event_id"] == "safety-3"]
         assert len(failed_safety) == 1
         explanation = failed_safety[0]
         assert "failure_mode" in explanation
         assert "symptom" in explanation
         assert "likely_cause" in explanation
 
-    def test_no_escalation_in_stable_session(
-        self, intelligence: TraceIntelligence, make_trace_event
-    ):
+    def test_no_escalation_in_stable_session(self, intelligence: TraceIntelligence, make_trace_event):
         """Verify that stable sessions don't trigger escalation alerts."""
         timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
         events = [
@@ -764,8 +738,7 @@ class TestPolicyEscalationTracking:
         live_summary = intelligence.build_live_summary(events, [])
         # No policy shift should be detected with only one policy
         policy_shift_alerts = [
-            alert for alert in live_summary["recent_alerts"]
-            if alert["alert_type"] == "policy_shift"
+            alert for alert in live_summary["recent_alerts"] if alert["alert_type"] == "policy_shift"
         ]
         assert len(policy_shift_alerts) == 0, "Single policy should not trigger policy shift"
 
@@ -852,7 +825,7 @@ class TestRepresentativeTraceSelection:
                 reason="Unsafe action",
                 policy_name="safety-policy",
                 risk_level="high",
-                timestamp= timestamp,
+                timestamp=timestamp,
             ),
         ]
 
@@ -866,8 +839,16 @@ class TestRepresentativeTraceSelection:
         # Each cluster should have exactly one representative
         for cluster in analysis["failure_clusters"]:
             assert cluster["representative_event_id"] is not None
-            assert len([c for c in analysis["failure_clusters"] if c["representative_event_id"] == cluster["representative_event_id"]]) == 1, \
-                "Each representative should be unique across clusters"
+            assert (
+                len(
+                    [
+                        c
+                        for c in analysis["failure_clusters"]
+                        if c["representative_event_id"] == cluster["representative_event_id"]
+                    ]
+                )
+                == 1
+            ), "Each representative should be unique across clusters"
 
     def test_representative_has_highest_composite_score(
         self, multi_cluster_events: list[TraceEvent], intelligence: TraceIntelligence
@@ -882,8 +863,9 @@ class TestRepresentativeTraceSelection:
             for event_id in cluster["event_ids"]:
                 other_ranking = ranking_by_id.get(event_id)
                 if other_ranking and event_id != rep_id:
-                    assert rep_ranking["composite"] >= other_ranking["composite"], \
+                    assert rep_ranking["composite"] >= other_ranking["composite"], (
                         f"Representative {rep_id} should have highest composite in cluster"
+                    )
 
     def test_representative_ids_in_high_replay_value_list(
         self, multi_cluster_events: list[TraceEvent], intelligence: TraceIntelligence
@@ -892,17 +874,16 @@ class TestRepresentativeTraceSelection:
         analysis = intelligence.analyze_session(multi_cluster_events, [])
         # All representative IDs should be in high replay value list
         for cluster in analysis["failure_clusters"]:
-            assert cluster["representative_event_id"] in analysis["high_replay_value_ids"], \
+            assert cluster["representative_event_id"] in analysis["high_replay_value_ids"], (
                 f"Representative {cluster['representative_event_id']} should be in high replay value list"
+            )
 
     def test_empty_session_no_representatives(self, intelligence: TraceIntelligence):
         """Verify that empty sessions produce no representatives."""
         analysis = intelligence.analyze_session([], [])
         assert analysis["representative_failure_ids"] == []
 
-    def test_single_failure_is_representative(
-        self, intelligence: TraceIntelligence, make_trace_event
-    ):
+    def test_single_failure_is_representative(self, intelligence: TraceIntelligence, make_trace_event):
         """Verify that a single failure is its own representative."""
         timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
         events = [
@@ -939,9 +920,7 @@ class TestRetentionTierAssignment:
         """Create TraceIntelligence instance for tests."""
         return TraceIntelligence()
 
-    def test_high_value_session_gets_full_retention(
-        self, intelligence: TraceIntelligence, make_trace_event
-    ):
+    def test_high_value_session_gets_full_retention(self, intelligence: TraceIntelligence, make_trace_event):
         """Verify that high-value sessions get full retention."""
         timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
         events = [
@@ -968,12 +947,9 @@ class TestRetentionTierAssignment:
         ]
         analysis = intelligence.analyze_session(events, [])
         # Multiple errors should result in full retention
-        assert analysis["retention_tier"] == "full", \
-            "High-value session with errors should have full retention"
+        assert analysis["retention_tier"] == "full", "High-value session with errors should have full retention"
 
-    def test_medium_value_session_gets_summarized(
-        self, intelligence: TraceIntelligence, make_trace_event
-    ):
+    def test_medium_value_session_gets_summarized(self, intelligence: TraceIntelligence, make_trace_event):
         """Verify that medium-value sessions get summarized retention."""
         timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
         events = [
@@ -994,12 +970,11 @@ class TestRetentionTierAssignment:
         ]
         analysis = intelligence.analyze_session(events, [])
         # Behavior alert should result in at least summarized retention
-        assert analysis["retention_tier"] in {"summarized", "full"}, \
+        assert analysis["retention_tier"] in {"summarized", "full"}, (
             "Medium-value session should have summarized retention"
+        )
 
-    def test_low_value_session_gets_downsampled(
-        self, intelligence: TraceIntelligence, make_trace_event
-    ):
+    def test_low_value_session_gets_downsampled(self, intelligence: TraceIntelligence, make_trace_event):
         """Verify that low-value sessions get downsampled retention."""
         timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
         events = [
@@ -1018,12 +993,9 @@ class TestRetentionTierAssignment:
         ]
         analysis = intelligence.analyze_session(events, [])
         # Routine session should have downsampled retention
-        assert analysis["retention_tier"] == "downsampled", \
-            "Low-value session should have downsampled retention"
+        assert analysis["retention_tier"] == "downsampled", "Low-value session should have downsampled retention"
 
-    def test_retention_tier_considers_failure_clusters(
-        self, intelligence: TraceIntelligence, make_trace_event
-    ):
+    def test_retention_tier_considers_failure_clusters(self, intelligence: TraceIntelligence, make_trace_event):
         """Verify that retention tier considers failure cluster count."""
         timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
         # Create events that result in multiple failure clusters
@@ -1051,12 +1023,9 @@ class TestRetentionTierAssignment:
         ]
         analysis = intelligence.analyze_session(events, [])
         # Multiple distinct failures should result in full retention
-        assert analysis["retention_tier"] == "full", \
-            "Multiple failure clusters should result in full retention"
+        assert analysis["retention_tier"] == "full", "Multiple failure clusters should result in full retention"
 
-    def test_retention_tier_considers_high_severity_count(
-        self, intelligence: TraceIntelligence, make_trace_event
-    ):
+    def test_retention_tier_considers_high_severity_count(self, intelligence: TraceIntelligence, make_trace_event):
         """Verify that retention tier considers high severity count."""
         timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
         events = [
@@ -1078,12 +1047,9 @@ class TestRetentionTierAssignment:
         ]
         analysis = intelligence.analyze_session(events, [])
         # High severity event should result in full retention
-        assert analysis["retention_tier"] == "full", \
-            "High severity count should result in full retention"
+        assert analysis["retention_tier"] == "full", "High severity count should result in full retention"
 
-    def test_retention_tier_considers_replay_value(
-        self, intelligence: TraceIntelligence, make_trace_event
-    ):
+    def test_retention_tier_considers_replay_value(self, intelligence: TraceIntelligence, make_trace_event):
         """Verify that retention tier is assigned based on session analysis."""
         timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
         events = [
@@ -1123,9 +1089,7 @@ class TestRetentionTierAssignment:
         assert "session_replay_value" in analysis
         assert analysis["session_replay_value"] >= 0
 
-    def test_checkpoint_retention_tier_assigned(
-        self, intelligence: TraceIntelligence, make_trace_event
-    ):
+    def test_checkpoint_retention_tier_assigned(self, intelligence: TraceIntelligence, make_trace_event):
         """Verify that checkpoints have retention tiers assigned."""
         timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
         events = [
@@ -1152,67 +1116,82 @@ class TestRetentionTierAssignment:
         assert len(analysis["checkpoint_rankings"]) == 1
         assert "retention_tier" in analysis["checkpoint_rankings"][0]
 
-    def test_retention_tier_edge_case_replay_value_thresholds(
-        self, intelligence: TraceIntelligence
-    ):
+    def test_retention_tier_edge_case_replay_value_thresholds(self, intelligence: TraceIntelligence):
         """Verify retention tier thresholds are correctly applied."""
         # Test the boundaries
         # Full retention: replay_value >= 0.72 OR high_severity_count > 0 OR failure_cluster_count >= 2
-        assert intelligence.retention_tier(
-            replay_value=0.72,
-            high_severity_count=0,
-            failure_cluster_count=0,
-            behavior_alert_count=0,
-        ) == "full"
-        assert intelligence.retention_tier(
-            replay_value=0.5,
-            high_severity_count=1,
-            failure_cluster_count=0,
-            behavior_alert_count=0,
-        ) == "full"
-        assert intelligence.retention_tier(
-            replay_value=0.5,
-            high_severity_count=0,
-            failure_cluster_count=2,
-            behavior_alert_count=0,
-        ) == "full"
+        assert (
+            intelligence.retention_tier(
+                replay_value=0.72,
+                high_severity_count=0,
+                failure_cluster_count=0,
+                behavior_alert_count=0,
+            )
+            == "full"
+        )
+        assert (
+            intelligence.retention_tier(
+                replay_value=0.5,
+                high_severity_count=1,
+                failure_cluster_count=0,
+                behavior_alert_count=0,
+            )
+            == "full"
+        )
+        assert (
+            intelligence.retention_tier(
+                replay_value=0.5,
+                high_severity_count=0,
+                failure_cluster_count=2,
+                behavior_alert_count=0,
+            )
+            == "full"
+        )
         # Summarized retention: replay_value >= 0.42 OR behavior_alert_count > 0 or failure_cluster_count > 0
-        assert intelligence.retention_tier(
-            replay_value=0.42,
-            high_severity_count=0,
-            failure_cluster_count=0,
-            behavior_alert_count=0,
-        ) == "summarized"
-        assert intelligence.retention_tier(
-            replay_value=0.3,
-            high_severity_count=0,
-            failure_cluster_count=1,
-            behavior_alert_count=0,
-        ) == "summarized"
-        assert intelligence.retention_tier(
-            replay_value=0.3,
-            high_severity_count=0,
-            failure_cluster_count=0,
-            behavior_alert_count=1,
-        ) == "summarized"
+        assert (
+            intelligence.retention_tier(
+                replay_value=0.42,
+                high_severity_count=0,
+                failure_cluster_count=0,
+                behavior_alert_count=0,
+            )
+            == "summarized"
+        )
+        assert (
+            intelligence.retention_tier(
+                replay_value=0.3,
+                high_severity_count=0,
+                failure_cluster_count=1,
+                behavior_alert_count=0,
+            )
+            == "summarized"
+        )
+        assert (
+            intelligence.retention_tier(
+                replay_value=0.3,
+                high_severity_count=0,
+                failure_cluster_count=0,
+                behavior_alert_count=1,
+            )
+            == "summarized"
+        )
         # Downsampled: all other cases
-        assert intelligence.retention_tier(
-            replay_value=0.3,
-            high_severity_count=0,
-            failure_cluster_count=0,
-            behavior_alert_count=0,
-        ) == "downsampled"
+        assert (
+            intelligence.retention_tier(
+                replay_value=0.3,
+                high_severity_count=0,
+                failure_cluster_count=0,
+                behavior_alert_count=0,
+            )
+            == "downsampled"
+        )
 
-    def test_empty_session_has_downsampled_retention(
-        self, intelligence: TraceIntelligence
-    ):
+    def test_empty_session_has_downsampled_retention(self, intelligence: TraceIntelligence):
         """Verify that empty sessions have downsampled retention."""
         analysis = intelligence.analyze_session([], [])
         assert analysis["retention_tier"] == "downsampled"
 
-    def test_session_summary_includes_correct_counts(
-        self, intelligence: TraceIntelligence, make_trace_event
-    ):
+    def test_session_summary_includes_correct_counts(self, intelligence: TraceIntelligence, make_trace_event):
         """Verify that session summary includes correct counts."""
         timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
         events = [
@@ -1307,12 +1286,18 @@ class TestClusteringEdgeCases:
         """Identical errors should have the same fingerprint."""
         timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
         error1 = ErrorEvent(
-            id="error-1", session_id="session-1", error_type="ConnectionError",
-            error_message="Failed to connect", timestamp=timestamp,
+            id="error-1",
+            session_id="session-1",
+            error_type="ConnectionError",
+            error_message="Failed to connect",
+            timestamp=timestamp,
         )
         error2 = ErrorEvent(
-            id="error-2", session_id="session-1", error_type="ConnectionError",
-            error_message="Failed to connect", timestamp=timestamp,
+            id="error-2",
+            session_id="session-1",
+            error_type="ConnectionError",
+            error_message="Failed to connect",
+            timestamp=timestamp,
         )
         fp1 = intelligence.fingerprint(error1)
         fp2 = intelligence.fingerprint(error2)
@@ -1322,12 +1307,18 @@ class TestClusteringEdgeCases:
         """Different error types should have different fingerprints."""
         timestamp = datetime(2026, 3, 24, 12, 0, 0, tzinfo=timezone.utc)
         error1 = ErrorEvent(
-            id="error-1", session_id="session-1", error_type="ValueError",
-            error_message="Error", timestamp=timestamp,
+            id="error-1",
+            session_id="session-1",
+            error_type="ValueError",
+            error_message="Error",
+            timestamp=timestamp,
         )
         error2 = ErrorEvent(
-            id="error-2", session_id="session-1", error_type="TypeError",
-            error_message="Error", timestamp=timestamp,
+            id="error-2",
+            session_id="session-1",
+            error_type="TypeError",
+            error_message="Error",
+            timestamp=timestamp,
         )
         fp1 = intelligence.fingerprint(error1)
         fp2 = intelligence.fingerprint(error2)
@@ -1349,28 +1340,43 @@ class TestRetentionTierEdgeCases:
     def test_replay_value_exactly_at_threshold(self, intelligence: TraceIntelligence):
         """Retention tier should handle exact threshold values."""
         tier = intelligence.retention_tier(
-            replay_value=0.72, high_severity_count=0, failure_cluster_count=0, behavior_alert_count=0,
+            replay_value=0.72,
+            high_severity_count=0,
+            failure_cluster_count=0,
+            behavior_alert_count=0,
         )
         assert tier == "full"
         tier = intelligence.retention_tier(
-            replay_value=0.71, high_severity_count=0, failure_cluster_count=0, behavior_alert_count=0,
+            replay_value=0.71,
+            high_severity_count=0,
+            failure_cluster_count=0,
+            behavior_alert_count=0,
         )
         assert tier == "summarized"
 
     def test_multiple_conditions_trigger_full_retention(self, intelligence: TraceIntelligence):
         """Multiple conditions should all trigger full retention."""
         tier = intelligence.retention_tier(
-            replay_value=0.1, high_severity_count=1, failure_cluster_count=0, behavior_alert_count=0,
+            replay_value=0.1,
+            high_severity_count=1,
+            failure_cluster_count=0,
+            behavior_alert_count=0,
         )
         assert tier == "full"
         tier = intelligence.retention_tier(
-            replay_value=0.1, high_severity_count=0, failure_cluster_count=2, behavior_alert_count=0,
+            replay_value=0.1,
+            high_severity_count=0,
+            failure_cluster_count=2,
+            behavior_alert_count=0,
         )
         assert tier == "full"
 
     def test_zero_replay_value_gets_downsampled(self, intelligence: TraceIntelligence):
         """Zero replay value should result in downsampled tier."""
         tier = intelligence.retention_tier(
-            replay_value=0.0, high_severity_count=0, failure_cluster_count=0, behavior_alert_count=0,
+            replay_value=0.0,
+            high_severity_count=0,
+            failure_cluster_count=0,
+            behavior_alert_count=0,
         )
         assert tier == "downsampled"

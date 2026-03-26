@@ -3,6 +3,7 @@
 This module is optional and requires the 'redis' package. It will raise
 ImportError at runtime if redis is not installed.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,11 +22,11 @@ def _get_redis_class() -> type:
     """Lazily import Redis class to avoid ImportError if redis is not installed."""
     try:
         from redis.asyncio import Redis
+
         return Redis
     except ImportError as e:
         raise ImportError(
-            "Redis package is required for RedisEventBuffer. "
-            "Install it with: pip install agent-debugger[cloud]"
+            "Redis package is required for RedisEventBuffer. Install it with: pip install agent-debugger[cloud]"
         ) from e
 
 
@@ -107,9 +108,7 @@ class RedisEventBuffer(BufferBase):
         if session_id not in self._local_queues:
             self._local_queues[session_id] = []
             # Start listener task for this session
-            self._pubsub_tasks[session_id] = asyncio.create_task(
-                self._listen(session_id)
-            )
+            self._pubsub_tasks[session_id] = asyncio.create_task(self._listen(session_id))
 
         self._local_queues[session_id].append(queue)
         return queue

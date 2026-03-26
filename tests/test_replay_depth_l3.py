@@ -32,6 +32,7 @@ class TestDeterministicRestoreHooks:
         """The RestoreHook protocol should be importable."""
         try:
             from agent_debugger_sdk.checkpoints import RestoreHook
+
             assert RestoreHook is not None
         except ImportError:
             pytest.skip("RestoreHook protocol not yet implemented")
@@ -40,6 +41,7 @@ class TestDeterministicRestoreHooks:
         """A registry for framework-specific restore hooks should exist."""
         try:
             from agent_debugger_sdk.checkpoints import RESTORE_HOOK_REGISTRY
+
             assert isinstance(RESTORE_HOOK_REGISTRY, dict)
         except ImportError:
             pytest.skip("RESTORE_HOOK_REGISTRY not yet implemented")
@@ -71,6 +73,7 @@ class TestDeterministicRestoreHooks:
             assert result.messages == checkpoint_state.messages
         except ImportError:
             pytest.skip("apply_restore_hook not yet implemented")
+
     @pytest.mark.asyncio
     async def test_langchain_hook_restores_intermediate_steps(self):
         """LangChain hook should restore intermediate_steps into scratchpad."""
@@ -96,6 +99,7 @@ class TestDeterministicRestoreHooks:
             assert len(result.intermediate_steps) == 1
         except ImportError:
             pytest.skip("apply_restore_hook not yet implemented")
+
     @pytest.mark.asyncio
     async def test_unknown_framework_falls_back_to_generic_hook(self):
         """Unknown frameworks should use a generic hook that just copies data."""
@@ -119,6 +123,7 @@ class TestDeterministicRestoreHooks:
             assert result is not None
         except ImportError:
             pytest.skip("apply_restore_hook not yet implemented")
+
     @pytest.mark.asyncio
     async def test_restore_context_calls_hook(self):
         """TraceContext.restore should automatically call registered hooks."""
@@ -184,6 +189,7 @@ class TestStateDriftDetection:
         """DriftDetector class should be importable."""
         try:
             from agent_debugger_sdk.drift import DriftDetector
+
             assert DriftDetector is not None
         except ImportError:
             pytest.skip("DriftDetector not yet implemented")
@@ -192,6 +198,7 @@ class TestStateDriftDetection:
         """DriftEvent schema should be defined."""
         try:
             from agent_debugger_sdk.drift import DriftEvent, DriftSeverity
+
             assert DriftEvent is not None
             assert DriftSeverity is not None
         except ImportError:
@@ -449,6 +456,7 @@ class TestAutoReplay:
             ]
 
             with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+
                 def side_effect(url, *args, **kwargs):
                     mock_response = MagicMock()
                     if "checkpoints" in url:
@@ -501,6 +509,7 @@ class TestAutoReplay:
             ]
 
             with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+
                 def side_effect(url, *args, **kwargs):
                     mock_response = MagicMock()
                     if "checkpoints" in url:
@@ -596,6 +605,7 @@ class TestAutoReplay:
             ]
 
             with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+
                 def side_effect(url, *args, **kwargs):
                     mock_response = MagicMock()
                     if "checkpoints" in url:
@@ -624,6 +634,7 @@ class TestAutoReplay:
         """AutoReplayManager class should exist to orchestrate replay."""
         try:
             from agent_debugger_sdk.checkpoints import AutoReplayManager
+
             assert AutoReplayManager is not None
         except ImportError:
             pytest.skip("AutoReplayManager not yet implemented")
@@ -714,6 +725,7 @@ class TestReplayDepthIntegration:
             ]
 
             with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+
                 def side_effect(url, *args, **kwargs):
                     mock_response = MagicMock()
                     if "checkpoints" in url:
@@ -768,6 +780,7 @@ class TestReplayDepthIntegration:
             ]
 
             with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+
                 def side_effect(url, *args, **kwargs):
                     mock_response = MagicMock()
                     if "checkpoints" in url:
@@ -939,6 +952,7 @@ class TestReplayDepthErrorHandling:
             call_count = [0]
 
             with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+
                 def side_effect(url, *args, **kwargs):
                     call_count[0] += 1
                     mock_response = MagicMock()
@@ -951,6 +965,7 @@ class TestReplayDepthErrorHandling:
                     return mock_response
 
                 import httpx
+
                 mock_get.side_effect = side_effect
 
                 # Should not crash, should log warning or return partial result

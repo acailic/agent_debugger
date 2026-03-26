@@ -63,6 +63,7 @@ def cassette_events(interactions: list[dict[str, Any]], session_id: str = "casse
 
 # ── Event querying ────────────────────────────────────────────────────────────
 
+
 def find_event(events: list[TraceEvent], *, event_type: EventType, index: int = 0) -> TraceEvent | None:
     """Find the nth event of a given type."""
     matches = [e for e in events if e.event_type == event_type]
@@ -113,30 +114,36 @@ def validate_evidence_chain(
         ev = get_event_by_id(events, evidence_id)
 
         if ev is None:
-            issues.append(EvidenceIssue(
-                kind="missing",
-                evidence_id=evidence_id,
-                detail=f"Evidence event {evidence_id} not found in session",
-            ))
+            issues.append(
+                EvidenceIssue(
+                    kind="missing",
+                    evidence_id=evidence_id,
+                    detail=f"Evidence event {evidence_id} not found in session",
+                )
+            )
             continue
 
         if ev.event_type == EventType.ERROR:
-            issues.append(EvidenceIssue(
-                kind="error_source",
-                evidence_id=evidence_id,
-                detail=f"Evidence references an error event: {ev.data.get('error_message', ev.name)}",
-            ))
+            issues.append(
+                EvidenceIssue(
+                    kind="error_source",
+                    evidence_id=evidence_id,
+                    detail=f"Evidence references an error event: {ev.data.get('error_message', ev.name)}",
+                )
+            )
             continue
 
         ev_idx = id_to_index.get(evidence_id)
         if ev_idx is not None and hasattr(decision, "id"):
             dec_idx = id_to_index.get(decision.id)
             if dec_idx is not None and ev_idx >= dec_idx:
-                issues.append(EvidenceIssue(
-                    kind="temporal",
-                    evidence_id=evidence_id,
-                    detail="Evidence event occurs at or after the decision",
-                ))
+                issues.append(
+                    EvidenceIssue(
+                        kind="temporal",
+                        evidence_id=evidence_id,
+                        detail="Evidence event occurs at or after the decision",
+                    )
+                )
 
     # Content check: compare numeric values in decision.evidence vs source events
     _check_content_consistency(decision, events, issues)
@@ -192,11 +199,13 @@ def _check_content_consistency(
         # Check if a close match exists in the source data
         found = any(abs(claimed_val - src) < 0.01 * max(abs(claimed_val), 1) for src in source_numbers)
         if not found and source_numbers:  # only flag if there were source numbers to compare
-            issues.append(EvidenceIssue(
-                kind="content_mismatch",
-                evidence_id="",
-                detail=f"Evidence claims {claimed_val} but source events contain {source_numbers}",
-            ))
+            issues.append(
+                EvidenceIssue(
+                    kind="content_mismatch",
+                    evidence_id="",
+                    detail=f"Evidence claims {claimed_val} but source events contain {source_numbers}",
+                )
+            )
 
 
 def _collect_numbers(obj: Any, out: list[float]) -> None:
@@ -213,13 +222,13 @@ def _collect_numbers(obj: Any, out: list[float]) -> None:
 
 # ── Safety helpers ────────────────────────────────────────────────────────────
 
+
 def find_risky_passes(events: list[TraceEvent]) -> list[SafetyCheckEvent]:
     """Find safety checks that passed despite high risk."""
     return [
-        e for e in events
-        if isinstance(e, SafetyCheckEvent)
-        and e.outcome == SafetyOutcome.PASS
-        and e.risk_level == RiskLevel.HIGH
+        e
+        for e in events
+        if isinstance(e, SafetyCheckEvent) and e.outcome == SafetyOutcome.PASS and e.risk_level == RiskLevel.HIGH
     ]
 
 
@@ -228,7 +237,7 @@ def find_downstream_danger(events: list[TraceEvent], safety_event: SafetyCheckEv
     idx = next((i for i, e in enumerate(events) if e.id == safety_event.id), -1)
     if idx < 0:
         return None
-    for event in events[idx + 1:]:
+    for event in events[idx + 1 :]:
         if event.event_type in (EventType.TOOL_CALL, EventType.DECISION):
             return event
     return None
@@ -236,9 +245,11 @@ def find_downstream_danger(events: list[TraceEvent], safety_event: SafetyCheckEv
 
 # ── Reproducibility helpers ───────────────────────────────────────────────────
 
+
 @dataclass
 class Divergence:
     """Represents a point where two sessions diverge."""
+
     index: int
     event_a: TraceEvent | None
     event_b: TraceEvent | None
@@ -261,7 +272,9 @@ def find_first_divergence(
         if b is None:
             return Divergence(index=i, event_a=a, event_b=None, explanation="Session B ended before Session A")
         if a.event_type != b.event_type:
-            return Divergence(index=i, event_a=a, event_b=b, explanation=f"Event type mismatch: {a.event_type} vs {b.event_type}")
+            return Divergence(
+                index=i, event_a=a, event_b=b, explanation=f"Event type mismatch: {a.event_type} vs {b.event_type}"
+            )
         if a.data != b.data:
             return Divergence(index=i, event_a=a, event_b=b, explanation=f"Event data differs at index {i}")
     return None

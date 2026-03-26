@@ -122,7 +122,7 @@ def detect_oscillation(
         matched_indices: list[int] = list(range(pattern_len))
 
         for i in range(pattern_len, len(sequence) - pattern_len + 1, pattern_len):
-            if sequence[i:i + pattern_len] == pattern:
+            if sequence[i : i + pattern_len] == pattern:
                 repeats += 1
                 matched_indices.extend(range(i, i + pattern_len))
 
@@ -169,10 +169,10 @@ class LiveMonitor:
         )
 
         recent_events = [
-            e for e in events
-            if e.timestamp and (
-                e.timestamp.replace(tzinfo=timezone.utc) if e.timestamp.tzinfo is None else e.timestamp
-            ) >= cutoff
+            e
+            for e in events
+            if e.timestamp
+            and (e.timestamp.replace(tzinfo=timezone.utc) if e.timestamp.tzinfo is None else e.timestamp) >= cutoff
         ]
 
         confidences: list[float] = []
@@ -333,16 +333,18 @@ class LiveMonitor:
             position_weight = 1.0 - (i / max(len(checkpoints), 1)) * 0.3
             restore_value = (checkpoint.importance or 0.5) * position_weight
 
-            deltas.append(CheckpointDelta(
-                checkpoint_id=checkpoint.id,
-                event_id=checkpoint.event_id,
-                sequence=checkpoint.sequence,
-                time_since_previous=time_since,
-                events_since_previous=events_since,
-                importance_delta=round(importance_delta, 4),
-                restore_value=round(restore_value, 4),
-                state_keys_changed=sorted(state_keys),
-            ))
+            deltas.append(
+                CheckpointDelta(
+                    checkpoint_id=checkpoint.id,
+                    event_id=checkpoint.event_id,
+                    sequence=checkpoint.sequence,
+                    time_since_previous=time_since,
+                    events_since_previous=events_since,
+                    importance_delta=round(importance_delta, 4),
+                    restore_value=round(restore_value, 4),
+                    state_keys_changed=sorted(state_keys),
+                )
+            )
 
         return deltas
 
@@ -373,11 +375,7 @@ class LiveMonitor:
 
         latest_decision = next((event for event in reversed(events) if event.event_type == EventType.DECISION), None)
         latest_tool = next(
-            (
-                event
-                for event in reversed(events)
-                if event.event_type in {EventType.TOOL_CALL, EventType.TOOL_RESULT}
-            ),
+            (event for event in reversed(events) if event.event_type in {EventType.TOOL_CALL, EventType.TOOL_RESULT}),
             None,
         )
         latest_safety = next(
@@ -425,10 +423,7 @@ class LiveMonitor:
             if (
                 event.event_type == EventType.REFUSAL
                 or event.event_type == EventType.POLICY_VIOLATION
-                or (
-                    event.event_type == EventType.SAFETY_CHECK
-                    and _event_value(event, "outcome", "pass") != "pass"
-                )
+                or (event.event_type == EventType.SAFETY_CHECK and _event_value(event, "outcome", "pass") != "pass")
             )
         ]
         if len(recent_guardrails) >= 2:

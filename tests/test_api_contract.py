@@ -25,6 +25,7 @@ def _get_route_endpoint(path: str, method: str):
 
 def _create_mock_request():
     """Create a mock Request object for testing."""
+
     # Create a minimal mock request
     class MockRequest:
         def __init__(self):

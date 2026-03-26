@@ -215,6 +215,7 @@ class TraceContext(RecordingMixin):
 
         if server_url is None:
             from agent_debugger_sdk.config import get_config
+
             config = get_config()
             server_url = config.endpoint or "http://localhost:8000"
 
@@ -261,9 +262,11 @@ class TraceContext(RecordingMixin):
         # global ContextVars and would break concurrent sessions. Instead, set
         # instance-level hooks.
         from agent_debugger_sdk.config import get_config
+
         config = get_config()
         if config.mode == "cloud" and config.api_key:
             from agent_debugger_sdk.transport import HttpTransport
+
             self._transport = HttpTransport(config.endpoint, config.api_key)
             # Set instance-level hooks (not global pipeline)
             self._event_persister = self._transport.send_event

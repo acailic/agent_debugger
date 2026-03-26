@@ -100,9 +100,7 @@ class RetentionEnforcer:
 
         for tier, days in tier_configs:
             cutoff = now - timedelta(days=days)
-            sessions = await self.repository.list_sessions_by_retention_tier(
-                tier, older_than=cutoff
-            )
+            sessions = await self.repository.list_sessions_by_retention_tier(tier, older_than=cutoff)
 
             for session in sessions:
                 if tier == "summarized":
@@ -122,14 +120,10 @@ class RetentionEnforcer:
 
                 elif tier == "downsampled":
                     # Delete all events and checkpoints
-                    events_deleted = await self.repository.delete_events_for_session(
-                        session.id
-                    )
+                    events_deleted = await self.repository.delete_events_for_session(session.id)
                     result.events_deleted += events_deleted
 
-                    checkpoints_deleted = await self.repository.delete_checkpoints_for_session(
-                        session.id
-                    )
+                    checkpoints_deleted = await self.repository.delete_checkpoints_for_session(session.id)
                     result.checkpoints_deleted += checkpoints_deleted
 
                 result.sessions_processed += 1
@@ -151,7 +145,8 @@ class RetentionEnforcer:
         for tier in ["full", "summarized", "downsampled"]:
             # Count all sessions in this tier
             sessions = await self.repository.list_sessions_by_retention_tier(
-                tier, older_than=now  # Use far future to get all
+                tier,
+                older_than=now,  # Use far future to get all
             )
             stats[f"{tier}_count"] = len(sessions)
 

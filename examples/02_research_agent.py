@@ -38,6 +38,7 @@ from agent_debugger_sdk import TraceContext, init
 # Mocked "tools" — replace these with real implementations
 # ---------------------------------------------------------------------------
 
+
 async def web_search(query: str) -> list[dict]:
     """Simulated web search."""
     await asyncio.sleep(0.05)
@@ -63,9 +64,9 @@ async def safety_check(content: str) -> dict:
 # The agent
 # ---------------------------------------------------------------------------
 
+
 async def research_agent(question: str) -> str:
     async with TraceContext(agent_name="research_agent", framework="custom") as ctx:
-
         # Step 1: decide how to answer
         await ctx.record_decision(
             reasoning=f"User asked: '{question}'. Best approach is web search then summarize.",
@@ -120,6 +121,7 @@ async def research_agent(question: str) -> str:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 async def main() -> None:
     # Use 127.0.0.1 (not localhost) so the SDK keeps the custom endpoint

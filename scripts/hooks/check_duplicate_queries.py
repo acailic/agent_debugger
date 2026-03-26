@@ -3,6 +3,7 @@
 
 Blocks edits that introduce queries already in storage/repository.py or auth/middleware.py
 """
+
 import argparse
 import json
 import re
@@ -14,37 +15,25 @@ PATTERNS = {
         "method": "get_session",
         "file": "storage/repository.py",
     },
-    "SessionModel.where[tenant_id]": {
-        "method": "list_sessions",
-        "file": "storage/repository.py"
-    },
+    "SessionModel.where[tenant_id]": {"method": "list_sessions", "file": "storage/repository.py"},
     "EventModel.join[SessionModel].where[tenant_id, session_id]": {
         "method": "get_event_tree",
         "file": "storage/repository.py",
     },
-    "EventModel.where[id]": {
-        "method": "get_event",
-        "file": "storage/repository.py"
-    },
-    "EventModel.where[session_id]": {
-        "method": "list_events",
-        "file": "storage/repository.py"
-    },
+    "EventModel.where[id]": {"method": "get_event", "file": "storage/repository.py"},
+    "EventModel.where[session_id]": {"method": "list_events", "file": "storage/repository.py"},
     "CheckpointModel.join[SessionModel].where[tenant_id, session_id]": {
         "method": "list_checkpoints",
-        "file": "storage/repository.py"
+        "file": "storage/repository.py",
     },
-    "CheckpointModel.where[id]": {
-        "method": "get_checkpoint",
-        "file": "storage/repository.py"
-    },
+    "CheckpointModel.where[id]": {"method": "get_checkpoint", "file": "storage/repository.py"},
     "APIKeyModel.where[tenant_id, is_active]": {
         "method": "(auth query - consider auth_repository)",
         "file": "api/auth_routes.py",
     },
     "APIKeyModel.where[key_prefix.startswith, is_active]": {
         "method": "_resolve_tenant_from_key",
-        "file": "auth/middleware.py"
+        "file": "auth/middleware.py",
     },
 }
 
@@ -78,11 +67,13 @@ def check_duplicates(content: str) -> list[dict]:
     for shape in shapes:
         if shape in PATTERNS:
             info = PATTERNS[shape]
-            duplicates.append({
-                "shape": shape,
-                "method": info["method"],
-                "file": info["file"],
-            })
+            duplicates.append(
+                {
+                    "shape": shape,
+                    "method": info["method"],
+                    "file": info["file"],
+                }
+            )
     return {"duplicates": duplicates, "shapes_found": shapes}
 
 
@@ -110,17 +101,21 @@ def main():
     duplicates = check_duplicates(content)
     if duplicates:
         dup = duplicates[0]
-        print(json.dumps({
-            "decision": "deny",
-            "reason": f"""Duplicate query detected!
+        print(
+            json.dumps(
+                {
+                    "decision": "deny",
+                    "reason": f"""Duplicate query detected!
 
-Pattern: {dup['shape']}
-Existing method: {dup['method']}
-Location: {dup['file']}
+Pattern: {dup["shape"]}
+Existing method: {dup["method"]}
+Location: {dup["file"]}
 
 Use this existing method instead of writing a new query.
-Add `# @duplicate-allowed` to your code to bypass."""
-        }))
+Add `# @duplicate-allowed` to your code to bypass.""",
+                }
+            )
+        )
         sys.exit(1)
 
     print(json.dumps({"decision": "allow"}))

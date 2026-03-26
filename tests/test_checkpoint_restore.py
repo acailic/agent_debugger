@@ -279,8 +279,10 @@ class TestCheckpointEndpoints:
             endpoint = next(
                 r.endpoint
                 for r in api_main.app.routes
-                if hasattr(r, "path") and r.path == "/api/checkpoints/{checkpoint_id}"
-                and hasattr(r, "methods") and "GET" in r.methods
+                if hasattr(r, "path")
+                and r.path == "/api/checkpoints/{checkpoint_id}"
+                and hasattr(r, "methods")
+                and "GET" in r.methods
             )
             async with session_maker() as session:
                 repo = TraceRepository(session)

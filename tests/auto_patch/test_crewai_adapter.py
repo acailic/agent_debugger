@@ -14,6 +14,7 @@ The tests verify:
 7. Server unreachability does not raise.
 8. Errors during kickoff emit an error event and re-raise.
 """
+
 from __future__ import annotations
 
 import asyncio

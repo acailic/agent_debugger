@@ -1,6 +1,5 @@
 """Comprehensive tests for redaction pipeline - security-critical coverage."""
 
-
 from datetime import datetime, timezone
 
 from agent_debugger_sdk.core.events import (
@@ -21,11 +20,7 @@ class TestRedactionPipelineEdgeCases:
         """Test redaction with empty event data."""
         pipeline = RedactionPipeline()
 
-        event = TraceEvent(
-            event_type=EventType.TOOL_CALL,
-            timestamp=datetime.now(timezone.utc),
-            data={}
-        )
+        event = TraceEvent(event_type=EventType.TOOL_CALL, timestamp=datetime.now(timezone.utc), data={})
 
         result = pipeline.apply(event)
         assert result is not None
@@ -38,11 +33,7 @@ class TestRedactionPipelineEdgeCases:
         event = TraceEvent(
             event_type=EventType.TOOL_CALL,
             timestamp=datetime.now(timezone.utc),
-            data={
-                "api_key": None,
-                "password": None,
-                "valid_field": "value"
-            }
+            data={"api_key": None, "password": None, "valid_field": "value"},
         )
 
         result = pipeline.apply(event)
@@ -54,16 +45,10 @@ class TestRedactionPipelineEdgeCases:
 
     def test_basic_redaction_disabled(self):
         """Test with all redaction disabled."""
-        pipeline = RedactionPipeline(
-            redact_prompts=False,
-            redact_tool_payloads=False,
-            redact_pii=False
-        )
+        pipeline = RedactionPipeline(redact_prompts=False, redact_tool_payloads=False, redact_pii=False)
 
         event = ToolCallEvent(
-            timestamp=datetime.now(timezone.utc),
-            tool_name="test_tool",
-            arguments={"secret": "password123"}
+            timestamp=datetime.now(timezone.utc), tool_name="test_tool", arguments={"secret": "password123"}
         )
 
         result = pipeline.apply(event)
@@ -83,7 +68,7 @@ class TestRedactionWithPrompts:
             timestamp=datetime.now(timezone.utc),
             model="gpt-4",
             messages=[{"role": "user", "content": "sensitive prompt"}],
-            settings={"temperature": 0.7}
+            settings={"temperature": 0.7},
         )
 
         result = pipeline.apply(event)
@@ -99,10 +84,7 @@ class TestRedactionWithPrompts:
 
         messages = [{"role": "user", "content": "my prompt"}]
         event = LLMRequestEvent(
-            timestamp=datetime.now(timezone.utc),
-            model="gpt-4",
-            messages=messages,
-            settings={"temperature": 0.7}
+            timestamp=datetime.now(timezone.utc), model="gpt-4", messages=messages, settings={"temperature": 0.7}
         )
 
         result = pipeline.apply(event)
@@ -118,7 +100,7 @@ class TestRedactionWithPrompts:
             timestamp=datetime.now(timezone.utc),
             model="gpt-4",
             content="sensitive response",
-            usage={"input_tokens": 50, "output_tokens": 50}
+            usage={"input_tokens": 50, "output_tokens": 50},
         )
 
         result = pipeline.apply(event)
@@ -136,9 +118,7 @@ class TestRedactionWithToolPayloads:
 
         # Tool call
         call_event = ToolCallEvent(
-            timestamp=datetime.now(timezone.utc),
-            tool_name="database_query",
-            arguments={"query": "SELECT * FROM users"}
+            timestamp=datetime.now(timezone.utc), tool_name="database_query", arguments={"query": "SELECT * FROM users"}
         )
 
         result = pipeline.apply(call_event)
@@ -148,9 +128,7 @@ class TestRedactionWithToolPayloads:
 
         # Tool result
         result_event = ToolResultEvent(
-            timestamp=datetime.now(timezone.utc),
-            tool_name="database_query",
-            result="sensitive data"
+            timestamp=datetime.now(timezone.utc), tool_name="database_query", result="sensitive data"
         )
 
         result = pipeline.apply(result_event)
@@ -161,11 +139,7 @@ class TestRedactionWithToolPayloads:
         """Test tool payloads preserved when disabled."""
         pipeline = RedactionPipeline(redact_tool_payloads=False)
 
-        event = ToolCallEvent(
-            timestamp=datetime.now(timezone.utc),
-            tool_name="search",
-            arguments={"query": "test"}
-        )
+        event = ToolCallEvent(timestamp=datetime.now(timezone.utc), tool_name="search", arguments={"query": "test"})
 
         result = pipeline.apply(event)
         assert result is not None
@@ -175,11 +149,7 @@ class TestRedactionWithToolPayloads:
         """Test tool result redaction."""
         pipeline = RedactionPipeline(redact_tool_payloads=True)
 
-        event = ToolResultEvent(
-            timestamp=datetime.now(timezone.utc),
-            tool_name="test",
-            result="sensitive result"
-        )
+        event = ToolResultEvent(timestamp=datetime.now(timezone.utc), tool_name="test", result="sensitive result")
 
         result = pipeline.apply(event)
         assert result is not None
@@ -196,11 +166,7 @@ class TestRedactionWithPII:
         event = TraceEvent(
             event_type=EventType.TOOL_CALL,
             timestamp=datetime.now(timezone.utc),
-            data={
-                "email": "user@example.com",
-                "ssn": "123-45-6789",
-                "phone": "555-123-4567"
-            }
+            data={"email": "user@example.com", "ssn": "123-45-6789", "phone": "555-123-4567"},
         )
 
         result = pipeline.apply(event)
@@ -215,11 +181,7 @@ class TestRedactionWithPII:
         pipeline = RedactionPipeline(redact_pii=False)
 
         event = TraceEvent(
-            event_type=EventType.TOOL_CALL,
-            timestamp=datetime.now(timezone.utc),
-            data={
-                "email": "user@example.com"
-            }
+            event_type=EventType.TOOL_CALL, timestamp=datetime.now(timezone.utc), data={"email": "user@example.com"}
         )
 
         result = pipeline.apply(event)
@@ -230,17 +192,11 @@ class TestRedactionWithPII:
         """Test various email patterns are redacted."""
         pipeline = RedactionPipeline(redact_pii=True)
 
-        test_emails = [
-            "user@example.com",
-            "user.name@domain.co.uk",
-            "test+tag@company.org"
-        ]
+        test_emails = ["user@example.com", "user.name@domain.co.uk", "test+tag@company.org"]
 
         for email in test_emails:
             event = TraceEvent(
-                event_type=EventType.TOOL_CALL,
-                timestamp=datetime.now(timezone.utc),
-                data={"email": email}
+                event_type=EventType.TOOL_CALL, timestamp=datetime.now(timezone.utc), data={"email": email}
             )
 
             result = pipeline.apply(event)
@@ -250,17 +206,11 @@ class TestRedactionWithPII:
         """Test phone number patterns are redacted."""
         pipeline = RedactionPipeline(redact_pii=True)
 
-        test_phones = [
-            "555-123-4567",
-            "(555) 123-4567",
-            "+1-555-123-4567"
-        ]
+        test_phones = ["555-123-4567", "(555) 123-4567", "+1-555-123-4567"]
 
         for phone in test_phones:
             event = TraceEvent(
-                event_type=EventType.TOOL_CALL,
-                timestamp=datetime.now(timezone.utc),
-                data={"phone": phone}
+                event_type=EventType.TOOL_CALL, timestamp=datetime.now(timezone.utc), data={"phone": phone}
             )
 
             result = pipeline.apply(event)
@@ -276,11 +226,7 @@ class TestRedactionWithPayloadTruncation:
 
         # Create large payload
         large_data = {"content": "x" * 2000}  # 2KB of data
-        event = TraceEvent(
-            event_type=EventType.TOOL_CALL,
-            timestamp=datetime.now(timezone.utc),
-            data=large_data
-        )
+        event = TraceEvent(event_type=EventType.TOOL_CALL, timestamp=datetime.now(timezone.utc), data=large_data)
 
         result = pipeline.apply(event)
 
@@ -293,11 +239,7 @@ class TestRedactionWithPayloadTruncation:
         pipeline = RedactionPipeline(max_payload_kb=0)
 
         large_data = {"content": "x" * 2000}
-        event = TraceEvent(
-            event_type=EventType.TOOL_CALL,
-            timestamp=datetime.now(timezone.utc),
-            data=large_data
-        )
+        event = TraceEvent(event_type=EventType.TOOL_CALL, timestamp=datetime.now(timezone.utc), data=large_data)
 
         result = pipeline.apply(event)
         assert result is not None
@@ -308,11 +250,7 @@ class TestRedactionWithPayloadTruncation:
         pipeline = RedactionPipeline(max_payload_kb=1)
 
         small_data = {"content": "small"}
-        event = TraceEvent(
-            event_type=EventType.TOOL_CALL,
-            timestamp=datetime.now(timezone.utc),
-            data=small_data
-        )
+        event = TraceEvent(event_type=EventType.TOOL_CALL, timestamp=datetime.now(timezone.utc), data=small_data)
 
         result = pipeline.apply(event)
         assert result is not None
@@ -341,10 +279,7 @@ class TestRedactionSecurityVulnerabilities:
         event = TraceEvent(
             event_type=EventType.TOOL_CALL,
             timestamp=datetime.now(timezone.utc),
-            data={
-                "password": "'; DROP TABLE users; --",
-                "script": "<script>alert('xss')</script>"
-            }
+            data={"password": "'; DROP TABLE users; --", "script": "<script>alert('xss')</script>"},
         )
 
         result = pipeline.apply(event)
@@ -360,14 +295,7 @@ class TestRedactionSecurityVulnerabilities:
         event = TraceEvent(
             event_type=EventType.TOOL_CALL,
             timestamp=datetime.now(timezone.utc),
-            data={
-                "level1": {
-                    "password": "'; DROP TABLE users; --",
-                    "level2": {
-                        "api_key": "<script>evil()</script>"
-                    }
-                }
-            }
+            data={"level1": {"password": "'; DROP TABLE users; --", "level2": {"api_key": "<script>evil()</script>"}}},
         )
 
         result = pipeline.apply(event)
@@ -382,10 +310,7 @@ class TestRedactionSecurityVulnerabilities:
         event = TraceEvent(
             event_type=EventType.TOOL_CALL,
             timestamp=datetime.now(timezone.utc),
-            data={
-                "unicode": "密码 Пароль αβγδ",
-                "emoji": "🔐🔑🔓"
-            }
+            data={"unicode": "密码 Пароль αβγδ", "emoji": "🔐🔑🔓"},
         )
 
         result = pipeline.apply(event)
@@ -404,16 +329,9 @@ class TestRedactionPerformance:
         pipeline = RedactionPipeline()
 
         # Create large event data
-        large_data = {
-            f"field_{i}": f"value_{i}"
-            for i in range(100)
-        }
+        large_data = {f"field_{i}": f"value_{i}" for i in range(100)}
 
-        event = TraceEvent(
-            event_type=EventType.TOOL_CALL,
-            timestamp=datetime.now(timezone.utc),
-            data=large_data
-        )
+        event = TraceEvent(event_type=EventType.TOOL_CALL, timestamp=datetime.now(timezone.utc), data=large_data)
 
         start = time.time()
         result = pipeline.apply(event)

@@ -19,6 +19,7 @@ Anthropic-specific structural notes
 * Token counts live at ``response.usage.input_tokens`` /
   ``response.usage.output_tokens``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -54,15 +55,11 @@ class AnthropicAdapter(BaseAdapter):
 
         # --- Sync client ---
         self._originals["sync_create"] = anthropic.Anthropic.messages.create
-        anthropic.Anthropic.messages.create = self._make_sync_wrapper(
-            anthropic.Anthropic.messages.create
-        )
+        anthropic.Anthropic.messages.create = self._make_sync_wrapper(anthropic.Anthropic.messages.create)
 
         # --- Async client ---
         self._originals["async_create"] = anthropic.AsyncAnthropic.messages.create
-        anthropic.AsyncAnthropic.messages.create = self._make_async_wrapper(
-            anthropic.AsyncAnthropic.messages.create
-        )
+        anthropic.AsyncAnthropic.messages.create = self._make_async_wrapper(anthropic.AsyncAnthropic.messages.create)
 
     def unpatch(self) -> None:
         """Restore the original Anthropic client methods."""
@@ -90,11 +87,7 @@ class AnthropicAdapter(BaseAdapter):
             model=kwargs.get("model", ""),
             messages=kwargs.get("messages", []) if self._config.capture_content else [],
             tools=tools_raw,
-            settings={
-                k: v
-                for k, v in kwargs.items()
-                if k in ("temperature", "max_tokens", "top_p")
-            },
+            settings={k: v for k, v in kwargs.items() if k in ("temperature", "max_tokens", "top_p")},
         )
         self._transport.send_event(event.to_dict())
         return event.id
@@ -113,11 +106,7 @@ class AnthropicAdapter(BaseAdapter):
         if response.content:
             # Collect text from text blocks
             if self._config.capture_content:
-                text_parts = [
-                    block.text
-                    for block in response.content
-                    if getattr(block, "type", None) == "text"
-                ]
+                text_parts = [block.text for block in response.content if getattr(block, "type", None) == "text"]
                 content = "\n".join(text_parts)
 
             # Collect tool-use blocks when stop reason indicates tool use

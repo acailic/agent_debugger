@@ -1,4 +1,5 @@
 """Tests for bug fixes in Phase 1."""
+
 import asyncio
 from unittest.mock import MagicMock, patch
 
@@ -46,7 +47,6 @@ class TestBUG004PersistenceManager:
         session_ids = asyncio.run(pm.buffer.get_session_ids())
         assert isinstance(session_ids, list)
 
-
         assert "session-1" in session_ids
 
 
@@ -64,7 +64,6 @@ class TestBUG005RaceCondition:
             for i in range(num_events // num_tasks):
                 event = MagicMock(id=f"event-{task_id}-{i}", to_dict=lambda: {})
                 await buffer.publish(f"session-{task_id}", event)
-
 
         # Run concurrent publishes
         tasks = [publish_events(i) for i in range(num_tasks)]
@@ -180,7 +179,6 @@ class TestBUG003DuplicateAgentEvents:
         assert len(start_events) == 1, "Expected exactly 1 AGENT_START event"
         assert len(end_events) == 1, "Expected exactly 1 AGENT_END event"
 
-
     @pytest.mark.asyncio
     async def test_agent_with_exception(self):
         """Test that @trace_agent properly records exceptions in AGENT_END event."""
@@ -208,8 +206,6 @@ class TestBUG003DuplicateAgentEvents:
         # Verify the end event has error status
         end_event = end_events[0]
         assert end_event.data["status"] == "error"
-
-
 
     @pytest.mark.asyncio
     async def test_agent_with_nested_tool(self):

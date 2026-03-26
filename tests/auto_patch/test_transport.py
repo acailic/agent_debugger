@@ -1,4 +1,5 @@
 """Tests for SyncTransport and session management helpers."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch

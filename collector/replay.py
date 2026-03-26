@@ -186,11 +186,7 @@ def build_replay(
     replay_window_events = events[start_index:]
     if mode in {"focus", "failure"} and focus_event_id:
         scoped_ids = _collect_focus_scope_ids(events, focus_event_id=focus_event_id, start_index=start_index)
-        replay_events = [
-            event
-            for event in replay_window_events
-            if event.id in scoped_ids
-        ]
+        replay_events = [event for event in replay_window_events if event.id in scoped_ids]
         replay_checkpoints = [checkpoint for checkpoint in checkpoints if checkpoint.event_id in scoped_ids]
         if nearest_checkpoint and all(checkpoint.id != nearest_checkpoint.id for checkpoint in replay_checkpoints):
             replay_checkpoints.insert(0, nearest_checkpoint)

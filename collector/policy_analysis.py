@@ -258,9 +258,7 @@ def _compute_shift_magnitude(
     param_score = 0.0
     if param_changes:
         # Weight by parameter importance and take max
-        weighted_magnitudes = [
-            change.magnitude for change in param_changes.values()
-        ]
+        weighted_magnitudes = [change.magnitude for change in param_changes.values()]
         param_score = max(weighted_magnitudes) * 0.4
 
     return min(1.0, template_score + param_score)

@@ -14,6 +14,7 @@ To replay from a checkpoint:
     POST http://localhost:8000/api/sessions/{session_id}/replay
     Body: {"checkpoint_id": "<id from output>"}
 """
+
 from __future__ import annotations
 
 import asyncio

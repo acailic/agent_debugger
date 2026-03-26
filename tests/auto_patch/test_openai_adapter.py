@@ -11,6 +11,7 @@ The tests verify:
 4. Graceful handling when the Peaky Peek server is unreachable.
 5. Async paths mirror sync behaviour.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -256,9 +257,7 @@ class TestOpenAIAdapterSyncPatch:
         result = wrapper(MagicMock(), model="gpt-4o", messages=[])
         assert result is fake_response
 
-    def test_capture_content_false_omits_messages_and_response_text(
-        self, fake_openai, mock_httpx
-    ) -> None:
+    def test_capture_content_false_omits_messages_and_response_text(self, fake_openai, mock_httpx) -> None:
         fake_response = _make_fake_response(content="secret")
         original_create = MagicMock(return_value=fake_response)
 

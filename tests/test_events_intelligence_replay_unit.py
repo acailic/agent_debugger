@@ -47,7 +47,12 @@ def test_trace_event_from_dict_and_serializers_cover_event_models():
 
     tool_call = ToolCallEvent(tool_name="search", arguments={"q": "trace"})
     tool_result = ToolResultEvent(tool_name="search", result={"ok": True}, error="boom", duration_ms=12.5)
-    request = LLMRequestEvent(model="gpt-test", messages=[{"role": "user", "content": "hi"}], tools=[{"name": "search"}], settings={"temperature": 0.1})
+    request = LLMRequestEvent(
+        model="gpt-test",
+        messages=[{"role": "user", "content": "hi"}],
+        tools=[{"name": "search"}],
+        settings={"temperature": 0.1},
+    )
     response = LLMResponseEvent(
         model="gpt-test",
         content="hello",
@@ -79,7 +84,9 @@ def test_trace_event_from_dict_and_serializers_cover_event_models():
         blocked_action="browse",
         safe_alternative="summarize",
     )
-    policy = PolicyViolationEvent(policy_name="policy", severity="high", violation_type="prompt", details={"kind": "pii"})
+    policy = PolicyViolationEvent(
+        policy_name="policy", severity="high", violation_type="prompt", details={"kind": "pii"}
+    )
     prompt_policy = PromptPolicyEvent(
         template_id="tpl-1",
         policy_parameters={"strict": True},
@@ -138,18 +145,24 @@ def test_trace_intelligence_helper_and_empty_paths():
 
     assert _event_value(None, "anything", "fallback") == "fallback"
     assert _mean([]) == 0.0
-    assert intelligence.retention_tier(
-        replay_value=0.1,
-        high_severity_count=0,
-        failure_cluster_count=0,
-        behavior_alert_count=0,
-    ) == "downsampled"
-    assert intelligence.retention_tier(
-        replay_value=0.5,
-        high_severity_count=0,
-        failure_cluster_count=0,
-        behavior_alert_count=0,
-    ) == "summarized"
+    assert (
+        intelligence.retention_tier(
+            replay_value=0.1,
+            high_severity_count=0,
+            failure_cluster_count=0,
+            behavior_alert_count=0,
+        )
+        == "downsampled"
+    )
+    assert (
+        intelligence.retention_tier(
+            replay_value=0.5,
+            high_severity_count=0,
+            failure_cluster_count=0,
+            behavior_alert_count=0,
+        )
+        == "summarized"
+    )
 
     live_summary = intelligence.build_live_summary([], [checkpoint])
     analysis = intelligence.analyze_session([], [checkpoint])
@@ -235,7 +248,9 @@ def test_trace_intelligence_build_live_summary_derives_recent_alerts():
             timestamp=timestamp,
         ),
     ]
-    checkpoints = [Checkpoint(id="checkpoint-1", session_id="session-1", event_id="decision-2", sequence=1, timestamp=timestamp)]
+    checkpoints = [
+        Checkpoint(id="checkpoint-1", session_id="session-1", event_id="decision-2", sequence=1, timestamp=timestamp)
+    ]
 
     live_summary = intelligence.build_live_summary(events, checkpoints)
 
@@ -254,7 +269,9 @@ def test_trace_intelligence_analyze_session_clusters_and_rankings():
         ToolCallEvent(id="tool-1", session_id="session-1", tool_name="search", timestamp=timestamp),
         ToolCallEvent(id="tool-2", session_id="session-1", tool_name="search", timestamp=timestamp),
         ToolCallEvent(id="tool-3", session_id="session-1", tool_name="search", timestamp=timestamp),
-        LLMResponseEvent(id="llm-1", session_id="session-1", model="gpt-test", content="reply", cost_usd=0.04, timestamp=timestamp),
+        LLMResponseEvent(
+            id="llm-1", session_id="session-1", model="gpt-test", content="reply", cost_usd=0.04, timestamp=timestamp
+        ),
         SafetyCheckEvent(
             id="safety-1",
             session_id="session-1",
@@ -281,7 +298,9 @@ def test_trace_intelligence_analyze_session_clusters_and_rankings():
             evidence_event_ids=["llm-1"],
             timestamp=timestamp,
         ),
-        ToolResultEvent(id="tool-result-1", session_id="session-1", tool_name="search", error="boom", timestamp=timestamp),
+        ToolResultEvent(
+            id="tool-result-1", session_id="session-1", tool_name="search", error="boom", timestamp=timestamp
+        ),
         ToolResultEvent(
             id="tool-result-2",
             session_id="session-1",
@@ -304,9 +323,15 @@ def test_trace_intelligence_analyze_session_clusters_and_rankings():
 
     analysis = intelligence.analyze_session(events, checkpoints)
 
-    assert intelligence.fingerprint(ErrorEvent(error_type="ValueError", error_message="bad", timestamp=timestamp)).startswith("error:ValueError")
-    assert intelligence.fingerprint(PolicyViolationEvent(policy_name="policy", violation_type="prompt", timestamp=timestamp)).startswith("policy:policy:prompt")
-    assert intelligence.fingerprint(BehaviorAlertEvent(alert_type="drift", timestamp=timestamp)).startswith("alert:drift")
+    assert intelligence.fingerprint(
+        ErrorEvent(error_type="ValueError", error_message="bad", timestamp=timestamp)
+    ).startswith("error:ValueError")
+    assert intelligence.fingerprint(
+        PolicyViolationEvent(policy_name="policy", violation_type="prompt", timestamp=timestamp)
+    ).startswith("policy:policy:prompt")
+    assert intelligence.fingerprint(BehaviorAlertEvent(alert_type="drift", timestamp=timestamp)).startswith(
+        "alert:drift"
+    )
     assert intelligence.fingerprint(events[4]).startswith("safety:")
     assert intelligence.fingerprint(events[5]).startswith("refusal:")
     assert intelligence.fingerprint(events[7]).startswith("tool:search:True")
@@ -350,8 +375,12 @@ def test_replay_helpers_cover_focus_failure_and_breakpoint_paths():
         timestamp=timestamp,
     )
     tool = ToolCallEvent(id="tool", session_id="session-1", parent_id="focus", tool_name="search", timestamp=timestamp)
-    failure = ToolResultEvent(id="failure", session_id="session-1", parent_id="tool", tool_name="search", error="boom", timestamp=timestamp)
-    behavior = BehaviorAlertEvent(id="alert", session_id="session-1", alert_type="drift", signal="looping", timestamp=timestamp)
+    failure = ToolResultEvent(
+        id="failure", session_id="session-1", parent_id="tool", tool_name="search", error="boom", timestamp=timestamp
+    )
+    behavior = BehaviorAlertEvent(
+        id="alert", session_id="session-1", alert_type="drift", signal="looping", timestamp=timestamp
+    )
     events = [root, child, early_child, evidence, focus, tool, failure, behavior]
 
     assert build_tree([]) is None
@@ -360,13 +389,38 @@ def test_replay_helpers_cover_focus_failure_and_breakpoint_paths():
     assert tree["event"]["event_type"] == "trace_root"
     assert {child["event"]["id"] for child in tree["children"]} == {"root", "evidence", "alert"}
     assert event_is_failure(behavior) is True
-    assert event_is_failure(RefusalEvent(id="refusal", session_id="session-1", reason="unsafe", timestamp=timestamp)) is True
-    assert event_is_failure(ToolResultEvent(id="ok", session_id="session-1", tool_name="search", timestamp=timestamp)) is False
-    assert matches_breakpoint(behavior, event_types={"behavior_alert"}, tool_names=set(), confidence_below=None, safety_outcomes=set()) is True
-    assert matches_breakpoint(tool, event_types=set(), tool_names={"search"}, confidence_below=None, safety_outcomes=set()) is True
-    assert matches_breakpoint(focus, event_types=set(), tool_names=set(), confidence_below=0.4, safety_outcomes=set()) is True
-    assert matches_breakpoint(evidence, event_types=set(), tool_names=set(), confidence_below=None, safety_outcomes={"warn"}) is True
-    assert matches_breakpoint(root, event_types=set(), tool_names=set(), confidence_below=None, safety_outcomes=set()) is False
+    assert (
+        event_is_failure(RefusalEvent(id="refusal", session_id="session-1", reason="unsafe", timestamp=timestamp))
+        is True
+    )
+    assert (
+        event_is_failure(ToolResultEvent(id="ok", session_id="session-1", tool_name="search", timestamp=timestamp))
+        is False
+    )
+    assert (
+        matches_breakpoint(
+            behavior, event_types={"behavior_alert"}, tool_names=set(), confidence_below=None, safety_outcomes=set()
+        )
+        is True
+    )
+    assert (
+        matches_breakpoint(tool, event_types=set(), tool_names={"search"}, confidence_below=None, safety_outcomes=set())
+        is True
+    )
+    assert (
+        matches_breakpoint(focus, event_types=set(), tool_names=set(), confidence_below=0.4, safety_outcomes=set())
+        is True
+    )
+    assert (
+        matches_breakpoint(
+            evidence, event_types=set(), tool_names=set(), confidence_below=None, safety_outcomes={"warn"}
+        )
+        is True
+    )
+    assert (
+        matches_breakpoint(root, event_types=set(), tool_names=set(), confidence_below=None, safety_outcomes=set())
+        is False
+    )
 
     assert _collect_focus_scope_ids(events, focus_event_id="missing", start_index=1) == {
         "child",
@@ -410,7 +464,11 @@ def test_replay_helpers_cover_focus_failure_and_breakpoint_paths():
 
     focus_replay = build_replay(
         events,
-        [Checkpoint(id="missing-checkpoint", session_id="session-1", event_id="missing", sequence=1, timestamp=timestamp)],
+        [
+            Checkpoint(
+                id="missing-checkpoint", session_id="session-1", event_id="missing", sequence=1, timestamp=timestamp
+            )
+        ],
         mode="focus",
         focus_event_id="focus",
     )

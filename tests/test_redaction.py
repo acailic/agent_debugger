@@ -1,4 +1,5 @@
 """Tests for PII redaction pipeline."""
+
 import json
 
 from agent_debugger_sdk.core.events import LLMResponseEvent

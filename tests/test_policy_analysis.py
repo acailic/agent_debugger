@@ -84,15 +84,11 @@ class TestAnalyzePolicySequence:
 
     def test_detects_parameter_changes(self):
         """Should detect parameter changes between policies."""
-        p1 = make_policy_event(
-            "p1",
-            template_id="t1",
-            policy_parameters={"temperature": 0.7, "max_tokens": 1000}
-        )
+        p1 = make_policy_event("p1", template_id="t1", policy_parameters={"temperature": 0.7, "max_tokens": 1000})
         p2 = make_policy_event(
             "p2",
             template_id="t1",  # Same template
-            policy_parameters={"temperature": 0.9, "max_tokens": 1000}  # temperature changed
+            policy_parameters={"temperature": 0.9, "max_tokens": 1000},  # temperature changed
         )
 
         shifts = analyze_policy_sequence([p1, p2], [])
@@ -118,11 +114,7 @@ class TestAnalyzePolicySequence:
         t2 = make_turn_event("turn2", timestamp=datetime(2024, 1, 1, 12, 1, 0, tzinfo=timezone.utc))
 
         p1 = make_policy_event("p1", template_id="t1", timestamp=base_time)
-        p2 = make_policy_event(
-            "p2",
-            template_id="t2",
-            timestamp=datetime(2024, 1, 1, 12, 0, 30, tzinfo=timezone.utc)
-        )
+        p2 = make_policy_event("p2", template_id="t2", timestamp=datetime(2024, 1, 1, 12, 0, 30, tzinfo=timezone.utc))
 
         shifts = analyze_policy_sequence([p1, p2], [t1, t2])
 
@@ -183,18 +175,14 @@ class TestComputeShiftMagnitude:
 
     def test_parameter_changes_add_to_score(self):
         """Parameter changes should add to the score."""
-        param_changes = {
-            "temp": ParameterChange(old_value=0.5, new_value=1.0, magnitude=0.5)
-        }
+        param_changes = {"temp": ParameterChange(old_value=0.5, new_value=1.0, magnitude=0.5)}
         magnitude = _compute_shift_magnitude(template_changed=False, param_changes=param_changes)
         # Should be > 0 due to parameter contribution
         assert magnitude > 0.0
 
     def test_combined_changes_capped_at_one(self):
         """Combined changes should be capped at 1.0."""
-        param_changes = {
-            "temp": ParameterChange(old_value=0.0, new_value=1.0, magnitude=1.0)
-        }
+        param_changes = {"temp": ParameterChange(old_value=0.0, new_value=1.0, magnitude=1.0)}
         magnitude = _compute_shift_magnitude(template_changed=True, param_changes=param_changes)
         assert magnitude <= 1.0
 
@@ -209,9 +197,7 @@ class TestPolicyShiftDataclass:
             turn_index=2,
             previous_template="old_template",
             new_template="new_template",
-            parameter_changes={
-                "temp": ParameterChange(old_value=0.5, new_value=0.9, magnitude=0.8)
-            },
+            parameter_changes={"temp": ParameterChange(old_value=0.5, new_value=0.9, magnitude=0.8)},
             shift_magnitude=0.75,
             triggering_turn_id="turn_2",
         )

@@ -8,6 +8,7 @@ Unlike the manual ``LangChainTracingHandler`` (which uses an async
 ``TraceContext``), this handler sends events directly via :class:`SyncTransport`
 to stay compatible with the synchronous auto-patch infrastructure.
 """
+
 from __future__ import annotations
 
 import logging
@@ -401,8 +402,7 @@ class LangChainAdapter(BaseAdapter):
                 _mgr._peaky_peek_handlers = []  # type: ignore[attr-defined]
             _mgr._peaky_peek_handlers.append(handler)  # type: ignore[attr-defined]
             logger.debug(
-                "LangChainAdapter: no known global handler API found — "
-                "handler stored but may not fire automatically"
+                "LangChainAdapter: no known global handler API found — handler stored but may not fire automatically"
             )
 
     @staticmethod

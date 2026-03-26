@@ -33,6 +33,7 @@ from agent_debugger_sdk import TraceContext, init
 # Scenario 1: Prompt injection attempt
 # ---------------------------------------------------------------------------
 
+
 async def run_prompt_injection_demo() -> None:
     """User tries to override system instructions."""
     print("\n[1/3] Prompt injection scenario...")
@@ -95,6 +96,7 @@ async def run_prompt_injection_demo() -> None:
 # ---------------------------------------------------------------------------
 # Scenario 2: Destructive tool use with escalating safety checks
 # ---------------------------------------------------------------------------
+
 
 async def run_destructive_tool_demo() -> None:
     """Agent is asked to delete production data — safety escalation."""
@@ -181,8 +183,7 @@ async def run_destructive_tool_demo() -> None:
             outcome="block",
             risk_level="high",
             rationale=(
-                "Tool failed without approval token. Operation cannot be retried "
-                "without explicit human authorization."
+                "Tool failed without approval token. Operation cannot be retried without explicit human authorization."
             ),
             blocked_action="db.execute",
             upstream_event_ids=[tool_result_id],
@@ -211,6 +212,7 @@ async def run_destructive_tool_demo() -> None:
 # ---------------------------------------------------------------------------
 # Scenario 3: Multi-step agent with looping behavior detection
 # ---------------------------------------------------------------------------
+
 
 async def run_looping_detection_demo() -> None:
     """Agent loops on the same failing tool call — behavior alert triggered."""
@@ -279,6 +281,7 @@ async def run_looping_detection_demo() -> None:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 async def main() -> None:
     init(api_key="local-dev", endpoint="http://127.0.0.1:8000")

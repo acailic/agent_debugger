@@ -11,6 +11,7 @@ The tests verify:
 4. Graceful handling when the Peaky Peek server is unreachable.
 5. Async paths mirror sync behaviour.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -235,9 +236,7 @@ class TestAnthropicAdapterSyncPatch:
         adapter.patch(config)
 
         wrapper = adapter._make_sync_wrapper(original_create)
-        result = wrapper(
-            MagicMock(), model="claude-3-5-sonnet-20241022", messages=[], stream=True
-        )
+        result = wrapper(MagicMock(), model="claude-3-5-sonnet-20241022", messages=[], stream=True)
         _flush(adapter)
         assert result is stream_resp
         assert _get_trace_events(mock_httpx) == []
@@ -255,9 +254,7 @@ class TestAnthropicAdapterSyncPatch:
         result = wrapper(MagicMock(), model="claude-3-5-sonnet-20241022", messages=[])
         assert result is fake_response
 
-    def test_capture_content_false_omits_messages_and_text(
-        self, fake_anthropic, mock_httpx
-    ) -> None:
+    def test_capture_content_false_omits_messages_and_text(self, fake_anthropic, mock_httpx) -> None:
         fake_response = _make_fake_response(content_blocks=[_text_block("secret")])
         original_create = MagicMock(return_value=fake_response)
 
@@ -349,9 +346,7 @@ class TestAnthropicAdapterAsyncPatch:
         adapter.patch(config)
 
         wrapper = adapter._make_async_wrapper(async_original)
-        result = asyncio.run(
-            wrapper(MagicMock(), model="claude-3-5-sonnet-20241022", messages=[], stream=True)
-        )
+        result = asyncio.run(wrapper(MagicMock(), model="claude-3-5-sonnet-20241022", messages=[], stream=True))
         assert result is stream_resp
         assert _get_trace_events(mock_httpx) == []
 
@@ -388,7 +383,5 @@ class TestAnthropicAdapterAsyncPatch:
         adapter.patch(config)
 
         wrapper = adapter._make_async_wrapper(async_original)
-        result = asyncio.run(
-            wrapper(MagicMock(), model="claude-3-5-sonnet-20241022", messages=[])
-        )
+        result = asyncio.run(wrapper(MagicMock(), model="claude-3-5-sonnet-20241022", messages=[]))
         assert result is fake_response

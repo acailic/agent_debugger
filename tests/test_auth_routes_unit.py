@@ -15,8 +15,9 @@ from api.auth_routes import CreateKeyRequest, create_key, list_keys, revoke_key
 async def test_create_key_persists_model_and_returns_raw_key():
     db = SimpleNamespace(add=MagicMock(), commit=AsyncMock())
 
-    with patch("api.auth_routes.generate_api_key", return_value="ad_test_example_secret"), patch(
-        "api.auth_routes.hash_key", return_value="hashed-secret"
+    with (
+        patch("api.auth_routes.generate_api_key", return_value="ad_test_example_secret"),
+        patch("api.auth_routes.hash_key", return_value="hashed-secret"),
     ):
         response = await create_key(
             CreateKeyRequest(name="dev", environment="test"),

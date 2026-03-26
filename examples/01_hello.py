@@ -15,6 +15,7 @@ Quick start:
     curl http://localhost:8000/api/sessions
     # Or open http://localhost:5173 for the visual UI
 """
+
 from __future__ import annotations
 
 import asyncio

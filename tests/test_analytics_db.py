@@ -35,9 +35,7 @@ class TestAnalyticsMigrations:
         ensure_analytics_schema(temp_db_path)
 
         conn = sqlite3.connect(str(temp_db_path))
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-        )
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
         tables = [row[0] for row in cursor.fetchall()]
         conn.close()
 
@@ -49,9 +47,7 @@ class TestAnalyticsMigrations:
         ensure_analytics_schema(temp_db_path)
 
         conn = sqlite3.connect(str(temp_db_path))
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='index' ORDER BY name"
-        )
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='index' ORDER BY name")
         indexes = [row[0] for row in cursor.fetchall()]
         conn.close()
 
@@ -65,9 +61,7 @@ class TestAnalyticsMigrations:
         ensure_analytics_schema(temp_db_path)  # Should not raise
 
         conn = sqlite3.connect(str(temp_db_path))
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-        )
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
         tables = [row[0] for row in cursor.fetchall()]
         conn.close()
 
@@ -101,9 +95,7 @@ class TestInitAnalyticsDb:
 
         assert mock_db_path.exists()
         conn = sqlite3.connect(str(mock_db_path))
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-        )
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
         tables = [row[0] for row in cursor.fetchall()]
         conn.close()
 
@@ -328,9 +320,7 @@ class TestGetAggregates:
 class TestGetDailyBreakdown:
     """Tests for get_daily_breakdown."""
 
-    def test_get_daily_breakdown_returns_empty_structure_for_missing_db(
-        self, tmp_path: Path
-    ):
+    def test_get_daily_breakdown_returns_empty_structure_for_missing_db(self, tmp_path: Path):
         """Test that get_daily_breakdown returns empty structure when DB missing."""
         db_path = tmp_path / "nonexistent.db"
         with patch.object(analytics_db, "get_analytics_db_path", return_value=db_path):
@@ -340,9 +330,7 @@ class TestGetDailyBreakdown:
             assert all("date" in day for day in result)
             assert all(day["sessions_created"] == 0 for day in result)
 
-    def test_get_daily_breakdown_returns_correct_number_of_days(
-        self, mock_db_path: Path
-    ):
+    def test_get_daily_breakdown_returns_correct_number_of_days(self, mock_db_path: Path):
         """Test that get_daily_breakdown returns exactly N days."""
         analytics_db.init_analytics_db()
 
@@ -350,9 +338,7 @@ class TestGetDailyBreakdown:
 
         assert len(result) == 14
 
-    def test_get_daily_breakdown_fills_missing_days_with_zeros(
-        self, mock_db_path: Path
-    ):
+    def test_get_daily_breakdown_fills_missing_days_with_zeros(self, mock_db_path: Path):
         """Test that get_daily_breakdown fills gaps with zero data."""
         analytics_db.init_analytics_db()
 
@@ -364,9 +350,7 @@ class TestGetDailyBreakdown:
             assert day["sessions_created"] == 0
             assert day["why_button_clicks"] == 0
 
-    def test_get_daily_breakdown_returns_chronological_order(
-        self, mock_db_path: Path
-    ):
+    def test_get_daily_breakdown_returns_chronological_order(self, mock_db_path: Path):
         """Test that results are ordered from oldest to newest."""
         analytics_db.init_analytics_db()
 

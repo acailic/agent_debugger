@@ -1,4 +1,5 @@
 """Ingestion-time redaction pipeline."""
+
 from __future__ import annotations
 
 import copy
@@ -23,6 +24,8 @@ TRUNCATION_PRIORITY_FIELDS = {
     "evidence",
 }
 TRUNCATED_MARKER = "[TRUNCATED]"
+
+
 class RedactionPipeline:
     def __init__(
         self,
@@ -56,12 +59,14 @@ class RedactionPipeline:
         payload = self._build_event_payload(redacted)
 
         if self.redact_prompts and event.event_type in (
-            EventType.LLM_REQUEST, EventType.LLM_RESPONSE,
+            EventType.LLM_REQUEST,
+            EventType.LLM_RESPONSE,
         ):
             payload = self._redact_fields(payload, PROMPT_FIELDS)
 
         if self.redact_tool_payloads and event.event_type in (
-            EventType.TOOL_CALL, EventType.TOOL_RESULT,
+            EventType.TOOL_CALL,
+            EventType.TOOL_RESULT,
         ):
             payload = self._redact_fields(payload, TOOL_PAYLOAD_FIELDS)
 
@@ -167,10 +172,7 @@ class RedactionPipeline:
         if isinstance(obj, str):
             if not path:
                 return []
-            is_priority = any(
-                isinstance(part, str) and part in TRUNCATION_PRIORITY_FIELDS
-                for part in path
-            )
+            is_priority = any(isinstance(part, str) and part in TRUNCATION_PRIORITY_FIELDS for part in path)
             if not priority_only or is_priority:
                 candidates.append((path, obj))
             return candidates
@@ -230,8 +232,7 @@ class RedactionPipeline:
 
     def _estimate_string_reduction(self, old_value: str, new_value: str) -> int:
         return max(
-            len(self._serialize_json(old_value).encode("utf-8"))
-            - len(self._serialize_json(new_value).encode("utf-8")),
+            len(self._serialize_json(old_value).encode("utf-8")) - len(self._serialize_json(new_value).encode("utf-8")),
             0,
         )
 

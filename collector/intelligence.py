@@ -82,23 +82,27 @@ def generate_highlights(
         if highlight_type and (severity > 0.5 or composite > 0.5):
             importance = min(severity, composite) if composite > 0 else severity
             timestamp = event.timestamp.isoformat() if hasattr(event.timestamp, "isoformat") else str(event.timestamp)
-            highlights.append({
-                "event_id": event.id,
-                "event_type": str(event.event_type),
-                "highlight_type": highlight_type,
-                "importance": round(importance, 4),
-                "reason": reason,
-                "timestamp": timestamp,
-                "headline": event_headline_fn(event),
-            })
+            highlights.append(
+                {
+                    "event_id": event.id,
+                    "event_type": str(event.event_type),
+                    "highlight_type": highlight_type,
+                    "importance": round(importance, 4),
+                    "reason": reason,
+                    "timestamp": timestamp,
+                    "headline": event_headline_fn(event),
+                }
+            )
 
     # Sort by importance, limit to top 20
     highlights.sort(key=lambda h: -h["importance"])
     return highlights[:20]
 
+
 # ---------------------------------------------------------------------------
 # Module-level helpers kept here for backward-compat (tests import them)
 # ---------------------------------------------------------------------------
+
 
 def _event_value(event: TraceEvent | None, key: str, default: Any = None) -> Any:
     if event is None:
@@ -188,7 +192,9 @@ class TraceIntelligence:
         """Return a coarse fingerprint used for recurrence clustering."""
         match event.event_type:
             case EventType.ERROR:
-                return f"error:{_event_value(event, 'error_type', 'unknown')}:{_event_value(event, 'error_message', '')}"
+                return (
+                    f"error:{_event_value(event, 'error_type', 'unknown')}:{_event_value(event, 'error_message', '')}"
+                )
             case EventType.TOOL_RESULT:
                 return f"tool:{_event_value(event, 'tool_name', 'unknown')}:{bool(_event_value(event, 'error'))}"
             case EventType.REFUSAL:
@@ -198,7 +204,9 @@ class TraceIntelligence:
             case EventType.BEHAVIOR_ALERT:
                 return f"alert:{_event_value(event, 'alert_type', 'unknown')}"
             case EventType.SAFETY_CHECK:
-                return f"safety:{_event_value(event, 'policy_name', 'unknown')}:{_event_value(event, 'outcome', 'pass')}"
+                return (
+                    f"safety:{_event_value(event, 'policy_name', 'unknown')}:{_event_value(event, 'outcome', 'pass')}"
+                )
             case EventType.DECISION:
                 return f"decision:{_event_value(event, 'chosen_action', 'unknown')}"
             case _:
@@ -271,8 +279,14 @@ class TraceIntelligence:
             novelty = 1.0 / recurrence_count
             replay_value = severity * 0.55
             replay_value += 0.15 if event.id in checkpoint_event_ids else 0.0
-            replay_value += 0.1 if event.event_type in {EventType.DECISION, EventType.REFUSAL, EventType.POLICY_VIOLATION} else 0.0
-            replay_value += 0.1 if bool(_event_value(event, "upstream_event_ids", getattr(event, "upstream_event_ids", []))) else 0.0
+            replay_value += (
+                0.1 if event.event_type in {EventType.DECISION, EventType.REFUSAL, EventType.POLICY_VIOLATION} else 0.0
+            )
+            replay_value += (
+                0.1
+                if bool(_event_value(event, "upstream_event_ids", getattr(event, "upstream_event_ids", [])))
+                else 0.0
+            )
             replay_value += 0.1 if bool(_event_value(event, "evidence_event_ids", [])) else 0.0
             composite = min(1.0, severity * 0.45 + novelty * 0.2 + recurrence * 0.15 + replay_value * 0.2)
 
@@ -346,7 +360,10 @@ class TraceIntelligence:
             if event.event_type == EventType.LLM_RESPONSE
         )
         high_severity_count = sum(1 for ranking in event_rankings if ranking["severity"] >= 0.9)
-        top_composites = [ranking["composite"] for ranking in sorted(event_rankings, key=lambda item: item["composite"], reverse=True)[:5]]
+        top_composites = [
+            ranking["composite"]
+            for ranking in sorted(event_rankings, key=lambda item: item["composite"], reverse=True)[:5]
+        ]
         checkpoint_values: list[float] = []
 
         max_sequence = max((checkpoint.sequence for checkpoint in checkpoints), default=0)
@@ -355,7 +372,9 @@ class TraceIntelligence:
             event_replay = float(event_ranking["replay_value"]) if event_ranking else 0.0
             event_composite = float(event_ranking["composite"]) if event_ranking else 0.0
             sequence_weight = checkpoint.sequence / max(max_sequence, 1)
-            restore_value = min(1.0, event_replay * 0.45 + event_composite * 0.2 + checkpoint.importance * 0.2 + sequence_weight * 0.15)
+            restore_value = min(
+                1.0, event_replay * 0.45 + event_composite * 0.2 + checkpoint.importance * 0.2 + sequence_weight * 0.15
+            )
             checkpoint_values.append(restore_value)
             checkpoint_rankings.append(
                 {

@@ -11,6 +11,7 @@ Run:
     python examples/07_loop_detection.py      # Terminal 2
     # Open http://localhost:5173 → select the session → Live / Alerts tab
 """
+
 from __future__ import annotations
 
 import asyncio

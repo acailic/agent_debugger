@@ -1,4 +1,5 @@
 """Abstract base for event buffers."""
+
 from __future__ import annotations
 
 import abc

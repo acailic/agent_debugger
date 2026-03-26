@@ -1,4 +1,5 @@
 """End-to-end integration test for local mode."""
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -16,6 +17,7 @@ async def test_full_local_flow():
 
     # Configure the event pipeline for local mode persistence
     from api.services import persist_event, persist_session_start
+
     configure_event_pipeline(
         buffer,
         persist_event=persist_event,
@@ -24,17 +26,15 @@ async def test_full_local_flow():
 
     # Import app after init
     from api.main import create_app
+
     app = create_app()
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # First create a session via API
-        session_resp = await client.post("/api/sessions", json={
-            "agent_name": "test_agent",
-            "framework": "test",
-            "config": {},
-            "tags": []
-        })
+        session_resp = await client.post(
+            "/api/sessions", json={"agent_name": "test_agent", "framework": "test", "config": {}, "tags": []}
+        )
         assert session_resp.status_code == 201
         session_data = session_resp.json()
         session_id = session_data["id"]
@@ -55,6 +55,7 @@ async def test_full_local_flow():
 async def test_health_endpoint_works():
     """Health check should return ok."""
     from api.main import create_app
+
     app = create_app()
 
     transport = ASGITransport(app=app)
@@ -67,6 +68,7 @@ async def test_health_endpoint_works():
 async def test_sessions_list():
     """Sessions list endpoint should work."""
     from api.main import create_app
+
     app = create_app()
 
     transport = ASGITransport(app=app)

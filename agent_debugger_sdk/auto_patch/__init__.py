@@ -23,6 +23,7 @@ Public API::
     activate(PatchConfig(...))          # explicit config
     deactivate()                        # undo all patching
 """
+
 from __future__ import annotations
 
 import logging

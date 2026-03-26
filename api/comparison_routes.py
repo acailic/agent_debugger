@@ -82,10 +82,14 @@ async def compare_sessions(
 
     # Compute deltas
     deltas = _compute_comparison_deltas(
-        primary_events, primary_checkpoints,
-        secondary_events, secondary_checkpoints,
-        primary_policy_analysis, secondary_policy_analysis,
-        primary_escalation, secondary_escalation,
+        primary_events,
+        primary_checkpoints,
+        secondary_events,
+        secondary_checkpoints,
+        primary_policy_analysis,
+        secondary_policy_analysis,
+        primary_escalation,
+        secondary_escalation,
     )
 
     return {
@@ -113,10 +117,7 @@ def _analyze_session_policies(events: list[Any]) -> PolicyAnalysisResult:
     shifts = analyze_policy_sequence(policies, turns)
 
     shift_count = len(shifts)
-    avg_magnitude = (
-        sum(s.shift_magnitude for s in shifts) / shift_count
-        if shift_count > 0 else 0.0
-    )
+    avg_magnitude = sum(s.shift_magnitude for s in shifts) / shift_count if shift_count > 0 else 0.0
 
     return PolicyAnalysisResult(
         shifts=shifts,
@@ -134,8 +135,10 @@ def _analyze_session_escalation(events: list[Any]) -> EscalationAnalysisResult:
     tool_calls = [e for e in events if getattr(e, "event_type", None) == EventType.TOOL_CALL]
 
     safety_events = [
-        e for e in events
-        if getattr(e, "event_type", None) in (
+        e
+        for e in events
+        if getattr(e, "event_type", None)
+        in (
             EventType.SAFETY_CHECK,
             EventType.REFUSAL,
             EventType.POLICY_VIOLATION,
@@ -150,9 +153,7 @@ def _analyze_session_escalation(events: list[Any]) -> EscalationAnalysisResult:
     if signals:
         type_scores: dict[str, float] = {}
         for signal in signals:
-            type_scores[signal.signal_type] = (
-                type_scores.get(signal.signal_type, 0.0) + signal.magnitude
-            )
+            type_scores[signal.signal_type] = type_scores.get(signal.signal_type, 0.0) + signal.magnitude
         dominant_type = max(type_scores, key=type_scores.get)
 
     return EscalationAnalysisResult(
@@ -234,9 +235,9 @@ def _compute_comparison_deltas(
             "primary": round(primary_grounded / primary_decisions, 4) if primary_decisions > 0 else 0.0,
             "secondary": round(secondary_grounded / secondary_decisions, 4) if secondary_decisions > 0 else 0.0,
             "delta": round(
-                (primary_grounded / primary_decisions if primary_decisions > 0 else 0.0) -
-                (secondary_grounded / secondary_decisions if secondary_decisions > 0 else 0.0),
-                4
+                (primary_grounded / primary_decisions if primary_decisions > 0 else 0.0)
+                - (secondary_grounded / secondary_decisions if secondary_decisions > 0 else 0.0),
+                4,
             ),
         },
         "avg_shift_magnitude": {
@@ -255,9 +256,9 @@ def _count_unique_speakers(events: list[Any]) -> int:
     for event in events:
         if getattr(event, "event_type", None) == EventType.AGENT_TURN:
             speaker = (
-                getattr(event, "speaker", None) or
-                getattr(event, "agent_id", None) or
-                (getattr(event, "data", {}).get("speaker") if hasattr(event, "data") else None)
+                getattr(event, "speaker", None)
+                or getattr(event, "agent_id", None)
+                or (getattr(event, "data", {}).get("speaker") if hasattr(event, "data") else None)
             )
             if speaker:
                 speakers.add(speaker)
@@ -271,9 +272,8 @@ def _count_grounded_decisions(events: list[Any]) -> int:
     count = 0
     for event in events:
         if getattr(event, "event_type", None) == EventType.DECISION:
-            evidence = (
-                getattr(event, "evidence_event_ids", None) or
-                (getattr(event, "data", {}).get("evidence_event_ids") if hasattr(event, "data") else None)
+            evidence = getattr(event, "evidence_event_ids", None) or (
+                getattr(event, "data", {}).get("evidence_event_ids") if hasattr(event, "data") else None
             )
             if evidence and len(evidence) > 0:
                 count += 1

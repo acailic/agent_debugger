@@ -5,6 +5,7 @@ Tier 3 strategy: monkey-patches ``crewai.Crew.kickoff`` and
 run emits AGENT_START and AGENT_END trace events without any user-code
 changes.
 """
+
 from __future__ import annotations
 
 import logging
@@ -123,9 +124,7 @@ class CrewAIAdapter(BaseAdapter):
                 )
                 transport.send_event(start_event.to_dict())
             except Exception:
-                logger.warning(
-                    "CrewAIAdapter: failed to emit AGENT_START event (async)", exc_info=True
-                )
+                logger.warning("CrewAIAdapter: failed to emit AGENT_START event (async)", exc_info=True)
 
             try:
                 result = await adapter._original_kickoff_async(self_crew, *args, **kwargs)
@@ -141,9 +140,7 @@ class CrewAIAdapter(BaseAdapter):
                     if transport is not None:
                         transport.send_event(error_event.to_dict())
                 except Exception:
-                    logger.warning(
-                        "CrewAIAdapter: failed to emit ERROR event (async)", exc_info=True
-                    )
+                    logger.warning("CrewAIAdapter: failed to emit ERROR event (async)", exc_info=True)
                 raise
 
             try:
@@ -154,9 +151,7 @@ class CrewAIAdapter(BaseAdapter):
                 )
                 transport.send_event(end_event.to_dict())
             except Exception:
-                logger.warning(
-                    "CrewAIAdapter: failed to emit AGENT_END event (async)", exc_info=True
-                )
+                logger.warning("CrewAIAdapter: failed to emit AGENT_END event (async)", exc_info=True)
 
             return result
 

@@ -6,6 +6,7 @@ Peaky Peek SDK captures the correct trace events.
 Run with:
     python3 -m pytest tests/integration/test_langchain_integration.py -o "addopts=" -v
 """
+
 from __future__ import annotations
 
 import pytest
@@ -20,26 +21,20 @@ from agent_debugger_sdk.core.events import EventType
 def _assert_session_id_consistent(events, session_id):
     """All events must belong to the same session."""
     for e in events:
-        assert e.session_id == session_id, (
-            f"Event {e.name} has session_id={e.session_id}, expected {session_id}"
-        )
+        assert e.session_id == session_id, f"Event {e.name} has session_id={e.session_id}, expected {session_id}"
 
 
 def _assert_no_errors(events):
     """No unexpected ERROR events should be present."""
     error_events = [e for e in events if e.event_type == EventType.ERROR]
-    assert len(error_events) == 0, (
-        f"Unexpected error events: {[e.data for e in error_events]}"
-    )
+    assert len(error_events) == 0, f"Unexpected error events: {[e.data for e in error_events]}"
 
 
 def _assert_sequence_non_decreasing(events):
     """Sequence metadata must be monotonically non-decreasing."""
     seqs = [e.metadata.get("sequence", 0) for e in events if hasattr(e, "metadata")]
     for i in range(1, len(seqs)):
-        assert seqs[i] >= seqs[i - 1], (
-            f"Sequence decreased at position {i}: {seqs[i-1]} -> {seqs[i]}"
-        )
+        assert seqs[i] >= seqs[i - 1], f"Sequence decreased at position {i}: {seqs[i - 1]} -> {seqs[i]}"
 
 
 def _find_events(events, event_type):
@@ -210,12 +205,8 @@ async def test_multi_step_agent_chain_manual_mode(zai_chat_model, langchain_sess
     # Should have multiple LLM calls (agent loops)
     requests = _find_events(events, EventType.LLM_REQUEST)
     responses = _find_events(events, EventType.LLM_RESPONSE)
-    assert len(requests) >= 2, (
-        f"Expected multiple LLM requests for multi-step agent, got {len(requests)}"
-    )
-    assert len(responses) >= 2, (
-        f"Expected multiple LLM responses for multi-step agent, got {len(responses)}"
-    )
+    assert len(requests) >= 2, f"Expected multiple LLM requests for multi-step agent, got {len(requests)}"
+    assert len(responses) >= 2, f"Expected multiple LLM responses for multi-step agent, got {len(responses)}"
 
     # Should have tool calls
     tool_calls = _find_events(events, EventType.TOOL_CALL)
@@ -225,9 +216,7 @@ async def test_multi_step_agent_chain_manual_mode(zai_chat_model, langchain_sess
 
     # Verify tool names
     tool_names = {tc.tool_name for tc in tool_calls}
-    assert tool_names & {"add", "multiply"}, (
-        f"Expected add/multiply tools, got: {tool_names}"
-    )
+    assert tool_names & {"add", "multiply"}, f"Expected add/multiply tools, got: {tool_names}"
 
     # Note: langgraph may not set parent_run_id on tool callbacks,
     # so parent_id can be None. We just verify tool events exist with correct names.
@@ -267,12 +256,8 @@ async def test_sync_handler_interops_with_real_langchain_callbacks(zai_chat_mode
     assert result is not None and result.content, "Real LLM call should return content"
 
     event_types = [e.get("event_type") for e in captured]
-    assert "llm_request" in event_types, (
-        f"Expected llm_request, got: {event_types}"
-    )
-    assert "llm_response" in event_types, (
-        f"Expected llm_response, got: {event_types}"
-    )
+    assert "llm_request" in event_types, f"Expected llm_request, got: {event_types}"
+    assert "llm_response" in event_types, f"Expected llm_response, got: {event_types}"
 
     # Verify request payload
     request_event = next(e for e in captured if e.get("event_type") == "llm_request")

@@ -13,9 +13,11 @@ import pytest
 # Event Factory Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def make_error_event():
     """Factory for creating ErrorEvent instances with sensible defaults."""
+
     def _make(
         id: str,
         error_type: str = "ValueError",
@@ -40,6 +42,7 @@ def make_error_event():
 @pytest.fixture
 def make_decision_event():
     """Factory for creating DecisionEvent instances with sensible defaults."""
+
     def _make(
         id: str,
         action: str = "proceed",
@@ -66,6 +69,7 @@ def make_decision_event():
 @pytest.fixture
 def make_session():
     """Factory for creating Session instances with a list of events."""
+
     def _make(events, session_id: str = "test-session", **kwargs):
         from agent_debugger_sdk.core.events import Session
 
@@ -91,6 +95,7 @@ def make_session():
 # =============================================================================
 # Mock Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def mock_embedding_model():

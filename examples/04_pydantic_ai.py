@@ -14,6 +14,7 @@ Note: For a real run, set OPENAI_API_KEY and swap the mock trace calls for:
     adapter = PydanticAIAdapter(agent, agent_name="my_agent")
     result = await adapter.run("your question")
 """
+
 from __future__ import annotations
 
 import asyncio

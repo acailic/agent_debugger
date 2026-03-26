@@ -10,6 +10,7 @@ Run:
     python examples/03_langchain.py           # Terminal 2
     # Open http://localhost:5173 or: curl http://localhost:8000/api/sessions
 """
+
 from __future__ import annotations
 
 import asyncio

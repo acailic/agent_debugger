@@ -7,10 +7,12 @@ from agent_debugger_sdk.core.context import TraceContext
 @pytest.mark.asyncio
 async def test_emit_event_does_not_raise_on_persist_failure():
     """If persist hook raises, SDK should log warning, not crash."""
+
     async def failing_persister(event):
         raise ConnectionError("Collector is down")
 
     from agent_debugger_sdk.core.context import configure_event_pipeline
+
     configure_event_pipeline(None, persist_event=failing_persister)
 
     async with TraceContext(agent_name="test", framework="test") as ctx:

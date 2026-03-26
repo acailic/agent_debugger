@@ -40,9 +40,12 @@ def test_resolve_default_storage_path_prefers_first_writable_path():
 def test_resolve_default_storage_path_falls_back_to_temp_dir_when_none_writable():
     manager = PersistenceManager(StubBuffer(), storage_path=Path("/tmp/custom"))
 
-    with patch.object(PersistenceManager, "_is_writable_path", return_value=False), patch(
-        "collector.persistence.tempfile.mkdtemp",
-        return_value="/tmp/generated-traces",
+    with (
+        patch.object(PersistenceManager, "_is_writable_path", return_value=False),
+        patch(
+            "collector.persistence.tempfile.mkdtemp",
+            return_value="/tmp/generated-traces",
+        ),
     ):
         chosen = manager._resolve_default_storage_path()
 
@@ -57,9 +60,12 @@ def test_is_writable_path_checks_existing_directory_and_missing_parent():
 
     missing = Path("/tmp/example/a/b/c")
     existing_parent = Path("/tmp/example")
-    with patch.object(Path, "exists", autospec=True, side_effect=lambda self: self == existing_parent), patch(
-        "collector.persistence.os.access",
-        return_value=True,
+    with (
+        patch.object(Path, "exists", autospec=True, side_effect=lambda self: self == existing_parent),
+        patch(
+            "collector.persistence.os.access",
+            return_value=True,
+        ),
     ):
         assert manager._is_writable_path(missing) is True
 
@@ -68,11 +74,14 @@ def test_is_writable_path_checks_existing_directory_and_missing_parent():
 async def test_start_is_idempotent_and_stop_flushes_and_clears_task(tmp_path):
     manager = PersistenceManager(StubBuffer(), storage_path=tmp_path, flush_interval=3600)
 
-    with patch.object(manager, "_ensure_storage_path", new=AsyncMock()) as ensure_path, patch.object(
-        manager,
-        "flush",
-        new=AsyncMock(),
-    ) as flush:
+    with (
+        patch.object(manager, "_ensure_storage_path", new=AsyncMock()) as ensure_path,
+        patch.object(
+            manager,
+            "flush",
+            new=AsyncMock(),
+        ) as flush,
+    ):
         await manager.start()
         first_task = manager._task
         await manager.start()
@@ -127,9 +136,11 @@ async def test_flush_loop_handles_transient_errors_then_cancellation(tmp_path):
         manager._running = False
         raise asyncio.CancelledError
 
-    with patch("collector.persistence.asyncio.sleep", new=AsyncMock()), patch.object(
-        manager, "flush", side_effect=flaky_flush
-    ), pytest.raises(asyncio.CancelledError):
+    with (
+        patch("collector.persistence.asyncio.sleep", new=AsyncMock()),
+        patch.object(manager, "flush", side_effect=flaky_flush),
+        pytest.raises(asyncio.CancelledError),
+    ):
         await manager._flush_loop()
 
     assert calls == 2

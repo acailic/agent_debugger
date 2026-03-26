@@ -13,6 +13,7 @@ The tests verify:
 6. Double-patching is guarded against.
 7. Server unreachability does not raise.
 """
+
 from __future__ import annotations
 
 import asyncio

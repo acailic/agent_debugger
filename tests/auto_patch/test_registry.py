@@ -1,4 +1,5 @@
 """Tests for PatchConfig, BaseAdapter, and PatchRegistry."""
+
 from __future__ import annotations
 
 from agent_debugger_sdk.auto_patch.registry import BaseAdapter, PatchConfig, PatchRegistry

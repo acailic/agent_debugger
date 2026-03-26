@@ -191,26 +191,16 @@ def create_debugger(llm_client):
             events = session.get("events", [])
 
             if intent.type == "why_failure":
-                relevant = [
-                    e for e in events if e.get("type") in ("error", "decision")
-                ]
+                relevant = [e for e in events if e.get("type") in ("error", "decision")]
             elif intent.type == "what_changed":
-                relevant = [
-                    e
-                    for e in events
-                    if e.get("type") in ("state_change", "decision", "error")
-                ]
+                relevant = [e for e in events if e.get("type") in ("state_change", "decision", "error")]
             elif intent.type == "explain_decision":
                 relevant = [e for e in events if e.get("type") == "decision"]
             else:
                 relevant = events
 
             if intent.focus_event_id:
-                relevant = [
-                    e
-                    for e in relevant
-                    if e.get("id") == intent.focus_event_id
-                ]
+                relevant = [e for e in relevant if e.get("id") == intent.focus_event_id]
 
             return Context(events=relevant)
 
@@ -221,16 +211,12 @@ def create_debugger(llm_client):
 class TestNLDebuggingHappyPath:
     """Happy path tests for natural language debugging."""
 
-    async def test_answer_query_returns_natural_language(
-        self, mock_llm_client, make_session
-    ):
+    async def test_answer_query_returns_natural_language(self, mock_llm_client, make_session):
         """Returns text answer from LLM."""
         debugger = create_debugger(mock_llm_client)
         session = make_session()
 
-        answer = await debugger.answer_query(
-            "Why did this session fail?", session
-        )
+        answer = await debugger.answer_query("Why did this session fail?", session)
 
         assert isinstance(answer, DebugAnswer)
         assert isinstance(answer.text, str)
@@ -275,16 +261,12 @@ class TestNLDebuggingHappyPath:
         event_types = {e.get("type") for e in context.events}
         assert event_types == {"error", "decision"}
 
-    async def test_answer_includes_evidence_links(
-        self, mock_llm_client, make_session
-    ):
+    async def test_answer_includes_evidence_links(self, mock_llm_client, make_session):
         """Answer has links to supporting events."""
         debugger = create_debugger(mock_llm_client)
         session = make_session()
 
-        answer = await debugger.answer_query(
-            "Why did this session fail?", session
-        )
+        answer = await debugger.answer_query("Why did this session fail?", session)
 
         assert isinstance(answer.evidence_links, list)
         assert len(answer.evidence_links) > 0
@@ -294,9 +276,7 @@ class TestNLDebuggingHappyPath:
 class TestNLDebuggingEdgeCases:
     """Edge case tests for natural language debugging."""
 
-    async def test_ambiguous_query_requests_clarification(
-        self, mock_llm_client, make_session
-    ):
+    async def test_ambiguous_query_requests_clarification(self, mock_llm_client, make_session):
         """Vague query returns clarification request."""
         debugger = create_debugger(mock_llm_client)
         session = make_session()
@@ -306,44 +286,30 @@ class TestNLDebuggingEdgeCases:
         assert answer.needs_clarification is True
         assert "clarify" in answer.text.lower()
 
-    async def test_empty_session_returns_no_data_message(
-        self, mock_llm_client, make_session
-    ):
+    async def test_empty_session_returns_no_data_message(self, mock_llm_client, make_session):
         """Empty session returns helpful message."""
         debugger = create_debugger(mock_llm_client)
         session = make_session(events=[])
 
-        answer = await debugger.answer_query(
-            "What happened in this session?", session
-        )
+        answer = await debugger.answer_query("What happened in this session?", session)
 
         assert "no data" in answer.text.lower()
 
-    async def test_no_relevant_events_returns_not_found(
-        self, mock_llm_client, make_session
-    ):
+    async def test_no_relevant_events_returns_not_found(self, mock_llm_client, make_session):
         """Query about errors with no errors returns not found."""
         debugger = create_debugger(mock_llm_client)
-        session = make_session(events=[
-            {"id": "info-1", "type": "info", "payload": {}}
-        ])
+        session = make_session(events=[{"id": "info-1", "type": "info", "payload": {}}])
 
-        answer = await debugger.answer_query(
-            "Why did this fail?", session
-        )
+        answer = await debugger.answer_query("Why did this fail?", session)
 
         assert "no error" in answer.text.lower()
 
-    async def test_multi_part_query_handles_all_parts(
-        self, mock_llm_client, make_session
-    ):
+    async def test_multi_part_query_handles_all_parts(self, mock_llm_client, make_session):
         """'Why and how to fix?' addresses both parts."""
         debugger = create_debugger(mock_llm_client)
         session = make_session()
 
-        answer = await debugger.answer_query(
-            "Why did this fail and how do I fix it?", session
-        )
+        answer = await debugger.answer_query("Why did this fail and how do I fix it?", session)
 
         assert isinstance(answer, DebugAnswer)
         assert isinstance(answer.text, str)
@@ -353,47 +319,35 @@ class TestNLDebuggingEdgeCases:
 class TestNLDebuggingErrorHandling:
     """Error handling tests for natural language debugging."""
 
-    async def test_llm_timeout_returns_fallback(
-        self, mock_llm_client, make_session
-    ):
+    async def test_llm_timeout_returns_fallback(self, mock_llm_client, make_session):
         """Timeout returns answer with fallback=True."""
         mock_llm_client.generate.side_effect = TimeoutError("LLM timed out")
         debugger = create_debugger(mock_llm_client)
         session = make_session()
 
-        answer = await debugger.answer_query(
-            "Why did this fail?", session
-        )
+        answer = await debugger.answer_query("Why did this fail?", session)
 
         assert answer.fallback is True
         assert "too long" in answer.text.lower()
 
-    async def test_llm_error_returns_error_message(
-        self, mock_llm_client, make_session
-    ):
+    async def test_llm_error_returns_error_message(self, mock_llm_client, make_session):
         """API error returns answer with error=True."""
         mock_llm_client.generate.side_effect = Exception("API connection failed")
         debugger = create_debugger(mock_llm_client)
         session = make_session()
 
-        answer = await debugger.answer_query(
-            "Why did this fail?", session
-        )
+        answer = await debugger.answer_query("Why did this fail?", session)
 
         assert answer.error is True
         assert "error" in answer.text.lower()
 
-    async def test_malformed_llm_response_handled(
-        self, mock_llm_client, make_session
-    ):
+    async def test_malformed_llm_response_handled(self, mock_llm_client, make_session):
         """None response handled gracefully."""
         mock_llm_client.generate.return_value = None
         debugger = create_debugger(mock_llm_client)
         session = make_session()
 
-        answer = await debugger.answer_query(
-            "Why did this fail?", session
-        )
+        answer = await debugger.answer_query("Why did this fail?", session)
 
         assert answer.error is True
         assert "unable" in answer.text.lower() or "error" in answer.text.lower()

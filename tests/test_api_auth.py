@@ -1,4 +1,5 @@
 """Tests for API authentication integration."""
+
 import pytest
 
 
@@ -12,10 +13,7 @@ async def test_no_auth_header_uses_local_mode(api_client):
 @pytest.mark.asyncio
 async def test_invalid_api_key_returns_401_or_200(api_client):
     """Invalid API key should return 401 in cloud mode, but may pass in local mode."""
-    resp = await api_client.get(
-        "/api/sessions",
-        headers={"Authorization": "Bearer ad_live_invalid_key_here"}
-    )
+    resp = await api_client.get("/api/sessions", headers={"Authorization": "Bearer ad_live_invalid_key_here"})
     # In cloud mode with auth enabled, this would be 401
     # In local mode, auth header is optional so this may still pass
     assert resp.status_code in (200, 401)

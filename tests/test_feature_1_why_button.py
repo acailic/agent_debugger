@@ -323,7 +323,6 @@ class TestWhyButtonHappyPath:
             parent_id="level-2",
         )
 
-
         mock_explainer = MagicMock()
         mock_explainer.trace_causal_chain.return_value = [level_3, level_2, level_1, level_0]
 

@@ -182,16 +182,12 @@ def mock_vector_db():
 class TestFailureMemoryHappyPath:
     """Tests for the happy path of failure memory operations."""
 
-    def test_remember_failure_stores_embedding(
-        self, make_error_event, mock_embedding_model, mock_vector_db
-    ):
+    def test_remember_failure_stores_embedding(self, make_error_event, mock_embedding_model, mock_vector_db):
         """Storing a failure should generate an embedding and call vector_db.add."""
         # Arrange
         from collector.failure_memory import FailureMemory
 
-        memory = FailureMemory(
-            embedding_model=mock_embedding_model, vector_db=mock_vector_db
-        )
+        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
         error_event = make_error_event(
             error_type="TimeoutError",
             error_message="Connection timed out after 30s",
@@ -211,16 +207,12 @@ class TestFailureMemoryHappyPath:
         assert add_args[1]["metadata"]["error_type"] == "TimeoutError"
         assert add_args[1]["metadata"]["fix_applied"] == "Added retry logic"
 
-    def test_search_similar_returns_matches(
-        self, make_error_event, mock_embedding_model, mock_vector_db
-    ):
+    def test_search_similar_returns_matches(self, make_error_event, mock_embedding_model, mock_vector_db):
         """Searching for similar failures should return a ranked list with scores."""
         # Arrange
         from collector.failure_memory import FailureMemory
 
-        memory = FailureMemory(
-            embedding_model=mock_embedding_model, vector_db=mock_vector_db
-        )
+        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
 
         # Mock the query to return some matches
         mock_vector_db.query.return_value = {
@@ -259,16 +251,12 @@ class TestFailureMemoryHappyPath:
         # Results should be ranked by similarity (highest first)
         assert results[0].similarity_score >= results[1].similarity_score
 
-    def test_search_includes_fix_information(
-        self, make_error_event, mock_embedding_model, mock_vector_db
-    ):
+    def test_search_includes_fix_information(self, make_error_event, mock_embedding_model, mock_vector_db):
         """Search results should include the fix that was previously applied."""
         # Arrange
         from collector.failure_memory import FailureMemory
 
-        memory = FailureMemory(
-            embedding_model=mock_embedding_model, vector_db=mock_vector_db
-        )
+        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
 
         mock_vector_db.query.return_value = {
             "ids": ["fail-1"],
@@ -330,16 +318,12 @@ class TestFailureMemoryHappyPath:
 class TestFailureMemoryEdgeCases:
     """Tests for edge cases in failure memory operations."""
 
-    def test_empty_memory_returns_empty_list(
-        self, make_error_event, mock_embedding_model, mock_vector_db
-    ):
+    def test_empty_memory_returns_empty_list(self, make_error_event, mock_embedding_model, mock_vector_db):
         """An empty vector DB should return an empty list, not an error."""
         # Arrange
         from collector.failure_memory import FailureMemory
 
-        memory = FailureMemory(
-            embedding_model=mock_embedding_model, vector_db=mock_vector_db
-        )
+        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
 
         # Mock empty response
         mock_vector_db.query.return_value = {
@@ -357,16 +341,12 @@ class TestFailureMemoryEdgeCases:
         assert results == []
         assert isinstance(results, list)
 
-    def test_low_similarity_excluded(
-        self, make_error_event, mock_embedding_model, mock_vector_db
-    ):
+    def test_low_similarity_excluded(self, make_error_event, mock_embedding_model, mock_vector_db):
         """Results below the similarity threshold should be excluded."""
         # Arrange
         from collector.failure_memory import FailureMemory
 
-        memory = FailureMemory(
-            embedding_model=mock_embedding_model, vector_db=mock_vector_db
-        )
+        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
 
         # Mock results with varying distances
         # High distance = low similarity
@@ -389,16 +369,12 @@ class TestFailureMemoryEdgeCases:
         assert len(results) == 1
         assert results[0].failure_id == "fail-1"
 
-    def test_duplicate_failures_update_existing(
-        self, make_error_event, mock_embedding_model, mock_vector_db
-    ):
+    def test_duplicate_failures_update_existing(self, make_error_event, mock_embedding_model, mock_vector_db):
         """Storing the same failure again should update the occurrence count."""
         # Arrange
         from collector.failure_memory import FailureMemory
 
-        memory = FailureMemory(
-            embedding_model=mock_embedding_model, vector_db=mock_vector_db
-        )
+        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
 
         # Mock that the failure already exists
         mock_vector_db.query.return_value = {
@@ -439,9 +415,7 @@ class TestFailureMemoryEdgeCases:
         # Arrange
         from collector.failure_memory import FailureMemory
 
-        memory = FailureMemory(
-            embedding_model=mock_embedding_model, vector_db=mock_vector_db
-        )
+        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
 
         decision = make_decision_event()
         session = make_session(events=[decision])
@@ -462,17 +436,13 @@ class TestFailureMemoryEdgeCases:
 class TestFailureMemoryErrorHandling:
     """Tests for error handling in failure memory operations."""
 
-    def test_embedding_failure_returns_graceful_error(
-        self, make_error_event, mock_embedding_model, mock_vector_db
-    ):
+    def test_embedding_failure_returns_graceful_error(self, make_error_event, mock_embedding_model, mock_vector_db):
         """If embedding generation fails, EmbeddingGenerationError should be raised."""
         # Arrange
         from collector.failure_memory import FailureMemory
 
         mock_embedding_model.encode.side_effect = RuntimeError("Model not loaded")
-        memory = FailureMemory(
-            embedding_model=mock_embedding_model, vector_db=mock_vector_db
-        )
+        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
 
         error_event = make_error_event()
 
@@ -482,17 +452,13 @@ class TestFailureMemoryErrorHandling:
 
         assert "Model not loaded" in str(exc_info.value)
 
-    def test_vector_db_unavailable_returns_empty(
-        self, make_error_event, mock_embedding_model, mock_vector_db
-    ):
+    def test_vector_db_unavailable_returns_empty(self, make_error_event, mock_embedding_model, mock_vector_db):
         """If vector DB connection fails, search should return empty list."""
         # Arrange
         from collector.failure_memory import FailureMemory
 
         mock_vector_db.query.side_effect = ConnectionError("Vector DB unavailable")
-        memory = FailureMemory(
-            embedding_model=mock_embedding_model, vector_db=mock_vector_db
-        )
+        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
 
         error_event = make_error_event()
 
@@ -502,16 +468,12 @@ class TestFailureMemoryErrorHandling:
         # Assert - should return empty list, not raise
         assert results == []
 
-    def test_malformed_metadata_handled(
-        self, make_error_event, mock_embedding_model, mock_vector_db
-    ):
+    def test_malformed_metadata_handled(self, make_error_event, mock_embedding_model, mock_vector_db):
         """Malformed or None metadata in results should not crash the search."""
         # Arrange
         from collector.failure_memory import FailureMemory
 
-        memory = FailureMemory(
-            embedding_model=mock_embedding_model, vector_db=mock_vector_db
-        )
+        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
 
         # Mock results with malformed metadata
         mock_vector_db.query.return_value = {
@@ -555,9 +517,7 @@ class TestFailureMemoryIntegration:
         # Arrange
         from collector.failure_memory import FailureMemory
 
-        memory = FailureMemory(
-            embedding_model=mock_embedding_model, vector_db=mock_vector_db
-        )
+        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
 
         # Set up a previous similar failure
         mock_vector_db.query.return_value = {

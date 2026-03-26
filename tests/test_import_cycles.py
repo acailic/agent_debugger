@@ -13,11 +13,7 @@ def test_collector_buffer_imports_without_circular_dependency():
         [
             sys.executable,
             "-c",
-            (
-                "import sys, types; "
-                "sys.modules['aiofiles'] = types.ModuleType('aiofiles'); "
-                "import collector.buffer"
-            ),
+            ("import sys, types; sys.modules['aiofiles'] = types.ModuleType('aiofiles'); import collector.buffer"),
         ],
         cwd=Path(__file__).resolve().parents[1],
         capture_output=True,

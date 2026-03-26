@@ -130,9 +130,7 @@ class TraceRepository:
         else:
             stmt = stmt.order_by(SessionModel.started_at.desc())
 
-        result = await self.session.execute(
-            stmt.offset(offset).limit(limit)
-        )
+        result = await self.session.execute(stmt.offset(offset).limit(limit))
         return [self._orm_to_session(db) for db in result.scalars()]
 
     async def count_sessions(self) -> int:
@@ -560,9 +558,7 @@ class TraceRepository:
     # Anomaly Alert Methods
     # ------------------------------------------------------------------
 
-    async def create_anomaly_alert(
-        self, alert: AnomalyAlertModel | AnomalyAlertCreate
-    ) -> AnomalyAlertModel:
+    async def create_anomaly_alert(self, alert: AnomalyAlertModel | AnomalyAlertCreate) -> AnomalyAlertModel:
         """Create a new anomaly alert record.
 
         Args:
@@ -595,9 +591,7 @@ class TraceRepository:
             self.session.add(model)
             return model
 
-        raise TypeError(
-            f"Expected AnomalyAlertModel or AnomalyAlertCreate, got {type(alert).__name__}"
-        )
+        raise TypeError(f"Expected AnomalyAlertModel or AnomalyAlertCreate, got {type(alert).__name__}")
 
     async def list_anomaly_alerts(
         self,
@@ -640,4 +634,3 @@ class TraceRepository:
             )
         )
         return result.scalar_one_or_none()
-

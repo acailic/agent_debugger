@@ -85,16 +85,11 @@ class CrossSessionClusterer:
             events = [se[1] for se in session_events]
 
             # Compute average severity
-            total_severity = sum(
-                getattr(e, "importance", 0) or 0 for e in events
-            )
+            total_severity = sum(getattr(e, "importance", 0) or 0 for e in events)
             avg_severity = total_severity / len(events) if events else 0.0
 
             # Find timestamps
-            timestamps = [
-                e.timestamp for e in events
-                if hasattr(e, "timestamp") and e.timestamp
-            ]
+            timestamps = [e.timestamp for e in events if hasattr(e, "timestamp") and e.timestamp]
             first_seen = min(timestamps) if timestamps else None
             last_seen = max(timestamps) if timestamps else None
 
@@ -126,10 +121,7 @@ class CrossSessionClusterer:
             clusters.append(cluster)
 
         # Sort by severity * session count (impact score)
-        return sorted(
-            clusters,
-            key=lambda c: -(c.avg_severity * len(c.session_ids))
-        )
+        return sorted(clusters, key=lambda c: -(c.avg_severity * len(c.session_ids)))
 
     def _compute_fingerprint(self, event: TraceEvent) -> str:
         """Compute a fingerprint for clustering similar failures.

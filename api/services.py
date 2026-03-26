@@ -115,10 +115,7 @@ async def enrich_sessions_for_listing(
         )
 
     # Parallelize session analysis for better performance
-    analyses = await asyncio.gather(*[
-        analyze_session(repo, session.id)
-        for session in capped_sessions
-    ])
+    analyses = await asyncio.gather(*[analyze_session(repo, session.id) for session in capped_sessions])
 
     enriched: list[dict[str, Any]] = [
         normalize_session(session, analysis_summary(analysis))

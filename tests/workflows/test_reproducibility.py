@@ -50,7 +50,7 @@ class TestReplayFromCheckpointSameOutput:
         cp_idx = next(i for i, e in enumerate(events) if e.id == checkpoint.id)
 
         # Simulate replay: events after checkpoint should have consistent types
-        post_checkpoint = events[cp_idx + 1:]
+        post_checkpoint = events[cp_idx + 1 :]
         assert len(post_checkpoint) >= 2
 
         # Verify the post-checkpoint event types are deterministic

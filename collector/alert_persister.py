@@ -69,16 +69,18 @@ class AlertPersister:
             )
 
             created = await self.repository.create_anomaly_alert(model)
-            persisted.append({
-                "id": created.id,
-                "session_id": created.session_id,
-                "alert_type": created.alert_type,
-                "severity": created.severity,
-                "signal": created.signal,
-                "event_ids": created.event_ids,
-                "detection_source": created.detection_source,
-                "created_at": created.created_at.isoformat() if created.created_at else None,
-            })
+            persisted.append(
+                {
+                    "id": created.id,
+                    "session_id": created.session_id,
+                    "alert_type": created.alert_type,
+                    "severity": created.severity,
+                    "signal": created.signal,
+                    "event_ids": created.event_ids,
+                    "detection_source": created.detection_source,
+                    "created_at": created.created_at.isoformat() if created.created_at else None,
+                }
+            )
 
         return persisted
 
@@ -111,28 +113,32 @@ class AlertPersister:
                 else:
                     severity = float(severity_raw)
 
-                derived_alerts.append(DerivedAlert(
-                    alert_type=alert.get("alert_type", "unknown"),
-                    severity=severity,
-                    signal=alert.get("signal", ""),
-                    event_ids=[alert.get("event_id")] if alert.get("event_id") else [],
-                    source=source,
-                    detection_config={},
-                ))
+                derived_alerts.append(
+                    DerivedAlert(
+                        alert_type=alert.get("alert_type", "unknown"),
+                        severity=severity,
+                        signal=alert.get("signal", ""),
+                        event_ids=[alert.get("event_id")] if alert.get("event_id") else [],
+                        source=source,
+                        detection_config={},
+                    )
+                )
 
         # Also add oscillation alert if present
         oscillation = live_summary.get("oscillation_alert")
         if oscillation:
-            derived_alerts.append(DerivedAlert(
-                alert_type="oscillation",
-                severity=oscillation.get("severity", 0.5),
-                signal=f"Oscillation pattern detected: {oscillation.get('pattern', 'unknown')}",
-                event_ids=oscillation.get("event_ids", []),
-                source="derived",
-                detection_config={
-                    "repeat_count": oscillation.get("repeat_count", 0),
-                    "event_type": oscillation.get("event_type", ""),
-                },
-            ))
+            derived_alerts.append(
+                DerivedAlert(
+                    alert_type="oscillation",
+                    severity=oscillation.get("severity", 0.5),
+                    signal=f"Oscillation pattern detected: {oscillation.get('pattern', 'unknown')}",
+                    event_ids=oscillation.get("event_ids", []),
+                    source="derived",
+                    detection_config={
+                        "repeat_count": oscillation.get("repeat_count", 0),
+                        "event_type": oscillation.get("event_type", ""),
+                    },
+                )
+            )
 
         return await self.persist_alerts(session_id, derived_alerts)

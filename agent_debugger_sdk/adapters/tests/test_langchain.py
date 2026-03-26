@@ -176,17 +176,19 @@ class TestLangChainTracingHandler:
 
             run_id = uuid.uuid4()
             response = SimpleNamespace(
-                generations=[[
-                    SimpleNamespace(
-                        text="",
-                        message=SimpleNamespace(
-                            content="",
-                            tool_calls=[
-                                {"id": "call-1", "name": "search", "args": {"q": "Belgrade"}},
-                            ],
-                        ),
-                    )
-                ]],
+                generations=[
+                    [
+                        SimpleNamespace(
+                            text="",
+                            message=SimpleNamespace(
+                                content="",
+                                tool_calls=[
+                                    {"id": "call-1", "name": "search", "args": {"q": "Belgrade"}},
+                                ],
+                            ),
+                        )
+                    ]
+                ],
                 llm_output={"token_usage": {"prompt_tokens": 8, "completion_tokens": 3}},
             )
 
@@ -479,7 +481,9 @@ class TestLangChainTracingHandler:
                 )
 
             buffer = get_event_buffer()
-            llm_events = [e for e in await buffer.get_events("test-llm-model-name") if e.event_type == EventType.LLM_REQUEST]
+            llm_events = [
+                e for e in await buffer.get_events("test-llm-model-name") if e.event_type == EventType.LLM_REQUEST
+            ]
             assert len(llm_events) == 1
             assert llm_events[0].parent_id == "parent-event-id"
             assert llm_events[0].model == "gpt-4o-mini"
@@ -524,8 +528,12 @@ class TestLangChainTracingHandler:
                 )
 
             buffer = get_event_buffer()
-            tool_call = next(e for e in await buffer.get_events("test-tool-fallbacks") if e.event_type == EventType.TOOL_CALL)
-            tool_result = next(e for e in await buffer.get_events("test-tool-fallbacks") if e.event_type == EventType.TOOL_RESULT)
+            tool_call = next(
+                e for e in await buffer.get_events("test-tool-fallbacks") if e.event_type == EventType.TOOL_CALL
+            )
+            tool_result = next(
+                e for e in await buffer.get_events("test-tool-fallbacks") if e.event_type == EventType.TOOL_RESULT
+            )
 
             assert tool_call.parent_id == "parent-tool-event"
             assert tool_call.tool_name == "fallback_tool"
@@ -664,9 +672,7 @@ class TestLangChainErrorBoundaries:
                 handler.set_context(context)
 
                 # Patch _emit_event to raise exception
-                with patch.object(
-                    context, "_emit_event", side_effect=RuntimeError("Callback failed")
-                ):
+                with patch.object(context, "_emit_event", side_effect=RuntimeError("Callback failed")):
                     # Should not raise despite exception
                     await handler.on_llm_start(
                         serialized={"name": "ChatOpenAI"},
@@ -700,9 +706,7 @@ class TestLangChainErrorBoundaries:
                 )
 
                 # Patch _emit_event to raise exception
-                with patch.object(
-                    context, "_emit_event", side_effect=ValueError("Emit failed")
-                ):
+                with patch.object(context, "_emit_event", side_effect=ValueError("Emit failed")):
                     # Should not raise despite exception
                     await handler.on_llm_end(
                         response=MockLLMResult("Hello"),
@@ -727,9 +731,7 @@ class TestLangChainErrorBoundaries:
                 handler.set_context(context)
 
                 # Patch _emit_event to raise exception
-                with patch.object(
-                    context, "_emit_event", side_effect=RuntimeError("Tool callback failed")
-                ):
+                with patch.object(context, "_emit_event", side_effect=RuntimeError("Tool callback failed")):
                     # Should not raise despite exception
                     await handler.on_tool_start(
                         serialized={"name": "test_tool"},
@@ -763,9 +765,7 @@ class TestLangChainErrorBoundaries:
                 )
 
                 # Patch record_tool_result to raise exception
-                with patch.object(
-                    context, "record_tool_result", side_effect=ValueError("Record failed")
-                ):
+                with patch.object(context, "record_tool_result", side_effect=ValueError("Record failed")):
                     # Should not raise despite exception
                     await handler.on_tool_end(
                         output="result",
@@ -791,9 +791,7 @@ class TestLangChainErrorBoundaries:
                 handler.set_context(context)
 
                 # Patch _emit_event to raise exception
-                with patch.object(
-                    context, "_emit_event", side_effect=RuntimeError("Chain callback failed")
-                ):
+                with patch.object(context, "_emit_event", side_effect=RuntimeError("Chain callback failed")):
                     # Should not raise despite exception
                     await handler.on_chain_start(
                         serialized={"name": "test_chain"},
@@ -827,9 +825,7 @@ class TestLangChainErrorBoundaries:
                 )
 
                 # Patch _emit_event to raise exception
-                with patch.object(
-                    context, "_emit_event", side_effect=ValueError("Chain end failed")
-                ):
+                with patch.object(context, "_emit_event", side_effect=ValueError("Chain end failed")):
                     # Should not raise despite exception
                     await handler.on_chain_end(
                         outputs={"result": "success"},
@@ -864,6 +860,7 @@ class TestLangChainErrorBoundaries:
 def test_register_auto_patch_registers_langchain_adapter():
     from agent_debugger_sdk.adapters.langchain import register_auto_patch
     from agent_debugger_sdk.auto_patch.registry import get_registry
+
     registry = get_registry()
     original_adapters = list(registry._adapters)
     try:

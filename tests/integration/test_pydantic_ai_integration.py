@@ -6,6 +6,7 @@ SDK captures trace events from instrumented agent runs.
 Run with:
     python3 -m pytest tests/integration/test_pydantic_ai_integration.py -o "addopts=" -v
 """
+
 from __future__ import annotations
 
 import uuid
@@ -120,9 +121,7 @@ async def test_pydantic_ai_tool_run_emits_tool_and_multi_step_events(zai_pydanti
 
     tool_call = tool_calls[0]
     assert tool_call.tool_name == "add", f"Expected add tool call, got: {tool_call.tool_name}"
-    assert tool_call.arguments == {"a": 2, "b": 3}, (
-        f"Expected add tool arguments, got: {tool_call.arguments}"
-    )
+    assert tool_call.arguments == {"a": 2, "b": 3}, f"Expected add tool arguments, got: {tool_call.arguments}"
 
     tool_result = tool_results[0]
     assert tool_result.tool_name == "add", f"Expected add tool result, got: {tool_result.tool_name}"
@@ -133,9 +132,7 @@ async def test_pydantic_ai_tool_run_emits_tool_and_multi_step_events(zai_pydanti
         None,
     )
     assert tool_response is not None, "Expected an LLM response with tool_calls"
-    assert tool_response.tool_calls[0]["name"] == "add", (
-        f"Expected add in tool_calls, got: {tool_response.tool_calls}"
-    )
+    assert tool_response.tool_calls[0]["name"] == "add", f"Expected add in tool_calls, got: {tool_response.tool_calls}"
 
     follow_up_request = next(
         (request for request in requests if request.messages and request.messages[-1]["role"] == "tool"),

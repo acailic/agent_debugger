@@ -232,9 +232,7 @@ class PydanticAIAdapter(Generic[T]):
             response_parent_id = await self._emit_message_event(
                 msg,
                 model_name=resolved_model,
-                response_duration_ms=(
-                    duration_ms if index == len(messages) - 1 else 0.0
-                ),
+                response_duration_ms=(duration_ms if index == len(messages) - 1 else 0.0),
                 request_timestamp=prior_request_timestamp,
                 tool_call_parent_ids=tool_call_parent_ids,
             )
@@ -299,9 +297,7 @@ class PydanticAIAdapter(Generic[T]):
             session_id=self.session_id,
             parent_id=self._context.get_current_parent(),
             model=response_model,
-            content="".join(
-                part.content for part in message.parts if isinstance(part, TextPart)
-            ),
+            content="".join(part.content for part in message.parts if isinstance(part, TextPart)),
             tool_calls=tool_calls,
             usage=self._usage_from_message(message),
             duration_ms=self._response_duration_ms(

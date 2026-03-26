@@ -1,4 +1,5 @@
 """API key generation, hashing, and verification."""
+
 from __future__ import annotations
 
 import secrets

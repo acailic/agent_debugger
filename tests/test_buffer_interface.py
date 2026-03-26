@@ -1,4 +1,5 @@
 """Tests for buffer interface compliance."""
+
 import asyncio
 
 import pytest

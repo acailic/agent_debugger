@@ -13,6 +13,7 @@ The tests verify:
 6. Tool start callback emits a tool_call event.
 7. Server unreachability does not raise.
 """
+
 from __future__ import annotations
 
 import sys
@@ -144,9 +145,7 @@ class TestLangChainAdapterIsAvailable:
 
 
 class TestLangChainAdapterPatchUnpatch:
-    def test_patch_installs_handler_into_global_callbacks(
-        self, fake_langchain_core, mock_httpx
-    ) -> None:
+    def test_patch_installs_handler_into_global_callbacks(self, fake_langchain_core, mock_httpx) -> None:
         """patch() should append the handler to _handlers list."""
         manager_mod = fake_langchain_core.callbacks.manager
         assert len(manager_mod._handlers) == 0
@@ -158,9 +157,7 @@ class TestLangChainAdapterPatchUnpatch:
         assert len(manager_mod._handlers) == 1
         assert isinstance(manager_mod._handlers[0], _SyncTracingCallbackHandler)
 
-    def test_unpatch_removes_handler_from_global_callbacks(
-        self, fake_langchain_core, mock_httpx
-    ) -> None:
+    def test_unpatch_removes_handler_from_global_callbacks(self, fake_langchain_core, mock_httpx) -> None:
         """unpatch() should remove the handler installed by patch()."""
         manager_mod = fake_langchain_core.callbacks.manager
 
@@ -300,9 +297,7 @@ class TestSyncTracingCallbackHandlerEvents:
 
 
 class TestLangChainAdapterIntegration:
-    def test_handler_session_id_matches_transport_session(
-        self, fake_langchain_core, mock_httpx
-    ) -> None:
+    def test_handler_session_id_matches_transport_session(self, fake_langchain_core, mock_httpx) -> None:
         """The installed handler should use the session ID from get_or_create_session."""
         adapter = LangChainAdapter()
         config = PatchConfig(server_url="http://localhost:9999", agent_name="test-agent")

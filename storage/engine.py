@@ -1,4 +1,5 @@
 """Config-driven database engine factory."""
+
 from __future__ import annotations
 
 import asyncio
@@ -53,9 +54,7 @@ def _repair_legacy_sqlite_schema(connection) -> None:
     if "sessions" in tables:
         session_columns = {column["name"] for column in inspector.get_columns("sessions")}
         if "replay_value" not in session_columns:
-            connection.execute(
-                text("ALTER TABLE sessions ADD COLUMN replay_value FLOAT NOT NULL DEFAULT 0.0")
-            )
+            connection.execute(text("ALTER TABLE sessions ADD COLUMN replay_value FLOAT NOT NULL DEFAULT 0.0"))
             repaired_legacy = True
 
         session_indexes = {index["name"] for index in inspector.get_indexes("sessions")}
@@ -77,9 +76,7 @@ def _repair_legacy_sqlite_schema(connection) -> None:
             stamp_version = "003_add_research_features"
         else:
             stamp_version = "002_add_session_replay_value"
-        connection.execute(
-            text(f"INSERT INTO alembic_version (version_num) VALUES ('{stamp_version}')")
-        )
+        connection.execute(text(f"INSERT INTO alembic_version (version_num) VALUES ('{stamp_version}')"))
         repaired_legacy = True
 
     return repaired_legacy

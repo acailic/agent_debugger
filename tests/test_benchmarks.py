@@ -236,9 +236,9 @@ class TestCIRegressionAssertions:
 
         # At least one safety check should have blocked the reveal attempt
         blocked_checks = [
-            sc for sc in safety_checks
-            if getattr(sc, "outcome", None) == "block"
-            and getattr(sc, "blocked_action", None) == "reveal_system_prompt"
+            sc
+            for sc in safety_checks
+            if getattr(sc, "outcome", None) == "block" and getattr(sc, "blocked_action", None) == "reveal_system_prompt"
         ]
         assert len(blocked_checks) >= 1, "Expected blocked action for reveal_system_prompt"
 
@@ -474,18 +474,12 @@ class TestSafeUnsafePaths:
         escalation_session = await run_safety_escalation_session()
 
         # Injection should have high risk
-        injection_safety = [
-            e for e in injection_session.events
-            if e.event_type == EventType.SAFETY_CHECK
-        ]
+        injection_safety = [e for e in injection_session.events if e.event_type == EventType.SAFETY_CHECK]
         for sc in injection_safety:
             assert getattr(sc, "risk_level", None) == "high"
 
         # Escalation should have medium then high risk
-        escalation_safety = [
-            e for e in escalation_session.events
-            if e.event_type == EventType.SAFETY_CHECK
-        ]
+        escalation_safety = [e for e in escalation_session.events if e.event_type == EventType.SAFETY_CHECK]
         risk_levels = [getattr(sc, "risk_level", None) for sc in escalation_safety]
         assert "medium" in risk_levels
         assert "high" in risk_levels
@@ -500,12 +494,9 @@ class TestSafeUnsafePaths:
             refusals = [e for e in session.events if e.event_type == EventType.REFUSAL]
 
             for refusal in refusals:
-                assert getattr(refusal, "blocked_action", None) is not None, \
-                    f"Refusal in {name} missing blocked_action"
-                assert getattr(refusal, "risk_level", None) is not None, \
-                    f"Refusal in {name} missing risk_level"
-                assert getattr(refusal, "reason", None) is not None, \
-                    f"Refusal in {name} missing reason"
+                assert getattr(refusal, "blocked_action", None) is not None, f"Refusal in {name} missing blocked_action"
+                assert getattr(refusal, "risk_level", None) is not None, f"Refusal in {name} missing risk_level"
+                assert getattr(refusal, "reason", None) is not None, f"Refusal in {name} missing reason"
 
 
 class TestBenchmarkSessionIntegrity:
@@ -519,8 +510,7 @@ class TestBenchmarkSessionIntegrity:
         for name, runner in scenarios:
             session = await runner()
             assert session.session_id, f"Session {name} has empty session_id"
-            assert session.session_id.startswith("seed-"), \
-                f"Session {name} should have seed- prefixed ID"
+            assert session.session_id.startswith("seed-"), f"Session {name} should have seed- prefixed ID"
 
     @pytest.mark.asyncio
     async def test_all_events_have_required_fields(self):
@@ -547,8 +537,9 @@ class TestBenchmarkSessionIntegrity:
 
             for event in session.events:
                 for upstream_id in event.upstream_event_ids:
-                    assert upstream_id in event_ids, \
+                    assert upstream_id in event_ids, (
                         f"Event {event.id} in {name} references unknown upstream {upstream_id}"
+                    )
 
     @pytest.mark.asyncio
     async def test_parent_ids_reference_valid_events(self):
@@ -561,8 +552,9 @@ class TestBenchmarkSessionIntegrity:
 
             for event in session.events:
                 if event.parent_id:
-                    assert event.parent_id in event_ids, \
+                    assert event.parent_id in event_ids, (
                         f"Event {event.id} in {name} references unknown parent {event.parent_id}"
+                    )
 
     @pytest.mark.asyncio
     async def test_checkpoints_have_valid_event_references(self):
@@ -575,8 +567,9 @@ class TestBenchmarkSessionIntegrity:
 
             for checkpoint in session.checkpoints:
                 if checkpoint.event_id:
-                    assert checkpoint.event_id in event_ids, \
+                    assert checkpoint.event_id in event_ids, (
                         f"Checkpoint in {name} references unknown event {checkpoint.event_id}"
+                    )
 
     @pytest.mark.asyncio
     async def test_events_are_serializable(self):

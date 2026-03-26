@@ -12,4 +12,5 @@ def test_models_importable_from_new_location():
 def test_repository_still_works_with_extracted_models():
     """TraceRepository should still import and function."""
     from storage.repository import TraceRepository
+
     assert callable(TraceRepository)

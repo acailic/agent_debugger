@@ -1,5 +1,6 @@
 """Tests for the pricing module."""
 
+
 def test_pricing_module_importable():
     """Pricing module should be importable."""
     from agent_debugger_sdk import pricing
@@ -82,6 +83,7 @@ def test_llm_response_event_auto_cost_calculation():
 def test_llm_response_event_preserves_explicit_cost():
     """LLMResponseEvent should preserve explicitly set cost."""
     from agent_debugger_sdk.core.events import LLMResponseEvent
+
     # Create event with explicit cost
     event = LLMResponseEvent(
         model="gpt-4o",
@@ -95,6 +97,7 @@ def test_llm_response_event_preserves_explicit_cost():
 def test_llm_response_event_no_cost_for_unknown_model():
     """LLMResponseEvent should have 0.0 cost for unknown models."""
     from agent_debugger_sdk.core.events import LLMResponseEvent
+
     event = LLMResponseEvent(
         model="unknown-model-xyz",
         usage={"input_tokens": 1000, "output_tokens": 500},

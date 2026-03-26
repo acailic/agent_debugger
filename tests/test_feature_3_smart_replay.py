@@ -36,6 +36,7 @@ pytestmark = pytest.mark.skip(reason="Feature 3 (smart_replay) not yet implement
 # Mock Types for SmartReplay (module under test: collector.replay.SmartReplay)
 # -----------------------------------------------------------------------------
 
+
 @dataclass
 class Highlight:
     """Represents a highlight-worthy moment in a session trace."""
@@ -64,9 +65,11 @@ class ReplaySegment:
 # Fixtures
 # -----------------------------------------------------------------------------
 
+
 @pytest.fixture
 def make_error_event():
     """Factory for creating ErrorEvent instances."""
+
     def _make(
         event_id: str = "error-1",
         error_type: str = "ValueError",
@@ -82,12 +85,14 @@ def make_error_event():
             timestamp=kwargs.get("timestamp", datetime.now(timezone.utc)),
             parent_id=kwargs.get("parent_id"),
         )
+
     return _make
 
 
 @pytest.fixture
 def make_decision_event():
     """Factory for creating DecisionEvent instances."""
+
     def _make(
         event_id: str = "decision-1",
         action: str = "proceed",
@@ -104,12 +109,14 @@ def make_decision_event():
             evidence_event_ids=kwargs.get("evidence_event_ids", []),
             parent_id=kwargs.get("parent_id"),
         )
+
     return _make
 
 
 @pytest.fixture
 def make_session():
     """Factory for creating Session instances with events."""
+
     def _make(
         events: list[TraceEvent] | None = None,
         session_id: str = "test-session",
@@ -122,12 +129,14 @@ def make_session():
             "framework": kwargs.get("framework", "test"),
             "events": events or [],
         }
+
     return _make
 
 
 @pytest.fixture
 def make_refusal_event():
     """Factory for creating RefusalEvent instances."""
+
     def _make(
         event_id: str = "refusal-1",
         reason: str = "Policy violation",
@@ -143,12 +152,14 @@ def make_refusal_event():
             risk_level=kwargs.get("risk_level", RiskLevel.MEDIUM),
             blocked_action=kwargs.get("blocked_action"),
         )
+
     return _make
 
 
 @pytest.fixture
 def make_safety_check_event():
     """Factory for creating SafetyCheckEvent instances."""
+
     def _make(
         event_id: str = "safety-1",
         policy_name: str = "content_policy",
@@ -164,12 +175,14 @@ def make_safety_check_event():
             risk_level=kwargs.get("risk_level", RiskLevel.LOW),
             rationale=kwargs.get("rationale", "Check passed"),
         )
+
     return _make
 
 
 @pytest.fixture
 def make_behavior_alert_event():
     """Factory for creating BehaviorAlertEvent instances."""
+
     def _make(
         event_id: str = "alert-1",
         alert_type: str = "loop_detected",
@@ -184,12 +197,14 @@ def make_behavior_alert_event():
             severity=kwargs.get("severity", RiskLevel.MEDIUM),
             signal=signal,
         )
+
     return _make
 
 
 @pytest.fixture
 def make_tool_call_event():
     """Factory for creating ToolCallEvent instances."""
+
     def _make(
         event_id: str = "tool-1",
         tool_name: str = "search",
@@ -203,12 +218,14 @@ def make_tool_call_event():
             arguments=kwargs.get("arguments", {}),
             parent_id=kwargs.get("parent_id"),
         )
+
     return _make
 
 
 # -----------------------------------------------------------------------------
 # Mock SmartReplay Module
 # -----------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_smart_replay():
@@ -231,14 +248,16 @@ def mock_smart_replay():
         for event in events:
             score = default_score_importance(event)
             if score >= 0.5:
-                highlights.append(Highlight(
-                    event_id=event.id,
-                    event_type=str(event.event_type),
-                    highlight_type=_get_highlight_type(event),
-                    importance=score,
-                    reason=_get_highlight_reason(event, score),
-                    timestamp=event.timestamp.isoformat(),
-                ))
+                highlights.append(
+                    Highlight(
+                        event_id=event.id,
+                        event_type=str(event.event_type),
+                        highlight_type=_get_highlight_type(event),
+                        importance=score,
+                        reason=_get_highlight_reason(event, score),
+                        timestamp=event.timestamp.isoformat(),
+                    )
+                )
 
         highlights.sort(key=lambda h: -h.importance)
         return highlights[:max_highlights]
@@ -281,9 +300,14 @@ def mock_smart_replay():
                 return 0.3
 
             # Routine events: low importance (<= 0.3)
-            if event_type in {EventType.TOOL_CALL, EventType.TOOL_RESULT,
-                              EventType.LLM_REQUEST, EventType.LLM_RESPONSE,
-                              EventType.AGENT_START, EventType.AGENT_END}:
+            if event_type in {
+                EventType.TOOL_CALL,
+                EventType.TOOL_RESULT,
+                EventType.LLM_REQUEST,
+                EventType.LLM_RESPONSE,
+                EventType.AGENT_START,
+                EventType.AGENT_END,
+            }:
                 return 0.2
 
             return 0.3
@@ -312,21 +336,20 @@ def mock_smart_replay():
         for key_event in key_events:
             if key_event.id not in event_ids:
                 # Handle missing context: still create segment
-                segments.append(ReplaySegment(
-                    segment_id=f"segment-{key_event.id}",
-                    start_index=0,
-                    end_index=0,
-                    key_event_ids=[key_event.id],
-                    events=[],
-                    importance=default_score_importance(key_event),
-                ))
+                segments.append(
+                    ReplaySegment(
+                        segment_id=f"segment-{key_event.id}",
+                        start_index=0,
+                        end_index=0,
+                        key_event_ids=[key_event.id],
+                        events=[],
+                        importance=default_score_importance(key_event),
+                    )
+                )
                 continue
 
             # Find event index
-            key_index = next(
-                (i for i, e in enumerate(events) if e.id == key_event.id),
-                -1
-            )
+            key_index = next((i for i, e in enumerate(events) if e.id == key_event.id), -1)
             if key_index == -1:
                 continue
 
@@ -337,7 +360,7 @@ def mock_smart_replay():
             # Check if this overlaps with an existing segment
             merged = False
             for seg in segments:
-                if (start <= seg.end_index + 1 and end >= seg.start_index - 1):
+                if start <= seg.end_index + 1 and end >= seg.start_index - 1:
                     # Merge: extend existing segment
                     seg.start_index = min(seg.start_index, start)
                     seg.end_index = max(seg.end_index, end)
@@ -352,7 +375,7 @@ def mock_smart_replay():
                     start_index=start,
                     end_index=end,
                     key_event_ids=[key_event.id],
-                    events=[e.to_dict() for e in events[start:end + 1]],
+                    events=[e.to_dict() for e in events[start : end + 1]],
                     importance=default_score_importance(key_event),
                 )
                 segments.append(segment)
@@ -402,6 +425,7 @@ def mock_smart_replay():
 # -----------------------------------------------------------------------------
 # TestSmartReplayHappyPath (5 tests)
 # -----------------------------------------------------------------------------
+
 
 class TestSmartReplayHappyPath:
     """Happy path tests for Smart Replay Highlights."""
@@ -507,6 +531,7 @@ class TestSmartReplayHappyPath:
 # TestSmartReplayEdgeCases (4 tests)
 # -----------------------------------------------------------------------------
 
+
 class TestSmartReplayEdgeCases:
     """Edge case tests for Smart Replay Highlights."""
 
@@ -530,10 +555,7 @@ class TestSmartReplayEdgeCases:
         make_decision_event,
     ) -> None:
         """When all events are low importance, return top N by score."""
-        events = [
-            make_tool_call_event(event_id=f"tool-{i}", tool_name=f"action_{i}")
-            for i in range(10)
-        ]
+        events = [make_tool_call_event(event_id=f"tool-{i}", tool_name=f"action_{i}") for i in range(10)]
         # Add a slightly higher importance event
         events.append(make_decision_event(event_id="decision-1", confidence=0.9))
         session = make_session(events=events)
@@ -553,10 +575,7 @@ class TestSmartReplayEdgeCases:
         make_error_event,
     ) -> None:
         """When many high importance events, return highest scoring."""
-        events = [
-            make_error_event(event_id=f"error-{i}", message=f"Error {i}")
-            for i in range(10)
-        ]
+        events = [make_error_event(event_id=f"error-{i}", message=f"Error {i}") for i in range(10)]
         session = make_session(events=events)
 
         highlights = mock_smart_replay.generate_highlights(session, max_highlights=3)
@@ -597,6 +616,7 @@ class TestSmartReplayEdgeCases:
 # -----------------------------------------------------------------------------
 # TestSmartReplayErrorHandling (2 tests)
 # -----------------------------------------------------------------------------
+
 
 class TestSmartReplayErrorHandling:
     """Error handling tests for Smart Replay Highlights."""
@@ -640,6 +660,7 @@ class TestSmartReplayErrorHandling:
 # -----------------------------------------------------------------------------
 # TestSmartReplayScoringRules (4 tests)
 # -----------------------------------------------------------------------------
+
 
 class TestSmartReplayScoringRules:
     """Tests for specific scoring rules per event type."""

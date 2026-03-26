@@ -111,10 +111,7 @@ def compute_escalation_score(signals: list[EscalationSignal]) -> float:
     if not signals:
         return 0.0
 
-    weighted_sum = sum(
-        s.magnitude * WEIGHTS.get(s.signal_type, 0.1)
-        for s in signals
-    )
+    weighted_sum = sum(s.magnitude * WEIGHTS.get(s.signal_type, 0.1) for s in signals)
     return min(1.0, weighted_sum)
 
 
@@ -137,17 +134,19 @@ def _detect_confidence_degradation(
         # Detect significant drop (>0.2)
         drop = prev_confidence - confidence
         if drop > 0.2:
-            signals.append(EscalationSignal(
-                event_id=decision.id,
-                turn_index=i,
-                signal_type="confidence_degradation",
-                magnitude=min(1.0, drop),
-                evidence_event_ids=[decisions[i - 1].id, decision.id],
-                narrative=(
-                    f"Decision confidence dropped from {prev_confidence:.2f} "
-                    f"to {confidence:.2f} ({drop:.2f} decrease)"
-                ),
-            ))
+            signals.append(
+                EscalationSignal(
+                    event_id=decision.id,
+                    turn_index=i,
+                    signal_type="confidence_degradation",
+                    magnitude=min(1.0, drop),
+                    evidence_event_ids=[decisions[i - 1].id, decision.id],
+                    narrative=(
+                        f"Decision confidence dropped from {prev_confidence:.2f} "
+                        f"to {confidence:.2f} ({drop:.2f} decrease)"
+                    ),
+                )
+            )
 
     return signals
 
@@ -175,17 +174,18 @@ def _detect_safety_pressure(
     if has_escalating_severity:
         magnitude = min(1.0, magnitude + 0.3)
 
-    return [EscalationSignal(
-        event_id=safety_events[-1].id,
-        turn_index=event_count,
-        signal_type="safety_pressure",
-        magnitude=magnitude,
-        evidence_event_ids=[e.id for e in safety_events[-5:]],
-        narrative=(
-            f"{event_count} safety events detected"
-            f"{' with escalating severity' if has_escalating_severity else ''}"
-        ),
-    )]
+    return [
+        EscalationSignal(
+            event_id=safety_events[-1].id,
+            turn_index=event_count,
+            signal_type="safety_pressure",
+            magnitude=magnitude,
+            evidence_event_ids=[e.id for e in safety_events[-5:]],
+            narrative=(
+                f"{event_count} safety events detected{' with escalating severity' if has_escalating_severity else ''}"
+            ),
+        )
+    ]
 
 
 def _detect_handoff_patterns(
@@ -211,14 +211,16 @@ def _detect_handoff_patterns(
 
         transfer_keywords = ["escalate", "handoff", "transfer", "review", "supervisor", "hand over", "take over"]
         if any(kw in combined for kw in transfer_keywords):
-            signals.append(EscalationSignal(
-                event_id=turn.id,
-                turn_index=i,
-                signal_type="handoff_pattern",
-                magnitude=0.7,
-                evidence_event_ids=[turns[i - 1].id, turn.id],
-                narrative=f"Speaker changed from '{prev_speaker}' to '{curr_speaker}' with transfer intent",
-            ))
+            signals.append(
+                EscalationSignal(
+                    event_id=turn.id,
+                    turn_index=i,
+                    signal_type="handoff_pattern",
+                    magnitude=0.7,
+                    evidence_event_ids=[turns[i - 1].id, turn.id],
+                    narrative=f"Speaker changed from '{prev_speaker}' to '{curr_speaker}' with transfer intent",
+                )
+            )
 
     return signals
 
@@ -253,14 +255,16 @@ def _detect_tool_stake_increase(
                         for pt in prev_tools[-3:]  # Check last 3 tools
                     )
                     if read_only:
-                        signals.append(EscalationSignal(
-                            event_id=tool.id,
-                            turn_index=i,
-                            signal_type="tool_stake_increase",
-                            magnitude=stake_level,
-                            evidence_event_ids=[tool.id],
-                            narrative=f"Transitioned to high-stake operation '{tool_name}' after read-only phase",
-                        ))
+                        signals.append(
+                            EscalationSignal(
+                                event_id=tool.id,
+                                turn_index=i,
+                                signal_type="tool_stake_increase",
+                                magnitude=stake_level,
+                                evidence_event_ids=[tool.id],
+                                narrative=f"Transitioned to high-stake operation '{tool_name}' after read-only phase",
+                            )
+                        )
                 break
 
     return signals
@@ -278,14 +282,16 @@ def _detect_decision_chain_depth(
     # Long decision chains (>5) indicate complexity
     if len(decisions) > 5:
         magnitude = min(1.0, (len(decisions) - 5) / 10 + 0.3)
-        signals.append(EscalationSignal(
-            event_id=decisions[-1].id,
-            turn_index=len(decisions),
-            signal_type="decision_chain_depth",
-            magnitude=magnitude,
-            evidence_event_ids=[d.id for d in decisions[-5:]],
-            narrative=f"Long decision chain of {len(decisions)} decisions detected",
-        ))
+        signals.append(
+            EscalationSignal(
+                event_id=decisions[-1].id,
+                turn_index=len(decisions),
+                signal_type="decision_chain_depth",
+                magnitude=magnitude,
+                evidence_event_ids=[d.id for d in decisions[-5:]],
+                narrative=f"Long decision chain of {len(decisions)} decisions detected",
+            )
+        )
 
     return signals
 
@@ -306,19 +312,22 @@ def _detect_explicit_keywords(
         if matched_keywords:
             # Lower magnitude for keyword-only detection
             magnitude = 0.3 + 0.1 * len(matched_keywords)
-            signals.append(EscalationSignal(
-                event_id=turn.id,
-                turn_index=i,
-                signal_type="explicit_keyword",
-                magnitude=min(0.6, magnitude),
-                evidence_event_ids=[turn.id],
-                narrative=f"Escalation keywords detected: {', '.join(matched_keywords)}",
-            ))
+            signals.append(
+                EscalationSignal(
+                    event_id=turn.id,
+                    turn_index=i,
+                    signal_type="explicit_keyword",
+                    magnitude=min(0.6, magnitude),
+                    evidence_event_ids=[turn.id],
+                    narrative=f"Escalation keywords detected: {', '.join(matched_keywords)}",
+                )
+            )
 
     return signals
 
 
 # Helper functions for extracting event attributes
+
 
 def _get_confidence(event: TraceEvent) -> float | None:
     """Extract confidence from event."""

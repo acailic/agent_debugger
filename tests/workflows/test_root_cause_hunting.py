@@ -29,10 +29,7 @@ def _build_analytics(events: list[TraceEvent]):
     index_lookup = {e.id: i for i, e in enumerate(events)}
 
     # Build minimal ranking_by_event_id from severity scores
-    ranking_by_event_id = {
-        e.id: {"severity": causal.severity(e), "composite": causal.severity(e)}
-        for e in events
-    }
+    ranking_by_event_id = {e.id: {"severity": causal.severity(e), "composite": causal.severity(e)} for e in events}
     return causal, diagnostics, id_lookup, index_lookup, ranking_by_event_id
 
 
@@ -76,9 +73,7 @@ class TestCausalAnalysisTracesFailureToDecision:
         failure = find_event(events, event_type=EventType.TOOL_RESULT)
         assert failure is not None
 
-        candidates = [
-            {"event_id": "", "score": 0.0}
-        ]  # minimal candidate to check mode
+        candidates = [{"event_id": "", "score": 0.0}]  # minimal candidate to check mode
         mode = diagnostics.failure_mode(failure, candidates[0], id_lookup)
         assert mode in ("tool_execution_failure", "ungrounded_decision")
 
@@ -87,9 +82,7 @@ class TestCausalAnalysisTracesFailureToDecision:
         failure = find_event(events, event_type=EventType.TOOL_RESULT)
         assert failure is not None
 
-        symptom = diagnostics.failure_symptom(
-            failure, lambda e: e.name or str(e.event_type)
-        )
+        symptom = diagnostics.failure_symptom(failure, lambda e: e.name or str(e.event_type))
         assert "failed" in symptom.lower()
 
     def test_failure_narrative_mentions_upstream_cause(self):
@@ -97,9 +90,7 @@ class TestCausalAnalysisTracesFailureToDecision:
         failure = find_event(events, event_type=EventType.TOOL_RESULT)
         assert failure is not None
 
-        explanations = diagnostics.build_failure_explanations(
-            events, ranking, lambda e: e.name or str(e.event_type)
-        )
+        explanations = diagnostics.build_failure_explanations(events, ranking, lambda e: e.name or str(e.event_type))
         assert len(explanations) >= 1
 
         top = explanations[0]
@@ -149,9 +140,7 @@ class TestEvidenceChainValidation:
 
         issues = validate_evidence_chain(decision, events)
         content = [i for i in issues if i.kind == "content_mismatch"]
-        assert len(content) >= 1, (
-            "Expected content mismatch: decision claims 37.4M but tool result says 13.96M"
-        )
+        assert len(content) >= 1, "Expected content mismatch: decision claims 37.4M but tool result says 13.96M"
 
 
 # ── Pattern-based root cause detection ───────────────────────────────────────
@@ -225,9 +214,7 @@ class TestPatternBasedRootCause:
         events = cassette_events(interactions)
 
         _, diagnostics, _, _, ranking = _build_analytics(events)
-        explanations = diagnostics.build_failure_explanations(
-            events, ranking, lambda e: e.name or str(e.event_type)
-        )
+        explanations = diagnostics.build_failure_explanations(events, ranking, lambda e: e.name or str(e.event_type))
         assert len(explanations) >= 1
 
         for exp in explanations:

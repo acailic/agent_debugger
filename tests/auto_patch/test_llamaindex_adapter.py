@@ -14,6 +14,7 @@ The tests verify:
 7. Server unreachability does not raise.
 8. Errors during query emit an error event and re-raise.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -263,9 +264,7 @@ class TestLlamaIndexAdapterSyncEventEmission:
 
         adapter.unpatch()
 
-    def test_query_error_emits_error_event_and_reraises(
-        self, fake_llama_index, mock_httpx
-    ) -> None:
+    def test_query_error_emits_error_event_and_reraises(self, fake_llama_index, mock_httpx) -> None:
         """When query raises, an error event should be sent and the exception re-raised."""
         _, _, query_engine = fake_llama_index
 

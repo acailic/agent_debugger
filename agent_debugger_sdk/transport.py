@@ -1,4 +1,5 @@
 """HTTP transport for sending events to the collector."""
+
 from __future__ import annotations
 
 import asyncio

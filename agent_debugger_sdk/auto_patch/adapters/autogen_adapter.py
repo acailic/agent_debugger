@@ -10,6 +10,7 @@ Supports:
 - AutoGen v0.4.x (``autogen_agentchat``): patches
   ``autogen_agentchat.agents.AssistantAgent.run``
 """
+
 from __future__ import annotations
 
 import logging
@@ -232,9 +233,7 @@ class AutoGenAdapter(BaseAdapter):
             if transport is not None:
                 transport.send_event(start_event.to_dict())
         except Exception:
-            logger.warning(
-                "AutoGenAdapter: failed to emit AGENT_START event (async)", exc_info=True
-            )
+            logger.warning("AutoGenAdapter: failed to emit AGENT_START event (async)", exc_info=True)
 
         try:
             result = await fn()
@@ -250,9 +249,7 @@ class AutoGenAdapter(BaseAdapter):
                 if transport is not None:
                     transport.send_event(error_event.to_dict())
             except Exception:
-                logger.warning(
-                    "AutoGenAdapter: failed to emit ERROR event (async)", exc_info=True
-                )
+                logger.warning("AutoGenAdapter: failed to emit ERROR event (async)", exc_info=True)
             raise
 
         try:
@@ -264,9 +261,7 @@ class AutoGenAdapter(BaseAdapter):
             if transport is not None:
                 transport.send_event(end_event.to_dict())
         except Exception:
-            logger.warning(
-                "AutoGenAdapter: failed to emit AGENT_END event (async)", exc_info=True
-            )
+            logger.warning("AutoGenAdapter: failed to emit AGENT_END event (async)", exc_info=True)
 
         return result
 

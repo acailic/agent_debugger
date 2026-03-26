@@ -3,6 +3,7 @@
 All integration tests require the ZAI_API_KEY environment variable.
 Tests are marked with ``@pytest.mark.integration`` and excluded from default runs.
 """
+
 from __future__ import annotations
 
 import os
@@ -25,9 +26,7 @@ def pytest_collection_modifyitems(config, items):
         return
     for item in items:
         if "integration" in item.keywords:
-            item.add_marker(
-                pytest.mark.skip(reason="No ZAI_API_KEY found — skipping integration test")
-            )
+            item.add_marker(pytest.mark.skip(reason="No ZAI_API_KEY found — skipping integration test"))
 
 
 # ---------------------------------------------------------------------------

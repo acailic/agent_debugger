@@ -9,6 +9,7 @@ from tests.fixtures.workflow_helpers import load_cassette
 def cassettes_dir():
     """Path to the cassettes directory."""
     from tests.fixtures.workflow_helpers import CASSETTES_DIR
+
     return CASSETTES_DIR
 
 

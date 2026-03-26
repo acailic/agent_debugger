@@ -330,7 +330,7 @@ class TestPydanticAIAdapter:
                     timestamp=started_at + timedelta(milliseconds=25),
                     model_name="gpt-4o-mini",
                     usage=MagicMock(input_tokens=5, output_tokens=7),
-                )
+                ),
             ]
         )
         mock_agent = MockAgent()
@@ -382,9 +382,7 @@ class TestPydanticAIAdapter:
 
         assert len(requests) == 2
         assert requests[0].messages == [{"role": "user", "content": "Hello"}]
-        assert requests[1].messages == [
-            {"role": "tool", "name": "search", "content": "{'city': 'Belgrade'}"}
-        ]
+        assert requests[1].messages == [{"role": "tool", "name": "search", "content": "{'city': 'Belgrade'}"}]
         assert len(responses) == 2
         assert responses[0].tool_calls == [
             {

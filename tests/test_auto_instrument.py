@@ -115,11 +115,11 @@ class TestAutoInstrumentor:
     def test_register_defaults_registers_langchain_when_available(self):
         """Test default registration path when langchain is importable."""
         fake_langchain = MagicMock()
-        with patch.dict(sys.modules, {"langchain": fake_langchain}), patch(
-            "agent_debugger_sdk.adapters.langchain.register_auto_patch"
-        ) as register_auto_patch, patch(
-            "agent_debugger_sdk.auto_instrument._global_instrumentor.register"
-        ) as register:
+        with (
+            patch.dict(sys.modules, {"langchain": fake_langchain}),
+            patch("agent_debugger_sdk.adapters.langchain.register_auto_patch") as register_auto_patch,
+            patch("agent_debugger_sdk.auto_instrument._global_instrumentor.register") as register,
+        ):
             _register_defaults()
 
         register.assert_called_once_with("langchain", register_auto_patch)

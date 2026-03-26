@@ -17,9 +17,7 @@ _event_sequence: ContextVar[int] = ContextVar("event_sequence", default=0)
 # Type checkers will see the proper type from the return annotation of get_current_context()
 _current_context: ContextVar[Any] = ContextVar("current_context", default=None)
 _default_event_buffer: ContextVar[EventBufferLike | None] = ContextVar("default_event_buffer", default=None)
-_default_event_persister: ContextVar[
-    Callable[[TraceEvent], Awaitable[None]] | None
-] = ContextVar(
+_default_event_persister: ContextVar[Callable[[TraceEvent], Awaitable[None]] | None] = ContextVar(
     "default_event_persister",
     default=None,
 )

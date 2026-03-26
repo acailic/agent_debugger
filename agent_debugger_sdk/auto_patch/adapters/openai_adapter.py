@@ -11,6 +11,7 @@ Streaming calls (``stream=True``) are passed through unchanged; intercepting
 streamed responses requires different handling and is out of scope for this
 adapter.
 """
+
 from __future__ import annotations
 
 import json
@@ -48,9 +49,7 @@ class OpenAIAdapter(BaseAdapter):
 
         # --- Sync client ---
         self._originals["sync_create"] = openai.OpenAI.chat.completions.create
-        openai.OpenAI.chat.completions.create = self._make_sync_wrapper(
-            openai.OpenAI.chat.completions.create
-        )
+        openai.OpenAI.chat.completions.create = self._make_sync_wrapper(openai.OpenAI.chat.completions.create)
 
         # --- Async client ---
         self._originals["async_create"] = openai.AsyncOpenAI.chat.completions.create
@@ -111,11 +110,7 @@ class OpenAIAdapter(BaseAdapter):
             model=kwargs.get("model", ""),
             messages=kwargs.get("messages", []) if self._config.capture_content else [],
             tools=tools,
-            settings={
-                k: v
-                for k, v in kwargs.items()
-                if k in ("temperature", "max_tokens", "top_p")
-            },
+            settings={k: v for k, v in kwargs.items() if k in ("temperature", "max_tokens", "top_p")},
         )
         self._transport.send_event(event.to_dict())
         return event.id

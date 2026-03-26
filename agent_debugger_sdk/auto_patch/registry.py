@@ -1,4 +1,5 @@
 """Auto-patch registry: PatchConfig, BaseAdapter, and PatchRegistry."""
+
 from __future__ import annotations
 
 import logging

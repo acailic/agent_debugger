@@ -1,4 +1,5 @@
 """PII detection regex patterns."""
+
 import re
 
 PII_PATTERNS: dict[str, re.Pattern] = {

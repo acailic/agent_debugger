@@ -46,8 +46,9 @@ async def test_trace_context_cloud_mode_uses_transport_and_closes_it():
     )
     config = SimpleNamespace(mode="cloud", api_key="ad_live_test", endpoint="https://collector.test", enabled=True)
 
-    with patch("agent_debugger_sdk.config.get_config", return_value=config), patch(
-        "agent_debugger_sdk.transport.HttpTransport", return_value=transport
+    with (
+        patch("agent_debugger_sdk.config.get_config", return_value=config),
+        patch("agent_debugger_sdk.transport.HttpTransport", return_value=transport),
     ):
         async with TraceContext(session_id="cloud-session", agent_name="agent", framework="test") as ctx:
             await ctx.record_tool_call("search", {"q": "Belgrade"})
@@ -250,10 +251,15 @@ async def test_trace_context_persister_failures_are_swallowed_and_traceback_is_r
     configure_event_pipeline(None, persist_event=persister)
 
     try:
-        with patch(
-            "agent_debugger_sdk.config.get_config",
-            return_value=SimpleNamespace(mode="local", api_key=None, endpoint="http://localhost:8000", enabled=True),
-        ), pytest.raises(ValueError, match="boom"):
+        with (
+            patch(
+                "agent_debugger_sdk.config.get_config",
+                return_value=SimpleNamespace(
+                    mode="local", api_key=None, endpoint="http://localhost:8000", enabled=True
+                ),
+            ),
+            pytest.raises(ValueError, match="boom"),
+        ):
             async with TraceContext(session_id="traceback-session", agent_name="agent", framework="test") as ctx:
                 await ctx.record_llm_response(
                     "gpt-4o",
@@ -267,5 +273,5 @@ async def test_trace_context_persister_failures_are_swallowed_and_traceback_is_r
         configure_event_pipeline(None)
 
     error_event = next(event for event in events if event.event_type == EventType.ERROR)
-    assert "raise ValueError(\"boom\")" in (error_event.stack_trace or "")
+    assert 'raise ValueError("boom")' in (error_event.stack_trace or "")
     assert persister.await_count >= 1

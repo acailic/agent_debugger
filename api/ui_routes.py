@@ -1,4 +1,5 @@
 """UI serving routes — root redirect and static file fallback."""
+
 from __future__ import annotations
 
 from pathlib import Path

@@ -8,6 +8,7 @@ async wrapper that emits :class:`~agent_debugger_sdk.core.events.LLMRequestEvent
 and :class:`~agent_debugger_sdk.core.events.LLMResponseEvent` events using the
 synchronous :class:`~agent_debugger_sdk.auto_patch._transport.SyncTransport`.
 """
+
 from __future__ import annotations
 
 import logging
@@ -211,9 +212,7 @@ def _extract_usage(result: Any) -> dict[str, int]:
         u = result.usage
         return {
             "input_tokens": getattr(u, "request_tokens", 0) or getattr(u, "input_tokens", 0) or 0,
-            "output_tokens": getattr(u, "response_tokens", 0)
-            or getattr(u, "output_tokens", 0)
-            or 0,
+            "output_tokens": getattr(u, "response_tokens", 0) or getattr(u, "output_tokens", 0) or 0,
         }
 
     return empty

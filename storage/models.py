@@ -66,9 +66,7 @@ class EventModel(Base):
 
     session: Mapped[SessionModel] = relationship(back_populates="events")
 
-    __table_args__ = (
-        Index("ix_events_tenant_session", "tenant_id", "session_id"),
-    )
+    __table_args__ = (Index("ix_events_tenant_session", "tenant_id", "session_id"),)
 
 
 class CheckpointModel(Base):
@@ -124,4 +122,3 @@ class AnomalyAlertModel(Base):
     detection_source: Mapped[str] = mapped_column(String(32))
     detection_config: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
-

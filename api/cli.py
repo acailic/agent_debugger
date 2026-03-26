@@ -2,6 +2,7 @@
 
 This module provides the command-line interface for running the server.
 """
+
 import argparse
 import importlib.metadata
 import webbrowser

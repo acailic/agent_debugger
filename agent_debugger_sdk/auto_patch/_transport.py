@@ -5,6 +5,7 @@ designed to be called from synchronous code paths (e.g. monkey-patched
 library hooks).  Events are queued and dispatched by a background daemon
 thread so that the calling code is never blocked.
 """
+
 from __future__ import annotations
 
 import logging

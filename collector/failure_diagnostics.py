@@ -50,12 +50,12 @@ class FailureDiagnostics:
         if failure_event.event_type == EventType.TOOL_RESULT:
             return (
                 f'Tool "{event_headline_fn(failure_event)}" failed'
-                f' with {self._causal._clip(_event_value(failure_event, "error", "unknown error"), 72)}'
+                f" with {self._causal._clip(_event_value(failure_event, 'error', 'unknown error'), 72)}"
             )
         if failure_event.event_type == EventType.ERROR:
             return (
-                f'{_event_value(failure_event, "error_type", "RuntimeError")} raised'
-                f' with {self._causal._clip(_event_value(failure_event, "error_message", "no message"), 72)}'
+                f"{_event_value(failure_event, 'error_type', 'RuntimeError')} raised"
+                f" with {self._causal._clip(_event_value(failure_event, 'error_message', 'no message'), 72)}"
             )
         if failure_event.event_type == EventType.REFUSAL:
             reason = _event_value(failure_event, "reason", "no reason provided")
@@ -68,7 +68,7 @@ class FailureDiagnostics:
         if failure_event.event_type == EventType.SAFETY_CHECK:
             return (
                 f'Safety check "{_event_value(failure_event, "policy_name", "policy")}"'
-                f' returned {_event_value(failure_event, "outcome", "pass")}'
+                f" returned {_event_value(failure_event, 'outcome', 'pass')}"
             )
         return self._causal._clip(event_headline_fn(failure_event), 96)
 
@@ -113,10 +113,7 @@ class FailureDiagnostics:
             or event.event_type == EventType.POLICY_VIOLATION
             or event.event_type == EventType.BEHAVIOR_ALERT
             or (event.event_type == EventType.TOOL_RESULT and bool(_event_value(event, "error")))
-            or (
-                event.event_type == EventType.SAFETY_CHECK
-                and _event_value(event, "outcome", "pass") != "pass"
-            )
+            or (event.event_type == EventType.SAFETY_CHECK and _event_value(event, "outcome", "pass") != "pass")
         )
 
     def build_failure_explanations(
@@ -157,8 +154,7 @@ class FailureDiagnostics:
                 narrative += f" The strongest upstream suspect is {likely_cause.lower()}"
             else:
                 narrative += (
-                    " Inspect the nearest checkpoint and surrounding decisions"
-                    " to establish the upstream cause."
+                    " Inspect the nearest checkpoint and surrounding decisions to establish the upstream cause."
                 )
 
             explanations.append(

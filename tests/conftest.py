@@ -1,4 +1,5 @@
 """Pytest fixtures for test isolation."""
+
 import os
 import tempfile
 
@@ -22,6 +23,7 @@ def pytest_configure(config):
 def pytest_unconfigure(config):
     """Cleanup after all tests."""
     import shutil
+
     shutil.rmtree(_temp_dir, ignore_errors=True)
 
 
@@ -32,7 +34,6 @@ def reset_global_config():
     cfg_mod._global_config = None
     yield
     cfg_mod._global_config = original_config
-
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -61,9 +62,11 @@ def setup_test_db():
 # Shared Test Factories
 # =============================================================================
 
+
 @pytest.fixture
 def make_event():
     """Factory fixture to create TraceEvent instances for tests."""
+
     def _make_event(
         session_id: str = "s1",
         name: str = "test",
@@ -84,12 +87,14 @@ def make_event():
             importance=importance,
             upstream_event_ids=upstream_event_ids or [],
         )
+
     return _make_event
 
 
 @pytest.fixture
 def make_llm_event():
     """Factory fixture to create LLM response events for tests."""
+
     def _make_llm_event(
         content: str,
         session_id: str = "s1",
@@ -106,12 +111,14 @@ def make_llm_event():
             data={"content": content, "model": model},
             metadata=metadata or {},
         )
+
     return _make_llm_event
 
 
 # =============================================================================
 # API Test Client
 # =============================================================================
+
 
 @pytest.fixture
 async def api_client():

@@ -1,4 +1,5 @@
 """Tests for SDK HTTP transport."""
+
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,8 +11,14 @@ from agent_debugger_sdk.transport import HttpTransport
 
 def _make_event() -> TraceEvent:
     return TraceEvent(
-        session_id="s1", parent_id=None, event_type=EventType.TOOL_CALL,
-        name="test", data={}, metadata={}, importance=0.5, upstream_event_ids=[],
+        session_id="s1",
+        parent_id=None,
+        event_type=EventType.TOOL_CALL,
+        name="test",
+        data={},
+        metadata={},
+        importance=0.5,
+        upstream_event_ids=[],
     )
 
 
@@ -89,7 +96,9 @@ async def test_transport_send_session_update_logs_http_status_on_failure(caplog)
     # Ensure we got the warning log at the "agent_debugger" logger
     warning_records = [r for r in caplog.records if r.name == "agent_debugger" and r.levelno == logging.WARNING]
     # Updated to match new log format which uses "status=404" instead of "status_code=404"
-    assert any("status=404" in r.message for r in warning_records), f"No warning log found in agent_debugger: {caplog.records}"
+    assert any("status=404" in r.message for r in warning_records), (
+        f"No warning log found in agent_debugger: {caplog.records}"
+    )
 
 
 @pytest.mark.asyncio

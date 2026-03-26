@@ -108,10 +108,7 @@ def _serialize_field_value(value: Any) -> Any:
     if isinstance(value, tuple):
         return [_serialize_field_value(item) for item in value]
     if isinstance(value, dict):
-        return {
-            key: _serialize_field_value(item)
-            for key, item in value.items()
-        }
+        return {key: _serialize_field_value(item) for key, item in value.items()}
     return value
 
 
@@ -155,19 +152,12 @@ class TraceEvent:
         Returns:
             Dictionary representation of this event
         """
-        return {
-            field_info.name: _serialize_field_value(getattr(self, field_info.name))
-            for field_info in fields(self)
-        }
+        return {field_info.name: _serialize_field_value(getattr(self, field_info.name)) for field_info in fields(self)}
 
     @classmethod
     def _typed_field_names(cls) -> set[str]:
         """Return event-specific dataclass fields beyond the shared base payload."""
-        return {
-            field_info.name
-            for field_info in fields(cls)
-            if field_info.name not in BASE_EVENT_FIELDS
-        }
+        return {field_info.name for field_info in fields(cls) if field_info.name not in BASE_EVENT_FIELDS}
 
     def to_storage_data(self) -> dict[str, Any]:
         """Merge event-specific fields into the storage payload."""
@@ -209,16 +199,8 @@ class TraceEvent:
         """Build the typed event instance for the given event_type."""
         event_cls = EVENT_TYPE_REGISTRY.get(event_type, cls)
         typed_field_names = event_cls._typed_field_names()
-        typed_kwargs = {
-            field_name: data[field_name]
-            for field_name in typed_field_names
-            if field_name in data
-        }
-        payload = {
-            key: value
-            for key, value in data.items()
-            if key not in typed_field_names
-        }
+        typed_kwargs = {field_name: data[field_name] for field_name in typed_field_names if field_name in data}
+        payload = {key: value for key, value in data.items() if key not in typed_field_names}
         return event_cls(
             **base_kwargs,
             event_type=event_type,
@@ -325,6 +307,7 @@ class LLMResponseEvent(TraceEvent):
                 calculated = calculate_cost(self.model, input_tokens, output_tokens)
                 if calculated is not None:
                     object.__setattr__(self, "cost_usd", calculated)
+
 
 @dataclass(kw_only=True)
 class DecisionEvent(TraceEvent):

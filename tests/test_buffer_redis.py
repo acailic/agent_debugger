@@ -3,6 +3,7 @@
 These tests require the 'redis' package which is an optional dependency.
 They will be skipped if redis is not installed.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -224,6 +225,7 @@ async def test_event_serialization(make_event):
     payload = call_args[0][1]["event"]
 
     import json
+
     parsed = json.loads(payload)
     assert parsed["session_id"] == "s1"
     assert parsed["event_type"] == "tool_call"

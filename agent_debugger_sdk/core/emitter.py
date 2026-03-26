@@ -64,6 +64,7 @@ class EventEmitter:
     async def emit(self, event: TraceEvent) -> None:
         """Emit an event to storage, hooks, and live consumers."""
         from agent_debugger_sdk.config import get_config as _get_config
+
         config = _get_config()
         if not config.enabled:
             return

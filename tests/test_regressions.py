@@ -86,9 +86,7 @@ class TestEventSerialization:
 
         from agent_debugger_sdk.core.events import ToolCallEvent
 
-        event = ToolCallEvent(
-            id="test-1", session_id="session-1", tool_name="search", arguments={"query": "test"}
-        )
+        event = ToolCallEvent(id="test-1", session_id="session-1", tool_name="search", arguments={"query": "test"})
         data = event.to_dict()
         json_str = json.dumps(data)
         assert json_str is not None

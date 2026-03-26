@@ -1,14 +1,18 @@
 """Tests for API key management endpoints."""
+
 import pytest
 
 
 @pytest.mark.asyncio
 async def test_create_api_key(api_client):
     """Test creating a new API key."""
-    resp = await api_client.post("/api/auth/keys", json={
-        "name": "my-dev-key",
-        "environment": "test",
-    })
+    resp = await api_client.post(
+        "/api/auth/keys",
+        json={
+            "name": "my-dev-key",
+            "environment": "test",
+        },
+    )
     # In local mode with in-memory SQLite, should succeed
     # Accept 201 (created) or 422 (validation error if schema changed)
     # Reject 404/405/500 as those indicate broken endpoint

@@ -1,4 +1,5 @@
 """Auto-instrumentation registry for framework patching."""
+
 from __future__ import annotations
 
 import logging

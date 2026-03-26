@@ -210,15 +210,17 @@ class TestSyncTracingCallbackHandlerLLM:
         transport.reset_mock()
 
         response = Mock(
-            generations=[[
-                Mock(
-                    text="",
-                    message=Mock(
-                        content="",
-                        tool_calls=[{"id": "call-1", "name": "search", "args": {"q": "docs"}}],
-                    ),
-                )
-            ]],
+            generations=[
+                [
+                    Mock(
+                        text="",
+                        message=Mock(
+                            content="",
+                            tool_calls=[{"id": "call-1", "name": "search", "args": {"q": "docs"}}],
+                        ),
+                    )
+                ]
+            ],
             llm_output=None,
         )
         handler.on_llm_end(response=response, run_id=run_id)
@@ -354,9 +356,7 @@ class TestSyncTracingCallbackHandlerRobustness:
         transport = _make_transport()
         transport.send_event.side_effect = RuntimeError("network failure")
 
-        handler = _SyncTracingCallbackHandler(
-            session_id="s", transport=transport, capture_content=False
-        )
+        handler = _SyncTracingCallbackHandler(session_id="s", transport=transport, capture_content=False)
         # Should not raise
         handler.on_llm_start(serialized={}, prompts=[], run_id=uuid.uuid4())
 

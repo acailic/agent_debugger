@@ -91,9 +91,7 @@ class TestReplaySessionBehavior:
     @patch("api.replay_routes.load_session_artifacts", new_callable=AsyncMock)
     def test_replay_session_not_found_returns_404(self, mock_load, mock_require, client):
         """Replay on a missing session returns 404."""
-        mock_require.side_effect = HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
-        )
+        mock_require.side_effect = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
         response = client.get(f"/api/sessions/{uuid4()}/replay")
         assert response.status_code == 404
 

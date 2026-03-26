@@ -32,6 +32,7 @@ from agent_debugger_sdk import TraceContext, init
 # Simulated tool implementations (no API keys required)
 # ---------------------------------------------------------------------------
 
+
 async def classify_issue(description: str) -> dict:
     await asyncio.sleep(0.6)
     keywords = description.lower()
@@ -75,6 +76,7 @@ async def send_resolution(user_id: str, message: str) -> dict:
 # Agent
 # ---------------------------------------------------------------------------
 
+
 async def support_triage_agent(ticket: dict) -> str:
     """
     Multi-step support triage agent that:
@@ -90,14 +92,10 @@ async def support_triage_agent(ticket: dict) -> str:
         framework="custom",
         tags=["demo", "live-stream", "customer-support"],
     ) as ctx:
-
         # Step 1: Classify the issue
         await asyncio.sleep(0.3)
         await ctx.record_decision(
-            reasoning=(
-                f"Received ticket #{ticket['id']}: \"{ticket['description']}\". "
-                "Need to classify before routing."
-            ),
+            reasoning=(f'Received ticket #{ticket["id"]}: "{ticket["description"]}". Need to classify before routing.'),
             confidence=0.95,
             chosen_action="classify_issue",
             evidence=[{"source": "ticket", "content": ticket["description"]}],

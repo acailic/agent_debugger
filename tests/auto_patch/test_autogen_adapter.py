@@ -15,6 +15,7 @@ The tests verify:
 9. Double-patch guard works.
 10. Server unreachability does not raise.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -173,9 +174,7 @@ class TestAutoGenAdapterV02PatchUnpatch:
         adapter.patch(config)
 
         assert fake_autogen_v02.ConversableAgent.initiate_chat is not original
-        assert getattr(
-            fake_autogen_v02.ConversableAgent.initiate_chat, "_peaky_peek_patched", False
-        ) is True
+        assert getattr(fake_autogen_v02.ConversableAgent.initiate_chat, "_peaky_peek_patched", False) is True
 
         adapter.unpatch()
 
@@ -214,9 +213,7 @@ class TestAutoGenAdapterV02PatchUnpatch:
 
 
 class TestAutoGenAdapterV02EventEmission:
-    def test_initiate_chat_emits_agent_start_and_end(
-        self, fake_autogen_v02, mock_httpx
-    ) -> None:
+    def test_initiate_chat_emits_agent_start_and_end(self, fake_autogen_v02, mock_httpx) -> None:
         """The traced initiate_chat should emit agent_start and agent_end events."""
         adapter = AutoGenAdapter()
         config = PatchConfig(server_url="http://localhost:9999")
@@ -234,9 +231,7 @@ class TestAutoGenAdapterV02EventEmission:
 
         adapter.unpatch()
 
-    def test_initiate_chat_error_emits_error_event_and_reraises(
-        self, fake_autogen_v02, mock_httpx
-    ) -> None:
+    def test_initiate_chat_error_emits_error_event_and_reraises(self, fake_autogen_v02, mock_httpx) -> None:
         """When initiate_chat raises, an error event should be sent and re-raised."""
         adapter = AutoGenAdapter()
         config = PatchConfig(server_url="http://localhost:9999")

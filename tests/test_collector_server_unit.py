@@ -123,9 +123,12 @@ async def test_get_tenant_id_uses_local_and_cloud_modes():
     with patch("collector.server.get_config", return_value=SimpleNamespace(mode="local")):
         assert await collector_server._get_tenant_id(request, db) == "local"
 
-    with patch("collector.server.get_config", return_value=SimpleNamespace(mode="cloud")), patch(
-        "collector.server.get_tenant_from_api_key", new=AsyncMock(return_value="tenant-cloud")
-    ) as get_tenant_from_api_key:
+    with (
+        patch("collector.server.get_config", return_value=SimpleNamespace(mode="cloud")),
+        patch(
+            "collector.server.get_tenant_from_api_key", new=AsyncMock(return_value="tenant-cloud")
+        ) as get_tenant_from_api_key,
+    ):
         assert await collector_server._get_tenant_id(request, db) == "tenant-cloud"
         get_tenant_from_api_key.assert_awaited_once_with(request, db)
 
@@ -201,18 +204,116 @@ def test_parse_event_type_and_timestamp():
 @pytest.mark.parametrize(
     ("event_type", "data", "expected_type", "field_assertions"),
     [
-        (EventType.TOOL_CALL, {"tool_name": "search", "arguments": {"q": "x"}}, ToolCallEvent, lambda event: event.tool_name == "search"),
-        (EventType.TOOL_RESULT, {"tool_name": "search", "result": ["x"], "error": None, "duration_ms": 1.2}, ToolResultEvent, lambda event: event.result == ["x"]),
-        (EventType.LLM_REQUEST, {"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}], "tools": [], "settings": {"temperature": 0.1}}, LLMRequestEvent, lambda event: event.model == "gpt-4"),
-        (EventType.LLM_RESPONSE, {"model": "gpt-4", "content": "hello", "tool_calls": [], "usage": {"input_tokens": 1, "output_tokens": 1}, "cost_usd": 0.1, "duration_ms": 12.0}, LLMResponseEvent, lambda event: event.content == "hello"),
-        (EventType.DECISION, {"reasoning": "tool first", "confidence": 0.8, "evidence": [], "evidence_event_ids": ["e1"], "alternatives": [], "chosen_action": "answer"}, DecisionEvent, lambda event: event.chosen_action == "answer"),
-        (EventType.SAFETY_CHECK, {"policy_name": "policy", "outcome": "warn", "risk_level": "medium", "rationale": "careful", "blocked_action": "send", "evidence": []}, SafetyCheckEvent, lambda event: event.outcome == "warn"),
-        (EventType.REFUSAL, {"reason": "unsafe", "policy_name": "policy", "risk_level": "high", "blocked_action": "send", "safe_alternative": "summarize"}, RefusalEvent, lambda event: event.safe_alternative == "summarize"),
-        (EventType.POLICY_VIOLATION, {"policy_name": "policy", "severity": "high", "violation_type": "prompt", "details": {"a": 1}}, PolicyViolationEvent, lambda event: event.violation_type == "prompt"),
-        (EventType.PROMPT_POLICY, {"template_id": "tpl", "policy_parameters": {"mode": "strict"}, "speaker": "system", "state_summary": "clean", "goal": "help"}, PromptPolicyEvent, lambda event: event.template_id == "tpl"),
-        (EventType.AGENT_TURN, {"agent_id": "a1", "speaker": "assistant", "turn_index": 2, "goal": "plan", "content": "next"}, AgentTurnEvent, lambda event: event.turn_index == 2),
-        (EventType.BEHAVIOR_ALERT, {"alert_type": "drift", "severity": "high", "signal": "looping", "related_event_ids": ["e1"]}, BehaviorAlertEvent, lambda event: event.signal == "looping"),
-        (EventType.ERROR, {"error_type": "ValueError", "error_message": "boom", "stack_trace": "trace"}, ErrorEvent, lambda event: event.error_message == "boom"),
+        (
+            EventType.TOOL_CALL,
+            {"tool_name": "search", "arguments": {"q": "x"}},
+            ToolCallEvent,
+            lambda event: event.tool_name == "search",
+        ),
+        (
+            EventType.TOOL_RESULT,
+            {"tool_name": "search", "result": ["x"], "error": None, "duration_ms": 1.2},
+            ToolResultEvent,
+            lambda event: event.result == ["x"],
+        ),
+        (
+            EventType.LLM_REQUEST,
+            {
+                "model": "gpt-4",
+                "messages": [{"role": "user", "content": "hi"}],
+                "tools": [],
+                "settings": {"temperature": 0.1},
+            },
+            LLMRequestEvent,
+            lambda event: event.model == "gpt-4",
+        ),
+        (
+            EventType.LLM_RESPONSE,
+            {
+                "model": "gpt-4",
+                "content": "hello",
+                "tool_calls": [],
+                "usage": {"input_tokens": 1, "output_tokens": 1},
+                "cost_usd": 0.1,
+                "duration_ms": 12.0,
+            },
+            LLMResponseEvent,
+            lambda event: event.content == "hello",
+        ),
+        (
+            EventType.DECISION,
+            {
+                "reasoning": "tool first",
+                "confidence": 0.8,
+                "evidence": [],
+                "evidence_event_ids": ["e1"],
+                "alternatives": [],
+                "chosen_action": "answer",
+            },
+            DecisionEvent,
+            lambda event: event.chosen_action == "answer",
+        ),
+        (
+            EventType.SAFETY_CHECK,
+            {
+                "policy_name": "policy",
+                "outcome": "warn",
+                "risk_level": "medium",
+                "rationale": "careful",
+                "blocked_action": "send",
+                "evidence": [],
+            },
+            SafetyCheckEvent,
+            lambda event: event.outcome == "warn",
+        ),
+        (
+            EventType.REFUSAL,
+            {
+                "reason": "unsafe",
+                "policy_name": "policy",
+                "risk_level": "high",
+                "blocked_action": "send",
+                "safe_alternative": "summarize",
+            },
+            RefusalEvent,
+            lambda event: event.safe_alternative == "summarize",
+        ),
+        (
+            EventType.POLICY_VIOLATION,
+            {"policy_name": "policy", "severity": "high", "violation_type": "prompt", "details": {"a": 1}},
+            PolicyViolationEvent,
+            lambda event: event.violation_type == "prompt",
+        ),
+        (
+            EventType.PROMPT_POLICY,
+            {
+                "template_id": "tpl",
+                "policy_parameters": {"mode": "strict"},
+                "speaker": "system",
+                "state_summary": "clean",
+                "goal": "help",
+            },
+            PromptPolicyEvent,
+            lambda event: event.template_id == "tpl",
+        ),
+        (
+            EventType.AGENT_TURN,
+            {"agent_id": "a1", "speaker": "assistant", "turn_index": 2, "goal": "plan", "content": "next"},
+            AgentTurnEvent,
+            lambda event: event.turn_index == 2,
+        ),
+        (
+            EventType.BEHAVIOR_ALERT,
+            {"alert_type": "drift", "severity": "high", "signal": "looping", "related_event_ids": ["e1"]},
+            BehaviorAlertEvent,
+            lambda event: event.signal == "looping",
+        ),
+        (
+            EventType.ERROR,
+            {"error_type": "ValueError", "error_message": "boom", "stack_trace": "trace"},
+            ErrorEvent,
+            lambda event: event.error_message == "boom",
+        ),
         (EventType.CHECKPOINT, {"raw": True}, TraceEvent, lambda event: event.data == {"raw": True}),
     ],
 )
@@ -252,12 +353,14 @@ async def test_ingest_trace_without_storage_scores_and_publishes(monkeypatch):
 
     monkeypatch.setattr(collector_server, "_session_maker", None)
 
-    with patch("collector.server.get_event_buffer", return_value=buffer), patch(
-        "collector.server.get_importance_scorer", return_value=scorer
-    ), patch(
-        "collector.server._persist_event_if_configured",
-        side_effect=lambda event, tenant_id="local": persisted.append((tenant_id, event.importance)),
-    ) as persist:
+    with (
+        patch("collector.server.get_event_buffer", return_value=buffer),
+        patch("collector.server.get_importance_scorer", return_value=scorer),
+        patch(
+            "collector.server._persist_event_if_configured",
+            side_effect=lambda event, tenant_id="local": persisted.append((tenant_id, event.importance)),
+        ) as persist,
+    ):
         response = await collector_server.ingest_trace(event_data, request=SimpleNamespace(headers={}))
 
     assert response.status == "queued"
@@ -282,9 +385,11 @@ async def test_ingest_trace_with_storage_resolves_tenant_and_publishes(collector
         await repo.create_session(session)
         await repo.commit()
 
-    with patch("collector.server.get_event_buffer", return_value=buffer), patch(
-        "collector.server.get_importance_scorer", return_value=scorer
-    ), patch("collector.server._get_tenant_id", new=AsyncMock(return_value="tenant-a")):
+    with (
+        patch("collector.server.get_event_buffer", return_value=buffer),
+        patch("collector.server.get_importance_scorer", return_value=scorer),
+        patch("collector.server._get_tenant_id", new=AsyncMock(return_value="tenant-a")),
+    ):
         response = await collector_server.ingest_trace(event_data, request=SimpleNamespace(headers={}))
 
     assert response.status == "queued"

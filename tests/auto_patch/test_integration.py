@@ -15,6 +15,7 @@ Key design decisions
 * The global ``PatchRegistry`` singleton is reset before each test via the
   ``clean_registry`` fixture.
 """
+
 from __future__ import annotations
 
 import sys
@@ -396,9 +397,7 @@ def test_build_config_from_env_capture_content_true(monkeypatch):
 
     config = _build_config_from_env()
 
-    assert config.capture_content is True, (
-        f"Expected capture_content=True, got {config.capture_content}"
-    )
+    assert config.capture_content is True, f"Expected capture_content=True, got {config.capture_content}"
     assert config.server_url == "http://localhost:7777"
 
 
@@ -409,9 +408,7 @@ def test_build_config_from_env_capture_content_false_by_default(monkeypatch):
 
     config = _build_config_from_env()
 
-    assert config.capture_content is False, (
-        f"Expected capture_content=False (default), got {config.capture_content}"
-    )
+    assert config.capture_content is False, f"Expected capture_content=False (default), got {config.capture_content}"
 
 
 # ---------------------------------------------------------------------------
@@ -427,9 +424,7 @@ def test_build_config_from_env_agent_name(monkeypatch):
 
     config = _build_config_from_env()
 
-    assert config.agent_name == "my-agent", (
-        f"Expected agent_name='my-agent', got {config.agent_name!r}"
-    )
+    assert config.agent_name == "my-agent", f"Expected agent_name='my-agent', got {config.agent_name!r}"
 
 
 def test_build_config_from_env_agent_name_default(monkeypatch):
