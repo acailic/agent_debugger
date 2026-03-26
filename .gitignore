@@ -45,3 +45,6 @@ old_docs/
 
 # Playwright MCP cache
 .playwright-mcp/
+
+# Frontend dependencies
+node_modules/
