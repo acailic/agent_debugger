@@ -1,10 +1,14 @@
 import type {
   AgentBaseline,
   AnalyticsResponse,
+  CostSummary,
   DriftResponse,
+  FixNoteResponse,
   LiveSummary,
   ReplayResponse,
+  SearchResponse,
   Session,
+  SessionCost,
   TraceAnalysis,
   TraceBundle,
   TraceSearchResponse,
@@ -96,4 +100,38 @@ export async function getAgentDrift(agentName: string): Promise<DriftResponse> {
 
 export async function getAnalytics(range: string): Promise<AnalyticsResponse> {
   return fetchJSON<AnalyticsResponse>(`${API_BASE}/analytics?range=${encodeURIComponent(range)}`)
+}
+
+// Cost Dashboard API
+export async function getCostSummary() {
+  return fetchJSON<CostSummary>(`${API_BASE}/cost/summary`)
+}
+
+export async function getSessionCost(sessionId: string) {
+  return fetchJSON<SessionCost>(`${API_BASE}/cost/sessions/${sessionId}`)
+}
+
+// Failure Memory Search API
+export async function searchSessions(params: {
+  q: string
+  status?: string | null
+  limit?: number
+}) {
+  const search = new URLSearchParams()
+  search.set('q', params.q)
+  if (params.status) search.set('status', params.status)
+  if (params.limit) search.set('limit', String(params.limit))
+  return fetchJSON<SearchResponse>(`${API_BASE}/search?${search.toString()}`)
+}
+
+export async function addFixNote(sessionId: string, note: string) {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/fix-note`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ note }),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json() as Promise<FixNoteResponse>
 }

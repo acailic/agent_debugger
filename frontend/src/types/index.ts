@@ -388,3 +388,48 @@ export interface AnalyticsResponse {
   derived: AnalyticsDerived
   daily_breakdown: DailyBreakdown[]
 }
+
+// Cost Dashboard types
+export interface CostSummary {
+  total_cost_usd: number
+  session_count: number
+  avg_cost_per_session: number
+  by_framework: Array<{
+    framework: string
+    session_count: number
+    total_cost_usd: number
+  }>
+}
+
+export interface SessionCost {
+  session_id: string
+  total_cost_usd: number
+  total_tokens: number
+  llm_calls: number
+  tool_calls: number
+}
+
+// Failure Memory Search types
+export interface SearchResult {
+  session_id: string
+  agent_name: string
+  framework: string
+  status: string
+  total_cost_usd: number
+  started_at: string
+  ended_at: string | null
+  errors: number
+  fix_note: string | null
+  similarity: number
+}
+
+export interface SearchResponse {
+  query: string
+  total: number
+  results: SearchResult[]
+}
+
+export interface FixNoteResponse {
+  session_id: string
+  fix_note: string
+}
