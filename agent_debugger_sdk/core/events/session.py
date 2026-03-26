@@ -31,6 +31,7 @@ class Session:
         errors: Number of errors encountered
         config: Agent configuration settings
         tags: Tags for categorizing and filtering sessions
+        fix_note: Developer notes on how a failure was fixed
     """
 
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -47,6 +48,7 @@ class Session:
     replay_value: float = 0.0
     config: dict[str, Any] = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
+    fix_note: str | None = None
 
     def __post_init__(self) -> None:
         self.status = SessionStatus(self.status)
@@ -68,4 +70,5 @@ class Session:
             "replay_value": self.replay_value,
             "config": self.config,
             "tags": self.tags,
+            "fix_note": self.fix_note,
         }

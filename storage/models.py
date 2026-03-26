@@ -37,6 +37,7 @@ class SessionModel(Base):
     replay_value: Mapped[float] = mapped_column(Float, default=0.0, index=True)
     config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)
+    fix_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Retention and clustering columns for research features
     retention_tier: Mapped[str] = mapped_column(String(16), default="downsampled", index=True)
     failure_fingerprint_primary: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)

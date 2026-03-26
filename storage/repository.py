@@ -169,6 +169,7 @@ class TraceRepository:
             "replay_value",
             "config",
             "tags",
+            "fix_note",
         }
         filtered_updates = {k: v for k, v in updates.items() if k in valid_fields}
         if not filtered_updates:
@@ -187,6 +188,18 @@ class TraceRepository:
         for field, value in filtered_updates.items():
             setattr(db_session, field, value)
         return self._orm_to_session(db_session)
+
+    async def add_fix_note(self, session_id: str, note: str) -> Session | None:
+        """Add or update a fix note for a session.
+
+        Args:
+            session_id: Unique identifier of the session
+            note: The fix note text to add
+
+        Returns:
+            Updated Session if found, None otherwise
+        """
+        return await self.update_session(session_id, fix_note=note)
 
     async def delete_session(self, session_id: str) -> bool:
         """Delete a session by ID.
@@ -532,6 +545,7 @@ class TraceRepository:
             replay_value=db_session.replay_value,
             config=db_session.config,
             tags=db_session.tags,
+            fix_note=db_session.fix_note,
         )
 
     def _orm_to_checkpoint(self, db_checkpoint: CheckpointModel) -> Checkpoint:
