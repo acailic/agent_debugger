@@ -84,6 +84,7 @@ class TraceRepository:
             replay_value=session.replay_value,
             config=session.config,
             tags=session.tags,
+            fix_note=session.fix_note,
         )
         self.session.add(db_session)
         return self._orm_to_session(db_session)

@@ -147,3 +147,69 @@ async def test_get_cost_summary_tenant_isolation(db_session):
     summary_b = await repo_b.get_cost_summary()
     assert summary_b["session_count"] == 1
     assert summary_b["total_cost_usd"] == round(0.50, 6)
+
+
+@pytest.mark.asyncio
+async def test_get_cost_summary_with_zero_cost_sessions(db_session):
+    """Test cost summary when sessions have zero cost."""
+    repo = TraceRepository(db_session, tenant_id="tenant-zero")
+
+    # Create sessions with zero cost
+    await repo.create_session(_make_session("zero-1", total_cost_usd=0.0))
+    await repo.create_session(_make_session("zero-2", total_cost_usd=0.0))
+    await repo.commit()
+
+    summary = await repo.get_cost_summary()
+    assert summary["session_count"] == 2
+    assert summary["total_cost_usd"] == 0.0
+    assert summary["avg_cost_per_session"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_get_session_cost_with_zero_values(db_session):
+    """Test session cost when all values are zero."""
+    repo = TraceRepository(db_session, tenant_id="tenant-zero-detail")
+
+    session = _make_session("zero-detail", total_cost_usd=0.0)
+    session.total_tokens = 0
+    session.llm_calls = 0
+    session.tool_calls = 0
+    await repo.create_session(session)
+    await repo.commit()
+
+    fetched = await repo.get_session("zero-detail")
+    assert fetched is not None
+    assert fetched.total_cost_usd == 0.0
+    assert fetched.total_tokens == 0
+    assert fetched.llm_calls == 0
+    assert fetched.tool_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_get_cost_summary_single_session(db_session):
+    """Test cost summary with exactly one session."""
+    repo = TraceRepository(db_session, tenant_id="tenant-single")
+
+    await repo.create_session(_make_session("single", total_cost_usd=3.14))
+    await repo.commit()
+
+    summary = await repo.get_cost_summary()
+    assert summary["session_count"] == 1
+    assert summary["total_cost_usd"] == 3.14
+    assert summary["avg_cost_per_session"] == 3.14
+    assert len(summary["by_framework"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_cost_summary_large_values(db_session):
+    """Test cost summary with large cost values (floating point precision)."""
+    repo = TraceRepository(db_session, tenant_id="tenant-large")
+
+    await repo.create_session(_make_session("large-1", total_cost_usd=9999.99))
+    await repo.create_session(_make_session("large-2", total_cost_usd=0.01))
+    await repo.commit()
+
+    summary = await repo.get_cost_summary()
+    assert summary["session_count"] == 2
+    assert summary["total_cost_usd"] == round(9999.99 + 0.01, 6)
+    assert summary["avg_cost_per_session"] == round((9999.99 + 0.01) / 2, 6)

@@ -27,6 +27,7 @@ class SessionSchema(BaseModel):
     replay_value: float
     config: dict[str, Any]
     tags: list[str]
+    fix_note: str | None = None
     retention_tier: str | None = None
     failure_count: int | None = None
     behavior_alert_count: int | None = None
@@ -125,6 +126,7 @@ class SessionUpdateRequest(BaseModel):
     replay_value: float | None = None
     config: dict[str, Any] | None = None
     tags: list[str] | None = None
+    fix_note: str | None = None
 
 
 class TraceListResponse(BaseModel):

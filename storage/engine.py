@@ -51,11 +51,18 @@ def _repair_legacy_sqlite_schema(connection) -> None:
     inspector = inspect(connection)
     tables = set(inspector.get_table_names())
     repaired_legacy = False
+    session_columns = set()
     if "sessions" in tables:
         session_columns = {column["name"] for column in inspector.get_columns("sessions")}
         if "replay_value" not in session_columns:
             connection.execute(text("ALTER TABLE sessions ADD COLUMN replay_value FLOAT NOT NULL DEFAULT 0.0"))
             repaired_legacy = True
+            session_columns.add("replay_value")
+
+        if "fix_note" not in session_columns:
+            connection.execute(text("ALTER TABLE sessions ADD COLUMN fix_note TEXT"))
+            repaired_legacy = True
+            session_columns.add("fix_note")
 
         session_indexes = {index["name"] for index in inspector.get_indexes("sessions")}
         if "ix_sessions_replay_value" not in session_indexes:
@@ -72,7 +79,9 @@ def _repair_legacy_sqlite_schema(connection) -> None:
         # If the schema was created via Base.metadata.create_all, all columns from
         # the latest models are present and we must stamp at the latest migration
         # to prevent Alembic from trying to re-add existing columns.
-        if "retention_tier" in session_columns:
+        if "fix_note" in session_columns:
+            stamp_version = "004_add_session_fix_note"
+        elif "retention_tier" in session_columns:
             stamp_version = "003_add_research_features"
         else:
             stamp_version = "002_add_session_replay_value"

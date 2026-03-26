@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { addFixNote } from '../api/client'
 
 interface FixAnnotationProps {
@@ -7,15 +7,26 @@ interface FixAnnotationProps {
 }
 
 export default function FixAnnotation({ sessionId, existingNote }: FixAnnotationProps) {
+  const [savedNote, setSavedNote] = useState(existingNote || '')
   const [note, setNote] = useState(existingNote || '')
   const [isSaving, setIsSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(!existingNote)
 
+  useEffect(() => {
+    const nextNote = existingNote || ''
+    setSavedNote(nextNote)
+    setNote(nextNote)
+    setIsEditing(!nextNote)
+  }, [sessionId, existingNote])
+
   const handleSave = async () => {
-    if (!note.trim()) return
+    const trimmedNote = note.trim()
+    if (!trimmedNote) return
     setIsSaving(true)
     try {
-      await addFixNote(sessionId, note.trim())
+      await addFixNote(sessionId, trimmedNote)
+      setSavedNote(trimmedNote)
+      setNote(trimmedNote)
       setIsEditing(false)
     } catch {
       // Silently fail — fix notes are optional
@@ -24,11 +35,11 @@ export default function FixAnnotation({ sessionId, existingNote }: FixAnnotation
     }
   }
 
-  if (!isEditing && existingNote) {
+  if (!isEditing && savedNote) {
     return (
       <div className="fix-annotation">
         <span className="fix-label">Fix:</span>
-        <span className="fix-text">{existingNote}</span>
+        <span className="fix-text">{savedNote}</span>
         <button className="fix-edit-btn" onClick={() => setIsEditing(true)}>Edit</button>
       </div>
     )
@@ -47,8 +58,8 @@ export default function FixAnnotation({ sessionId, existingNote }: FixAnnotation
       <button className="fix-save-btn" onClick={handleSave} disabled={isSaving || !note.trim()}>
         {isSaving ? 'Saving...' : 'Save'}
       </button>
-      {existingNote && (
-        <button className="fix-cancel-btn" onClick={() => { setNote(existingNote); setIsEditing(false) }}>
+      {savedNote && (
+        <button className="fix-cancel-btn" onClick={() => { setNote(savedNote); setIsEditing(false) }}>
           Cancel
         </button>
       )}

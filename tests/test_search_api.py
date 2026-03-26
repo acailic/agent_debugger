@@ -318,3 +318,95 @@ async def test_search_with_no_events(db_session):
     # Search should not return sessions with no events
     results = await repo.search_sessions("timeout")
     assert len(results) == 0
+
+
+@pytest.mark.asyncio
+async def test_search_includes_fix_note(db_session):
+    """Test that search results include fix notes from matching sessions."""
+    repo = TraceRepository(db_session, tenant_id="tenant-fix")
+
+    # Create a session with a fix note
+    session = _make_session("session-fix")
+    await repo.create_session(session)
+
+    event = _make_error_event("session-fix", "TimeoutError", "Connection timeout", "event-fix")
+    await repo.add_event(event)
+    await repo.add_fix_note("session-fix", "Fixed by increasing timeout to 60s")
+    await repo.commit()
+
+    # Search should return the session with fix note
+    results = await repo.search_sessions("timeout")
+    assert len(results) >= 1
+
+    fix_session = next((s for s in results if s.id == "session-fix"), None)
+    assert fix_session is not None
+    assert fix_session.fix_note == "Fixed by increasing timeout to 60s"
+
+
+@pytest.mark.asyncio
+async def test_search_with_tool_name_in_events(db_session):
+    """Test that search works when events have tool_name in data dict."""
+    repo = TraceRepository(db_session, tenant_id="tenant-tool")
+
+    # Create session with tool_call events
+    session = _make_session("session-tool")
+    await repo.create_session(session)
+
+    # Add event with tool_name in data (like real tool_call events)
+    tool_event = TraceEvent(
+        id="tool-event-1",
+        session_id="session-tool",
+        name="tool_called",
+        event_type=EventType.TOOL_CALL,
+        timestamp=datetime(2026, 3, 23, 10, 1, tzinfo=timezone.utc),
+        data={"tool_name": "database_query", "model": "gpt-4"},
+    )
+    await repo.add_event(tool_event)
+    await repo.commit()
+
+    # Search for "database_query" should find the session
+    results = await repo.search_sessions("database_query")
+    assert len(results) >= 1
+    assert any(s.id == "session-tool" for s in results)
+
+    # Search for "gpt-4" should also find it (model field)
+    results = await repo.search_sessions("gpt-4")
+    assert len(results) >= 1
+    assert any(s.id == "session-tool" for s in results)
+
+
+@pytest.mark.asyncio
+async def test_search_default_limit(db_session):
+    """Test that search uses a default limit of 20."""
+    repo = TraceRepository(db_session, tenant_id="tenant-limit")
+
+    # Create 25 sessions with timeout errors
+    for i in range(25):
+        session = _make_session(f"session-limit-{i}")
+        await repo.create_session(session)
+        event = _make_error_event(f"session-limit-{i}", "TimeoutError", f"Connection timeout {i}", f"event-limit-{i}")
+        await repo.add_event(event)
+    await repo.commit()
+
+    # Search without explicit limit should return at most 20
+    results = await repo.search_sessions("timeout")
+    assert len(results) <= 20
+
+
+@pytest.mark.asyncio
+async def test_search_with_special_characters(db_session):
+    """Test that search handles special characters in query gracefully."""
+    repo = TraceRepository(db_session, tenant_id="tenant-special")
+
+    session = _make_session("session-special")
+    await repo.create_session(session)
+    event = _make_error_event("session-special", "ValueError", "Invalid input: test_value", "event-special")
+    await repo.add_event(event)
+    await repo.commit()
+
+    # Query with special characters should not crash
+    results = await repo.search_sessions("test_value")
+    assert isinstance(results, list)
+
+    results = await repo.search_sessions("value error invalid")
+    assert isinstance(results, list)
