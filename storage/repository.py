@@ -418,6 +418,88 @@ class TraceRepository:
         )
         return [self._orm_to_checkpoint(db) for db in result.scalars()]
 
+    async def search_sessions(
+        self,
+        query: str,
+        *,
+        status: str | None = None,
+        limit: int = 20,
+    ) -> list[Session]:
+        """Search sessions by semantic similarity to a text query.
+
+        Uses bag-of-words cosine similarity against session event embeddings.
+        Searches across event_type, name, error_type, error_message, tool_name, and model fields.
+
+        Args:
+            query: Search query text
+            status: Optional session status to filter by (e.g., "error", "completed")
+            limit: Maximum number of results to return
+
+        Returns:
+            List of Session instances with search_similarity attribute set, ranked by similarity
+        """
+        from storage.embedding import build_session_embedding, cosine_similarity, text_to_vector
+
+        if not query or not query.strip():
+            return []
+
+        query_vec = text_to_vector(query)
+        if not query_vec:
+            return []
+
+        # Fetch candidate sessions
+        stmt = select(SessionModel).where(SessionModel.tenant_id == self.tenant_id)
+        if status:
+            stmt = stmt.where(SessionModel.status == status)
+
+        result = await self.session.execute(stmt)
+        db_sessions = list(result.scalars().all())
+
+        if not db_sessions:
+            return []
+
+        # Build similarity scores
+        scored: list[tuple[float, SessionModel]] = []
+        for db_sess in db_sessions:
+            ev_result = await self.session.execute(
+                select(EventModel).where(EventModel.session_id == db_sess.id)
+            )
+            db_events = list(ev_result.scalars().all())
+
+            # Build event dicts with flattened data for embedding
+            event_dicts = []
+            for e in db_events:
+                event_dict = {
+                    "event_type": e.event_type,
+                    "name": e.name,
+                }
+                # Flatten nested fields from data
+                if e.data:
+                    if "error_type" in e.data:
+                        event_dict["error_type"] = e.data["error_type"]
+                    if "error_message" in e.data:
+                        event_dict["error_message"] = e.data["error_message"]
+                    if "tool_name" in e.data:
+                        event_dict["tool_name"] = e.data["tool_name"]
+                    if "model" in e.data:
+                        event_dict["model"] = e.data["model"]
+                event_dicts.append(event_dict)
+
+            session_vec = build_session_embedding(event_dicts)
+            sim = cosine_similarity(query_vec, session_vec)
+            if sim > 0.0:
+                scored.append((sim, db_sess))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+
+        results: list[Session] = []
+        for sim, db_sess in scored[:limit]:
+            session = self._orm_to_session(db_sess)
+            session.search_similarity = sim
+            results.append(session)
+
+        return results
+
     async def search_events(
         self,
         query: str,
