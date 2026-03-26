@@ -3,12 +3,16 @@ import './App.css'
 import { createEventSource, getAgentDrift, getLiveSummary, getReplay, getSessions, getTraceBundle, searchTraces } from './api/client'
 import { AnalyticsPanel } from './components/AnalyticsPanel'
 import { ConversationPanel } from './components/ConversationPanel'
+import CostPanel from './components/CostPanel'
+import CostSummary from './components/CostSummary'
 import { DecisionTree } from './components/DecisionTree'
 import { DriftAlertsPanel } from './components/DriftAlertsPanel'
 import { FailureClusterPanel } from './components/FailureClusterPanel'
+import FixAnnotation from './components/FixAnnotation'
 import { LLMViewer } from './components/LLMViewer'
 import { LiveSummaryPanel } from './components/LiveSummaryPanel'
 import { PolicyDiffView } from './components/PolicyDiffView'
+import SearchBar from './components/SearchBar'
 import { SessionComparisonPanel } from './components/SessionComparisonPanel'
 import { SessionReplay } from './components/SessionReplay'
 import { ToolInspector } from './components/ToolInspector'
@@ -837,6 +841,13 @@ function App() {
         </div>
       </header>
 
+      <div className="search-container">
+        <SearchBar onSelectSession={(sessionId: string) => {
+          setSelectedSessionId(sessionId)
+          setActiveTab('trace')
+        }} />
+      </div>
+
       {error && <div className="error-banner">{error}</div>}
 
       <nav className="app-tabs">
@@ -854,6 +865,7 @@ function App() {
 
       {activeTab === 'analytics' && (
         <div className="analytics-view">
+          <CostSummary />
           <AnalyticsPanel />
         </div>
       )}
@@ -898,32 +910,36 @@ function App() {
           </div>
 
           {currentSession && (
-            <div className="session-stats">
-              <div>
-                <span className="metric-label">LLM calls</span>
-                <strong>{formatNumber(currentSession.llm_calls)}</strong>
+            <>
+              <div className="session-stats">
+                <div>
+                  <span className="metric-label">LLM calls</span>
+                  <strong>{formatNumber(currentSession.llm_calls)}</strong>
+                </div>
+                <div>
+                  <span className="metric-label">Tool calls</span>
+                  <strong>{formatNumber(currentSession.tool_calls)}</strong>
+                </div>
+                <div>
+                  <span className="metric-label">Errors</span>
+                  <strong>{formatNumber(currentSession.errors)}</strong>
+                </div>
+                <div>
+                  <span className="metric-label">Cost</span>
+                  <strong>${(currentSession.total_cost_usd ?? 0).toFixed(4)}</strong>
+                </div>
+                <div>
+                  <span className="metric-label">Retention</span>
+                  <strong>{bundle?.analysis.retention_tier ?? currentSession.retention_tier ?? 'downsampled'}</strong>
+                </div>
+                <div>
+                  <span className="metric-label">Replay value</span>
+                  <strong>{(bundle?.analysis.session_replay_value ?? currentSession.replay_value ?? 0).toFixed(2)}</strong>
+                </div>
               </div>
-              <div>
-                <span className="metric-label">Tool calls</span>
-                <strong>{formatNumber(currentSession.tool_calls)}</strong>
-              </div>
-              <div>
-                <span className="metric-label">Errors</span>
-                <strong>{formatNumber(currentSession.errors)}</strong>
-              </div>
-              <div>
-                <span className="metric-label">Cost</span>
-                <strong>${(currentSession.total_cost_usd ?? 0).toFixed(4)}</strong>
-              </div>
-              <div>
-                <span className="metric-label">Retention</span>
-                <strong>{bundle?.analysis.retention_tier ?? currentSession.retention_tier ?? 'downsampled'}</strong>
-              </div>
-              <div>
-                <span className="metric-label">Replay value</span>
-                <strong>{(bundle?.analysis.session_replay_value ?? currentSession.replay_value ?? 0).toFixed(2)}</strong>
-              </div>
-            </div>
+              <CostPanel sessionId={currentSession.id} />
+              <FixAnnotation sessionId={currentSession.id} existingNote={currentSession.fix_note ?? null} />
+            </>
           )}
         </aside>
 

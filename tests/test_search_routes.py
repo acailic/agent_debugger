@@ -41,6 +41,7 @@ async def test_search_sessions():
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Seed database with test sessions
         from api import app_context
+
         async with app_context.require_session_maker()() as db_session:
             repo = TraceRepository(db_session)
             await repo.create_session(_make_session("search-session-1", agent_name="weather_agent"))
@@ -77,6 +78,7 @@ async def test_add_fix_note():
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Seed database with a test session
         from api import app_context
+
         async with app_context.require_session_maker()() as db_session:
             repo = TraceRepository(db_session)
             await repo.create_session(_make_session("fix-note-session"))
@@ -125,6 +127,7 @@ async def test_search_sessions_with_status_filter():
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Seed database with sessions of different statuses
         from api import app_context
+
         async with app_context.require_session_maker()() as db_session:
             repo = TraceRepository(db_session)
             await repo.create_session(

@@ -107,6 +107,7 @@ export interface Session {
   failure_count?: number
   behavior_alert_count?: number
   representative_event_id?: string | null
+  fix_note?: string | null
 }
 
 export interface Checkpoint {

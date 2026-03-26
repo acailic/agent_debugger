@@ -461,9 +461,7 @@ class TraceRepository:
         # Build similarity scores
         scored: list[tuple[float, SessionModel]] = []
         for db_sess in db_sessions:
-            ev_result = await self.session.execute(
-                select(EventModel).where(EventModel.session_id == db_sess.id)
-            )
+            ev_result = await self.session.execute(select(EventModel).where(EventModel.session_id == db_sess.id))
             db_events = list(ev_result.scalars().all())
 
             # Build event dicts with flattened data for embedding
@@ -671,8 +669,7 @@ class TraceRepository:
             select(
                 func.count(SessionModel.id).label("session_count"),
                 func.sum(SessionModel.total_cost_usd).label("total_cost"),
-            )
-            .where(SessionModel.tenant_id == self.tenant_id)
+            ).where(SessionModel.tenant_id == self.tenant_id)
         )
         row = result.one()
         session_count = row.session_count or 0

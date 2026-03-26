@@ -2789,9 +2789,342 @@ pre {
   .highlight-nav button {
     transition: none;
   }
-  
+
   .cluster-card:hover,
   .policy-shift-card:hover {
     transform: none;
   }
+}
+
+/* ============================================
+   Cost Summary & Panel
+   ============================================ */
+
+.search-container {
+  margin: 1.5rem 0;
+}
+
+.cost-summary {
+  margin-bottom: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 1.5rem;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.cost-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.cost-stat {
+  padding: 1rem;
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 40%);
+}
+
+.cost-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.cost-value {
+  display: block;
+  font-family: 'Fraunces', serif;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.cost-by-framework {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--panel-border);
+}
+
+.cost-by-framework h3 {
+  margin: 0 0 1rem;
+  font-size: 1.2rem;
+  color: var(--text);
+}
+
+.cost-by-framework table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cost-by-framework th,
+.cost-by-framework td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.cost-by-framework th {
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.cost-by-framework td {
+  font-size: 0.95rem;
+}
+
+.cost-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 40%);
+}
+
+.cost-panel h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.cost-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.cost-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.cost-row:last-child {
+  padding-bottom: 0;
+}
+
+.cost-amount {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  color: var(--accent-deep);
+}
+
+/* ============================================
+   Search Bar
+   ============================================ */
+
+.search-bar {
+  position: relative;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 1rem;
+  background: var(--panel);
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.search-input::placeholder {
+  color: var(--muted);
+}
+
+.search-loading {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.search-results {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  right: 0;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--panel-border);
+  border-radius: 1rem;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  z-index: 100;
+}
+
+.search-result-item {
+  width: 100%;
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--panel-border);
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover {
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 40%);
+}
+
+.search-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.search-result-agent {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.search-result-similarity {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.search-result-meta {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.search-result-status {
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.search-result-status.error {
+  background: color-mix(in oklch, var(--danger), transparent 85%);
+  color: var(--danger);
+}
+
+.search-result-status.success {
+  background: color-mix(in oklch, var(--olive), transparent 85%);
+  color: var(--olive);
+}
+
+.search-result-fix {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--warning), transparent 90%);
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+/* ============================================
+   Fix Annotation
+   ============================================ */
+
+.fix-annotation {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 40%);
+}
+
+.fix-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.fix-text {
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--warning), transparent 90%);
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.fix-input {
+  width: 100%;
+  min-height: 80px;
+  padding: 0.75rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 0.5rem;
+  background: var(--panel);
+  font-size: 0.9rem;
+  resize: vertical;
+  transition: border-color 0.2s ease;
+}
+
+.fix-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.fix-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.fix-save-btn,
+.fix-edit-btn,
+.fix-cancel-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.fix-save-btn {
+  background: var(--accent);
+  color: white;
+}
+
+.fix-save-btn:hover {
+  background: var(--accent-deep);
+}
+
+.fix-edit-btn {
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 40%);
+  color: var(--text);
+}
+
+.fix-edit-btn:hover {
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 60%);
+}
+
+.fix-cancel-btn {
+  background: color-mix(in oklch, var(--danger), transparent 85%);
+  color: var(--danger);
+}
+
+.fix-cancel-btn:hover {
+  background: color-mix(in oklch, var(--danger), transparent 75%);
 }

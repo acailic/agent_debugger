@@ -44,6 +44,7 @@ async def test_get_cost_summary():
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Seed database with test sessions
         from api import app_context
+
         async with app_context.require_session_maker()() as db_session:
             repo = TraceRepository(db_session)
             await repo.create_session(_make_session("cost-session-1", total_cost_usd=0.50))
@@ -79,6 +80,7 @@ async def test_get_cost_summary_empty():
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Use a different tenant_id to ensure isolation
         from api import app_context
+
         async with app_context.require_session_maker()() as db_session:
             repo = TraceRepository(db_session, tenant_id="empty_test_tenant")
             # Verify no sessions in this tenant
@@ -108,6 +110,7 @@ async def test_get_session_cost():
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Seed database with a test session
         from api import app_context
+
         async with app_context.require_session_maker()() as db_session:
             repo = TraceRepository(db_session)
             await repo.create_session(
