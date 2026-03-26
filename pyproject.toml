@@ -39,6 +39,14 @@ all = [
     "crewai>=0.40",
     "pydantic-ai>=0.0.10",
 ]
+dev = [
+    "bandit>=1.7",
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "pytest-timeout>=2.0",
+    "pytest-xdist>=3.0",
+    "ruff>=0.1",
+]
 
 [project.urls]
 Homepage = "https://github.com/acailic/agent_debugger"
