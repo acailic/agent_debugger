@@ -1,4 +1,8 @@
-# Debug AI agents like distributed systems — not black boxes.
+<p align="center">
+  <img src="docs/assets/logo.jpeg" alt="Peaky Peek" width="128" />
+</p>
+
+<h1 align="center">Debug AI agents like distributed systems — not black boxes.</h1>
 
 [![CI](https://github.com/acailic/agent_debugger/actions/workflows/ci.yml/badge.svg)](https://github.com/acailic/agent_debugger/actions/workflows/ci.yml)
 [![PyPI peaky-peek](https://img.shields.io/pypi/v/peaky-peek.svg?label=peaky-peek)](https://pypi.org/project/peaky-peek/)

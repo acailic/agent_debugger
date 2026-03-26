@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { createEventSource, getAgentDrift, getLiveSummary, getReplay, getSessions, getTraceBundle, searchTraces } from './api/client'
 import { AnalyticsPanel } from './components/AnalyticsPanel'
+import { Logo } from './components/Logo'
 import { ConversationPanel } from './components/ConversationPanel'
 import CostPanel from './components/CostPanel'
 import CostSummary from './components/CostSummary'
@@ -818,12 +819,15 @@ function App() {
   return (
     <div className="app-shell">
       <header className="hero">
-        <div>
-          <p className="eyebrow">Research-grade agent debugging</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <Logo size={40} />
+          <div>
+            <p className="eyebrow">Research-grade agent debugging</p>
           <h1>Edge Trace Console</h1>
           <p className="hero-copy">
             One coherent surface for safety-aware traces, provenance, adaptive replay, and failure clustering.
           </p>
+        </div>
         </div>
         <div className="hero-metrics">
           <div>
