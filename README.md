@@ -15,6 +15,8 @@ Capture every decision, tool call, and LLM interaction as a queryable event time
 
 ## Why This Exists
 
+For a general overview, watch the [video explanation](https://youtu.be/-qXkEFbpf8w).
+
 Traditional observability tools weren't built for agent-native debugging:
 
 - **Logs and OpenTelemetry** — great for infrastructure metrics, blind to reasoning chains and decision trees
