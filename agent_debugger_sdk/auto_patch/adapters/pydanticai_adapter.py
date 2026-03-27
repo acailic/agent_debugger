@@ -15,7 +15,6 @@ import logging
 import time
 from typing import Any
 
-from agent_debugger_sdk.auto_patch._transport import SyncTransport, get_or_create_session
 from agent_debugger_sdk.auto_patch.registry import BaseAdapter, PatchConfig
 from agent_debugger_sdk.core.events import LLMRequestEvent, LLMResponseEvent
 
@@ -36,10 +35,8 @@ class PydanticAIAdapter(BaseAdapter):
     name = "pydanticai"
 
     def __init__(self) -> None:
+        super().__init__()
         self._original_run: Any = None
-        self._transport: SyncTransport | None = None
-        self._config: PatchConfig | None = None
-        self._session_id: str | None = None
 
     def is_available(self) -> bool:
         """Return True if ``pydantic_ai`` is importable."""
@@ -58,14 +55,12 @@ class PydanticAIAdapter(BaseAdapter):
         """
         import pydantic_ai  # noqa: PLC0415
 
-        self._config = config
-        self._transport = SyncTransport(config.server_url)
-        self._session_id = get_or_create_session(self._transport, config.agent_name, self.name)
+        self._setup_transport_and_session(config)
 
         Agent = pydantic_ai.Agent
 
         # Guard against double-patching
-        if getattr(Agent.run, "_peaky_peek_patched", False):
+        if self._is_patched(Agent.run):
             logger.debug("PydanticAIAdapter: Agent.run already patched — skipping")
             return
 
@@ -148,10 +143,7 @@ class PydanticAIAdapter(BaseAdapter):
         except Exception:
             logger.warning("PydanticAIAdapter: failed to restore Agent.run", exc_info=True)
         finally:
-            if self._transport is not None:
-                self._transport.shutdown()
-                self._transport = None
-            self._session_id = None
+            self._cleanup_transport()
 
 
 # ---------------------------------------------------------------------------

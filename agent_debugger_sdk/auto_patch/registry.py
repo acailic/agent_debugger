@@ -6,7 +6,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from agent_debugger_sdk.auto_patch._transport import SyncTransport
@@ -39,12 +39,20 @@ class BaseAdapter(ABC):
 
     Class Attributes:
         name: Short identifier for this adapter (e.g. "openai", "anthropic").
+
+    Instance Attributes:
+        _config: The active patch configuration.
+        _transport: The SyncTransport for sending events.
+        _session_id: The current session ID.
     """
 
     name: str  # class-level attribute, must be set by subclasses
-    _config: PatchConfig
-    _transport: "SyncTransport"
-    _originals: dict
+
+    def __init__(self) -> None:
+        """Initialize common adapter state."""
+        self._config: PatchConfig | None = None
+        self._transport: "SyncTransport | None" = None
+        self._session_id: str | None = None
 
     @abstractmethod
     def is_available(self) -> bool:
@@ -61,6 +69,130 @@ class BaseAdapter(ABC):
     @abstractmethod
     def unpatch(self) -> None:
         """Restore the original library behaviour (undo patching)."""
+
+    # ------------------------------------------------------------------
+    # Shared helper methods for adapters
+    # ------------------------------------------------------------------
+
+    def _is_patched(self, method: Any) -> bool:
+        """Check if a method is already patched.
+
+        Args:
+            method: The method to check.
+
+        Returns:
+            True if the method has the _peaky_peek_patched attribute set to True.
+        """
+        return getattr(method, "_peaky_peek_patched", False)
+
+    def _setup_transport_and_session(self, config: PatchConfig) -> None:
+        """Create transport and get session ID.
+
+        Args:
+            config: The patch configuration.
+        """
+        from agent_debugger_sdk.auto_patch._transport import SyncTransport, get_or_create_session
+
+        self._config = config
+        self._transport = SyncTransport(config.server_url)
+        self._session_id = get_or_create_session(self._transport, config.agent_name, self.name)
+
+    def _cleanup_transport(self) -> None:
+        """Shutdown transport and clear session state."""
+        if self._transport is not None:
+            self._transport.shutdown()
+            self._transport = None
+        self._session_id = None
+
+    def _safe_emit_event(
+        self,
+        event: Any,
+        *,
+        event_type_name: str = "event",
+    ) -> None:
+        """Emit an event with exception handling.
+
+        Args:
+            event: The event object to emit (must have to_dict() method).
+            event_type_name: Descriptive name for logging (e.g. "AGENT_START").
+        """
+        try:
+            if self._transport is not None:
+                self._transport.send_event(event.to_dict())
+        except Exception:
+            logger.warning(
+                "%sAdapter: failed to emit %s event",
+                self.name.capitalize(),
+                event_type_name,
+                exc_info=True,
+            )
+
+    def _emit_trace_event_safe(
+        self,
+        event_type: Any,
+        name: str,
+        *,
+        is_async: bool = False,
+    ) -> None:
+        """Emit a TraceEvent with exception handling.
+
+        Args:
+            event_type: The EventType (e.g., EventType.AGENT_START).
+            name: The event name.
+            is_async: Whether this is for an async context (affects log message).
+        """
+        from agent_debugger_sdk.core.events import TraceEvent
+
+        try:
+            if self._transport is not None and self._session_id:
+                event = TraceEvent(
+                    session_id=self._session_id,
+                    event_type=event_type,
+                    name=name,
+                )
+                self._transport.send_event(event.to_dict())
+        except Exception:
+            logger.warning(
+                "%sAdapter: failed to emit %s event%s",
+                self.name.capitalize(),
+                event_type.value,
+                " (async)" if is_async else "",
+                exc_info=True,
+            )
+
+    def _emit_error_event_safe(
+        self,
+        name: str,
+        exc: Exception,
+        *,
+        is_async: bool = False,
+    ) -> None:
+        """Emit an ErrorEvent with exception handling.
+
+        Args:
+            name: The error event name.
+            exc: The exception that occurred.
+            is_async: Whether this is for an async context (affects log message).
+        """
+        from agent_debugger_sdk.core.events import ErrorEvent, EventType
+
+        try:
+            if self._transport is not None and self._session_id:
+                event = ErrorEvent(
+                    session_id=self._session_id,
+                    event_type=EventType.ERROR,
+                    name=name,
+                    error_type=type(exc).__name__,
+                    error_message=str(exc),
+                )
+                self._transport.send_event(event.to_dict())
+        except Exception:
+            logger.warning(
+                "%sAdapter: failed to emit ERROR event%s",
+                self.name.capitalize(),
+                " (async)" if is_async else "",
+                exc_info=True,
+            )
 
     # ------------------------------------------------------------------
     # Wrapper factories (shared implementation)
@@ -96,6 +228,9 @@ class BaseAdapter(ABC):
         """Wrap a sync call with request/response event emission."""
         from agent_debugger_sdk.auto_patch._transport import get_or_create_session
 
+        if self._config is None or self._transport is None:
+            return original(self_client, *args, **kwargs)
+
         try:
             session_id = get_or_create_session(self._transport, self._config.agent_name, self.name)
             request_id = self._emit_request(kwargs, session_id)
@@ -119,6 +254,9 @@ class BaseAdapter(ABC):
     async def _call_async(self, original, self_client, *args, **kwargs):
         """Wrap an async call with request/response event emission."""
         from agent_debugger_sdk.auto_patch._transport import get_or_create_session
+
+        if self._config is None or self._transport is None:
+            return await original(self_client, *args, **kwargs)
 
         try:
             session_id = get_or_create_session(self._transport, self._config.agent_name, self.name)
