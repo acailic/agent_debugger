@@ -11,7 +11,6 @@ from .causal_analysis import _event_value
 from .detection import detect_oscillation
 from .models import CheckpointDelta, OscillationAlert, RollingSummary, RollingWindow
 
-
 __all__ = [
     "LiveMonitor",
     "RollingWindow",
@@ -155,7 +154,7 @@ class LiveMonitor:
             text=text,
             metrics=metrics,
             window_type="time",
-            window_size=60,
+            window_size=int((window.window_end - window.window_start).total_seconds()),
             computed_at=datetime.now(timezone.utc),
         )
 

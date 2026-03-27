@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 
 @dataclass
@@ -33,7 +33,7 @@ class RollingSummary:
 
     text: str
     metrics: dict[str, Any]
-    window_type: str  # "time" or "event_count"
+    window_type: Literal["time", "event_count"]
     window_size: int  # seconds or event count
     computed_at: datetime
 
