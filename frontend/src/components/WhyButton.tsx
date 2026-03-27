@@ -11,6 +11,11 @@ interface WhyButtonProps {
 
 type Status = 'idle' | 'loading' | 'loaded' | 'error'
 
+interface ErrorInfo {
+  message: string
+  isNetwork: boolean
+}
+
 export default function WhyButton({
   sessionId,
   onSelectEvent,
@@ -20,21 +25,24 @@ export default function WhyButton({
   const [status, setStatus] = useState<Status>('idle')
   const [explanation, setExplanation] = useState<FailureExplanation | null>(null)
   const [noFailures, setNoFailures] = useState(false)
+  const [errorInfo, setErrorInfo] = useState<ErrorInfo | null>(null)
 
   // Reset state when session changes
   useEffect(() => {
     setStatus('idle')
     setExplanation(null)
     setNoFailures(false)
+    setErrorInfo(null)
   }, [sessionId])
 
   if (!hasFailures) return null
 
   const handleFetch = async () => {
     setStatus('loading')
+    setErrorInfo(null)
     try {
       const result = await getAnalysis(sessionId)
-      const explanations = result.analysis.failure_explanations
+      const explanations = result?.analysis?.failure_explanations ?? []
       if (explanations.length === 0) {
         setNoFailures(true)
         setStatus('loaded')
@@ -42,7 +50,30 @@ export default function WhyButton({
       }
       setExplanation(explanations[0])
       setStatus('loaded')
-    } catch {
+    } catch (err) {
+      // Extract meaningful error info
+      let message = 'Analysis unavailable.'
+      let isNetwork = false
+
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        message = 'Network error. Check your connection and try again.'
+        isNetwork = true
+      } else if (err instanceof Error) {
+        // Try to extract status or message from API error
+        const errStr = err.message.toLowerCase()
+        if (errStr.includes('404') || errStr.includes('not found')) {
+          message = 'Session not found or analysis not available.'
+        } else if (errStr.includes('500') || errStr.includes('internal')) {
+          message = 'Server error. The analysis service may be temporarily unavailable.'
+        } else if (errStr.includes('timeout')) {
+          message = 'Request timed out. Try again.'
+          isNetwork = true
+        } else {
+          message = `Analysis failed: ${err.message}`
+        }
+      }
+
+      setErrorInfo({ message, isNetwork })
       setStatus('error')
     }
   }
@@ -66,9 +97,18 @@ export default function WhyButton({
         )}
       </button>
 
-      {status === 'error' && (
+      {status === 'error' && errorInfo && (
         <div className="error-banner">
-          Analysis unavailable. The analysis service may be unreachable or the session has not been analyzed yet.
+          {errorInfo.message}
+          {errorInfo.isNetwork && (
+            <button
+              type="button"
+              className="retry-link"
+              onClick={handleFetch}
+            >
+              Retry
+            </button>
+          )}
         </div>
       )}
 

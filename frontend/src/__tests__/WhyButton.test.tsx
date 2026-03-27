@@ -107,7 +107,7 @@ describe('WhyButton', () => {
     await userEvent.click(screen.getByRole('button', { name: /why did it fail/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/analysis unavailable/i)).toBeInTheDocument()
+      expect(screen.getByText(/analysis failed/i)).toBeInTheDocument()
     })
   })
 

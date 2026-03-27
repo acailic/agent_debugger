@@ -448,10 +448,11 @@ class TraceRepository:
         if not query_vec:
             return []
 
-        # Fetch candidate sessions (limit to prevent unbounded memory usage)
+        # Fetch candidate sessions with eager-loaded events (limit to prevent unbounded memory usage)
         CANDIDATE_LIMIT = 500
         stmt = (
             select(SessionModel)
+            .options(selectinload(SessionModel.events))
             .where(SessionModel.tenant_id == self.tenant_id)
             .order_by(SessionModel.started_at.desc())
             .limit(CANDIDATE_LIMIT)
@@ -468,8 +469,8 @@ class TraceRepository:
         # Build similarity scores
         scored: list[tuple[float, SessionModel]] = []
         for db_sess in db_sessions:
-            ev_result = await self.session.execute(select(EventModel).where(EventModel.session_id == db_sess.id))
-            db_events = list(ev_result.scalars().all())
+            # Events are already loaded via selectinload
+            db_events = db_sess.events
 
             # Build event dicts with flattened data for embedding
             event_dicts = []

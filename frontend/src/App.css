@@ -137,6 +137,23 @@ button {
   color: var(--danger);
 }
 
+.error-banner .retry-link {
+  display: inline-block;
+  margin-left: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--danger);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.error-banner .retry-link:hover {
+  background: color-mix(in oklch, var(--danger), black 15%);
+}
+
 /* Failure Modal Styles */
 .failure-modal-overlay {
   position: fixed;
@@ -3138,6 +3155,16 @@ pre {
 
 .fix-cancel-btn:hover {
   background: color-mix(in oklch, var(--danger), transparent 75%);
+}
+
+.fix-error {
+  display: block;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  background: color-mix(in oklch, var(--danger), transparent 85%);
+  color: var(--danger);
+  font-size: 0.8rem;
 }
 
 /* ── Phase 1: Why Button ──────────────────────────────────────── */
