@@ -1,4 +1,5 @@
 import type { TraceEvent, Highlight } from '../types'
+import { formatEventHeadline } from '../utils/formatting'
 
 interface TraceTimelineProps {
   events: TraceEvent[]
@@ -7,26 +8,6 @@ interface TraceTimelineProps {
   highlightEventIds?: Set<string>
   /** Map of event_id to Highlight for displaying reasons */
   highlightsMap?: Map<string, Highlight>
-}
-
-function describeEvent(event: TraceEvent): string {
-  switch (event.event_type) {
-    case 'tool_call':
-    case 'tool_result':
-      return event.tool_name ?? event.name
-    case 'decision':
-      return event.chosen_action ?? event.name
-    case 'refusal':
-      return event.reason ?? event.name
-    case 'safety_check':
-      return event.policy_name ?? event.name
-    case 'policy_violation':
-      return event.violation_type ?? event.name
-    case 'agent_turn':
-      return `${event.speaker ?? event.agent_id}: ${event.goal ?? event.name}`
-    default:
-      return event.name
-  }
 }
 
 export function TraceTimeline({ events, selectedEventId, onSelectEvent, highlightEventIds, highlightsMap }: TraceTimelineProps) {
@@ -51,7 +32,7 @@ export function TraceTimeline({ events, selectedEventId, onSelectEvent, highligh
               {isHighlight && <span className="highlight-marker" title="Highlighted event">*</span>}
               <div className="event-info">
                 <span className="event-type">{event.event_type.replaceAll('_', ' ')}</span>
-                <span className="event-summary">{describeEvent(event)}</span>
+                <span className="event-summary">{formatEventHeadline(event)}</span>
                 <span className="event-time">
                   {new Date(event.timestamp).toLocaleTimeString()}
                 </span>

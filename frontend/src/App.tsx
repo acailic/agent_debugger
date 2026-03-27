@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import './App.css'
 import { createEventSource, getAgentDrift, getLiveSummary, getReplay, getSessions, getTraceBundle, searchTraces } from './api/client'
 import { AnalyticsPanel } from './components/AnalyticsPanel'
@@ -24,7 +24,8 @@ import { CheckpointSnapshot } from './components/CheckpointSnapshot'
 import { EventDetail } from './components/EventDetail'
 import { FailureExplanationCard } from './components/FailureExplanationCard'
 import { formatEventHeadline, formatNumber, SEARCHABLE_EVENT_TYPES } from './utils/formatting'
-import type { DriftResponse, EventType, FailureCluster, Highlight, LiveSummary, PolicyShift, ReplayResponse, RollingSummary, Session, TraceBundle, TraceEvent, TraceSearchResponse } from './types'
+import { useSessionStore } from './stores/sessionStore'
+import type { FailureCluster, Highlight, PolicyShift, RollingSummary, TraceEvent } from './types'
 
 type AppTab = 'trace' | 'analytics'
 type ReplayMode = 'full' | 'focus' | 'failure' | 'highlights'
@@ -32,46 +33,89 @@ type SessionSortMode = 'started_at' | 'replay_value'
 type SearchScope = 'current' | 'all'
 
 function App() {
-  const [sessions, setSessions] = useState<Session[]>([])
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
-  const [bundle, setBundle] = useState<TraceBundle | null>(null)
-  const [secondaryBundle, setSecondaryBundle] = useState<TraceBundle | null>(null)
-  const [replay, setReplay] = useState<ReplayResponse | null>(null)
-  const [liveEvents, setLiveEvents] = useState<TraceEvent[]>([])
-  const [liveSummary, setLiveSummary] = useState<LiveSummary | null>(null)
-  const [rollingSummaryData, _setRollingSummaryData] = useState<RollingSummary | null>(null)
-  const [streamConnected, setStreamConnected] = useState(false)
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
-  const [focusEventId, _setFocusEventId] = useState<string | null>(null)
-  const [selectedCheckpointId, setSelectedCheckpointId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [compareLoading, setCompareLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [sessionSortMode, setSessionSortMode] = useState<SessionSortMode>('replay_value')
-  const [secondarySessionId, setSecondarySessionId] = useState<string | null>(null)
-  const [replayMode, setReplayMode] = useState<ReplayMode>('full')
-  const [collapseThreshold, setCollapseThreshold] = useState(0.35)
-  const [expandedSegments, setExpandedSegments] = useState<Set<number>>(new Set())
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [speed, setSpeed] = useState(1)
-  const [breakpointEventTypes, setBreakpointEventTypes] = useState('error,refusal,policy_violation')
-  const [breakpointToolNames, setBreakpointToolNames] = useState('')
-  const [breakpointConfidenceBelow, setBreakpointConfidenceBelow] = useState('0.45')
-  const [breakpointSafetyOutcomes, setBreakpointSafetyOutcomes] = useState('warn,block')
-  const [stopAtBreakpoint, setStopAtBreakpoint] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchEventType, setSearchEventType] = useState<'' | EventType>('')
-  const [searchScope, setSearchScope] = useState<SearchScope>('current')
-  const [searchResponse, setSearchResponse] = useState<TraceSearchResponse | null>(null)
-  const [searchLoading, setSearchLoading] = useState(false)
-  const [searchError, setSearchError] = useState<string | null>(null)
-  const [currentHighlightIndex, setCurrentHighlightIndex] = useState(0)
-  const [driftData, setDriftData] = useState<DriftResponse | null>(null)
-  const [driftLoading, setDriftLoading] = useState(false)
-  const [policyShifts, _setPolicyShifts] = useState<PolicyShift[]>([])
-  const [failureClusters, _setFailureClusters] = useState<FailureCluster[]>([])
-  const [activeTab, setActiveTab] = useState<AppTab>('trace')
+  // Get all state and actions from the store
+  const {
+    sessions,
+    selectedSessionId,
+    secondarySessionId,
+    bundle,
+    secondaryBundle,
+    replay,
+    replayMode,
+    currentIndex,
+    isPlaying,
+    speed,
+    collapseThreshold,
+    expandedSegments,
+    searchQuery,
+    searchEventType,
+    searchScope,
+    searchResponse,
+    searchLoading,
+    searchError,
+    liveEvents,
+    liveSummary,
+    streamConnected,
+    activeTab,
+    sessionSortMode,
+    selectedEventId,
+    selectedCheckpointId,
+    currentHighlightIndex,
+    breakpointEventTypes,
+    breakpointToolNames,
+    breakpointConfidenceBelow,
+    breakpointSafetyOutcomes,
+    stopAtBreakpoint,
+    loading,
+    compareLoading,
+    error,
+    driftData,
+    driftLoading,
+    // Actions
+    setSessions,
+    setSelectedSessionId,
+    setSecondarySessionId,
+    setBundle,
+    setSecondaryBundle,
+    setReplay,
+    setReplayMode,
+    setCurrentIndex,
+    setIsPlaying,
+    setSpeed,
+    setCollapseThreshold,
+    toggleExpandedSegment,
+    setSearchQuery,
+    setSearchEventType,
+    setSearchScope,
+    setSearchResponse,
+    setSearchLoading,
+    setSearchError,
+    addLiveEvent,
+    setLiveSummary,
+    setStreamConnected,
+    clearLiveEvents,
+    setActiveTab,
+    setSessionSortMode,
+    setSelectedEventId,
+    setSelectedCheckpointId,
+    setCurrentHighlightIndex,
+    setBreakpointEventTypes,
+    setBreakpointToolNames,
+    setBreakpointConfidenceBelow,
+    setBreakpointSafetyOutcomes,
+    setStopAtBreakpoint,
+    setLoading,
+    setCompareLoading,
+    setError,
+    setDriftData,
+    setDriftLoading,
+  } = useSessionStore()
+
+  // Local state for items not yet moved to the store
+  const focusEventId: string | null = null
+  const rollingSummaryData: RollingSummary | null = null
+  const policyShifts: PolicyShift[] = []
+  const failureClusters: FailureCluster[] = []
 
   useEffect(() => {
     let ignore = false
@@ -82,7 +126,8 @@ function App() {
         const response = await getSessions({ sortBy: sessionSortMode })
         if (ignore) return
         setSessions(response.sessions)
-        setSelectedSessionId((current) => current ?? response.sessions[0]?.id ?? null)
+        const currentId = useSessionStore.getState().selectedSessionId
+        setSelectedSessionId(currentId ?? response.sessions[0]?.id ?? null)
       } catch (err) {
         if (!ignore) {
           setError(err instanceof Error ? err.message : 'Failed to load sessions')
@@ -95,7 +140,7 @@ function App() {
     return () => {
       ignore = true
     }
-  }, [sessionSortMode])
+  }, [sessionSortMode, setSessions, setSelectedSessionId, setLoading, setError])
 
   useEffect(() => {
     if (!selectedSessionId) return
@@ -109,7 +154,8 @@ function App() {
         if (ignore) return
         setBundle(response)
         setLiveSummary(response.analysis.live_summary)
-        setSelectedEventId((current) => current ?? response.events[0]?.id ?? null)
+        const currentEventId = useSessionStore.getState().selectedEventId
+        setSelectedEventId(currentEventId ?? response.events[0]?.id ?? null)
       } catch (err) {
         if (!ignore) {
           setError(err instanceof Error ? err.message : 'Failed to load trace bundle')
@@ -122,17 +168,17 @@ function App() {
     return () => {
       ignore = true
     }
-  }, [selectedSessionId])
+  }, [selectedSessionId, setBundle, setLiveSummary, setSelectedEventId, setLoading, setError])
 
   useEffect(() => {
     if (!selectedSessionId) {
-      setLiveEvents([])
+      clearLiveEvents()
       setLiveSummary(null)
       setStreamConnected(false)
       return
     }
 
-    setLiveEvents([])
+    clearLiveEvents()
     const source = createEventSource(selectedSessionId)
 
     source.onopen = () => {
@@ -142,12 +188,7 @@ function App() {
     source.onmessage = (message) => {
       try {
         const event = JSON.parse(message.data) as TraceEvent
-        setLiveEvents((current) => {
-          if (current.some((item) => item.id === event.id)) {
-            return current
-          }
-          return [...current, event]
-        })
+        addLiveEvent(event)
       } catch {
         setStreamConnected(false)
       }
@@ -161,7 +202,7 @@ function App() {
       source.close()
       setStreamConnected(false)
     }
-  }, [selectedSessionId])
+  }, [selectedSessionId, clearLiveEvents, addLiveEvent, setStreamConnected, setLiveSummary])
 
   useEffect(() => {
     if (!selectedSessionId) return
@@ -184,7 +225,7 @@ function App() {
       ignore = true
       clearTimeout(timeout)
     }
-  }, [selectedSessionId, liveEvents.length])
+  }, [selectedSessionId, liveEvents.length, setLiveSummary, setError])
 
   useEffect(() => {
     if (!secondarySessionId) {
@@ -220,7 +261,7 @@ function App() {
     return () => {
       ignore = true
     }
-  }, [secondarySessionId, selectedSessionId])
+  }, [secondarySessionId, selectedSessionId, setSecondaryBundle, setCompareLoading, setError])
 
   useEffect(() => {
     if (!selectedSessionId || !bundle) return
@@ -268,8 +309,13 @@ function App() {
     breakpointSafetyOutcomes,
     stopAtBreakpoint,
     collapseThreshold,
+    setReplay,
+    setCurrentIndex,
+    setIsPlaying,
+    setError,
   ])
 
+  // Derived state (useMemo calculations) - kept in component
   const mergedSessionEvents = useMemo(() => {
     const merged = [...(bundle?.events ?? [])]
     for (const event of liveEvents) {
@@ -403,7 +449,7 @@ function App() {
     return () => {
       ignore = true
     }
-  }, [currentSession?.agent_name])
+  }, [currentSession?.agent_name, setDriftData, setDriftLoading])
 
   function seekReplayIndex(nextIndex: number) {
     const clampedIndex = Math.min(Math.max(nextIndex, 0), Math.max(displayEvents.length - 1, 0))
@@ -414,7 +460,7 @@ function App() {
     }
   }
 
-  function inspectEvent(eventId: string) {
+  function handleInspectEvent(eventId: string) {
     setSelectedEventId(eventId)
     const nextIndex = displayEvents.findIndex((event) => event.id === eventId)
     if (nextIndex >= 0) {
@@ -473,7 +519,7 @@ function App() {
       setSelectedEventId(result.id)
       return
     }
-    inspectEvent(result.id)
+    handleInspectEvent(result.id)
   }
 
   useEffect(() => {
@@ -481,20 +527,20 @@ function App() {
     if (breakpointEventIdSet.has(currentReplayEvent.id)) {
       setIsPlaying(false)
     }
-  }, [breakpointEventIdSet, currentIndex, currentReplayEvent, isPlaying])
+  }, [breakpointEventIdSet, currentIndex, currentReplayEvent, isPlaying, setIsPlaying])
 
   useEffect(() => {
     const defaultCheckpointId = bundle?.analysis.checkpoint_rankings[0]?.checkpoint_id
       ?? replay?.nearest_checkpoint?.id
       ?? bundle?.checkpoints[0]?.id
       ?? null
-    setSelectedCheckpointId((current) => {
-      if (current && checkpointLookup.has(current)) {
-        return current
-      }
-      return defaultCheckpointId
-    })
-  }, [bundle?.analysis.checkpoint_rankings, bundle?.checkpoints, checkpointLookup, replay?.nearest_checkpoint?.id])
+    const currentCheckpointId = useSessionStore.getState().selectedCheckpointId
+    if (currentCheckpointId && checkpointLookup.has(currentCheckpointId)) {
+      // Keep current selection if valid
+      return
+    }
+    setSelectedCheckpointId(defaultCheckpointId)
+  }, [bundle?.analysis.checkpoint_rankings, bundle?.checkpoints, checkpointLookup, replay?.nearest_checkpoint?.id, setSelectedCheckpointId])
 
   return (
     <div className="app-shell">
@@ -568,7 +614,7 @@ function App() {
               </button>
             ))}
           </div>
-          {loading && !sessions.length ? <p>Loading sessions…</p> : null}
+          {loading && !sessions.length ? <p>Loading sessions...</p> : null}
           <div className="session-list">
             {sessions.map((session) => (
               <button
@@ -577,7 +623,8 @@ function App() {
                 className={`session-card ${selectedSessionId === session.id ? 'active' : ''}`}
                 onClick={() => {
                   setSelectedSessionId(session.id)
-                  setSecondarySessionId((current) => (current === session.id ? null : current))
+                  const currentSecondaryId = useSessionStore.getState().secondarySessionId
+                  setSecondarySessionId(currentSecondaryId === session.id ? null : currentSecondaryId)
                   setReplayMode('full')
                   setSelectedEventId(null)
                 }}
@@ -655,10 +702,7 @@ function App() {
                       key={value}
                       type="button"
                       className={`threshold-preset${collapseThreshold === value ? ' active' : ''}`}
-                      onClick={() => {
-                        setCollapseThreshold(value)
-                        setExpandedSegments(new Set()) // Reset expanded state when threshold changes
-                      }}
+                      onClick={() => setCollapseThreshold(value)}
                     >
                       {label}
                     </button>
@@ -725,7 +769,7 @@ function App() {
                 <FailureExplanationCard
                   key={explanation.failure_event_id}
                   explanation={explanation}
-                  onInspect={inspectEvent}
+                  onInspect={handleInspectEvent}
                   onFocusReplay={(eventId) => {
                     setReplayMode('focus')
                     setSelectedEventId(eventId)
@@ -739,7 +783,7 @@ function App() {
             <ConversationPanel
               events={mergedSessionEvents}
               selectedEventId={selectedEventId}
-              onSelectEvent={inspectEvent}
+              onSelectEvent={handleInspectEvent}
             />
           </section>
 
@@ -764,7 +808,7 @@ function App() {
               rollingSummaryData={rollingSummaryData}
               isConnected={streamConnected}
               liveEventCount={liveEvents.length}
-              onSelectEvent={inspectEvent}
+              onSelectEvent={handleInspectEvent}
             />
           </section>
 
@@ -800,7 +844,7 @@ function App() {
               <TraceTimeline
                 events={displayEvents}
                 selectedEventId={selectedEventId}
-                onSelectEvent={inspectEvent}
+                onSelectEvent={handleInspectEvent}
                 highlightEventIds={highlightEventIds}
                 highlightsMap={highlightsMap}
               />
@@ -809,14 +853,7 @@ function App() {
                   key={index}
                   segment={segment}
                   isExpanded={expandedSegments.has(index)}
-                  onToggle={() => {
-                    setExpandedSegments((prev) => {
-                      const next = new Set(prev)
-                      if (next.has(index)) next.delete(index)
-                      else next.add(index)
-                      return next
-                    })
-                  }}
+                  onToggle={() => toggleExpandedSegment(index)}
                 >
                   {mergedSessionEvents
                     .slice(segment.start_index, segment.end_index + 1)
@@ -825,7 +862,7 @@ function App() {
                         key={event.id}
                         type="button"
                         className="reference-chip"
-                        onClick={() => inspectEvent(event.id)}
+                        onClick={() => handleInspectEvent(event.id)}
                       >
                         <span>{event.event_type.replaceAll('_', ' ')}</span>
                         <strong>{formatEventHeadline(event)}</strong>
@@ -905,13 +942,13 @@ function App() {
                     <button
                       type="button"
                       onClick={() => {
-                        inspectEvent(selectedCheckpoint.event_id)
+                        handleInspectEvent(selectedCheckpoint.event_id)
                         setReplayMode('focus')
                       }}
                     >
                       Focus replay
                     </button>
-                    <button type="button" onClick={() => inspectEvent(selectedCheckpoint.event_id)}>
+                    <button type="button" onClick={() => handleInspectEvent(selectedCheckpoint.event_id)}>
                       Inspect event
                     </button>
                   </div>
@@ -950,7 +987,7 @@ function App() {
                 <h2>Find the exact moment</h2>
               </div>
               <button type="button" className="search-submit" onClick={() => void runTraceSearch()} disabled={searchLoading}>
-                {searchLoading ? 'Searching…' : 'Search'}
+                {searchLoading ? 'Searching...' : 'Search'}
               </button>
             </div>
             <div className="search-controls">
@@ -965,13 +1002,13 @@ function App() {
                       void runTraceSearch()
                     }
                   }}
-                  placeholder="Belgrade, missing token, critic turn…"
+                  placeholder="Belgrade, missing token, critic turn..."
                 />
               </label>
               <label>
                 Event type
-                <select value={searchEventType} onChange={(event) => setSearchEventType(event.target.value as '' | EventType)}>
-                  {SEARCHABLE_EVENT_TYPES.map((option: { value: '' | EventType; label: string }) => (
+                <select value={searchEventType} onChange={(event) => setSearchEventType(event.target.value as '' | import('./types').EventType)}>
+                  {SEARCHABLE_EVENT_TYPES.map((option: { value: '' | import('./types').EventType; label: string }) => (
                     <option key={option.label} value={option.value}>
                       {option.label}
                     </option>
@@ -989,7 +1026,7 @@ function App() {
             {searchError ? <p className="search-status error">{searchError}</p> : null}
             {!searchError && searchResponse ? (
               <p className="search-status">
-                {searchResponse.total} result{searchResponse.total === 1 ? '' : 's'} for “{searchResponse.query}”
+                {searchResponse.total} result{searchResponse.total === 1 ? '' : 's'} for "{searchResponse.query}"
               </p>
             ) : null}
             <div className="search-results">
@@ -1020,9 +1057,9 @@ function App() {
             diagnosis={selectedDiagnosis}
             highlight={selectedHighlight}
             eventLookup={eventLookup}
-            onSelectEvent={inspectEvent}
+            onSelectEvent={handleInspectEvent}
             onFocusReplay={(eventId) => {
-              inspectEvent(eventId)
+              handleInspectEvent(eventId)
               setReplayMode('focus')
             }}
             onResetReplay={() => setReplayMode('full')}
@@ -1037,7 +1074,7 @@ function App() {
                     key={`${alert.alert_type}-${alert.event_id}`}
                     type="button"
                     className="alert-row"
-                    onClick={() => inspectEvent(alert.event_id)}
+                    onClick={() => handleInspectEvent(alert.event_id)}
                   >
                     <span>{alert.alert_type}</span>
                     <strong>{alert.severity}</strong>
@@ -1056,7 +1093,7 @@ function App() {
           />
           <PolicyDiffView
             policyShifts={policyShifts}
-            onSelectEvent={inspectEvent}
+            onSelectEvent={handleInspectEvent}
           />
           <FailureClusterPanel
             clusters={failureClusters}

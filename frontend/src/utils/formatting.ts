@@ -4,24 +4,39 @@ export function formatNumber(value: number, digits = 0): string {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: digits }).format(value)
 }
 
-export function formatEventHeadline(event: TraceEvent | null): string {
-  if (!event) return 'Select an event'
+export function formatEventHeadline(event: TraceEvent | null, fallback = 'Select an event'): string {
+  if (!event) return fallback
   switch (event.event_type) {
-    case 'decision':
-      return event.chosen_action ?? event.name
+    case 'agent_start':
+      return 'Agent Start'
+    case 'agent_end':
+      return 'Agent End'
+    case 'llm_request':
+      return 'LLM Request'
+    case 'llm_response':
+      return 'LLM Response'
+    case 'checkpoint':
+      return `Checkpoint ${event.sequence ?? ''}`.trim()
     case 'tool_call':
+      return event.tool_name ?? event.name
     case 'tool_result':
       return event.tool_name ?? event.name
+    case 'decision':
+      return event.chosen_action ?? event.name
     case 'refusal':
       return event.reason ?? event.name
     case 'safety_check':
       return `${event.policy_name ?? 'Safety'} · ${event.outcome ?? 'pass'}`
     case 'policy_violation':
       return event.violation_type ?? event.name
-    case 'behavior_alert':
-      return event.alert_type ?? event.name
+    case 'prompt_policy':
+      return event.template_id ?? event.name
     case 'agent_turn':
       return `${event.speaker ?? event.agent_id ?? 'Agent'} turn`
+    case 'behavior_alert':
+      return event.alert_type ?? event.name
+    case 'error':
+      return event.error_type ?? event.name
     default:
       return event.name
   }

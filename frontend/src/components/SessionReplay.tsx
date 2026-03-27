@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react'
 import type { ChangeEvent, CSSProperties } from 'react'
 import type { TraceEvent } from '../types'
+import { formatEventHeadline } from '../utils/formatting'
 
 interface SessionReplayProps {
   events: TraceEvent[]
@@ -22,43 +23,6 @@ const HIGH_IMPORTANCE_TYPES = ['decision', 'error', 'tool_call']
 
 function isCheckpoint(event: TraceEvent): boolean {
   return event.event_type === 'checkpoint'
-}
-
-function getEventLabel(event: TraceEvent): string {
-  switch (event.event_type) {
-    case 'agent_start':
-      return 'Agent Start'
-    case 'agent_end':
-      return 'Agent End'
-    case 'llm_request':
-      return 'LLM Request'
-    case 'llm_response':
-      return 'LLM Response'
-    case 'tool_call':
-      return `Tool: ${event.tool_name ?? event.name}`
-    case 'tool_result':
-      return `Result: ${event.tool_name ?? event.name}`
-    case 'decision':
-      return `Decision: ${event.chosen_action ?? event.name}`
-    case 'error':
-      return `Error: ${event.error_type ?? event.name}`
-    case 'checkpoint':
-      return `Checkpoint ${event.data.sequence ?? ''}`.trim()
-    case 'safety_check':
-      return `Safety: ${event.policy_name ?? event.name}`
-    case 'refusal':
-      return `Refusal: ${event.policy_name ?? event.name}`
-    case 'policy_violation':
-      return `Policy: ${event.violation_type ?? event.name}`
-    case 'prompt_policy':
-      return `Prompt Policy: ${event.template_id ?? event.name}`
-    case 'agent_turn':
-      return `Turn ${event.turn_index ?? ''}: ${event.speaker ?? event.agent_id ?? event.name}`.trim()
-    case 'behavior_alert':
-      return `Alert: ${event.alert_type ?? event.name}`
-    default:
-      return event.event_type
-  }
 }
 
 export function SessionReplay({
@@ -247,7 +211,7 @@ export function SessionReplay({
                   key={event.id}
                   className={`timeline-marker ${event.event_type} ${isHighImportance ? 'high-importance' : ''} ${isBreakpointMarker ? 'breakpoint' : ''}`}
                   style={{ left: `${markerPercent}%` }}
-                  title={getEventLabel(event)}
+                  title={formatEventHeadline(event)}
                 />
               )
             })}

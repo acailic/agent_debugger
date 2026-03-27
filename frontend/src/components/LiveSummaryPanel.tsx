@@ -1,4 +1,5 @@
 import type { Checkpoint, LiveSummary, RollingSummary, Session, TraceEvent } from '../types'
+import { formatEventHeadline } from '../utils/formatting'
 
 interface LiveSummaryPanelProps {
   session: Session | null
@@ -19,29 +20,6 @@ function latestOf(events: TraceEvent[], eventTypes: string[]): TraceEvent | null
     }
   }
   return null
-}
-
-function summarizeEvent(event: TraceEvent | null): string {
-  if (!event) return 'None yet'
-  switch (event.event_type) {
-    case 'decision':
-      return event.chosen_action ?? event.name
-    case 'tool_call':
-    case 'tool_result':
-      return event.tool_name ?? event.name
-    case 'safety_check':
-      return `${event.policy_name ?? 'Safety'} · ${event.outcome ?? 'pass'}`
-    case 'refusal':
-      return event.reason ?? event.name
-    case 'policy_violation':
-      return event.violation_type ?? event.name
-    case 'prompt_policy':
-      return event.template_id ?? event.name
-    case 'agent_turn':
-      return `${event.speaker ?? event.agent_id ?? 'Agent'} · ${event.goal ?? event.name}`
-    default:
-      return event.name
-  }
 }
 
 function formatMetricLabel(key: string): string {
@@ -120,7 +98,7 @@ export function LiveSummaryPanel({
               }}
             >
               <span className="metric-label">{label}</span>
-              <strong>{summarizeEvent(event)}</strong>
+              <strong>{formatEventHeadline(event, 'None yet')}</strong>
             </button>
           )
         })}
