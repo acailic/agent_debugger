@@ -18,6 +18,8 @@ import { SessionComparisonPanel } from './components/SessionComparisonPanel'
 import { SessionReplay } from './components/SessionReplay'
 import { ToolInspector } from './components/ToolInspector'
 import { TraceTimeline } from './components/TraceTimeline'
+import WhyButton from './components/WhyButton'
+import HighlightChip from './components/HighlightChip'
 import type { DriftResponse, EventType, FailureCluster, Highlight, LiveSummary, PolicyShift, ReplayResponse, RollingSummary, Session, TraceBundle, TraceEvent, TraceSearchResponse } from './types'
 
 type AppTab = 'trace' | 'analytics'
@@ -376,6 +378,8 @@ function App() {
   const [sessionSortMode, setSessionSortMode] = useState<SessionSortMode>('replay_value')
   const [secondarySessionId, setSecondarySessionId] = useState<string | null>(null)
   const [replayMode, setReplayMode] = useState<ReplayMode>('full')
+  const [collapseThreshold, setCollapseThreshold] = useState(0.35)
+  const [expandedSegments, setExpandedSegments] = useState<Set<number>>(new Set())
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [speed, setSpeed] = useState(1)
@@ -552,16 +556,15 @@ function App() {
     let ignore = false
     async function loadReplay() {
       try {
-        // 'highlights' is a frontend-only mode, use 'full' for API
-        const apiMode = replayMode === 'highlights' ? 'full' : replayMode
         const response = await getReplay(sessionId, {
-          mode: apiMode as 'full' | 'focus' | 'failure',
+          mode: replayMode,
           focusEventId: replayMode === 'focus' ? (focusEventId ?? selectedEventId) : null,
           breakpointEventTypes: breakpointEventTypes.split(',').map((item) => item.trim()).filter(Boolean),
           breakpointToolNames: breakpointToolNames.split(',').map((item) => item.trim()).filter(Boolean),
           breakpointConfidenceBelow: breakpointConfidenceBelow ? Number(breakpointConfidenceBelow) : null,
           breakpointSafetyOutcomes: breakpointSafetyOutcomes.split(',').map((item) => item.trim()).filter(Boolean),
           stopAtBreakpoint,
+          collapseThreshold: replayMode === 'highlights' ? collapseThreshold : undefined,
         })
         if (ignore) return
         setReplay(response)
@@ -592,6 +595,7 @@ function App() {
     breakpointConfidenceBelow,
     breakpointSafetyOutcomes,
     stopAtBreakpoint,
+    collapseThreshold,
   ])
 
   const mergedSessionEvents = useMemo(() => {
@@ -964,6 +968,24 @@ function App() {
                   {mode}
                 </button>
               ))}
+              {replayMode === 'highlights' && (
+                <div className="threshold-presets">
+                  {([
+                    { label: 'Critical', value: 0.7 },
+                    { label: 'Standard', value: 0.35 },
+                    { label: 'Show most', value: 0.1 },
+                  ] as const).map(({ label, value }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={`threshold-preset${collapseThreshold === value ? ' active' : ''}`}
+                      onClick={() => setCollapseThreshold(value)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="breakpoint-grid">
               <label>
@@ -1067,6 +1089,20 @@ function App() {
             />
           </section>
 
+          {currentSession?.status === 'error' && (
+            <WhyButton
+              sessionId={currentSession.id}
+              onSelectEvent={(eventId) => {
+                setSelectedEventId(eventId)
+                setReplayMode('focus')
+              }}
+              onFocusReplay={(eventId) => {
+                setSelectedEventId(eventId)
+                setReplayMode('focus')
+              }}
+            />
+          )}
+
           <div className="trace-layout">
             <div className="panel timeline-panel">
               {replayMode === 'highlights' && (
@@ -1088,6 +1124,35 @@ function App() {
                 onSelectEvent={inspectEvent}
                 highlightEventIds={highlightEventIds}
               />
+              {replayMode === 'highlights' && replay?.collapsed_segments?.map((segment, index) => (
+                <HighlightChip
+                  key={index}
+                  segment={segment}
+                  isExpanded={expandedSegments.has(index)}
+                  onToggle={() => {
+                    setExpandedSegments((prev) => {
+                      const next = new Set(prev)
+                      if (next.has(index)) next.delete(index)
+                      else next.add(index)
+                      return next
+                    })
+                  }}
+                >
+                  {mergedSessionEvents
+                    .slice(segment.start_index, segment.end_index + 1)
+                    .map((event) => (
+                      <button
+                        key={event.id}
+                        type="button"
+                        className="reference-chip"
+                        onClick={() => inspectEvent(event.id)}
+                      >
+                        <span>{event.event_type.replaceAll('_', ' ')}</span>
+                        <strong>{formatEventHeadline(event)}</strong>
+                      </button>
+                    ))}
+                </HighlightChip>
+              ))}
             </div>
             <div className="panel tree-panel">
               <DecisionTree tree={bundle?.tree ?? null} selectedEventId={selectedEventId} onSelectEvent={setSelectedEventId} />

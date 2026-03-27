@@ -253,7 +253,7 @@ export interface TraceBundle {
 
 export interface ReplayResponse {
   session_id: string
-  mode: 'full' | 'focus' | 'failure'
+  mode: 'full' | 'focus' | 'failure' | 'highlights'
   focus_event_id: string | null
   start_index: number
   events: TraceEvent[]

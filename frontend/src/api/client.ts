@@ -38,13 +38,14 @@ export async function getTraceBundle(sessionId: string) {
 export async function getReplay(
   sessionId: string,
   params: {
-    mode?: 'full' | 'focus' | 'failure'
+    mode?: 'full' | 'focus' | 'failure' | 'highlights'
     focusEventId?: string | null
     breakpointEventTypes?: string[]
     breakpointToolNames?: string[]
     breakpointConfidenceBelow?: number | null
     breakpointSafetyOutcomes?: string[]
     stopAtBreakpoint?: boolean
+    collapseThreshold?: number
   } = {},
 ) {
   const search = new URLSearchParams()
@@ -61,6 +62,7 @@ export async function getReplay(
   if (params.stopAtBreakpoint !== undefined) {
     search.set('stop_at_breakpoint', String(params.stopAtBreakpoint))
   }
+  if (params.collapseThreshold != null) search.set('collapse_threshold', String(params.collapseThreshold))
   return fetchJSON<ReplayResponse>(`${API_BASE}/sessions/${sessionId}/replay?${search.toString()}`)
 }
 
