@@ -232,155 +232,91 @@ def mock_smart_replay():
     """Create a mocked SmartReplay module for testing."""
     mock_module = MagicMock()
 
-    # Default implementations that tests can override
-    def default_generate_highlights(
-        session: dict[str, Any],
-        max_highlights: int | None = None,
-        merge_threshold: int | None = None,
-    ) -> list[Highlight]:
-        events = session.get("events", [])
-        if not events:
-            return []
+    # Event type sets for classification
+    ROUTINE_EVENT_TYPES = {
+        EventType.TOOL_CALL,
+        EventType.TOOL_RESULT,
+        EventType.LLM_REQUEST,
+        EventType.LLM_RESPONSE,
+        EventType.AGENT_START,
+        EventType.AGENT_END,
+    }
 
-        highlights = []
-        max_highlights = max_highlights or 10
+    # -------------------------------------------------------------------------
+    # Scoring helpers - one per event type to reduce complexity
+    # -------------------------------------------------------------------------
 
-        for event in events:
-            score = default_score_importance(event)
-            if score >= 0.5:
-                highlights.append(
-                    Highlight(
-                        event_id=event.id,
-                        event_type=str(event.event_type),
-                        highlight_type=_get_highlight_type(event),
-                        importance=score,
-                        reason=_get_highlight_reason(event, score),
-                        timestamp=event.timestamp.isoformat(),
-                    )
-                )
+    def _score_error_event(event: TraceEvent) -> float | None:
+        """Error events have high importance (0.9)."""
+        if event.event_type == EventType.ERROR:
+            return 0.9
+        return None
 
-        highlights.sort(key=lambda h: -h.importance)
-        return highlights[:max_highlights]
+    def _score_refusal_event(event: TraceEvent) -> float | None:
+        """Refusal events have high importance (0.85)."""
+        if event.event_type == EventType.REFUSAL:
+            return 0.85
+        return None
+
+    def _score_behavior_alert_event(event: TraceEvent) -> float | None:
+        """Behavior alerts have high importance (0.88)."""
+        if event.event_type == EventType.BEHAVIOR_ALERT:
+            return 0.88
+        return None
+
+    def _score_safety_check_event(event: TraceEvent) -> float | None:
+        """Safety checks: 0.85 if failed, 0.45 if passed."""
+        if event.event_type == EventType.SAFETY_CHECK:
+            outcome = getattr(event, "outcome", SafetyOutcome.PASS)
+            return 0.85 if outcome != SafetyOutcome.PASS else 0.45
+        return None
+
+    def _score_decision_event(event: TraceEvent) -> float | None:
+        """Decisions: score based on confidence (0.3-0.8)."""
+        if event.event_type == EventType.DECISION:
+            confidence = getattr(event, "confidence", 0.5)
+            if confidence < 0.5:
+                return 0.5 + (0.5 - confidence) * 0.6
+            return 0.3
+        return None
+
+    def _score_routine_event(event: TraceEvent) -> float | None:
+        """Routine events have low importance (0.2)."""
+        if event.event_type in ROUTINE_EVENT_TYPES:
+            return 0.2
+        return None
+
+    # -------------------------------------------------------------------------
+    # Main scoring function - simplified by delegating to helpers
+    # -------------------------------------------------------------------------
 
     def default_score_importance(event: TraceEvent) -> float:
         """Score event importance with handling for malformed events."""
         try:
-            # Handle missing/invalid fields gracefully
             if not hasattr(event, "event_type"):
                 return 0.1
 
-            event_type = event.event_type
+            # Try each scoring helper in priority order
+            for scorer in (
+                _score_error_event,
+                _score_refusal_event,
+                _score_behavior_alert_event,
+                _score_safety_check_event,
+                _score_decision_event,
+                _score_routine_event,
+            ):
+                score = scorer(event)
+                if score is not None:
+                    return score
 
-            # Error events: high importance (>= 0.8)
-            if event_type == EventType.ERROR:
-                return 0.9
-
-            # Refusal events: high importance (>= 0.7)
-            if event_type == EventType.REFUSAL:
-                return 0.85
-
-            # Behavior alerts: high importance (>= 0.7)
-            if event_type == EventType.BEHAVIOR_ALERT:
-                return 0.88
-
-            # Safety checks: medium importance (0.3-0.6)
-            if event_type == EventType.SAFETY_CHECK:
-                outcome = getattr(event, "outcome", SafetyOutcome.PASS)
-                if outcome != SafetyOutcome.PASS:
-                    return 0.85
-                return 0.45
-
-            # Decisions: score based on confidence
-            if event_type == EventType.DECISION:
-                confidence = getattr(event, "confidence", 0.5)
-                if confidence < 0.5:
-                    # Low confidence: medium importance (0.5-0.8)
-                    return 0.5 + (0.5 - confidence) * 0.6
-                # High confidence: low importance
-                return 0.3
-
-            # Routine events: low importance (<= 0.3)
-            if event_type in {
-                EventType.TOOL_CALL,
-                EventType.TOOL_RESULT,
-                EventType.LLM_REQUEST,
-                EventType.LLM_RESPONSE,
-                EventType.AGENT_START,
-                EventType.AGENT_END,
-            }:
-                return 0.2
-
+            # Default for unknown event types
             return 0.3
         except Exception:
             return 0.1
 
-    def default_create_segments(
-        key_events: list[TraceEvent],
-        session: dict[str, Any],
-        context_window: int | None = None,
-    ) -> list[ReplaySegment]:
-        """Create segments with context around key events."""
-        if not key_events:
-            return []
-
-        events = session.get("events", [])
-        if not events:
-            return []
-
-        context_window = context_window if context_window is not None else 2
-        segments: list[ReplaySegment] = []
-        event_ids = {e.id for e in events}
-
-        # Track which events are already in segments
-
-        for key_event in key_events:
-            if key_event.id not in event_ids:
-                # Handle missing context: still create segment
-                segments.append(
-                    ReplaySegment(
-                        segment_id=f"segment-{key_event.id}",
-                        start_index=0,
-                        end_index=0,
-                        key_event_ids=[key_event.id],
-                        events=[],
-                        importance=default_score_importance(key_event),
-                    )
-                )
-                continue
-
-            # Find event index
-            key_index = next((i for i, e in enumerate(events) if e.id == key_event.id), -1)
-            if key_index == -1:
-                continue
-
-            # Check for merge with existing segment
-            start = max(0, key_index - context_window)
-            end = min(len(events) - 1, key_index + context_window)
-
-            # Check if this overlaps with an existing segment
-            merged = False
-            for seg in segments:
-                if start <= seg.end_index + 1 and end >= seg.start_index - 1:
-                    # Merge: extend existing segment
-                    seg.start_index = min(seg.start_index, start)
-                    seg.end_index = max(seg.end_index, end)
-                    if key_event.id not in seg.key_event_ids:
-                        seg.key_event_ids.append(key_event.id)
-                    merged = True
-                    break
-
-            if not merged:
-                segment = ReplaySegment(
-                    segment_id=f"segment-{key_event.id}",
-                    start_index=start,
-                    end_index=end,
-                    key_event_ids=[key_event.id],
-                    events=[e.to_dict() for e in events[start : end + 1]],
-                    importance=default_score_importance(key_event),
-                )
-                segments.append(segment)
-
-        return segments
+    # -------------------------------------------------------------------------
+    # Helper functions for highlight type and reason
+    # -------------------------------------------------------------------------
 
     def _get_highlight_type(event: TraceEvent) -> str:
         if event.event_type == EventType.ERROR:
@@ -412,6 +348,108 @@ def mock_smart_replay():
                 return f"Low confidence decision ({confidence:.2f})"
             return "High-impact decision"
         return "Key moment"
+
+    # -------------------------------------------------------------------------
+    # Default implementations that tests can override
+    # -------------------------------------------------------------------------
+
+    def default_generate_highlights(
+        session: dict[str, Any],
+        max_highlights: int | None = None,
+        merge_threshold: int | None = None,
+    ) -> list[Highlight]:
+        events = session.get("events", [])
+        if not events:
+            return []
+
+        highlights = []
+        max_highlights = max_highlights or 10
+
+        for event in events:
+            score = default_score_importance(event)
+            if score >= 0.5:
+                highlights.append(
+                    Highlight(
+                        event_id=event.id,
+                        event_type=str(event.event_type),
+                        highlight_type=_get_highlight_type(event),
+                        importance=score,
+                        reason=_get_highlight_reason(event, score),
+                        timestamp=event.timestamp.isoformat(),
+                    )
+                )
+
+        highlights.sort(key=lambda h: -h.importance)
+        return highlights[:max_highlights]
+
+    def _build_segment_for_key_event(
+        key_event: TraceEvent,
+        session: dict[str, Any],
+        context_window: int,
+        segments: list[ReplaySegment],
+    ) -> None:
+        """Helper to build or merge a segment for a single key event."""
+        events = session.get("events", [])
+        event_ids = {e.id for e in events}
+
+        if key_event.id not in event_ids:
+            segments.append(
+                ReplaySegment(
+                    segment_id=f"segment-{key_event.id}",
+                    start_index=0,
+                    end_index=0,
+                    key_event_ids=[key_event.id],
+                    events=[],
+                    importance=default_score_importance(key_event),
+                )
+            )
+            return
+
+        key_index = next((i for i, e in enumerate(events) if e.id == key_event.id), -1)
+        if key_index == -1:
+            return
+
+        start = max(0, key_index - context_window)
+        end = min(len(events) - 1, key_index + context_window)
+
+        for seg in segments:
+            if start <= seg.end_index + 1 and end >= seg.start_index - 1:
+                seg.start_index = min(seg.start_index, start)
+                seg.end_index = max(seg.end_index, end)
+                if key_event.id not in seg.key_event_ids:
+                    seg.key_event_ids.append(key_event.id)
+                return
+
+        segment = ReplaySegment(
+            segment_id=f"segment-{key_event.id}",
+            start_index=start,
+            end_index=end,
+            key_event_ids=[key_event.id],
+            events=[e.to_dict() for e in events[start : end + 1]],
+            importance=default_score_importance(key_event),
+        )
+        segments.append(segment)
+
+    def default_create_segments(
+        key_events: list[TraceEvent],
+        session: dict[str, Any],
+        context_window: int | None = None,
+    ) -> list[ReplaySegment]:
+        """Create segments with context around key events."""
+        if not key_events:
+            return []
+
+        events = session.get("events", [])
+        if not events:
+            return []
+
+        context_window = context_window if context_window is not None else 2
+        segments: list[ReplaySegment] = []
+
+        for key_event in key_events:
+            _build_segment_for_key_event(key_event, session, context_window, segments)
+
+        return segments
 
     mock_module.generate_highlights = default_generate_highlights
     mock_module.score_importance = default_score_importance
