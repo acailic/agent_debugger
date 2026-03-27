@@ -9,9 +9,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-import pytest
-from pydantic import ValidationError
-
 from agent_debugger_sdk.core.events import (
     AgentTurnEvent,
     BehaviorAlertEvent,
@@ -37,7 +34,6 @@ from api.schemas import (
     CheckpointSchema,
     ReplayResponse,
     RestoreRequest,
-    RestoreResponse,
     SessionSchema,
     TraceEventSchema,
 )

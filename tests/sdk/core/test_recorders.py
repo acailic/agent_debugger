@@ -6,10 +6,8 @@ import pytest
 
 from agent_debugger_sdk.core.context import TraceContext
 from agent_debugger_sdk.core.events import (
-    EventType,
     RiskLevel,
     SafetyOutcome,
-    Session,
 )
 
 
@@ -66,7 +64,7 @@ class TestRecordDecision:
     async def test_stores_evidence_event_ids(self):
         ctx = TraceContext()
         async with ctx:
-            event_id = await ctx.record_decision(
+            _ = await ctx.record_decision(
                 reasoning="test",
                 confidence=0.5,
                 evidence=[],
@@ -437,7 +435,7 @@ class TestRecorderIntegration:
         ctx = TraceContext(session_id="integration-test")
         async with ctx:
             # Make a decision
-            decision_id = await ctx.record_decision(
+            _ = await ctx.record_decision(
                 reasoning="Need to search",
                 confidence=0.9,
                 evidence=[{"source": "user", "content": "find X"}],

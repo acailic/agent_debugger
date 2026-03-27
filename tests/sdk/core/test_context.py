@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import uuid
 
 import pytest
 
@@ -21,7 +20,7 @@ from agent_debugger_sdk.core.context.vars import (
     _current_session_id,
     _event_sequence,
 )
-from agent_debugger_sdk.core.events import EventType, SessionStatus, TraceEvent
+from agent_debugger_sdk.core.events import EventType, SessionStatus
 
 
 class TestContextVariables:
@@ -252,7 +251,7 @@ class TestTraceContextCheckpoints:
     async def test_checkpoint_importance_clamped(self):
         ctx = TraceContext()
         async with ctx:
-            cp_id = await ctx.create_checkpoint(state={}, importance=1.5)
+            _ = await ctx.create_checkpoint(state={}, importance=1.5)
             events = await ctx.get_events()
             checkpoints = [e for e in events if hasattr(e, "importance")]
             # Check that the checkpoint event was created

@@ -10,11 +10,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent_debugger_sdk.core.emitter import EventEmitter, EventBufferLike
+from agent_debugger_sdk.core.emitter import EventBufferLike, EventEmitter
 from agent_debugger_sdk.core.events import (
     Checkpoint,
     EventType,
-    LLMRequestEvent,
     LLMResponseEvent,
     Session,
     TraceEvent,
@@ -29,7 +28,6 @@ from agent_debugger_sdk.transport import (
     TransientError,
     TransportError,
 )
-
 
 # =============================================================================
 # Test Fixtures
