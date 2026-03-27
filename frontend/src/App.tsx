@@ -983,7 +983,10 @@ function App() {
                       key={value}
                       type="button"
                       className={`threshold-preset${collapseThreshold === value ? ' active' : ''}`}
-                      onClick={() => setCollapseThreshold(value)}
+                      onClick={() => {
+                        setCollapseThreshold(value)
+                        setExpandedSegments(new Set()) // Reset expanded state when threshold changes
+                      }}
                     >
                       {label}
                     </button>

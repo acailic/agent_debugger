@@ -1,5 +1,6 @@
 """Bag-of-words text embedding utility with cosine similarity for session search."""
 
+import re
 from typing import Any
 
 # Common English stopwords to filter
@@ -122,8 +123,6 @@ def tokenize(text: str) -> list[str]:
 
     # Split on whitespace and punctuation-like characters
     # Simple approach: split on non-alphanumeric boundaries
-    import re
-
     words = re.findall(r"\w+", text.lower())
 
     # Filter stopwords and deduplicate
@@ -154,8 +153,6 @@ def text_to_vector(text: str) -> dict[str, float]:
 
     # Count token occurrences (even though tokenize deduplicates, we need counts)
     # So we tokenize again without deduplication for counting
-    import re
-
     words = re.findall(r"\w+", text.lower())
     words = [w for w in words if w not in STOPWORDS]
 

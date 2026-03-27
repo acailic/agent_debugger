@@ -208,4 +208,59 @@ describe('WhyButton', () => {
       expect(screen.getByText(/rate limiting on the external service/i)).toBeInTheDocument()
     })
   })
+
+  it('shows retry link on network error and allows retry', async () => {
+    vi.mocked(getAnalysis)
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockResolvedValueOnce(mockAnalysisResponse)
+
+    render(<WhyButton sessionId="s1" onSelectEvent={vi.fn()} onFocusReplay={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /why did it fail/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/network error/i)).toBeInTheDocument()
+    })
+
+    // Should show retry link for network errors
+    const retryLink = screen.getByText('Retry')
+    expect(retryLink).toBeInTheDocument()
+
+    // Click retry - should load successfully
+    await userEvent.click(retryLink)
+
+    await waitFor(() => {
+      expect(screen.getByText('API timeout after 30s')).toBeInTheDocument()
+    })
+  })
+
+  it('shows full error flow: load -> error -> retry -> success', async () => {
+    const onSelectEvent = vi.fn()
+    vi.mocked(getAnalysis)
+      .mockRejectedValueOnce(new Error('Server error: 500'))
+      .mockResolvedValueOnce(mockAnalysisResponse)
+
+    render(<WhyButton sessionId="s1" onSelectEvent={onSelectEvent} onFocusReplay={vi.fn()} />)
+
+    // Step 1: Click button
+    await userEvent.click(screen.getByRole('button', { name: /why did it fail/i }))
+
+    // Step 2: See error
+    await waitFor(() => {
+      expect(screen.getByText(/server error/i)).toBeInTheDocument()
+    })
+
+    // Step 3: Click button again to retry
+    await userEvent.click(screen.getByRole('button', { name: /why did it fail/i }))
+
+    // Step 4: See explanation
+    await waitFor(() => {
+      expect(screen.getByText('API timeout after 30s')).toBeInTheDocument()
+    })
+
+    // Step 5: Click a candidate
+    await userEvent.click(screen.getByText('search_api timed out'))
+
+    expect(onSelectEvent).toHaveBeenCalledWith('evt-5')
+  })
 })
