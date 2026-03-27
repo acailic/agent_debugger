@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import WhyButton from '../components/WhyButton'
+import type { FailureExplanation } from '../types'
 
 // Mock the API client
 vi.mock('../api/client', () => ({
@@ -10,7 +11,7 @@ vi.mock('../api/client', () => ({
 
 import { getAnalysis } from '../api/client'
 
-const mockExplanation = {
+const mockExplanation: FailureExplanation = {
   failure_event_id: 'evt-1',
   failure_event_type: 'error',
   failure_headline: 'API timeout after 30s',
@@ -50,6 +51,20 @@ const mockExplanation = {
   ],
 }
 
+const mockAnalysisResponse = {
+  session_id: 's1',
+  analysis: {
+    failure_explanations: [mockExplanation],
+  },
+} as Parameters<typeof getAnalysis> extends Promise<infer R> ? R : never
+
+const mockEmptyAnalysisResponse = {
+  session_id: 's1',
+  analysis: {
+    failure_explanations: [],
+  },
+} as Parameters<typeof getAnalysis> extends Promise<infer R> ? R : never
+
 describe('WhyButton', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -70,10 +85,7 @@ describe('WhyButton', () => {
   })
 
   it('shows explanation after clicking button', async () => {
-    vi.mocked(getAnalysis).mockResolvedValue({
-      session_id: 's1',
-      analysis: { failure_explanations: [mockExplanation] },
-    })
+    vi.mocked(getAnalysis).mockResolvedValue(mockAnalysisResponse)
 
     render(<WhyButton sessionId="s1" onSelectEvent={vi.fn()} onFocusReplay={vi.fn()} />)
 
@@ -100,10 +112,7 @@ describe('WhyButton', () => {
   })
 
   it('shows no failures message when response is empty', async () => {
-    vi.mocked(getAnalysis).mockResolvedValue({
-      session_id: 's1',
-      analysis: { failure_explanations: [] },
-    })
+    vi.mocked(getAnalysis).mockResolvedValue(mockEmptyAnalysisResponse)
 
     render(<WhyButton sessionId="s1" onSelectEvent={vi.fn()} onFocusReplay={vi.fn()} />)
 
@@ -115,10 +124,7 @@ describe('WhyButton', () => {
   })
 
   it('calls onSelectEvent when a candidate is clicked', async () => {
-    vi.mocked(getAnalysis).mockResolvedValue({
-      session_id: 's1',
-      analysis: { failure_explanations: [mockExplanation] },
-    })
+    vi.mocked(getAnalysis).mockResolvedValue(mockAnalysisResponse)
 
     const onSelectEvent = vi.fn()
     render(<WhyButton sessionId="s1" onSelectEvent={onSelectEvent} onFocusReplay={vi.fn()} />)
@@ -134,10 +140,7 @@ describe('WhyButton', () => {
   })
 
   it('calls onSelectEvent and onFocusReplay when inspect likely cause is clicked', async () => {
-    vi.mocked(getAnalysis).mockResolvedValue({
-      session_id: 's1',
-      analysis: { failure_explanations: [mockExplanation] },
-    })
+    vi.mocked(getAnalysis).mockResolvedValue(mockAnalysisResponse)
 
     const onSelectEvent = vi.fn()
     const onFocusReplay = vi.fn()
@@ -155,9 +158,9 @@ describe('WhyButton', () => {
   })
 
   it('disables button while loading', async () => {
-    let resolvePromise: (value: unknown) => void
+    let resolvePromise!: (value: typeof mockAnalysisResponse) => void
     vi.mocked(getAnalysis).mockReturnValue(
-      new Promise((resolve) => { resolvePromise = resolve })
+      new Promise<typeof mockAnalysisResponse>((resolve) => { resolvePromise = resolve })
     )
 
     render(<WhyButton sessionId="s1" onSelectEvent={vi.fn()} onFocusReplay={vi.fn()} />)
@@ -167,10 +170,7 @@ describe('WhyButton', () => {
 
     expect(btn).toBeDisabled()
 
-    resolvePromise!({
-      session_id: 's1',
-      analysis: { failure_explanations: [mockExplanation] },
-    })
+    resolvePromise!(mockAnalysisResponse)
 
     await waitFor(() => {
       expect(btn).not.toBeDisabled()
@@ -178,10 +178,7 @@ describe('WhyButton', () => {
   })
 
   it('resets state when sessionId changes', async () => {
-    vi.mocked(getAnalysis).mockResolvedValue({
-      session_id: 's1',
-      analysis: { failure_explanations: [mockExplanation] },
-    })
+    vi.mocked(getAnalysis).mockResolvedValue(mockAnalysisResponse)
 
     const { rerender } = render(
       <WhyButton sessionId="s1" onSelectEvent={vi.fn()} onFocusReplay={vi.fn()} />
@@ -201,10 +198,7 @@ describe('WhyButton', () => {
   })
 
   it('shows narrative when present', async () => {
-    vi.mocked(getAnalysis).mockResolvedValue({
-      session_id: 's1',
-      analysis: { failure_explanations: [mockExplanation] },
-    })
+    vi.mocked(getAnalysis).mockResolvedValue(mockAnalysisResponse)
 
     render(<WhyButton sessionId="s1" onSelectEvent={vi.fn()} onFocusReplay={vi.fn()} />)
 

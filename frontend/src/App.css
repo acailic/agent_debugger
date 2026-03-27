@@ -3176,122 +3176,6 @@ pre {
   to { transform: rotate(360deg); }
 }
 
-.why-panel {
-  margin-top: 0.8rem;
-  padding: 1.2rem;
-  border-radius: 1.2rem;
-  border: 1px solid color-mix(in oklch, var(--panel-border), var(--danger) 25%);
-  background: color-mix(in oklch, var(--panel), var(--danger) 4%);
-}
-
-.why-panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.75rem;
-  margin-bottom: 0.8rem;
-}
-
-.why-panel-header h3 {
-  margin: 0;
-  font-family: 'Fraunces', serif;
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
-.why-confidence {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.25rem 0.65rem;
-  border-radius: 999px;
-  background: color-mix(in oklch, var(--accent), white 80%);
-  color: var(--accent-deep);
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.why-confidence.high {
-  background: color-mix(in oklch, var(--olive), white 80%);
-  color: oklch(0.35 0.08 115);
-}
-
-.why-section {
-  margin-top: 0.8rem;
-}
-
-.why-section-label {
-  display: block;
-  margin-bottom: 0.3rem;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-}
-
-.why-symptom,
-.why-cause,
-.why-narrative {
-  margin: 0;
-  font-size: 0.92rem;
-  line-height: 1.55;
-  color: var(--text);
-}
-
-.why-symptom {
-  font-weight: 600;
-}
-
-.why-cause {
-  color: var(--muted);
-  font-size: 0.88rem;
-}
-
-.why-narrative {
-  margin-top: 0.6rem;
-  padding: 0.8rem;
-  border-radius: 0.8rem;
-  background: color-mix(in oklch, var(--panel), var(--bg-strong) 30%);
-  border: 1px solid color-mix(in oklch, var(--panel-border), transparent 50%);
-  font-size: 0.85rem;
-}
-
-.why-candidates {
-  display: grid;
-  gap: 0.5rem;
-  margin-top: 0.4rem;
-}
-
-.why-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.8rem;
-}
-
-.why-actions button {
-  padding: 0.45rem 0.9rem;
-  border-radius: 0.6rem;
-  background: color-mix(in oklch, var(--panel), var(--accent) 8%);
-  color: var(--accent-deep);
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid color-mix(in oklch, var(--panel-border), var(--accent) 20%);
-  transition: background-color 160ms ease;
-}
-
-.why-actions button:hover {
-  background: color-mix(in oklch, var(--panel), var(--accent) 16%);
-}
-
-.why-empty {
-  padding: 0.8rem 1rem;
-  border-radius: 0.8rem;
-  background: color-mix(in oklch, var(--panel), var(--olive) 6%);
-  color: var(--olive);
-  font-size: 0.88rem;
-}
-
 /* ── Phase 1: Highlight Chip ─────────────────────────────────── */
 
 .highlight-chip {
@@ -3330,9 +3214,17 @@ pre {
   color: var(--muted);
 }
 
-.highlight-chip-types {
-  display: inline-flex;
-  gap: 0.3rem;
+.highlight-chip-duration {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.highlight-chip-events {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.8rem 0;
 }
 
 .highlight-chip-type {

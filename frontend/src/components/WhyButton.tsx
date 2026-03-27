@@ -60,7 +60,7 @@ export default function WhyButton({
         onClick={status === 'idle' || status === 'error' ? handleFetch : undefined}
       >
         {status === 'loading' ? (
-          <span className="why-btn-spinner" />
+          <span className="spinner" />
         ) : (
           'Why Did It Fail?'
         )}
