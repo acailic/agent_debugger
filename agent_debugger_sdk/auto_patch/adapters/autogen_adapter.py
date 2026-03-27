@@ -17,13 +17,12 @@ import logging
 from typing import Any
 
 from agent_debugger_sdk.auto_patch._transport import SyncTransport, get_or_create_session
-from agent_debugger_sdk.auto_patch.registry import BaseAdapter, PatchConfig
-from agent_debugger_sdk.core.events import ErrorEvent, EventType, TraceEvent
+from agent_debugger_sdk.auto_patch.registry import AgentAdapterMixin, BaseAdapter, PatchConfig
 
 logger = logging.getLogger("agent_debugger.auto_patch")
 
 
-class AutoGenAdapter(BaseAdapter):
+class AutoGenAdapter(BaseAdapter, AgentAdapterMixin):
     """Auto-patch adapter for AutoGen (v0.2.x and v0.4.x).
 
     Detects which AutoGen package is installed and patches the appropriate
@@ -158,112 +157,6 @@ class AutoGenAdapter(BaseAdapter):
         setattr(target_cls, method_name, traced_run)
         logger.debug("AutoGenAdapter: patched AssistantAgent.run (v0.4)")
         return True
-
-    # ------------------------------------------------------------------
-    # Shared wrap helpers
-    # ------------------------------------------------------------------
-
-    def _wrap_sync_call(
-        self,
-        fn: Any,
-        *,
-        start_name: str,
-        end_name: str,
-        error_name: str,
-    ) -> Any:
-        transport = self._transport
-        session_id = self._session_id or ""
-        try:
-            start_event = TraceEvent(
-                session_id=session_id,
-                event_type=EventType.AGENT_START,
-                name=start_name,
-            )
-            if transport is not None:
-                transport.send_event(start_event.to_dict())
-        except Exception:
-            logger.warning("AutoGenAdapter: failed to emit AGENT_START event", exc_info=True)
-
-        try:
-            result = fn()
-        except Exception as exc:
-            try:
-                error_event = ErrorEvent(
-                    session_id=session_id,
-                    event_type=EventType.ERROR,
-                    name=error_name,
-                    error_type=type(exc).__name__,
-                    error_message=str(exc),
-                )
-                if transport is not None:
-                    transport.send_event(error_event.to_dict())
-            except Exception:
-                logger.warning("AutoGenAdapter: failed to emit ERROR event", exc_info=True)
-            raise
-
-        try:
-            end_event = TraceEvent(
-                session_id=session_id,
-                event_type=EventType.AGENT_END,
-                name=end_name,
-            )
-            if transport is not None:
-                transport.send_event(end_event.to_dict())
-        except Exception:
-            logger.warning("AutoGenAdapter: failed to emit AGENT_END event", exc_info=True)
-
-        return result
-
-    async def _wrap_async_call(
-        self,
-        fn: Any,
-        *,
-        start_name: str,
-        end_name: str,
-        error_name: str,
-    ) -> Any:
-        transport = self._transport
-        session_id = self._session_id or ""
-        try:
-            start_event = TraceEvent(
-                session_id=session_id,
-                event_type=EventType.AGENT_START,
-                name=start_name,
-            )
-            if transport is not None:
-                transport.send_event(start_event.to_dict())
-        except Exception:
-            logger.warning("AutoGenAdapter: failed to emit AGENT_START event (async)", exc_info=True)
-
-        try:
-            result = await fn()
-        except Exception as exc:
-            try:
-                error_event = ErrorEvent(
-                    session_id=session_id,
-                    event_type=EventType.ERROR,
-                    name=error_name,
-                    error_type=type(exc).__name__,
-                    error_message=str(exc),
-                )
-                if transport is not None:
-                    transport.send_event(error_event.to_dict())
-            except Exception:
-                logger.warning("AutoGenAdapter: failed to emit ERROR event (async)", exc_info=True)
-            raise
-
-        try:
-            end_event = TraceEvent(
-                session_id=session_id,
-                event_type=EventType.AGENT_END,
-                name=end_name,
-            )
-            if transport is not None:
-                transport.send_event(end_event.to_dict())
-        except Exception:
-            logger.warning("AutoGenAdapter: failed to emit AGENT_END event (async)", exc_info=True)
-
-        return result
 
     def unpatch(self) -> None:
         """Restore the original AutoGen method."""

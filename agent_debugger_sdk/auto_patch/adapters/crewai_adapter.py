@@ -12,13 +12,12 @@ import logging
 from typing import Any
 
 from agent_debugger_sdk.auto_patch._transport import SyncTransport, get_or_create_session
-from agent_debugger_sdk.auto_patch.registry import BaseAdapter, PatchConfig
-from agent_debugger_sdk.core.events import ErrorEvent, EventType, TraceEvent
+from agent_debugger_sdk.auto_patch.registry import AgentAdapterMixin, BaseAdapter, PatchConfig
 
 logger = logging.getLogger("agent_debugger.auto_patch")
 
 
-class CrewAIAdapter(BaseAdapter):
+class CrewAIAdapter(BaseAdapter, AgentAdapterMixin):
     """Auto-patch adapter for CrewAI.
 
     Monkey-patches ``crewai.Crew.kickoff`` (sync) and
@@ -70,90 +69,22 @@ class CrewAIAdapter(BaseAdapter):
         adapter = self
 
         def traced_kickoff(self_crew: Any, *args: Any, **kwargs: Any) -> Any:
-            transport = adapter._transport
-            session_id = adapter._session_id or ""
-            try:
-                start_event = TraceEvent(
-                    session_id=session_id,
-                    event_type=EventType.AGENT_START,
-                    name="crew.kickoff",
-                )
-                transport.send_event(start_event.to_dict())
-            except Exception:
-                logger.warning("CrewAIAdapter: failed to emit AGENT_START event", exc_info=True)
-
-            try:
-                result = adapter._original_kickoff(self_crew, *args, **kwargs)
-            except Exception as exc:
-                try:
-                    error_event = ErrorEvent(
-                        session_id=session_id,
-                        event_type=EventType.ERROR,
-                        name="crew.kickoff.error",
-                        error_type=type(exc).__name__,
-                        error_message=str(exc),
-                    )
-                    if transport is not None:
-                        transport.send_event(error_event.to_dict())
-                except Exception:
-                    logger.warning("CrewAIAdapter: failed to emit ERROR event", exc_info=True)
-                raise
-
-            try:
-                end_event = TraceEvent(
-                    session_id=session_id,
-                    event_type=EventType.AGENT_END,
-                    name="crew.kickoff.end",
-                )
-                transport.send_event(end_event.to_dict())
-            except Exception:
-                logger.warning("CrewAIAdapter: failed to emit AGENT_END event", exc_info=True)
-
-            return result
+            return adapter._wrap_sync_call(
+                lambda: adapter._original_kickoff(self_crew, *args, **kwargs),
+                start_name="crew.kickoff",
+                end_name="crew.kickoff.end",
+                error_name="crew.kickoff.error",
+            )
 
         traced_kickoff._peaky_peek_patched = True  # type: ignore[attr-defined]
 
         async def traced_kickoff_async(self_crew: Any, *args: Any, **kwargs: Any) -> Any:
-            transport = adapter._transport
-            session_id = adapter._session_id or ""
-            try:
-                start_event = TraceEvent(
-                    session_id=session_id,
-                    event_type=EventType.AGENT_START,
-                    name="crew.kickoff_async",
-                )
-                transport.send_event(start_event.to_dict())
-            except Exception:
-                logger.warning("CrewAIAdapter: failed to emit AGENT_START event (async)", exc_info=True)
-
-            try:
-                result = await adapter._original_kickoff_async(self_crew, *args, **kwargs)
-            except Exception as exc:
-                try:
-                    error_event = ErrorEvent(
-                        session_id=session_id,
-                        event_type=EventType.ERROR,
-                        name="crew.kickoff_async.error",
-                        error_type=type(exc).__name__,
-                        error_message=str(exc),
-                    )
-                    if transport is not None:
-                        transport.send_event(error_event.to_dict())
-                except Exception:
-                    logger.warning("CrewAIAdapter: failed to emit ERROR event (async)", exc_info=True)
-                raise
-
-            try:
-                end_event = TraceEvent(
-                    session_id=session_id,
-                    event_type=EventType.AGENT_END,
-                    name="crew.kickoff_async.end",
-                )
-                transport.send_event(end_event.to_dict())
-            except Exception:
-                logger.warning("CrewAIAdapter: failed to emit AGENT_END event (async)", exc_info=True)
-
-            return result
+            return await adapter._wrap_async_call(
+                lambda: adapter._original_kickoff_async(self_crew, *args, **kwargs),
+                start_name="crew.kickoff_async",
+                end_name="crew.kickoff_async.end",
+                error_name="crew.kickoff_async.error",
+            )
 
         traced_kickoff_async._peaky_peek_patched = True  # type: ignore[attr-defined]
 
