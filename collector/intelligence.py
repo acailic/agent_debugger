@@ -197,6 +197,10 @@ class TraceIntelligence:
         previous_tool_name = None
         behavior_alerts: list[dict[str, Any]] = []
 
+        # Pre-aggregate metrics during single pass (avoids separate loops)
+        total_cost = 0.0
+        high_severity_count = 0
+
         for index, event in enumerate(events):
             fingerprint = fingerprints[index]
             severity = self.severity(event)
@@ -216,6 +220,10 @@ class TraceIntelligence:
             replay_value += 0.1 if bool(_event_value(event, "evidence_event_ids", [])) else 0.0
             composite = min(1.0, severity * 0.45 + novelty * 0.2 + recurrence * 0.15 + replay_value * 0.2)
 
+            # Pre-aggregate: count high severity during ranking
+            if severity >= 0.9:
+                high_severity_count += 1
+
             event_rankings.append(
                 {
                     "event_id": event.id,
@@ -228,6 +236,12 @@ class TraceIntelligence:
                     "composite": round(composite, 4),
                 }
             )
+
+            # Pre-aggregate: accumulate cost from LLM responses
+            if event.event_type == EventType.LLM_RESPONSE:
+                cost = _event_value(event, "cost_usd", 0.0)
+                if cost:
+                    total_cost += float(cost)
 
             if event.event_type == EventType.TOOL_CALL:
                 tool_name = _event_value(event, "tool_name", "")
@@ -261,12 +275,7 @@ class TraceIntelligence:
             events, ranking_by_event_id, self.event_headline
         )
         checkpoint_rankings: list[dict[str, Any]] = []
-        total_cost = sum(
-            float(_event_value(event, "cost_usd", 0.0) or 0.0)
-            for event in events
-            if event.event_type == EventType.LLM_RESPONSE
-        )
-        high_severity_count = sum(1 for ranking in event_rankings if ranking["severity"] >= 0.9)
+        # total_cost and high_severity_count already computed during main loop
         top_composites = [
             ranking["composite"]
             for ranking in sorted(event_rankings, key=lambda item: item["composite"], reverse=True)[:5]
