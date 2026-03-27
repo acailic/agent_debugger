@@ -618,6 +618,10 @@ function App() {
     () => new Set(highlights.map((h) => h.event_id)),
     [highlights],
   )
+  const highlightsMap = useMemo(
+    () => new Map(highlights.map((h) => [h.event_id, h])),
+    [highlights],
+  )
   const highlightEvents = useMemo(
     () => mergedSessionEvents.filter((event) => highlightEventIds.has(event.id)),
     [mergedSessionEvents, highlightEventIds],
@@ -1089,7 +1093,7 @@ function App() {
             />
           </section>
 
-          {currentSession?.status === 'error' && (
+          {currentSession && (currentSession.status === 'error' || (currentSession.failure_count ?? 0) > 0) && (
             <WhyButton
               sessionId={currentSession.id}
               onSelectEvent={(eventId) => {
@@ -1123,6 +1127,7 @@ function App() {
                 selectedEventId={selectedEventId}
                 onSelectEvent={inspectEvent}
                 highlightEventIds={highlightEventIds}
+                highlightsMap={highlightsMap}
               />
               {replayMode === 'highlights' && replay?.collapsed_segments?.map((segment, index) => (
                 <HighlightChip

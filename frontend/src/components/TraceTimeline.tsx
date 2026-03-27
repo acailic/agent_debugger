@@ -1,10 +1,12 @@
-import type { TraceEvent } from '../types'
+import type { TraceEvent, Highlight } from '../types'
 
 interface TraceTimelineProps {
   events: TraceEvent[]
   selectedEventId: string | null
   onSelectEvent: (eventId: string) => void
   highlightEventIds?: Set<string>
+  /** Map of event_id to Highlight for displaying reasons */
+  highlightsMap?: Map<string, Highlight>
 }
 
 function describeEvent(event: TraceEvent): string {
@@ -27,7 +29,7 @@ function describeEvent(event: TraceEvent): string {
   }
 }
 
-export function TraceTimeline({ events, selectedEventId, onSelectEvent, highlightEventIds }: TraceTimelineProps) {
+export function TraceTimeline({ events, selectedEventId, onSelectEvent, highlightEventIds, highlightsMap }: TraceTimelineProps) {
   return (
     <div className="trace-timeline">
       <div className="timeline-header">
@@ -38,6 +40,7 @@ export function TraceTimeline({ events, selectedEventId, onSelectEvent, highligh
       <div className="timeline-events">
         {events.map((event) => {
           const isHighlight = highlightEventIds?.has(event.id) ?? false
+          const highlight = highlightsMap?.get(event.id)
           return (
             <div
               key={event.id}
@@ -52,6 +55,7 @@ export function TraceTimeline({ events, selectedEventId, onSelectEvent, highligh
                 <span className="event-time">
                   {new Date(event.timestamp).toLocaleTimeString()}
                 </span>
+                {highlight && <span className="highlight-reason">{highlight.reason}</span>}
               </div>
             </div>
           )

@@ -993,6 +993,17 @@ button {
   font-size: 1rem;
 }
 
+.highlight-reason {
+  display: block;
+  font-size: 11px;
+  color: #92400e;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+  font-style: italic;
+}
+
 /* Highlight info card */
 .highlight-info-card {
   background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);

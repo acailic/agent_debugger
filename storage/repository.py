@@ -448,8 +448,14 @@ class TraceRepository:
         if not query_vec:
             return []
 
-        # Fetch candidate sessions
-        stmt = select(SessionModel).where(SessionModel.tenant_id == self.tenant_id)
+        # Fetch candidate sessions (limit to prevent unbounded memory usage)
+        CANDIDATE_LIMIT = 500
+        stmt = (
+            select(SessionModel)
+            .where(SessionModel.tenant_id == self.tenant_id)
+            .order_by(SessionModel.started_at.desc())
+            .limit(CANDIDATE_LIMIT)
+        )
         if status:
             stmt = stmt.where(SessionModel.status == status)
 
