@@ -144,9 +144,6 @@ class CheckpointListResponse(BaseModel):
     session_id: str
 
 
-class CheckpointResponse(CheckpointSchema):
-    pass
-
 
 class RestoreRequest(BaseModel):
     session_id: str | None = None

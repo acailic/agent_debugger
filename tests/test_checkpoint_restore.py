@@ -242,10 +242,10 @@ class TestTraceContextRestore:
 
 class TestCheckpointEndpoints:
     def test_checkpoint_schemas_importable(self):
-        """CheckpointResponse, RestoreRequest, RestoreResponse should exist in api.schemas."""
-        from api.schemas import CheckpointResponse, RestoreRequest, RestoreResponse
+        """CheckpointSchema, RestoreRequest, RestoreResponse should exist in api.schemas."""
+        from api.schemas import CheckpointSchema, RestoreRequest, RestoreResponse
 
-        assert CheckpointResponse
+        assert CheckpointSchema
         assert RestoreRequest
         assert RestoreResponse
 

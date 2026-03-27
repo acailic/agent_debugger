@@ -10,20 +10,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 from storage.models import Base
 
 
-class TenantModel(Base):
-    """ORM model for tenant/accounts."""
-
-    __tablename__ = "tenants"
-
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    name: Mapped[str] = mapped_column(String(256))
-    plan: Mapped[str] = mapped_column(String(32), default="free")  # free, developer, team, business
-    created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc)
-    )
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-
-
 class APIKeyModel(Base):
     """ORM model for API keys."""
 

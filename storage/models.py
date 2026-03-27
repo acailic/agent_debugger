@@ -89,24 +89,6 @@ class CheckpointModel(Base):
     event: Mapped[EventModel | None] = relationship()
 
 
-class FailureClusterModel(Base):
-    """SQLAlchemy ORM model for failure clusters across sessions."""
-
-    __tablename__ = "failure_clusters"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    tenant_id: Mapped[str] = mapped_column(String(64), nullable=False, default="local", index=True)
-    fingerprint: Mapped[str] = mapped_column(String(255), index=True)
-    first_seen: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
-    last_seen: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
-    session_count: Mapped[int] = mapped_column(default=1)
-    event_count: Mapped[int] = mapped_column(default=0)
-    representative_session_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("sessions.id"))
-    representative_event_id: Mapped[str | None] = mapped_column(String(36))
-    sample_failure_mode: Mapped[str | None] = mapped_column(String(64))
-    sample_symptom: Mapped[str | None] = mapped_column(String(512))
-    avg_severity: Mapped[float] = mapped_column(Float, default=0.0)
-
 
 class AnomalyAlertModel(Base):
     """SQLAlchemy ORM model for anomaly alerts."""

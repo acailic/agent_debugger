@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from api.analytics_db import record_event
 from api.dependencies import get_repository
 from api.schemas import (
-    CheckpointResponse,
+    CheckpointSchema,
     CollapsedSegmentSchema,
     ReplayResponse,
     RestoreRequest,
@@ -38,9 +38,8 @@ async def replay_session(
     collapse_threshold: float = Query(default=0.35, ge=0.0, le=1.0),
     repo: TraceRepository = Depends(get_repository),
 ) -> ReplayResponse:
-    # Handle Query object when called directly (not through FastAPI)
-    if hasattr(collapse_threshold, "default"):
-        collapse_threshold = collapse_threshold.default
+    # Unwrap Query defaults when called directly (e.g. in tests)
+    collapse_threshold = collapse_threshold.default if hasattr(collapse_threshold, "default") else collapse_threshold  # noqa: B008
 
     await require_session(repo, session_id)
     events, checkpoints = await load_session_artifacts(repo, session_id)
@@ -118,17 +117,17 @@ async def replay_session(
     )
 
 
-@router.get("/api/checkpoints/{checkpoint_id}", response_model=CheckpointResponse)
+@router.get("/api/checkpoints/{checkpoint_id}", response_model=CheckpointSchema)
 async def get_checkpoint(
     checkpoint_id: str,
     repo: TraceRepository = Depends(get_repository),
-) -> CheckpointResponse:
+) -> CheckpointSchema:
     """Get a single checkpoint by ID."""
     checkpoint = await repo.get_checkpoint(checkpoint_id)
     if checkpoint is None:
         raise HTTPException(status_code=404, detail="Checkpoint not found")
 
-    return CheckpointResponse(
+    return CheckpointSchema(
         **normalize_checkpoint(checkpoint).model_dump(),
     )
 
