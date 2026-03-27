@@ -2,145 +2,24 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
 
 from .causal_analysis import _event_value
+from .detection import detect_oscillation
+from .models import CheckpointDelta, OscillationAlert, RollingSummary, RollingWindow
 
 
-@dataclass
-class RollingWindow:
-    """Rolling window metrics for real-time monitoring."""
-
-    window_start: datetime
-    window_end: datetime
-    event_count: int = 0
-    tool_calls: int = 0
-    llm_calls: int = 0
-    decisions: int = 0
-    errors: int = 0
-    refusals: int = 0
-    total_tokens: int = 0
-    total_cost_usd: float = 0.0
-    unique_tools: set[str] = field(default_factory=set)
-    unique_agents: set[str] = field(default_factory=set)
-    avg_confidence: float = 0.0
-    state_progression: list[str] = field(default_factory=list)
-
-
-@dataclass
-class RollingSummary:
-    """Human-readable rolling summary with structured metrics."""
-
-    text: str
-    metrics: dict[str, Any]
-    window_type: str  # "time" or "event_count"
-    window_size: int  # seconds or event count
-    computed_at: datetime
-
-
-@dataclass
-class OscillationAlert:
-    """Alert for detected oscillation patterns in agent behavior."""
-
-    pattern: str  # e.g., "A->B->A->B"
-    event_type: str
-    repeat_count: int
-    severity: float
-    event_ids: list[str] = field(default_factory=list)
-
-
-@dataclass
-class CheckpointDelta:
-    """Delta information between checkpoints."""
-
-    checkpoint_id: str
-    event_id: str
-    sequence: int
-    time_since_previous: float  # seconds
-    events_since_previous: int
-    importance_delta: float
-    restore_value: float
-    state_keys_changed: list[str] = field(default_factory=list)
-
-
-def detect_oscillation(
-    events: list[TraceEvent],
-    window: int = 10,
-) -> OscillationAlert | None:
-    """Detect A->B->A->B patterns in tool calls or decisions.
-
-    Algorithm:
-    1. Extract sequence of (event_type, key_field) tuples
-    2. For each subsequence length 2-4:
-       - Check if sequence repeats at least twice
-       - Compute oscillation score: repeat_count / window_size
-    3. Return highest-scoring oscillation with severity
-    """
-    if len(events) < 4:
-        return None
-
-    recent = events[-window:] if len(events) > window else events
-
-    # Extract sequence of (event_type, key) tuples for relevant event types
-    sequence: list[tuple[str, str]] = []
-    event_map: list[TraceEvent] = []
-
-    for e in recent:
-        # Only consider tool calls, decisions, and state changes for oscillation
-        if e.event_type not in {EventType.TOOL_CALL, EventType.DECISION, EventType.AGENT_TURN}:
-            continue
-
-        key = e.name or str(e.event_type)
-        if e.event_type == EventType.TOOL_CALL:
-            tool_name = _event_value(e, "tool_name", "")
-            if tool_name:
-                key = tool_name
-        elif e.event_type == EventType.DECISION:
-            chosen_action = _event_value(e, "chosen_action", "")
-            if chosen_action:
-                key = chosen_action
-
-        sequence.append((str(e.event_type), key))
-        event_map.append(e)
-
-    if len(sequence) < 4:
-        return None
-
-    # Check for oscillation patterns of different lengths
-    best_alert: OscillationAlert | None = None
-
-    for pattern_len in [2, 3, 4]:
-        if len(sequence) < pattern_len * 2:
-            continue
-
-        pattern = sequence[:pattern_len]
-        repeats = 1
-        matched_indices: list[int] = list(range(pattern_len))
-
-        for i in range(pattern_len, len(sequence) - pattern_len + 1, pattern_len):
-            if sequence[i : i + pattern_len] == pattern:
-                repeats += 1
-                matched_indices.extend(range(i, i + pattern_len))
-
-        if repeats >= 2:
-            pattern_str = "->".join(p[1] for p in pattern)
-            severity = min(1.0, repeats / 3.0 + (0.1 if repeats >= 3 else 0.0))
-            matched_events = [event_map[i] for i in matched_indices if i < len(event_map)]
-
-            if best_alert is None or severity > best_alert.severity:
-                best_alert = OscillationAlert(
-                    pattern=pattern_str,
-                    event_type=pattern[0][0],
-                    repeat_count=repeats,
-                    severity=severity,
-                    event_ids=[e.id for e in matched_events],
-                )
-
-    return best_alert
+__all__ = [
+    "LiveMonitor",
+    "RollingWindow",
+    "RollingSummary",
+    "OscillationAlert",
+    "CheckpointDelta",
+    "detect_oscillation",
+]
 
 
 class LiveMonitor:
