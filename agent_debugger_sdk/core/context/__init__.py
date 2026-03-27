@@ -7,11 +7,13 @@ checkpoints.
 """
 
 from .pipeline import _get_default_event_buffer, configure_event_pipeline
+from .session_manager import SessionManager
 from .trace_context import TraceContext
 from .vars import get_current_context, get_current_parent_id, get_current_session_id
 
 __all__ = [
     "TraceContext",
+    "SessionManager",
     "get_current_context",
     "get_current_session_id",
     "get_current_parent_id",

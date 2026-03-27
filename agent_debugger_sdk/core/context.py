@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from agent_debugger_sdk.checkpoints import BaseCheckpointState
 
+from .checkpoint_manager import CheckpointManager
 from .emitter import EventBufferLike, EventEmitter
 from .events import (
     Checkpoint,
@@ -27,6 +28,7 @@ from .events import (
     TraceEvent,
 )
 from .recorders import RecordingMixin
+from .transport_service import TransportService
 
 _current_session_id: ContextVar[str | None] = ContextVar("current_session_id", default=None)
 _current_parent_id: ContextVar[str | None] = ContextVar("current_parent_id", default=None)
@@ -151,7 +153,6 @@ class TraceContext(RecordingMixin):
         self.collector_endpoint = collector_endpoint
         self._events: list[TraceEvent | Checkpoint] = []
         self._events_lock: asyncio.Lock = asyncio.Lock()
-        self._checkpoint_sequence = 0
         self._event_buffer = event_buffer if event_buffer is not None else _get_default_event_buffer()
         self._event_persister = _default_event_persister.get()
         self._checkpoint_persister = _default_checkpoint_persister.get()
@@ -176,9 +177,17 @@ class TraceContext(RecordingMixin):
             session_update_hook=self._session_update_hook,
         )
 
+        self._checkpoint_manager = CheckpointManager(
+            session_id=self.session_id,
+            event_emitter=self._emitter,
+            event_store=self._events,
+            event_lock=self._events_lock,
+            checkpoint_persister=self._checkpoint_persister,
+        )
+
         self._session_start_event: TraceEvent | None = None
         self._entered = False
-        self._transport: Any | None = None  # HttpTransport instance if in cloud mode
+        self._transport_service = TransportService()
         self._restored_state: BaseCheckpointState | None = None
 
     @classmethod
@@ -260,22 +269,18 @@ class TraceContext(RecordingMixin):
         # Wire in HTTP transport for cloud mode
         # IMPORTANT: Do NOT call configure_event_pipeline() here as it mutates
         # global ContextVars and would break concurrent sessions. Instead, set
-        # instance-level hooks.
-        from agent_debugger_sdk.config import get_config
+        # instance-level hooks via TransportService.
+        self._transport_service.configure_for_cloud_mode()
 
-        config = get_config()
-        if config.mode == "cloud" and config.api_key:
-            from agent_debugger_sdk.transport import HttpTransport
-
-            self._transport = HttpTransport(config.endpoint, config.api_key)
-            # Set instance-level hooks (not global pipeline)
-            self._event_persister = self._transport.send_event
-            self._session_start_hook = self._transport.send_session_start
-            self._session_update_hook = self._transport.send_session_update
+        # Set instance-level hooks from transport service if cloud mode was configured
+        if self._transport_service.event_persister is not None:
+            self._event_persister = self._transport_service.event_persister
             self._emitter.set_event_persister(self._event_persister)
+        if self._transport_service.session_update_hook is not None:
+            self._session_update_hook = self._transport_service.session_update_hook
             self._emitter.set_session_update_hook(self._session_update_hook)
-        else:
-            self._transport = None
+        if self._transport_service.session_start_hook is not None:
+            self._session_start_hook = self._transport_service.session_start_hook
 
         self._entered = True
         if self._session_start_hook is not None:
@@ -355,10 +360,13 @@ class TraceContext(RecordingMixin):
         _current_context.set(None)
         self._entered = False
 
-        # Close transport if it was created
-        if self._transport is not None:
-            await self._transport.close()
-            self._transport = None
+        # Close transport service if it was created
+        await self._transport_service.close()
+
+    @property
+    def _checkpoint_sequence(self) -> int:
+        """Get the current checkpoint sequence number (for backward compatibility)."""
+        return self._checkpoint_manager.checkpoint_sequence
 
     async def create_checkpoint(
         self,
@@ -387,46 +395,12 @@ class TraceContext(RecordingMixin):
             )
         """
         self._check_entered()
-
-        from agent_debugger_sdk.checkpoints import serialize_checkpoint_state, validate_checkpoint_state
-
-        validated = validate_checkpoint_state(state)
-        state_dict = serialize_checkpoint_state(validated)
-
-        self._checkpoint_sequence += 1
-        checkpoint_id = str(uuid.uuid4())
-
-        checkpoint = Checkpoint(
-            id=checkpoint_id,
-            session_id=self.session_id,
-            event_id=_current_parent_id.get() or "",
-            sequence=self._checkpoint_sequence,
-            state=state_dict,
-            memory=memory or {},
-            timestamp=datetime.now(timezone.utc),
-            importance=max(0.0, min(1.0, importance)),
-        )
-
-        async with self._events_lock:
-            self._events.append(checkpoint)
-        if self._checkpoint_persister is not None:
-            await self._checkpoint_persister(checkpoint)
-
-        event = TraceEvent(
-            id=str(uuid.uuid4()),
-            session_id=self.session_id,
+        return await self._checkpoint_manager.create_checkpoint(
+            state=state,
+            memory=memory,
+            importance=importance,
             parent_id=_current_parent_id.get(),
-            event_type=EventType.CHECKPOINT,
-            name=f"checkpoint_{self._checkpoint_sequence}",
-            data={
-                "checkpoint_id": checkpoint_id,
-                "sequence": self._checkpoint_sequence,
-            },
-            importance=checkpoint.importance,
         )
-        await self._emit_event(event)
-
-        return checkpoint_id
 
     def set_parent(self, event_id: str) -> None:
         """Set the parent event ID for hierarchical event tracking.

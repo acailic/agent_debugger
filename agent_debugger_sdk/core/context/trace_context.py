@@ -21,6 +21,7 @@ from agent_debugger_sdk.core.events import (
 from agent_debugger_sdk.core.recorders import RecordingMixin
 
 from .pipeline import _get_default_event_buffer
+from .session_manager import SessionManager
 from .vars import (
     _current_context,
     _current_parent_id,
@@ -102,6 +103,11 @@ class TraceContext(RecordingMixin):
             config=config or {},
             tags=tags or [],
         )
+        self._session_manager = SessionManager(
+            session=self.session,
+            session_start_hook=self._session_start_hook,
+            session_update_hook=self._session_update_hook,
+        )
         self._emitter = EventEmitter(
             session_id=self.session_id,
             session=self.session,
@@ -146,34 +152,20 @@ class TraceContext(RecordingMixin):
                 state = ctx.restored_state  # LangChainCheckpointState
                 messages = state.messages   # Pre-populated history
         """
-        import httpx
-
-        from agent_debugger_sdk.checkpoints import validate_checkpoint_state
-
-        if server_url is None:
-            from agent_debugger_sdk.config import get_config
-
-            config = get_config()
-            server_url = config.endpoint or "http://localhost:8000"
-
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{server_url}/api/checkpoints/{checkpoint_id}")
-            response.raise_for_status()
-            checkpoint_data = response.json()
-
-        state_dict = checkpoint_data.get("state", {})
-        original_session_id = checkpoint_data.get("session_id", "")
+        session, restored_state = await SessionManager.restore_from_checkpoint(
+            checkpoint_id,
+            session_id=session_id,
+            server_url=server_url,
+            label=label,
+        )
 
         ctx = cls(
-            session_id=session_id or str(uuid.uuid4()),
-            agent_name=label or f"restored from {checkpoint_id[:8]}",
-            framework=state_dict.get("framework", "custom"),
-            config={
-                "restored_from_checkpoint": checkpoint_id,
-                "original_session_id": original_session_id,
-            },
+            session_id=session.id,
+            agent_name=session.agent_name,
+            framework=session.framework,
+            config=session.config,
         )
-        ctx._restored_state = validate_checkpoint_state(state_dict)
+        ctx._restored_state = restored_state
         return ctx
 
     @property
@@ -223,13 +215,15 @@ class TraceContext(RecordingMixin):
             self._session_update_hook = self._transport.send_session_update
             self._emitter.set_event_persister(self._event_persister)
             self._emitter.set_session_update_hook(self._session_update_hook)
+            # Update session manager hooks after transport setup
+            self._session_manager.set_start_hook(self._session_start_hook)
+            self._session_manager.set_update_hook(self._session_update_hook)
         else:
             # Hooks already configured (e.g., via configure_event_pipeline in tests)
             self._transport = None
 
         self._entered = True
-        if self._session_start_hook is not None:
-            await self._session_start_hook(self.session)
+        await self._session_manager.start()
 
         start_event = TraceEvent(
             session_id=self.session_id,
@@ -292,12 +286,9 @@ class TraceContext(RecordingMixin):
             },
             importance=0.2,
         )
-        self.session.status = status
-        self.session.ended_at = datetime.now(timezone.utc)
 
         await self._emit_event(end_event)
-        if self._session_update_hook is not None:
-            await self._session_update_hook(self.session)
+        await self._session_manager.update(status)
 
         _current_session_id.set(None)
         _current_parent_id.set(None)
