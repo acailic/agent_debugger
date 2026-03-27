@@ -9,95 +9,11 @@ from typing import Any
 from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
 
 from .causal_analysis import CausalAnalyzer
+from .clustering import FailureClusterAnalyzer
 from .failure_diagnostics import FailureDiagnostics
+from .highlights import generate_highlights
 from .live_monitor import LiveMonitor
-
-
-@dataclass
-class Highlight:
-    """Represents a highlight-worthy moment in a session trace."""
-
-    event_id: str
-    event_type: str
-    highlight_type: str  # "decision", "error", "refusal", "anomaly", "state_change"
-    importance: float
-    reason: str  # Human-readable reason why this is highlighted
-    timestamp: str
-
-
-def generate_highlights(
-    events: list[TraceEvent],
-    rankings: list[dict[str, Any]],
-    event_headline_fn: Any,
-) -> list[dict[str, Any]]:
-    """Generate a curated list of highlight-worthy moments."""
-    highlights: list[dict[str, Any]] = []
-
-    # Build ranking lookup
-    ranking_by_id = {r["event_id"]: r for r in rankings}
-
-    for event in events:
-        ranking = ranking_by_id.get(event.id, {})
-        composite = ranking.get("composite", 0)
-        severity = ranking.get("severity", 0)
-
-        highlight_type: str | None = None
-        reason: str | None = None
-
-        # Determine highlight type and reason
-        if event.event_type == EventType.ERROR:
-            highlight_type = "error"
-            reason = "Error event"
-        elif event.event_type == EventType.REFUSAL:
-            highlight_type = "refusal"
-            reason = "Refusal triggered"
-        elif event.event_type == EventType.POLICY_VIOLATION:
-            highlight_type = "refusal"
-            reason = "Policy violation"
-        elif event.event_type == EventType.BEHAVIOR_ALERT:
-            highlight_type = "anomaly"
-            reason = str(event.data.get("signal", "Behavior anomaly"))
-        elif event.event_type == EventType.SAFETY_CHECK:
-            outcome = event.data.get("outcome", "pass")
-            if outcome != "pass":
-                highlight_type = "anomaly"
-                reason = f"Safety check {outcome}"
-        elif event.event_type == EventType.DECISION:
-            confidence = event.data.get("confidence", 0.5)
-            if confidence < 0.5:
-                highlight_type = "decision"
-                reason = f"Low confidence decision ({confidence:.2f})"
-            elif composite > 0.6:
-                highlight_type = "decision"
-                reason = "High-impact decision"
-        elif event.event_type == EventType.TOOL_RESULT:
-            if event.data.get("error"):
-                highlight_type = "error"
-                reason = "Tool execution failed"
-            elif severity > 0.7:
-                highlight_type = "anomaly"
-                reason = "Unusual tool result"
-
-        # Only add if we have a highlight type and sufficient importance
-        if highlight_type and (severity > 0.5 or composite > 0.5):
-            importance = min(severity, composite) if composite > 0 else severity
-            timestamp = event.timestamp.isoformat() if hasattr(event.timestamp, "isoformat") else str(event.timestamp)
-            highlights.append(
-                {
-                    "event_id": event.id,
-                    "event_type": str(event.event_type),
-                    "highlight_type": highlight_type,
-                    "importance": round(importance, 4),
-                    "reason": reason,
-                    "timestamp": timestamp,
-                    "headline": event_headline_fn(event),
-                }
-            )
-
-    # Sort by importance, limit to top 20
-    highlights.sort(key=lambda h: -h["importance"])
-    return highlights[:20]
-
+from .ranking import CheckpointRankingService, EventRankingService
 
 # ---------------------------------------------------------------------------
 # Module-level helpers kept here for backward-compat (tests import them)
@@ -122,10 +38,13 @@ def _mean(values: list[float]) -> float:
 class TraceIntelligence:
     """Compute replay-centric analysis from session events.
 
-    This class is a **facade** that composes three focused components:
+    This class is a **facade** that composes focused components:
     - :class:`~collector.causal_analysis.CausalAnalyzer`
+    - :class:`~collector.clustering.failure_clusters.FailureClusterAnalyzer`
     - :class:`~collector.failure_diagnostics.FailureDiagnostics`
     - :class:`~collector.live_monitor.LiveMonitor`
+    - :class:`~collector.ranking.event_ranker.EventRankingService`
+    - :class:`~collector.ranking.checkpoint_ranker.CheckpointRankingService`
 
     The public API is unchanged so all callers continue to work without
     modification.
@@ -153,8 +72,15 @@ class TraceIntelligence:
                 EventType.AGENT_END: 0.2,
             }
         self._causal = CausalAnalyzer(self.severity_weights)
+        self._clusterer = FailureClusterAnalyzer()
         self._diagnostics = FailureDiagnostics(self._causal)
         self._monitor = LiveMonitor()
+        self._event_ranker = EventRankingService(
+            causal_analyzer=self._causal,
+            fingerprint_fn=self.fingerprint,
+            severity_fn=self.severity,
+        )
+        self._checkpoint_ranker = CheckpointRankingService()
 
     # ------------------------------------------------------------------
     # Utility methods (kept on the facade for backward-compat)
@@ -323,27 +249,8 @@ class TraceIntelligence:
                 previous_tool_name = None
                 consecutive_tool_loop = 0
 
-        clusters: dict[str, dict[str, Any]] = {}
-        for ranking in event_rankings:
-            if ranking["severity"] < 0.78:
-                continue
-            cluster = clusters.setdefault(
-                ranking["fingerprint"],
-                {
-                    "fingerprint": ranking["fingerprint"],
-                    "count": 0,
-                    "event_ids": [],
-                    "representative_event_id": ranking["event_id"],
-                    "max_composite": ranking["composite"],
-                },
-            )
-            cluster["count"] += 1
-            cluster["event_ids"].append(ranking["event_id"])
-            if ranking["composite"] > cluster["max_composite"]:
-                cluster["max_composite"] = ranking["composite"]
-                cluster["representative_event_id"] = ranking["event_id"]
-
-        failure_clusters = sorted(clusters.values(), key=lambda item: (-item["count"], -item["max_composite"]))
+        # Use FailureClusterAnalyzer for clustering logic
+        failure_clusters = self._clusterer.cluster_failures(event_rankings)
         representative_failure_ids = [cluster["representative_event_id"] for cluster in failure_clusters]
         high_replay_value_ids = [
             ranking["event_id"]

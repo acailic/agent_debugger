@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
 
+from .alerts import (
+    AlertDeriver,
+    GuardrailPressureAlerter,
+    PolicyShiftAlerter,
+    StrategyChangeAlerter,
+    ToolLoopAlerter,
+)
 from .causal_analysis import _event_value
 from .detection import detect_oscillation
 from .models import CheckpointDelta, OscillationAlert, RollingSummary, RollingWindow
+from .rolling import RollingWindowCalculator
 
 __all__ = [
     "LiveMonitor",
@@ -23,6 +30,16 @@ __all__ = [
 
 class LiveMonitor:
     """Derive a real-time monitoring snapshot from the current session state."""
+
+    def __init__(self) -> None:
+        """Initialize LiveMonitor with alerters and rolling window calculator."""
+        self._rolling_calculator = RollingWindowCalculator()
+        self._alerters: list[AlertDeriver] = [
+            ToolLoopAlerter(),
+            GuardrailPressureAlerter(),
+            PolicyShiftAlerter(),
+            StrategyChangeAlerter(),
+        ]
 
     def compute_rolling_window(
         self,
@@ -38,59 +55,7 @@ class LiveMonitor:
         Returns:
             RollingWindow dataclass with aggregated metrics
         """
-        now = datetime.now(timezone.utc)
-        cutoff = now - timedelta(seconds=window_seconds)
-
-        window = RollingWindow(
-            window_start=cutoff,
-            window_end=now,
-        )
-
-        recent_events = [
-            e
-            for e in events
-            if e.timestamp
-            and (e.timestamp.replace(tzinfo=timezone.utc) if e.timestamp.tzinfo is None else e.timestamp) >= cutoff
-        ]
-
-        confidences: list[float] = []
-        for event in recent_events:
-            window.event_count += 1
-
-            if event.event_type == EventType.TOOL_CALL:
-                window.tool_calls += 1
-                tool_name = _event_value(event, "tool_name", "")
-                if tool_name:
-                    window.unique_tools.add(tool_name)
-            elif event.event_type == EventType.LLM_REQUEST or event.event_type == EventType.LLM_RESPONSE:
-                window.llm_calls += 1
-                usage = _event_value(event, "usage", {}) or {}
-                if isinstance(usage, dict):
-                    window.total_tokens += usage.get("total_tokens", 0)
-                cost = _event_value(event, "cost_usd", 0.0)
-                if isinstance(cost, (int, float)):
-                    window.total_cost_usd += float(cost)
-            elif event.event_type == EventType.DECISION:
-                window.decisions += 1
-                confidence = _event_value(event, "confidence", None)
-                if confidence is not None and isinstance(confidence, (int, float)):
-                    confidences.append(float(confidence))
-            elif event.event_type == EventType.ERROR:
-                window.errors += 1
-            elif event.event_type == EventType.REFUSAL:
-                window.refusals += 1
-            elif event.event_type == EventType.AGENT_TURN:
-                speaker = _event_value(event, "speaker", "")
-                if speaker:
-                    window.unique_agents.add(speaker)
-                state_summary = _event_value(event, "state_summary", "")
-                if state_summary and isinstance(state_summary, str):
-                    window.state_progression.append(state_summary)
-
-        if confidences:
-            window.avg_confidence = sum(confidences) / len(confidences)
-
-        return window
+        return self._rolling_calculator.compute_rolling_window(events, window_seconds)
 
     def build_rolling_summary(
         self,
@@ -104,59 +69,7 @@ class LiveMonitor:
         Returns:
             RollingSummary with text description and structured metrics
         """
-        parts: list[str] = []
-
-        if window.event_count == 0:
-            text = "No recent activity in the rolling window"
-        else:
-            parts.append(f"{window.event_count} events")
-
-            detail_parts: list[str] = []
-            if window.tool_calls > 0:
-                detail_parts.append(f"{window.tool_calls} tool calls")
-            if window.decisions > 0:
-                detail_parts.append(f"{window.decisions} decisions")
-            if window.llm_calls > 0:
-                detail_parts.append(f"{window.llm_calls} LLM calls")
-
-            if detail_parts:
-                parts.append("(" + ", ".join(detail_parts) + ")")
-
-            if window.errors > 0:
-                parts.append(f", {window.errors} errors")
-            if window.refusals > 0:
-                parts.append(f", {window.refusals} refusals")
-
-            if window.unique_tools:
-                tools_preview = sorted(window.unique_tools)[:3]
-                tools_str = ", ".join(tools_preview)
-                if len(window.unique_tools) > 3:
-                    tools_str += f" (+{len(window.unique_tools) - 3} more)"
-                parts.append(f" | Tools: {tools_str}")
-
-            text = " ".join(parts)
-
-        metrics: dict[str, Any] = {
-            "event_count": window.event_count,
-            "tool_calls": window.tool_calls,
-            "llm_calls": window.llm_calls,
-            "decisions": window.decisions,
-            "errors": window.errors,
-            "refusals": window.refusals,
-            "total_tokens": window.total_tokens,
-            "total_cost_usd": round(window.total_cost_usd, 4),
-            "unique_tools_count": len(window.unique_tools),
-            "unique_agents_count": len(window.unique_agents),
-            "avg_confidence": round(window.avg_confidence, 3),
-        }
-
-        return RollingSummary(
-            text=text,
-            metrics=metrics,
-            window_type="time",
-            window_size=int((window.window_end - window.window_start).total_seconds()),
-            computed_at=datetime.now(timezone.utc),
-        )
+        return self._rolling_calculator.build_rolling_summary(window)
 
     def compute_checkpoint_deltas(
         self,
@@ -280,73 +193,10 @@ class LiveMonitor:
             if event.event_type == EventType.BEHAVIOR_ALERT
         ]
 
-        recent_tool_calls = [event for event in recent_events if event.event_type == EventType.TOOL_CALL]
-        last_three_tool_calls = recent_tool_calls[-3:]
-        if len(last_three_tool_calls) == 3:
-            tool_name = _event_value(last_three_tool_calls[-1], "tool_name", "")
-            if tool_name and all(_event_value(event, "tool_name", "") == tool_name for event in last_three_tool_calls):
-                recent_alerts.append(
-                    {
-                        "alert_type": "tool_loop",
-                        "severity": "high",
-                        "signal": f"Three consecutive calls to {tool_name}",
-                        "event_id": last_three_tool_calls[-1].id,
-                        "source": "derived",
-                    }
-                )
-
-        recent_guardrails = [
-            event
-            for event in recent_events
-            if (
-                event.event_type == EventType.REFUSAL
-                or event.event_type == EventType.POLICY_VIOLATION
-                or (event.event_type == EventType.SAFETY_CHECK and _event_value(event, "outcome", "pass") != "pass")
-            )
-        ]
-        if len(recent_guardrails) >= 2:
-            recent_alerts.append(
-                {
-                    "alert_type": "guardrail_pressure",
-                    "severity": "high" if len(recent_guardrails) >= 3 else "medium",
-                    "signal": f"{len(recent_guardrails)} recent blocked or warned actions",
-                    "event_id": recent_guardrails[-1].id,
-                    "source": "derived",
-                }
-            )
-
-        recent_policies = [event for event in recent_events if event.event_type == EventType.PROMPT_POLICY]
-        unique_policies = {
-            _event_value(event, "template_id", event.name)
-            for event in recent_policies
-            if _event_value(event, "template_id", event.name)
-        }
-        if len(unique_policies) >= 2:
-            recent_alerts.append(
-                {
-                    "alert_type": "policy_shift",
-                    "severity": "medium",
-                    "signal": f"{len(unique_policies)} prompt policies active in the recent window",
-                    "event_id": recent_policies[-1].id,
-                    "source": "derived",
-                }
-            )
-
-        recent_decisions = [event for event in recent_events if event.event_type == EventType.DECISION]
-        last_two_decisions = recent_decisions[-2:]
-        if len(last_two_decisions) == 2:
-            previous_action = _event_value(last_two_decisions[0], "chosen_action", last_two_decisions[0].name)
-            latest_action = _event_value(last_two_decisions[1], "chosen_action", last_two_decisions[1].name)
-            if previous_action != latest_action:
-                recent_alerts.append(
-                    {
-                        "alert_type": "strategy_change",
-                        "severity": "medium",
-                        "signal": f'Decision shifted from "{previous_action}" to "{latest_action}"',
-                        "event_id": last_two_decisions[-1].id,
-                        "source": "derived",
-                    }
-                )
+        # Use alerters to derive alerts from recent events
+        for alerter in self._alerters:
+            derived_alerts = alerter.derive(recent_events)
+            recent_alerts.extend(derived_alerts)
 
         # Compute rolling window and summary
         window = self.compute_rolling_window(events)
