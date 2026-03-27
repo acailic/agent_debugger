@@ -12,6 +12,11 @@ import time
 import uuid
 from typing import Any
 
+from agent_debugger_sdk.adapters.langchain_utils import (
+    extract_invocation_settings,
+    extract_response_content_and_tool_calls,
+    normalize_tool_calls,
+)
 from agent_debugger_sdk.core.context import TraceContext
 from agent_debugger_sdk.core.events import EventType, LLMRequestEvent, LLMResponseEvent, ToolCallEvent, TraceEvent
 
@@ -28,80 +33,10 @@ except ImportError:
     LLMResult = Any
 
 
-def _normalize_tool_calls(raw_tool_calls: Any) -> list[dict[str, Any]]:
-    """Return a stable tool-call payload from LangChain response objects."""
-    normalized: list[dict[str, Any]] = []
-
-    for tool_call in raw_tool_calls or []:
-        if isinstance(tool_call, dict):
-            function = tool_call.get("function") or {}
-            name = tool_call.get("name") or function.get("name", "")
-            arguments = tool_call.get("args")
-            if arguments is None:
-                arguments = tool_call.get("arguments", function.get("arguments", {}))
-            normalized.append(
-                {
-                    "id": tool_call.get("id", ""),
-                    "name": name,
-                    "arguments": arguments if arguments is not None else {},
-                }
-            )
-            continue
-
-        function = getattr(tool_call, "function", None)
-        arguments = getattr(tool_call, "args", None)
-        if arguments is None and function is not None:
-            arguments = getattr(function, "arguments", None)
-        if arguments is None:
-            arguments = getattr(tool_call, "arguments", {})
-
-        normalized.append(
-            {
-                "id": getattr(tool_call, "id", ""),
-                "name": getattr(function, "name", "") if function is not None else getattr(tool_call, "name", ""),
-                "arguments": arguments if arguments is not None else {},
-            }
-        )
-
-    return normalized
-
-
-def _extract_response_content_and_tool_calls(response: Any) -> tuple[str, list[dict[str, Any]]]:
-    """Extract content and tool calls from a LangChain LLMResult."""
-    content = ""
-    tool_calls: list[dict[str, Any]] = []
-
-    if not getattr(response, "generations", None) or not response.generations[0]:
-        return content, tool_calls
-
-    first_generation = response.generations[0][0]
-    content = getattr(first_generation, "text", "")
-
-    message = getattr(first_generation, "message", None)
-    if message is not None:
-        if not content:
-            message_content = getattr(message, "content", "")
-            content = message_content if isinstance(message_content, str) else str(message_content)
-        tool_calls = _normalize_tool_calls(getattr(message, "tool_calls", []))
-
-    if not tool_calls:
-        tool_calls = _normalize_tool_calls(getattr(first_generation, "tool_calls", []))
-
-    return content, tool_calls
-
-
-def _extract_invocation_settings(invocation_params: dict[str, Any]) -> dict[str, Any]:
-    """Normalize LangChain invocation settings into stable trace fields."""
-    max_tokens = invocation_params.get("max_tokens", invocation_params.get("max_completion_tokens"))
-    return {
-        k: v
-        for k, v in {
-            "temperature": invocation_params.get("temperature"),
-            "max_tokens": max_tokens,
-            "top_p": invocation_params.get("top_p"),
-        }.items()
-        if v is not None
-    }
+# Private aliases for backward compatibility within this module
+_normalize_tool_calls = normalize_tool_calls
+_extract_response_content_and_tool_calls = extract_response_content_and_tool_calls
+_extract_invocation_settings = extract_invocation_settings
 
 
 class LangChainTracingHandler(AsyncCallbackHandler):

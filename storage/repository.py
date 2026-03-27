@@ -1,7 +1,7 @@
-"""Data access layer for sessions, events, and checkpoints.
+"""Facade for data access layer for sessions, events, and checkpoints.
 
-This module provides the TraceRepository class with async methods for CRUD operations
-on session management, event queries, checkpoint management, and search functionality.
+This module provides the TraceRepository class as a facade that composes
+entity-specific repositories while maintaining a unified public API.
 """
 
 from __future__ import annotations
@@ -10,18 +10,17 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import String, cast, func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from agent_debugger_sdk.core.events import (
-    Checkpoint,
-    EventType,
-    Session,
-    SessionStatus,
-    TraceEvent,
-)
+from agent_debugger_sdk.core.events import Checkpoint, Session, TraceEvent
+from storage.converters import event_to_orm, orm_to_checkpoint, orm_to_event, orm_to_session
 from storage.models import AnomalyAlertModel, CheckpointModel, EventModel, SessionModel
+from storage.repositories.alert_repo import AnomalyAlertRepository
+from storage.repositories.checkpoint_repo import CheckpointRepository
+from storage.repositories.event_repo import EventRepository
+from storage.repositories.session_repo import SessionRepository
+from storage.search import SessionSearchService
 
 
 @dataclass
@@ -43,10 +42,13 @@ class AnomalyAlertCreate:
 
 
 class TraceRepository:
-    """Data access layer for sessions, events, and checkpoints.
+    """Facade for data access layer for sessions, events, and checkpoints.
 
     Provides async methods for CRUD operations using SQLAlchemy async session.
     All queries are scoped to a specific tenant_id for multi-tenant isolation.
+
+    This class delegates to entity-specific repositories while maintaining
+    the same public API for backward compatibility.
     """
 
     def __init__(self, session: AsyncSession, tenant_id: str = "local"):
@@ -59,6 +61,16 @@ class TraceRepository:
         self.session = session
         self.tenant_id = tenant_id
 
+        # Initialize entity repositories
+        self._session_repo = SessionRepository(session, tenant_id)
+        self._event_repo = EventRepository(session, tenant_id)
+        self._checkpoint_repo = CheckpointRepository(session, tenant_id)
+        self._alert_repo = AnomalyAlertRepository(session, tenant_id)
+
+    # ------------------------------------------------------------------
+    # Session Methods (delegated to SessionRepository)
+    # ------------------------------------------------------------------
+
     async def create_session(self, session: Session) -> Session:
         """Create a new session record.
 
@@ -68,26 +80,7 @@ class TraceRepository:
         Returns:
             The created Session instance
         """
-        db_session = SessionModel(
-            id=session.id,
-            tenant_id=self.tenant_id,
-            agent_name=session.agent_name,
-            framework=session.framework,
-            started_at=session.started_at,
-            ended_at=session.ended_at,
-            status=session.status,
-            total_tokens=session.total_tokens,
-            total_cost_usd=session.total_cost_usd,
-            tool_calls=session.tool_calls,
-            llm_calls=session.llm_calls,
-            errors=session.errors,
-            replay_value=session.replay_value,
-            config=session.config,
-            tags=session.tags,
-            fix_note=session.fix_note,
-        )
-        self.session.add(db_session)
-        return self._orm_to_session(db_session)
+        return await self._session_repo.create_session(session)
 
     async def get_session(self, session_id: str) -> Session | None:
         """Retrieve a session by ID.
@@ -98,16 +91,7 @@ class TraceRepository:
         Returns:
             Session if found, None otherwise
         """
-        result = await self.session.execute(
-            select(SessionModel).where(
-                SessionModel.id == session_id,
-                SessionModel.tenant_id == self.tenant_id,
-            )
-        )
-        db_session = result.scalar_one_or_none()
-        if db_session is None:
-            return None
-        return self._orm_to_session(db_session)
+        return await self._session_repo.get_session(session_id)
 
     async def list_sessions(
         self,
@@ -125,14 +109,7 @@ class TraceRepository:
         Returns:
             List of Session instances
         """
-        stmt = select(SessionModel).where(SessionModel.tenant_id == self.tenant_id)
-        if sort_by == "replay_value":
-            stmt = stmt.order_by(SessionModel.replay_value.desc(), SessionModel.started_at.desc())
-        else:
-            stmt = stmt.order_by(SessionModel.started_at.desc())
-
-        result = await self.session.execute(stmt.offset(offset).limit(limit))
-        return [self._orm_to_session(db) for db in result.scalars()]
+        return await self._session_repo.list_sessions(limit, offset, sort_by=sort_by)
 
     async def count_sessions(self) -> int:
         """Count total number of sessions.
@@ -140,12 +117,7 @@ class TraceRepository:
         Returns:
             Total count of sessions in the database for the current tenant
         """
-        result = await self.session.execute(
-            select(func.count(SessionModel.id))
-            .select_from(SessionModel)
-            .where(SessionModel.tenant_id == self.tenant_id)
-        )
-        return result.scalar_one()
+        return await self._session_repo.count_sessions()
 
     async def update_session(self, session_id: str, **updates: Any) -> Session | None:
         """Update a session with the given field values.
@@ -157,38 +129,7 @@ class TraceRepository:
         Returns:
             Updated Session if found, None otherwise
         """
-        valid_fields = {
-            "agent_name",
-            "framework",
-            "ended_at",
-            "status",
-            "total_tokens",
-            "total_cost_usd",
-            "tool_calls",
-            "llm_calls",
-            "errors",
-            "replay_value",
-            "config",
-            "tags",
-            "fix_note",
-        }
-        filtered_updates = {k: v for k, v in updates.items() if k in valid_fields}
-        if not filtered_updates:
-            return await self.get_session(session_id)
-
-        result = await self.session.execute(
-            select(SessionModel).where(
-                SessionModel.id == session_id,
-                SessionModel.tenant_id == self.tenant_id,
-            )
-        )
-        db_session = result.scalar_one_or_none()
-        if db_session is None:
-            return None
-
-        for field, value in filtered_updates.items():
-            setattr(db_session, field, value)
-        return self._orm_to_session(db_session)
+        return await self._session_repo.update_session(session_id, **updates)
 
     async def add_fix_note(self, session_id: str, note: str) -> Session | None:
         """Add or update a fix note for a session.
@@ -200,7 +141,7 @@ class TraceRepository:
         Returns:
             Updated Session if found, None otherwise
         """
-        return await self.update_session(session_id, fix_note=note)
+        return await self._session_repo.add_fix_note(session_id, note)
 
     async def delete_session(self, session_id: str) -> bool:
         """Delete a session by ID.
@@ -211,18 +152,11 @@ class TraceRepository:
         Returns:
             True if deleted, False if not found
         """
-        result = await self.session.execute(
-            select(SessionModel).where(
-                SessionModel.id == session_id,
-                SessionModel.tenant_id == self.tenant_id,
-            )
-        )
-        db_session = result.scalar_one_or_none()
-        if db_session is None:
-            return False
+        return await self._session_repo.delete_session(session_id)
 
-        await self.session.delete(db_session)
-        return True
+    # ------------------------------------------------------------------
+    # Event Methods (delegated to EventRepository)
+    # ------------------------------------------------------------------
 
     async def add_event(self, event: TraceEvent) -> TraceEvent:
         """Add a new event to the database.
@@ -233,9 +167,7 @@ class TraceRepository:
         Returns:
             The created TraceEvent instance
         """
-        db_event = self._event_to_orm(event)
-        self.session.add(db_event)
-        return self._orm_to_event(db_event)
+        return await self._event_repo.add_event(event)
 
     async def add_events_batch(self, events: list[TraceEvent]) -> list[TraceEvent]:
         """Add multiple events to the database in a single transaction.
@@ -246,9 +178,7 @@ class TraceRepository:
         Returns:
             List of created TraceEvent instances
         """
-        db_events = [self._event_to_orm(event) for event in events]
-        self.session.add_all(db_events)
-        return [self._orm_to_event(db) for db in db_events]
+        return await self._event_repo.add_events_batch(events)
 
     async def get_event(self, event_id: str) -> TraceEvent | None:
         """Retrieve an event by ID with tenant isolation.
@@ -259,19 +189,7 @@ class TraceRepository:
         Returns:
             TraceEvent if found and belongs to current tenant, None otherwise
         """
-        # Join with SessionModel to ensure tenant isolation
-        result = await self.session.execute(
-            select(EventModel)
-            .join(SessionModel, EventModel.session_id == SessionModel.id)
-            .where(
-                EventModel.id == event_id,
-                SessionModel.tenant_id == self.tenant_id,
-            )
-        )
-        db_event = result.scalar_one_or_none()
-        if db_event is None:
-            return None
-        return self._orm_to_event(db_event)
+        return await self._event_repo.get_event(event_id)
 
     async def list_events(self, session_id: str, limit: int = 100, offset: int = 0) -> list[TraceEvent]:
         """List events for a session with pagination.
@@ -284,19 +202,7 @@ class TraceRepository:
         Returns:
             List of TraceEvent instances
         """
-        # Join with SessionModel to ensure tenant isolation
-        result = await self.session.execute(
-            select(EventModel)
-            .join(SessionModel, EventModel.session_id == SessionModel.id)
-            .where(
-                SessionModel.tenant_id == self.tenant_id,
-                EventModel.session_id == session_id,
-            )
-            .order_by(EventModel.timestamp)
-            .offset(offset)
-            .limit(limit)
-        )
-        return [self._orm_to_event(db) for db in result.scalars()]
+        return await self._event_repo.list_events(session_id, limit, offset)
 
     async def get_event_tree(self, session_id: str) -> list[TraceEvent]:
         """Get all events for a session in hierarchical order.
@@ -309,17 +215,11 @@ class TraceRepository:
         Returns:
             List of TraceEvent instances ordered by timestamp
         """
-        # Join with SessionModel to ensure tenant isolation
-        result = await self.session.execute(
-            select(EventModel)
-            .join(SessionModel, EventModel.session_id == SessionModel.id)
-            .where(
-                SessionModel.tenant_id == self.tenant_id,
-                EventModel.session_id == session_id,
-            )
-            .order_by(EventModel.timestamp)
-        )
-        return [self._orm_to_event(db) for db in result.scalars()]
+        return await self._event_repo.get_event_tree(session_id)
+
+    # ------------------------------------------------------------------
+    # Checkpoint Methods (delegated to CheckpointRepository)
+    # ------------------------------------------------------------------
 
     async def create_checkpoint(self, checkpoint: Checkpoint) -> Checkpoint:
         """Create a new checkpoint record.
@@ -330,23 +230,7 @@ class TraceRepository:
         Returns:
             The created Checkpoint instance
         """
-        db_checkpoint = CheckpointModel(
-            id=checkpoint.id,
-            tenant_id=self.tenant_id,
-            session_id=checkpoint.session_id,
-            event_id=checkpoint.event_id,
-            sequence=checkpoint.sequence,
-            state=checkpoint.state,
-            memory=checkpoint.memory,
-            timestamp=checkpoint.timestamp,
-            importance=checkpoint.importance,
-        )
-        self.session.add(db_checkpoint)
-        return self._orm_to_checkpoint(db_checkpoint)
-
-    async def commit(self) -> None:
-        """Commit the current transaction."""
-        await self.session.commit()
+        return await self._checkpoint_repo.create_checkpoint(checkpoint)
 
     async def get_checkpoint(self, checkpoint_id: str) -> Checkpoint | None:
         """Retrieve a checkpoint by ID with tenant isolation.
@@ -357,20 +241,7 @@ class TraceRepository:
         Returns:
             Checkpoint if found and belongs to current tenant, None otherwise
         """
-        # Join with SessionModel to ensure tenant isolation
-        result = await self.session.execute(
-            select(CheckpointModel)
-            .join(SessionModel, CheckpointModel.session_id == SessionModel.id)
-            .options(selectinload(CheckpointModel.event))
-            .where(
-                CheckpointModel.id == checkpoint_id,
-                SessionModel.tenant_id == self.tenant_id,
-            )
-        )
-        db_checkpoint = result.scalar_one_or_none()
-        if db_checkpoint is None:
-            return None
-        return self._orm_to_checkpoint(db_checkpoint)
+        return await self._checkpoint_repo.get_checkpoint(checkpoint_id)
 
     async def list_checkpoints(self, session_id: str) -> list[Checkpoint]:
         """List all checkpoints for a session.
@@ -381,18 +252,7 @@ class TraceRepository:
         Returns:
             List of Checkpoint instances ordered by timestamp
         """
-        # Join with SessionModel to ensure tenant isolation
-        result = await self.session.execute(
-            select(CheckpointModel)
-            .join(SessionModel, CheckpointModel.session_id == SessionModel.id)
-            .options(selectinload(CheckpointModel.event))
-            .where(
-                SessionModel.tenant_id == self.tenant_id,
-                CheckpointModel.session_id == session_id,
-            )
-            .order_by(CheckpointModel.timestamp)
-        )
-        return [self._orm_to_checkpoint(db) for db in result.scalars()]
+        return await self._checkpoint_repo.list_checkpoints(session_id)
 
     async def get_high_importance_checkpoints(self, session_id: str, limit: int = 10) -> list[Checkpoint]:
         """Get checkpoints with high importance scores.
@@ -404,20 +264,91 @@ class TraceRepository:
         Returns:
             List of high-importance Checkpoint instances
         """
-        # Join with SessionModel to ensure tenant isolation
-        result = await self.session.execute(
-            select(CheckpointModel)
-            .join(SessionModel, CheckpointModel.session_id == SessionModel.id)
-            .options(selectinload(CheckpointModel.event))
-            .where(
-                SessionModel.tenant_id == self.tenant_id,
-                CheckpointModel.session_id == session_id,
-                CheckpointModel.importance >= 0.8,
+        return await self._checkpoint_repo.get_high_importance_checkpoints(session_id, limit)
+
+    # ------------------------------------------------------------------
+    # Anomaly Alert Methods (delegated to AnomalyAlertRepository)
+    # ------------------------------------------------------------------
+
+    async def create_anomaly_alert(self, alert: AnomalyAlertModel | AnomalyAlertCreate) -> AnomalyAlertModel:
+        """Create a new anomaly alert record.
+
+        Args:
+            alert: AnomalyAlertModel or AnomalyAlertCreate instance to persist
+
+        Returns:
+            The created AnomalyAlertModel instance
+
+        Raises:
+            TypeError: If alert is not AnomalyAlertModel or AnomalyAlertCreate
+        """
+        if isinstance(alert, AnomalyAlertModel):
+            return await self._alert_repo.create_anomaly_alert(alert)
+
+        if isinstance(alert, AnomalyAlertCreate):
+            model = AnomalyAlertModel(
+                id=alert.id,
+                tenant_id=self.tenant_id,
+                session_id=alert.session_id,
+                alert_type=alert.alert_type,
+                severity=alert.severity,
+                signal=alert.signal,
+                event_ids=alert.event_ids,
+                detection_source=alert.detection_source,
+                detection_config=alert.detection_config,
+                created_at=alert.created_at,
             )
-            .order_by(CheckpointModel.importance.desc())
-            .limit(limit)
-        )
-        return [self._orm_to_checkpoint(db) for db in result.scalars()]
+            return await self._alert_repo.create_anomaly_alert(model)
+
+        raise TypeError(f"Expected AnomalyAlertModel or AnomalyAlertCreate, got {type(alert).__name__}")
+
+    async def list_anomaly_alerts(
+        self,
+        session_id: str,
+        limit: int = 50,
+    ) -> list[AnomalyAlertModel]:
+        """List anomaly alerts for a session.
+
+        Args:
+            session_id: Session ID to filter alerts by
+            limit: Maximum number of alerts to return
+
+        Returns:
+            List of AnomalyAlertModel instances
+        """
+        return await self._alert_repo.list_anomaly_alerts(session_id, limit)
+
+    async def get_anomaly_alert(self, alert_id: str) -> AnomalyAlertModel | None:
+        """Retrieve an anomaly alert by ID.
+
+        Args:
+            alert_id: Unique identifier of the alert
+
+        Returns:
+            AnomalyAlertModel if found, None otherwise
+        """
+        return await self._alert_repo.get_anomaly_alert(alert_id)
+
+    # ------------------------------------------------------------------
+    # Transaction Management
+    # ------------------------------------------------------------------
+
+    async def commit(self) -> None:
+        """Commit the current transaction."""
+        await self.session.commit()
+
+    # ------------------------------------------------------------------
+    # Search Methods (exposed via search property)
+    # ------------------------------------------------------------------
+
+    @property
+    def search(self) -> SessionSearchService:
+        """Get the search service for this repository.
+
+        Returns:
+            SessionSearchService instance scoped to this repository's session and tenant
+        """
+        return SessionSearchService(self.session, self.tenant_id)
 
     async def search_sessions(
         self,
@@ -428,8 +359,7 @@ class TraceRepository:
     ) -> list[Session]:
         """Search sessions by semantic similarity to a text query.
 
-        Uses bag-of-words cosine similarity against session event embeddings.
-        Searches across event_type, name, error_type, error_message, tool_name, and model fields.
+        Delegates to SessionSearchService.search_sessions for backward compatibility.
 
         Args:
             query: Search query text
@@ -439,72 +369,7 @@ class TraceRepository:
         Returns:
             List of Session instances with search_similarity attribute set, ranked by similarity
         """
-        from storage.embedding import build_session_embedding, cosine_similarity, text_to_vector
-
-        if not query or not query.strip():
-            return []
-
-        query_vec = text_to_vector(query)
-        if not query_vec:
-            return []
-
-        # Fetch candidate sessions with eager-loaded events (limit to prevent unbounded memory usage)
-        CANDIDATE_LIMIT = 500
-        stmt = (
-            select(SessionModel)
-            .options(selectinload(SessionModel.events))
-            .where(SessionModel.tenant_id == self.tenant_id)
-            .order_by(SessionModel.started_at.desc())
-            .limit(CANDIDATE_LIMIT)
-        )
-        if status:
-            stmt = stmt.where(SessionModel.status == status)
-
-        result = await self.session.execute(stmt)
-        db_sessions = list(result.scalars().all())
-
-        if not db_sessions:
-            return []
-
-        # Build similarity scores
-        scored: list[tuple[float, SessionModel]] = []
-        for db_sess in db_sessions:
-            # Events are already loaded via selectinload
-            db_events = db_sess.events
-
-            # Build event dicts with flattened data for embedding
-            event_dicts = []
-            for e in db_events:
-                event_dict = {
-                    "event_type": e.event_type,
-                    "name": e.name,
-                }
-                # Flatten nested fields from data
-                if e.data:
-                    if "error_type" in e.data:
-                        event_dict["error_type"] = e.data["error_type"]
-                    if "error_message" in e.data:
-                        event_dict["error_message"] = e.data["error_message"]
-                    if "tool_name" in e.data:
-                        event_dict["tool_name"] = e.data["tool_name"]
-                    if "model" in e.data:
-                        event_dict["model"] = e.data["model"]
-                event_dicts.append(event_dict)
-
-            session_vec = build_session_embedding(event_dicts)
-            sim = cosine_similarity(query_vec, session_vec)
-            if sim > 0.0:
-                scored.append((sim, db_sess))
-
-        scored.sort(key=lambda x: x[0], reverse=True)
-
-        results: list[Session] = []
-        for sim, db_sess in scored[:limit]:
-            session = self._orm_to_session(db_sess)
-            session.search_similarity = sim
-            results.append(session)
-
-        return results
+        return await self.search.search_sessions(query, status=status, limit=limit)
 
     async def search_events(
         self,
@@ -516,6 +381,8 @@ class TraceRepository:
     ) -> list[TraceEvent]:
         """Search events by name or data content.
 
+        Delegates to SessionSearchService.search_events for backward compatibility.
+
         Args:
             query: Search string to match against event name
             session_id: Optional session ID to filter by
@@ -525,136 +392,7 @@ class TraceRepository:
         Returns:
             List of matching TraceEvent instances
         """
-        # Escape SQL LIKE wildcards to prevent unintended pattern matching.
-        # Without this, a user searching for "test_" would match "testA" because
-        # `_` is a single-character wildcard in SQL LIKE patterns.
-        escaped_query = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        search_term = f"%{escaped_query}%"
-
-        # Join with SessionModel to ensure tenant isolation
-        stmt = (
-            select(EventModel)
-            .join(SessionModel, EventModel.session_id == SessionModel.id)
-            .where(SessionModel.tenant_id == self.tenant_id)
-            .where(
-                or_(
-                    EventModel.name.ilike(search_term),
-                    EventModel.event_type.ilike(search_term),
-                    cast(EventModel.data, String).ilike(search_term),
-                    cast(EventModel.event_metadata, String).ilike(search_term),
-                )
-            )
-            .order_by(EventModel.timestamp.desc())
-            .limit(limit)
-        )
-
-        if session_id:
-            stmt = stmt.where(EventModel.session_id == session_id)
-        if event_type:
-            stmt = stmt.where(EventModel.event_type == event_type)
-
-        result = await self.session.execute(stmt)
-        return [self._orm_to_event(db) for db in result.scalars()]
-
-    def _event_to_orm(self, event: TraceEvent) -> EventModel:
-        """Convert a TraceEvent dataclass to an EventModel ORM instance.
-
-        Args:
-            event: TraceEvent instance to convert
-
-        Returns:
-            EventModel instance
-        """
-        data = event.to_storage_data()
-
-        event_metadata = dict(event.metadata)
-        event_metadata["upstream_event_ids"] = list(event.upstream_event_ids)
-
-        return EventModel(
-            id=event.id,
-            tenant_id=self.tenant_id,
-            session_id=event.session_id,
-            parent_id=event.parent_id,
-            event_type=str(event.event_type),
-            timestamp=event.timestamp,
-            name=event.name,
-            data=data,
-            event_metadata=event_metadata,
-            importance=event.importance,
-        )
-
-    def _orm_to_event(self, db_event: EventModel) -> TraceEvent:
-        """Convert an EventModel ORM instance to the appropriate TraceEvent subclass.
-
-        Args:
-            db_event: EventModel instance to convert
-
-        Returns:
-            Appropriate TraceEvent subclass instance
-        """
-        data = dict(db_event.data or {})
-        event_type = EventType(db_event.event_type) if db_event.event_type else EventType.AGENT_START
-        event_metadata = dict(db_event.event_metadata or {})
-        upstream_event_ids = event_metadata.pop("upstream_event_ids", [])
-
-        base_kwargs = {
-            "id": db_event.id,
-            "session_id": db_event.session_id,
-            "parent_id": db_event.parent_id,
-            "timestamp": db_event.timestamp,
-            "name": db_event.name,
-            "metadata": event_metadata,
-            "importance": db_event.importance,
-            "upstream_event_ids": upstream_event_ids,
-        }
-        return TraceEvent.from_data(event_type, base_kwargs, data)
-
-    def _orm_to_session(self, db_session: SessionModel) -> Session:
-        """Convert a SessionModel ORM instance to a Session dataclass.
-
-        Args:
-            db_session: SessionModel instance to convert
-
-        Returns:
-            Session dataclass instance
-        """
-        return Session(
-            id=db_session.id,
-            agent_name=db_session.agent_name,
-            framework=db_session.framework,
-            started_at=db_session.started_at,
-            ended_at=db_session.ended_at,
-            status=SessionStatus(db_session.status),
-            total_tokens=db_session.total_tokens,
-            total_cost_usd=db_session.total_cost_usd,
-            tool_calls=db_session.tool_calls,
-            llm_calls=db_session.llm_calls,
-            errors=db_session.errors,
-            replay_value=db_session.replay_value,
-            config=db_session.config,
-            tags=db_session.tags,
-            fix_note=db_session.fix_note,
-        )
-
-    def _orm_to_checkpoint(self, db_checkpoint: CheckpointModel) -> Checkpoint:
-        """Convert a CheckpointModel ORM instance to a Checkpoint dataclass.
-
-        Args:
-            db_checkpoint: CheckpointModel instance to convert
-
-        Returns:
-            Checkpoint dataclass instance
-        """
-        return Checkpoint(
-            id=db_checkpoint.id,
-            session_id=db_checkpoint.session_id,
-            event_id=db_checkpoint.event_id,
-            sequence=db_checkpoint.sequence,
-            state=db_checkpoint.state,
-            memory=db_checkpoint.memory,
-            timestamp=db_checkpoint.timestamp,
-            importance=db_checkpoint.importance,
-        )
+        return await self.search.search_events(query, session_id=session_id, event_type=event_type, limit=limit)
 
     # ------------------------------------------------------------------
     # Cost Aggregation Methods
@@ -670,8 +408,6 @@ class TraceRepository:
                 - avg_cost_per_session: Average cost per session
                 - by_framework: List of dicts with framework, session_count, and total_cost_usd
         """
-        from sqlalchemy import func, select
-
         # Get overall aggregates
         result = await self.session.execute(
             select(
@@ -706,82 +442,49 @@ class TraceRepository:
         }
 
     # ------------------------------------------------------------------
-    # Anomaly Alert Methods
+    # ORM Conversion Methods (exposed for testing and backward compatibility)
     # ------------------------------------------------------------------
 
-    async def create_anomaly_alert(self, alert: AnomalyAlertModel | AnomalyAlertCreate) -> AnomalyAlertModel:
-        """Create a new anomaly alert record.
+    def _event_to_orm(self, event: TraceEvent) -> EventModel:
+        """Convert a TraceEvent dataclass to an EventModel ORM instance.
 
         Args:
-            alert: AnomalyAlertModel or AnomalyAlertCreate instance to persist
+            event: TraceEvent instance to convert
 
         Returns:
-            The created AnomalyAlertModel instance
-
-        Raises:
-            ValueError: If alert is a dict with missing required fields
-            TypeError: If alert is not AnomalyAlertModel or AnomalyAlertCreate
+            EventModel instance
         """
-        if isinstance(alert, AnomalyAlertModel):
-            self.session.add(alert)
-            return alert
+        return event_to_orm(event, self.tenant_id)
 
-        if isinstance(alert, AnomalyAlertCreate):
-            model = AnomalyAlertModel(
-                id=alert.id,
-                tenant_id=self.tenant_id,
-                session_id=alert.session_id,
-                alert_type=alert.alert_type,
-                severity=alert.severity,
-                signal=alert.signal,
-                event_ids=alert.event_ids,
-                detection_source=alert.detection_source,
-                detection_config=alert.detection_config,
-                created_at=alert.created_at,
-            )
-            self.session.add(model)
-            return model
-
-        raise TypeError(f"Expected AnomalyAlertModel or AnomalyAlertCreate, got {type(alert).__name__}")
-
-    async def list_anomaly_alerts(
-        self,
-        session_id: str,
-        limit: int = 50,
-    ) -> list[AnomalyAlertModel]:
-        """List anomaly alerts for a session.
+    def _orm_to_event(self, db_event: EventModel) -> TraceEvent:
+        """Convert an EventModel ORM instance to the appropriate TraceEvent subclass.
 
         Args:
-            session_id: Session ID to filter alerts by
-            limit: Maximum number of alerts to return
+            db_event: EventModel instance to convert
 
         Returns:
-            List of AnomalyAlertModel instances
+            Appropriate TraceEvent subclass instance
         """
-        result = await self.session.execute(
-            select(AnomalyAlertModel)
-            .where(
-                AnomalyAlertModel.tenant_id == self.tenant_id,
-                AnomalyAlertModel.session_id == session_id,
-            )
-            .order_by(AnomalyAlertModel.created_at.desc())
-            .limit(limit)
-        )
-        return list(result.scalars().all())
+        return orm_to_event(db_event)
 
-    async def get_anomaly_alert(self, alert_id: str) -> AnomalyAlertModel | None:
-        """Retrieve an anomaly alert by ID.
+    def _orm_to_session(self, db_session: SessionModel) -> Session:
+        """Convert a SessionModel ORM instance to a Session dataclass.
 
         Args:
-            alert_id: Unique identifier of the alert
+            db_session: SessionModel instance to convert
 
         Returns:
-            AnomalyAlertModel if found, None otherwise
+            Session dataclass instance
         """
-        result = await self.session.execute(
-            select(AnomalyAlertModel).where(
-                AnomalyAlertModel.id == alert_id,
-                AnomalyAlertModel.tenant_id == self.tenant_id,
-            )
-        )
-        return result.scalar_one_or_none()
+        return orm_to_session(db_session)
+
+    def _orm_to_checkpoint(self, db_checkpoint: CheckpointModel) -> Checkpoint:
+        """Convert a CheckpointModel ORM instance to a Checkpoint dataclass.
+
+        Args:
+            db_checkpoint: CheckpointModel instance to convert
+
+        Returns:
+            Checkpoint dataclass instance
+        """
+        return orm_to_checkpoint(db_checkpoint)

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
 
 import pytest
 import pytest_asyncio
@@ -25,6 +24,7 @@ from agent_debugger_sdk.core.events import (
     ToolResultEvent,
     TraceEvent,
 )
+from storage.converters import event_to_orm, orm_to_checkpoint, orm_to_event, orm_to_session
 from storage.models import Base, CheckpointModel, SessionModel
 from storage.repository import TraceRepository
 
@@ -345,9 +345,8 @@ async def test_event_and_checkpoint_queries_respect_tenant_and_filters(db_sessio
     ],
 )
 def test_event_model_round_trip(event, expected_type, field_name, field_value):
-    repo = TraceRepository(MagicMock(), tenant_id="tenant-a")
-    orm_event = repo._event_to_orm(event)
-    round_tripped = repo._orm_to_event(orm_event)
+    orm_event = event_to_orm(event, tenant_id="tenant-a")
+    round_tripped = orm_to_event(orm_event)
 
     assert isinstance(round_tripped, expected_type)
     assert getattr(round_tripped, field_name) == field_value
@@ -356,7 +355,6 @@ def test_event_model_round_trip(event, expected_type, field_name, field_value):
 
 
 def test_session_and_checkpoint_orm_converters():
-    repo = TraceRepository(MagicMock(), tenant_id="tenant-a")
     session = _make_session("session-convert")
     checkpoint = Checkpoint(
         id="checkpoint-convert",
@@ -397,8 +395,8 @@ def test_session_and_checkpoint_orm_converters():
         importance=checkpoint.importance,
     )
 
-    restored_session = repo._orm_to_session(db_session_model)
-    restored_checkpoint = repo._orm_to_checkpoint(db_checkpoint_model)
+    restored_session = orm_to_session(db_session_model)
+    restored_checkpoint = orm_to_checkpoint(db_checkpoint_model)
 
     assert restored_session.id == session.id
     assert restored_session.config == {"mode": "test"}

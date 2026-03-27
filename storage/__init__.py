@@ -5,10 +5,22 @@ using SQLAlchemy async ORM.
 """
 
 from .models import Base, CheckpointModel, EventModel, SessionModel
-from .repository import TraceRepository
+from .repositories import AnomalyAlertRepository, CheckpointRepository, EventRepository, SessionRepository
+from .repository import AnomalyAlertCreate, TraceRepository
+from .search import SessionSearchService
 
 __all__ = [
+    # Main facade
     "TraceRepository",
+    "AnomalyAlertCreate",
+    # Entity repositories
+    "SessionRepository",
+    "EventRepository",
+    "CheckpointRepository",
+    "AnomalyAlertRepository",
+    # Search service
+    "SessionSearchService",
+    # Models
     "Base",
     "SessionModel",
     "EventModel",
