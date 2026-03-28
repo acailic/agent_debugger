@@ -13,26 +13,72 @@ import type {
   TraceBundle,
   TraceSearchResponse,
 } from '../types'
+import { validateResponse, logValidationFailure, validators } from './validation'
 
 const API_BASE = '/api'
 
-async function fetchJSON<T>(url: string): Promise<T> {
+interface ValidationConfig {
+  validator?: (value: unknown) => boolean
+  endpoint: string
+  fallback?: unknown
+}
+
+async function fetchJSON<T>(url: string, config?: ValidationConfig): Promise<T> {
   const response = await fetch(url)
   if (!response.ok) {
     throw new Error(`API error: ${response.status} ${response.statusText}`)
   }
-  return response.json() as Promise<T>
+  const data = await response.json()
+
+  // Apply runtime validation if validator provided
+  if (config?.validator) {
+    const validated = validateResponse<T>(data, config.validator)
+    if (validated === null) {
+      logValidationFailure(config.endpoint, 'Response shape validation failed', data)
+      // Return fallback if provided, otherwise return unvalidated data
+      return (config.fallback ?? data) as T
+    }
+    return validated
+  }
+
+  return data as T
 }
 
 export async function getSessions(params: { sortBy?: 'started_at' | 'replay_value' } = {}) {
   const search = new URLSearchParams()
   if (params.sortBy) search.set('sort_by', params.sortBy)
   const suffix = search.toString() ? `?${search.toString()}` : ''
-  return fetchJSON<{ sessions: Session[]; total: number; limit: number; offset: number }>(`${API_BASE}/sessions${suffix}`)
+  return fetchJSON<{ sessions: Session[]; total: number; limit: number; offset: number }>(
+    `${API_BASE}/sessions${suffix}`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return (
+          'sessions' in v &&
+          Array.isArray(v.sessions) &&
+          v.sessions.every((s: unknown) => validators.Session(s)) &&
+          'total' in v &&
+          typeof v.total === 'number' &&
+          'limit' in v &&
+          typeof v.limit === 'number' &&
+          'offset' in v &&
+          typeof v.offset === 'number'
+        )
+      },
+      endpoint: '/sessions',
+    }
+  )
 }
 
 export async function getTraceBundle(sessionId: string) {
-  return fetchJSON<TraceBundle>(`${API_BASE}/sessions/${sessionId}/trace`)
+  return fetchJSON<TraceBundle>(
+    `${API_BASE}/sessions/${sessionId}/trace`,
+    {
+      validator: validators.TraceBundle,
+      endpoint: `/sessions/${sessionId}/trace`,
+    }
+  )
 }
 
 export async function getReplay(
@@ -63,11 +109,28 @@ export async function getReplay(
     search.set('stop_at_breakpoint', String(params.stopAtBreakpoint))
   }
   if (params.collapseThreshold != null) search.set('collapse_threshold', String(params.collapseThreshold))
-  return fetchJSON<ReplayResponse>(`${API_BASE}/sessions/${sessionId}/replay?${search.toString()}`)
+  return fetchJSON<ReplayResponse>(
+    `${API_BASE}/sessions/${sessionId}/replay?${search.toString()}`,
+    {
+      validator: validators.ReplayResponse,
+      endpoint: `/sessions/${sessionId}/replay`,
+    }
+  )
 }
 
 export async function getAnalysis(sessionId: string) {
-  return fetchJSON<{ session_id: string; analysis: TraceAnalysis }>(`${API_BASE}/sessions/${sessionId}/analysis`)
+  return fetchJSON<{ session_id: string; analysis: TraceAnalysis }>(
+    `${API_BASE}/sessions/${sessionId}/analysis`,
+    {
+      validator: (value: unknown) =>
+        typeof value === 'object' &&
+        value !== null &&
+        'session_id' in value &&
+        'analysis' in value &&
+        validators.AnalysisResult((value as Record<string, unknown>).analysis),
+      endpoint: `/sessions/${sessionId}/analysis`,
+    }
+  )
 }
 
 export function createEventSource(sessionId: string): EventSource {
@@ -75,7 +138,18 @@ export function createEventSource(sessionId: string): EventSource {
 }
 
 export async function getLiveSummary(sessionId: string) {
-  return fetchJSON<{ session_id: string; live_summary: LiveSummary }>(`${API_BASE}/sessions/${sessionId}/live`)
+  return fetchJSON<{ session_id: string; live_summary: LiveSummary }>(
+    `${API_BASE}/sessions/${sessionId}/live`,
+    {
+      validator: (value: unknown) =>
+        typeof value === 'object' &&
+        value !== null &&
+        'session_id' in value &&
+        'live_summary' in value &&
+        validators.LiveSummary((value as Record<string, unknown>).live_summary),
+      endpoint: `/sessions/${sessionId}/live`,
+    }
+  )
 }
 
 export async function searchTraces(params: {
