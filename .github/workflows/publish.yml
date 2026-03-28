@@ -24,7 +24,7 @@ jobs:
       url: https://pypi.org/project/peaky-peek/
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v5
         with:
@@ -98,7 +98,7 @@ jobs:
       url: https://pypi.org/project/peaky-peek-server/
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v5
         with:
