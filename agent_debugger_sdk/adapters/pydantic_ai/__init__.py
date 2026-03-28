@@ -19,8 +19,8 @@ Example:
 
 # Import main classes for backward compatibility
 from .adapter import (
-    PydanticAIAdapter,
     PYDANTIC_AI_AVAILABLE,
+    PydanticAIAdapter,
     _pydantic_run_context,
 )
 
