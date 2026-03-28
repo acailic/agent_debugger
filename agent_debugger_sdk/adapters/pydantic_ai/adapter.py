@@ -319,13 +319,4 @@ class PydanticAIAdapter(Generic[T]):
             duration_ms=duration_ms,
         )
 
-    async def _capture_result(
-        self,
-        result: Any,
-        *,
-        requested_model: Any = None,
-        duration_ms: float = 0.0,
-    ) -> None:
-        """Capture result (already defined above, listed for completeness)."""
-        # This method is defined above, listed here for backward compatibility reference
-        pass
+

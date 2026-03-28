@@ -12,6 +12,7 @@ from typing import Any
 from agent_debugger_sdk.core.events import LLMRequestEvent, LLMResponseEvent, ToolCallEvent
 
 from .utils import request_messages_from_parts, usage_from_message
+from .utils import response_duration_ms as calc_duration_ms
 
 try:
     from pydantic_ai.messages import (
@@ -201,7 +202,7 @@ class MessageProcessor:
             content="".join(part.content for part in message.parts if isinstance(part, TextPart)),
             tool_calls=tool_calls,
             usage=usage_from_message(message),
-            duration_ms=response_duration_ms(
+            duration_ms=calc_duration_ms(
                 request_timestamp=request_timestamp,
                 response_timestamp=message.timestamp,
                 fallback_ms=response_duration_ms,
