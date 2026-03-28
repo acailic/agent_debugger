@@ -31,6 +31,150 @@ class PatchConfig:
     agent_name: str = "auto-patched-agent"
 
 
+class AgentAdapterMixin:
+    """Mixin providing common agent-style (AGENT_START/AGENT_END) wrapping logic.
+
+    This mixin is designed for adapters that wrap agent framework orchestration
+    methods (e.g., CrewAI.kickoff, LlamaIndex.query, AutoGen.run) and need to
+    emit AGENT_START, AGENT_END, and ERROR trace events.
+
+    Adapters using this mixin must:
+    - Set self._transport before calling wrap methods
+    - Set self._session_id before calling wrap methods
+
+    The wrap methods handle all event emission with proper error handling -
+    any exception during event emission is logged but does not propagate.
+    """
+
+    def _wrap_sync_call(
+        self,
+        fn,
+        *,
+        start_name: str,
+        end_name: str,
+        error_name: str,
+    ):
+        """Wrap a synchronous call with AGENT_START/AGENT_END event emission.
+
+        Args:
+            fn: A callable that performs the actual work.
+            start_name: Event name for AGENT_START.
+            end_name: Event name for AGENT_END.
+            error_name: Event name for ERROR.
+
+        Returns:
+            The result of calling fn().
+        """
+        from agent_debugger_sdk.core.events import ErrorEvent, EventType, TraceEvent
+
+        transport = self._transport
+        session_id = self._session_id or ""
+        try:
+            start_event = TraceEvent(
+                session_id=session_id,
+                event_type=EventType.AGENT_START,
+                name=start_name,
+            )
+            if transport is not None:
+                transport.send_event(start_event.to_dict())
+        except Exception:
+            logger.warning("Failed to emit AGENT_START event", exc_info=True)
+
+        try:
+            result = fn()
+        except Exception as exc:
+            try:
+                error_event = ErrorEvent(
+                    session_id=session_id,
+                    event_type=EventType.ERROR,
+                    name=error_name,
+                    error_type=type(exc).__name__,
+                    error_message=str(exc),
+                )
+                if transport is not None:
+                    transport.send_event(error_event.to_dict())
+            except Exception:
+                logger.warning("Failed to emit ERROR event", exc_info=True)
+            raise
+
+        try:
+            end_event = TraceEvent(
+                session_id=session_id,
+                event_type=EventType.AGENT_END,
+                name=end_name,
+            )
+            if transport is not None:
+                transport.send_event(end_event.to_dict())
+        except Exception:
+            logger.warning("Failed to emit AGENT_END event", exc_info=True)
+
+        return result
+
+    async def _wrap_async_call(
+        self,
+        fn,
+        *,
+        start_name: str,
+        end_name: str,
+        error_name: str,
+    ):
+        """Wrap an asynchronous call with AGENT_START/AGENT_END event emission.
+
+        Args:
+            fn: An async callable that performs the actual work.
+            start_name: Event name for AGENT_START.
+            end_name: Event name for AGENT_END.
+            error_name: Event name for ERROR.
+
+        Returns:
+            The result of awaiting fn().
+        """
+        from agent_debugger_sdk.core.events import ErrorEvent, EventType, TraceEvent
+
+        transport = self._transport
+        session_id = self._session_id or ""
+        try:
+            start_event = TraceEvent(
+                session_id=session_id,
+                event_type=EventType.AGENT_START,
+                name=start_name,
+            )
+            if transport is not None:
+                transport.send_event(start_event.to_dict())
+        except Exception:
+            logger.warning("Failed to emit AGENT_START event (async)", exc_info=True)
+
+        try:
+            result = await fn()
+        except Exception as exc:
+            try:
+                error_event = ErrorEvent(
+                    session_id=session_id,
+                    event_type=EventType.ERROR,
+                    name=error_name,
+                    error_type=type(exc).__name__,
+                    error_message=str(exc),
+                )
+                if transport is not None:
+                    transport.send_event(error_event.to_dict())
+            except Exception:
+                logger.warning("Failed to emit ERROR event (async)", exc_info=True)
+            raise
+
+        try:
+            end_event = TraceEvent(
+                session_id=session_id,
+                event_type=EventType.AGENT_END,
+                name=end_name,
+            )
+            if transport is not None:
+                transport.send_event(end_event.to_dict())
+        except Exception:
+            logger.warning("Failed to emit AGENT_END event (async)", exc_info=True)
+
+        return result
+
+
 class BaseAdapter(ABC):
     """Abstract base class for framework auto-patch adapters.
 

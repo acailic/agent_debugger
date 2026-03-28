@@ -16,9 +16,8 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 
-from agent_debugger_sdk.auto_patch._transport import SyncTransport, get_or_create_session
+from agent_debugger_sdk.auto_patch._transport import SyncTransport
 from agent_debugger_sdk.auto_patch.registry import BaseAdapter, PatchConfig
 from agent_debugger_sdk.core.events import LLMRequestEvent, LLMResponseEvent, ToolCallEvent
 
@@ -68,32 +67,10 @@ class OpenAIAdapter(BaseAdapter):
                 openai.AsyncOpenAI.chat.completions.create = self._originals["async_create"]
         except Exception:
             pass
-
-    # ------------------------------------------------------------------
-    # Wrapper factories
-    # ------------------------------------------------------------------
-
-    def _make_sync_wrapper(self, original):
-        adapter = self
-
-        def wrapper(self_client, *args, **kwargs):
-            # Streaming responses require a different interception strategy;
-            # pass them through unmodified.
-            if kwargs.get("stream"):
-                return original(self_client, *args, **kwargs)
-            return adapter._call_sync(original, self_client, *args, **kwargs)
-
-        return wrapper
-
-    def _make_async_wrapper(self, original):
-        adapter = self
-
-        async def wrapper(self_client, *args, **kwargs):
-            if kwargs.get("stream"):
-                return await original(self_client, *args, **kwargs)
-            return await adapter._call_async(original, self_client, *args, **kwargs)
-
-        return wrapper
+        finally:
+            if self._transport is not None:
+                self._transport.shutdown()
+                self._transport = None
 
     # ------------------------------------------------------------------
     # Event emission helpers
@@ -172,53 +149,3 @@ class OpenAIAdapter(BaseAdapter):
                 arguments=tc["arguments"],
             )
             self._transport.send_event(tc_event.to_dict())
-
-    # ------------------------------------------------------------------
-    # Instrumented call paths
-    # ------------------------------------------------------------------
-
-    def _call_sync(self, original, self_client, *args, **kwargs):
-        try:
-            session_id = get_or_create_session(self._transport, self._config.agent_name, self.name)
-            request_id = self._emit_request(kwargs, session_id)
-        except Exception:
-            logger.warning("Failed to emit LLM request", exc_info=True)
-            session_id, request_id = "", ""
-
-        # SDK exceptions propagate to the caller intentionally — user code must handle them.
-        # Only instrumentation exceptions (emit calls) are swallowed.
-        start = time.perf_counter()
-        try:
-            response = original(self_client, *args, **kwargs)
-        finally:
-            duration_ms = (time.perf_counter() - start) * 1000
-
-        try:
-            self._emit_response(response, request_id, session_id, duration_ms)
-        except Exception:
-            logger.warning("Failed to emit LLM response", exc_info=True)
-
-        return response
-
-    async def _call_async(self, original, self_client, *args, **kwargs):
-        try:
-            session_id = get_or_create_session(self._transport, self._config.agent_name, self.name)
-            request_id = self._emit_request(kwargs, session_id)
-        except Exception:
-            logger.warning("Failed to emit LLM request", exc_info=True)
-            session_id, request_id = "", ""
-
-        # SDK exceptions propagate to the caller intentionally — user code must handle them.
-        # Only instrumentation exceptions (emit calls) are swallowed.
-        start = time.perf_counter()
-        try:
-            response = await original(self_client, *args, **kwargs)
-        finally:
-            duration_ms = (time.perf_counter() - start) * 1000
-
-        try:
-            self._emit_response(response, request_id, session_id, duration_ms)
-        except Exception:
-            logger.warning("Failed to emit LLM response", exc_info=True)
-
-        return response

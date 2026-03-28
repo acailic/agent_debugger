@@ -12,13 +12,12 @@ import logging
 from typing import Any
 
 from agent_debugger_sdk.auto_patch._transport import SyncTransport, get_or_create_session
-from agent_debugger_sdk.auto_patch.registry import BaseAdapter, PatchConfig
-from agent_debugger_sdk.core.events import ErrorEvent, EventType, TraceEvent
+from agent_debugger_sdk.auto_patch.registry import AgentAdapterMixin, BaseAdapter, PatchConfig
 
 logger = logging.getLogger("agent_debugger.auto_patch")
 
 
-class LlamaIndexAdapter(BaseAdapter):
+class LlamaIndexAdapter(BaseAdapter, AgentAdapterMixin):
     """Auto-patch adapter for LlamaIndex.
 
     Monkey-patches ``llama_index.core.query_engine.BaseQueryEngine.query``
@@ -71,94 +70,22 @@ class LlamaIndexAdapter(BaseAdapter):
         adapter = self
 
         def traced_query(self_engine: Any, *args: Any, **kwargs: Any) -> Any:
-            transport = adapter._transport
-            session_id = adapter._session_id or ""
-            try:
-                start_event = TraceEvent(
-                    session_id=session_id,
-                    event_type=EventType.AGENT_START,
-                    name="llamaindex.query",
-                )
-                if transport is not None:
-                    transport.send_event(start_event.to_dict())
-            except Exception:
-                logger.warning("LlamaIndexAdapter: failed to emit AGENT_START event", exc_info=True)
-
-            try:
-                result = adapter._original_query(self_engine, *args, **kwargs)
-            except Exception as exc:
-                try:
-                    error_event = ErrorEvent(
-                        session_id=session_id,
-                        event_type=EventType.ERROR,
-                        name="llamaindex.query.error",
-                        error_type=type(exc).__name__,
-                        error_message=str(exc),
-                    )
-                    if transport is not None:
-                        transport.send_event(error_event.to_dict())
-                except Exception:
-                    logger.warning("LlamaIndexAdapter: failed to emit ERROR event", exc_info=True)
-                raise
-
-            try:
-                end_event = TraceEvent(
-                    session_id=session_id,
-                    event_type=EventType.AGENT_END,
-                    name="llamaindex.query.end",
-                )
-                if transport is not None:
-                    transport.send_event(end_event.to_dict())
-            except Exception:
-                logger.warning("LlamaIndexAdapter: failed to emit AGENT_END event", exc_info=True)
-
-            return result
+            return adapter._wrap_sync_call(
+                lambda: adapter._original_query(self_engine, *args, **kwargs),
+                start_name="llamaindex.query",
+                end_name="llamaindex.query.end",
+                error_name="llamaindex.query.error",
+            )
 
         traced_query._peaky_peek_patched = True  # type: ignore[attr-defined]
 
         async def traced_aquery(self_engine: Any, *args: Any, **kwargs: Any) -> Any:
-            transport = adapter._transport
-            session_id = adapter._session_id or ""
-            try:
-                start_event = TraceEvent(
-                    session_id=session_id,
-                    event_type=EventType.AGENT_START,
-                    name="llamaindex.aquery",
-                )
-                if transport is not None:
-                    transport.send_event(start_event.to_dict())
-            except Exception:
-                logger.warning("LlamaIndexAdapter: failed to emit AGENT_START event (async)", exc_info=True)
-
-            try:
-                result = await adapter._original_aquery(self_engine, *args, **kwargs)
-            except Exception as exc:
-                try:
-                    error_event = ErrorEvent(
-                        session_id=session_id,
-                        event_type=EventType.ERROR,
-                        name="llamaindex.aquery.error",
-                        error_type=type(exc).__name__,
-                        error_message=str(exc),
-                    )
-                    if transport is not None:
-                        transport.send_event(error_event.to_dict())
-                except Exception:
-                    logger.warning("LlamaIndexAdapter: failed to emit ERROR event (async)", exc_info=True)
-                raise
-
-            try:
-                end_event = TraceEvent(
-                    session_id=session_id,
-                    event_type=EventType.AGENT_END,
-                    name="llamaindex.aquery.end",
-                )
-                if transport is not None:
-                    transport.send_event(end_event.to_dict())
-            except Exception:
-                logger.warning("LlamaIndexAdapter: failed to emit AGENT_END event (async)", exc_info=True)
-
-            return result
+            return await adapter._wrap_async_call(
+                lambda: adapter._original_aquery(self_engine, *args, **kwargs),
+                start_name="llamaindex.aquery",
+                end_name="llamaindex.aquery.end",
+                error_name="llamaindex.aquery.error",
+            )
 
         traced_aquery._peaky_peek_patched = True  # type: ignore[attr-defined]
 

@@ -72,6 +72,10 @@ class AnthropicAdapter(BaseAdapter):
                 anthropic.AsyncAnthropic.messages.create = self._originals["async_create"]
         except Exception:
             pass
+        finally:
+            if self._transport is not None:
+                self._transport.shutdown()
+                self._transport = None
 
     # ------------------------------------------------------------------
     # Event emission helpers (Anthropic-specific)
