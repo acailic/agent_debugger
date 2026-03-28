@@ -4,7 +4,14 @@ This module provides the data access layer for sessions, events, and checkpoints
 using SQLAlchemy async ORM.
 """
 
-from .models import Base, CheckpointModel, EventModel, SessionModel
+from .models import (
+    AnomalyAlertModel,
+    Base,
+    CheckpointModel,
+    EventModel,
+    FailureClusterModel,
+    SessionModel,
+)
 from .repositories import AnomalyAlertRepository, CheckpointRepository, EventRepository, SessionRepository
 from .repository import AnomalyAlertCreate, TraceRepository
 from .search import SessionSearchService
@@ -25,4 +32,6 @@ __all__ = [
     "SessionModel",
     "EventModel",
     "CheckpointModel",
+    "AnomalyAlertModel",
+    "FailureClusterModel",
 ]
