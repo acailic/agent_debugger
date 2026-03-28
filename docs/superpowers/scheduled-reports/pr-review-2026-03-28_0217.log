@@ -1,0 +1,11 @@
+All done. Summary of what was addressed:
+
+**PR 29** (`issue-11-adapter-base-class`) — 4 review comments:
+- Replaced `self.name.capitalize()` with `type(self).__name__` at all 3 warning log sites in `registry.py` (lines 125, 157, 192). This preserves correct names like `CrewAIAdapter` and `LlamaIndexAdapter` instead of mangled forms like `CrewaiAdapter`.
+- Replied to the doc file comment noting it was incidentally staged and can be moved to a separate PR.
+
+**PR 14** (`refactor/mock-smart-replay-fixture`) — 2 review comments:
+- After a segment merge expands `start_index`/`end_index`, `seg.events` is now rebuilt to match the new range (was previously left stale/inconsistent).
+- `event_ids` is now precomputed once in `default_create_segments` and passed into `_build_segment_for_key_event`, eliminating the O(n) recomputation per key event.
+
+All changes passed `ruff check` and `pytest`. Replied to each inline comment in its thread.

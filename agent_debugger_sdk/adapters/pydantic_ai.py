@@ -11,10 +11,10 @@ This module re-exports from the pydantic_ai package for backward compatibility.
 
 # Re-export from the pydantic_ai package
 from agent_debugger_sdk.adapters.pydantic_ai import (
+    PYDANTIC_AI_AVAILABLE,
     Agent,
     AgentRunResult,
     Model,
-    PYDANTIC_AI_AVAILABLE,
     PydanticAIAdapter,
     PydanticAIInstrumentor,
     _pydantic_run_context,

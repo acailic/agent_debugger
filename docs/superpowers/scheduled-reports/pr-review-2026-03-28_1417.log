@@ -1,0 +1,13 @@
+All open PRs checked. Here's the summary:
+
+**PRs with review comments and their status:**
+
+- **PR 30** (current branch `issue/11-extract-adapter-base-class`): 0 inline review comments — nothing to address.
+
+- **PR 29** (`issue-11-adapter-base-class`): 4 Copilot comments (naming issue with `self.name.capitalize()` → `type(self).__name__`, and an unrelated spec doc in the PR). All 4 have been replied to by `acailic` claiming fixes, and the code confirms all three `registry.py` log sites now correctly use `type(self).__name__`. Addressed.
+
+- **PR 14** (`refactor/mock-smart-replay-fixture`): 2 Copilot comments (segment `events` field not updated on merge, and O(n) `event_ids` recomputation per call). Both replied to with "Fixed", and the code confirms both fixes are present (`seg.events` rebuilt on merge at line 419, `event_ids` precomputed once at line 447). Addressed.
+
+- **PRs 3–7** (Dependabot): 0 inline review comments.
+
+No unaddressed review comments across any open PRs — nothing to implement.

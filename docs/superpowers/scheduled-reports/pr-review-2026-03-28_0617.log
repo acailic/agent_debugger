@@ -1,0 +1,8 @@
+All open PRs have been fully addressed:
+
+- **PR 30** — No review comments.
+- **PR 29** — Copilot flagged 3 sites using `self.name.capitalize()` (produces incorrect names like `CrewaiAdapter`) and an unrelated spec file. Author replied and committed `fix: use type(self).__name__ for stable adapter names in warning logs` addressing all three sites. The spec file note was acknowledged as out-of-scope but not blocking.
+- **PR 14** — Copilot flagged an inconsistent `seg.events` after merge and redundant `event_ids` recomputation. Author replied and committed `fix: rebuild seg.events on merge and precompute event_ids` addressing both.
+- **PRs 3–7** (Dependabot) — No review comments.
+
+Nothing requires action.

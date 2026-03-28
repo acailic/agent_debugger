@@ -1,0 +1,15 @@
+All open PRs have been checked. Here's the summary:
+
+**PR 30** (issue/11-extract-adapter-base-class) — No review comments.
+
+**PR 29** (issue-11-adapter-base-class) — 4 Copilot comments, all addressed:
+- 3 comments about `self.name.capitalize()` producing incorrect names → fixed in commit `90710a5`, all three sites now use `type(self).__name__`
+- 1 comment about unrelated spec file in the PR → author acknowledged, no code change needed
+
+**PR 14** (refactor/mock-smart-replay-fixture) — 2 Copilot comments, both addressed:
+- `seg.events` not updated after segment merge → fixed in commit `24308d4`, now rebuilds `seg.events` on merge
+- `event_ids` recomputed per call → fixed in same commit, now precomputed once and passed into the helper
+
+**Dependabot PRs (3–7)** — Automated dependency bumps, no review comments.
+
+No unaddressed review comments remain across any open PR.

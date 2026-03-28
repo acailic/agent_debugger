@@ -1,0 +1,10 @@
+All review comments across all open PRs are already addressed. Summary:
+
+| PR | Branch | Review Comments | Status |
+|----|--------|----------------|--------|
+| **30** | `issue/11-extract-adapter-base-class` | None | Nothing to do |
+| **29** | `issue-11-adapter-base-class` | 4 from Copilot (naming in `registry.py` + unrelated spec file) | Author replied + code fixed: all 3 warning sites now use `type(self).__name__` ✓ |
+| **14** | `refactor/mock-smart-replay-fixture` | 2 from Copilot (`seg.events` rebuild + `event_ids` precomputation) | Author replied + both fixes are in the code ✓ |
+| **3–7** | dependabot | None | Nothing to do |
+
+No action needed — all review feedback was already implemented and replied to by the PR author.

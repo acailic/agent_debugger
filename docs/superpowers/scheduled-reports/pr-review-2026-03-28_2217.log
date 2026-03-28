@@ -1,0 +1,17 @@
+All PRs are clean. Here's the summary:
+
+**PR 30** (issue/11-extract-adapter-base-class) — 0 inline comments, nothing to address.
+
+**PR 29** (issue-11-adapter-base-class) — 4 Copilot comments, all addressed:
+- `self.name.capitalize()` → `type(self).__name__` at 3 log sites — verified in code (lines 125, 157, 192)
+- Unrelated spec file noted — author replied it can be moved to dedicated PR
+- Fix commit: `90710a52`
+
+**PR 14** (refactor/mock-smart-replay-fixture) — 2 Copilot comments, both addressed:
+- `seg.events` now rebuilt on merge (line 419) — verified
+- `event_ids` precomputed once and passed in (lines 447, 450) — verified
+- Fix commit: `24308d46`
+
+**PRs 3–7** (dependabot) — 0 inline comments.
+
+No unaddressed review feedback found across any open PR. All reviewer requests have been implemented, confirmed with replies, and the code changes are in place.

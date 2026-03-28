@@ -1,0 +1,7 @@
+All review comments on open PRs have already been addressed:
+
+- **PR #30** — No review comments at all.
+- **PR #29** (adapter base class refactor) — 4 Copilot comments, all replied to by `acailic`. The `type(self).__name__` fix was acknowledged, and the stray spec file was noted.
+- **PR #14** (mock smart replay fixture) — 2 Copilot comments, both replied to by `acailic`. The segment consistency fix and the O(n) precomputation optimization were both acknowledged as fixed.
+
+Nothing to action. All unaddressed feedback has been handled.

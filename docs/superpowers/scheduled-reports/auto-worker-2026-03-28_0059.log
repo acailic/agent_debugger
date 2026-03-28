@@ -1,0 +1,32 @@
+## Summary
+
+Successfully completed issue #11: "Extract shared adapter base class from auto_patch adapters"
+
+### What was done:
+
+1. **Created `AgentAdapterMixin`** in `agent_debugger_sdk/auto_patch/registry.py`:
+   - Added `_wrap_sync_call()` and `_wrap_async_call()` methods for agent-style event emission
+   - Handles AGENT_START, AGENT_END, and ERROR events with proper error handling
+   - Safe logging that doesn't propagate event emission failures
+
+2. **Refactored 3 agent adapters** (CrewAI, LlamaIndex, AutoGen):
+   - Now inherit from both `BaseAdapter` and `AgentAdapterMixin`
+   - Removed 60-100 lines of duplicated event emission logic from each adapter
+   - Framework-specific differences remain intact
+
+3. **Fixed 2 LLM adapters** (Anthropic, OpenAI):
+   - Removed duplicate `_make_sync_wrapper`, `_make_async_wrapper`, `_call_sync`, `_call_async` from OpenAI (BaseAdapter already provides these)
+   - Fixed **missing transport shutdown** in both adapters' `unpatch()` methods (resource leak bug!)
+
+4. **Updated exports**:
+   - `agent_debugger_sdk/auto_patch/adapters/__init__.py` now exports `AgentAdapterMixin`
+
+### Results:
+- **~150 lines of duplicate code removed**
+- **Fixed resource leak** in Anthropic and OpenAI adapters
+- **All 135 adapter tests pass**
+- **Ruff linting passes**
+- **No behavior changes** to any adapter
+
+### Pull Request:
+**PR #30**: https://github.com/acailic/agent_debugger/pull/30

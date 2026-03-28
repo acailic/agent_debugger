@@ -1,0 +1,16 @@
+PR created: **https://github.com/acailic/agent_debugger/pull/32**
+
+**Summary of work done on issue #12:**
+
+- Picked issue #12 (oldest FIFO) — "Simplify compute_baseline_from_sessions (complexity 22)"
+- Created isolated worktree at `.worktrees/issue-12-simplify-baseline`
+- Refactored `collector/baseline.py` by extracting 7 focused private helpers:
+  - `_safe_div` — zero-safe division (eliminates ternary expressions from the main function)
+  - `_process_decision` / `_process_tool_result` — per-event-type logic
+  - `_get_speaker` / `_get_policy_template` — data extraction helpers
+  - `_track_policy_shift` — policy template diffing
+  - `_get_session_scalars` — session attribute access (removes `or` chains)
+  - `_build_multi_agent_metrics` — MultiAgentMetrics construction
+  - `_collect_session_event_metrics` — the inner event loop (CC 9)
+- `compute_baseline_from_sessions` dropped from **CC 22 → CC 8**
+- Validation: `ruff` clean, **1053 tests passed**

@@ -1,0 +1,18 @@
+All open PRs have been checked. Here's the summary:
+
+**PR 30** (issue/11-extract-adapter-base-class) — 0 inline comments. Nothing to address.
+
+**PR 29** (issue-11-adapter-base-class) — 8 inline comments, all addressed:
+- Copilot flagged 3 uses of `self.name.capitalize()` in `registry.py` (produces wrong names like `CrewaiAdapter` vs `CrewAIAdapter`)
+- Copilot flagged unrelated spec doc in the PR
+- The author (acailic) replied "Fixed" to all three log sites — verified: the branch at lines 125, 157, 192 now uses `type(self).__name__`
+- The spec doc comment was acknowledged as intentional staging
+
+**PR 14** (refactor/mock-smart-replay-fixture) — 4 inline comments, all addressed:
+- Copilot flagged that segment merge didn't update `seg.events` — fixed at line 419
+- Copilot flagged O(n) per-call recomputation of `event_ids` — fixed: computed once at line 447, passed as parameter at line 450
+- Author replied "Fixed" to both — verified in code
+
+**PRs 3, 4, 5, 6, 7** (Dependabot) — 0 inline comments on any.
+
+No unaddressed review comments found across any open PR. All reviewer feedback has been replied to and the code changes have been confirmed in place.

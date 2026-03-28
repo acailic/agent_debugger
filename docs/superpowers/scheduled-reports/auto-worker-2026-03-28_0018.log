@@ -1,0 +1,7 @@
+## ✅ PR Created: https://github.com/acailic/agent_debugger/pull/14
+
+**Issue #10 resolved:**
+- Refactored `mock_smart_replay` fixture from complexity 39 → ~10
+- Split into 6 focused scoring helpers + segment builder helper
+- All tests remain identical (no behavior changes)
+- Ruff validation passed

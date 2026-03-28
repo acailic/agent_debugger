@@ -1,0 +1,13 @@
+No unaddressed review comments on any open PR. Here's the summary:
+
+**PR 30** (`issue/11-extract-adapter-base-class`) — no review comments.
+
+**PR 29** (`issue-11-adapter-base-class`) — 4 Copilot review comments, all replied to and fixed:
+- 3 comments about `self.name.capitalize()` in `registry.py` → fixed with `type(self).__name__` (confirmed in branch at lines 125, 157, 192)
+- 1 comment about unrelated spec doc in the PR → acknowledged by author
+
+**PR 14** (`refactor/mock-smart-replay-fixture`) — 2 Copilot review comments, all replied to and fixed:
+- Merge inconsistency: `seg.events` not rebuilt after index expansion → fixed (line 419)
+- Per-call O(n) recomputation of `event_ids` → fixed by precomputing once and passing in (lines 447, 450)
+
+Nothing to do — all review feedback has been addressed.
