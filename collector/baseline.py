@@ -112,6 +112,148 @@ class DriftAlert:
 WARNING_THRESHOLD = 0.25  # 25% change
 CRITICAL_THRESHOLD = 0.50  # 50% change
 
+# Event type sets for membership tests (avoids boolean-or branches)
+_REFUSAL_TYPES = frozenset({EventType.REFUSAL, EventType.POLICY_VIOLATION})
+_ESCALATION_TYPES = frozenset({EventType.SAFETY_CHECK, EventType.POLICY_VIOLATION})
+
+
+def _safe_div(numerator: float, denominator: int, default: float = 0.0) -> float:
+    """Divide numerator by denominator, returning default when denominator is zero."""
+    return numerator / denominator if denominator else default
+
+
+def _process_decision(data: dict) -> tuple[float, int, int]:
+    """Return (confidence, low_confidence_flag, grounded_flag) for a decision event."""
+    confidence = data.get("confidence", 0.5)
+    return confidence, (1 if confidence < 0.5 else 0), (1 if data.get("evidence_event_ids") else 0)
+
+
+def _process_tool_result(event: Any, data: dict) -> tuple[float, int]:
+    """Return (duration_ms, error_flag) for a tool result event."""
+    duration = data.get("duration_ms") or getattr(event, "duration_ms", 0) or 0
+    has_error = bool(data.get("error") or getattr(event, "error", None))
+    return float(duration), int(has_error)
+
+
+def _get_speaker(event: Any, data: dict) -> str | None:
+    """Extract the speaker identifier from an agent turn event."""
+    return data.get("speaker") or data.get("agent_id") or getattr(event, "speaker", None)
+
+
+def _get_policy_template(event: Any, data: dict) -> str | None:
+    """Extract the policy template identifier from a prompt policy event."""
+    return data.get("template_id") or data.get("name") or getattr(event, "template_id", None)
+
+
+def _track_policy_shift(
+    template: str | None,
+    prev_template: str | None,
+    shift_count: int,
+) -> tuple[str | None, int]:
+    """Update policy template tracking; return (new_prev_template, new_shift_count)."""
+    if template is None:
+        return prev_template, shift_count
+    if prev_template is not None and template != prev_template:
+        shift_count += 1
+    return template, shift_count
+
+
+def _get_session_scalars(session: Any) -> tuple[float, int, float]:
+    """Return (cost_usd, total_tokens, replay_value) from a session object."""
+    cost = getattr(session, "total_cost_usd", 0) or 0
+    tokens = getattr(session, "total_tokens", 0) or 0
+    replay = getattr(session, "replay_value", 0) or 0
+    return float(cost), int(tokens), float(replay)
+
+
+def _build_multi_agent_metrics(
+    total_policy_shifts: int,
+    total_turns: int,
+    total_speakers: int,
+    escalation_sessions: int,
+    grounded_decisions: int,
+    decision_count: int,
+    session_count: int,
+) -> MultiAgentMetrics:
+    """Build MultiAgentMetrics from pre-aggregated session totals."""
+    return MultiAgentMetrics(
+        avg_policy_shifts_per_session=_safe_div(total_policy_shifts, session_count),
+        avg_turns_per_session=int(_safe_div(total_turns, session_count)),
+        avg_speaker_count=_safe_div(total_speakers, session_count),
+        escalation_pattern_rate=_safe_div(escalation_sessions, session_count),
+        evidence_grounding_rate=_safe_div(grounded_decisions, decision_count),
+    )
+
+
+def _collect_session_event_metrics(events: list[Any]) -> dict[str, Any]:
+    """Aggregate per-session metrics from a flat list of events."""
+    decision_confidence = 0.0
+    low_confidence_count = 0
+    decision_count = 0
+    tool_duration = 0.0
+    tool_error_count = 0
+    tool_result_count = 0
+    has_tool_loop = False
+    has_refusal = False
+    has_escalation = False
+    speakers: set[str] = set()
+    prev_policy_template: str | None = None
+    policy_shift_count = 0
+    turn_count = 0
+    grounded_decisions = 0
+
+    for event in events:
+        event_type = getattr(event, "event_type", None)
+        data = getattr(event, "data", {})
+
+        if event_type == EventType.DECISION:
+            conf, lc, grnd = _process_decision(data)
+            decision_confidence += conf
+            decision_count += 1
+            low_confidence_count += lc
+            grounded_decisions += grnd
+
+        elif event_type == EventType.TOOL_RESULT:
+            dur, err = _process_tool_result(event, data)
+            tool_duration += dur
+            tool_result_count += 1
+            tool_error_count += err
+
+        elif event_type in _REFUSAL_TYPES:
+            has_refusal = True
+
+        elif event_type == EventType.BEHAVIOR_ALERT:
+            has_tool_loop |= data.get("alert_type") == "tool_loop"
+
+        elif event_type == EventType.AGENT_TURN:
+            turn_count += 1
+            speakers |= {_get_speaker(event, data)} - {None}
+
+        elif event_type == EventType.PROMPT_POLICY:
+            template = _get_policy_template(event, data)
+            prev_policy_template, policy_shift_count = _track_policy_shift(
+                template, prev_policy_template, policy_shift_count
+            )
+
+        elif event_type in _ESCALATION_TYPES:
+            has_escalation = True
+
+    return {
+        "decision_confidence": decision_confidence,
+        "low_confidence_count": low_confidence_count,
+        "decision_count": decision_count,
+        "tool_duration": tool_duration,
+        "tool_error_count": tool_error_count,
+        "tool_result_count": tool_result_count,
+        "has_tool_loop": has_tool_loop,
+        "has_refusal": has_refusal,
+        "has_escalation": has_escalation,
+        "speakers": speakers,
+        "policy_shift_count": policy_shift_count,
+        "turn_count": turn_count,
+        "grounded_decisions": grounded_decisions,
+    }
+
 
 def compute_baseline_from_sessions(
     agent_name: str,
@@ -140,19 +282,14 @@ def compute_baseline_from_sessions(
     total_decision_confidence = 0.0
     low_confidence_count = 0
     decision_count = 0
-
     total_tool_duration = 0.0
     tool_error_count = 0
     tool_result_count = 0
-
     total_cost = 0.0
     total_tokens = 0
-
     tool_loop_sessions = 0
     refusal_sessions = 0
     total_replay_value = 0.0
-
-    # Multi-agent metrics tracking
     total_policy_shifts = 0
     total_turns = 0
     total_speakers = 0
@@ -161,88 +298,38 @@ def compute_baseline_from_sessions(
 
     for session in sessions:
         events = events_by_session.get(session.id, [])
-        total_cost += getattr(session, "total_cost_usd", 0) or 0
-        total_tokens += getattr(session, "total_tokens", 0) or 0
-        total_replay_value += getattr(session, "replay_value", 0) or 0
+        cost, tokens, replay = _get_session_scalars(session)
+        total_cost += cost
+        total_tokens += tokens
+        total_replay_value += replay
 
-        has_tool_loop = False
-        has_refusal = False
-        has_escalation = False
-        speakers_in_session: set[str] = set()
-        prev_policy_template = None
-        policy_shift_count = 0
-        turn_count = 0
+        em = _collect_session_event_metrics(events)
 
-        for event in events:
-            event_type = getattr(event, "event_type", None)
-            data = getattr(event, "data", {})
+        total_decision_confidence += em["decision_confidence"]
+        low_confidence_count += em["low_confidence_count"]
+        decision_count += em["decision_count"]
+        total_tool_duration += em["tool_duration"]
+        tool_error_count += em["tool_error_count"]
+        tool_result_count += em["tool_result_count"]
+        grounded_decisions += em["grounded_decisions"]
+        total_policy_shifts += em["policy_shift_count"]
+        total_turns += em["turn_count"]
+        total_speakers += len(em["speakers"])
 
-            if event_type == EventType.DECISION:
-                confidence = data.get("confidence", 0.5)
-                total_decision_confidence += confidence
-                decision_count += 1
-                if confidence < 0.5:
-                    low_confidence_count += 1
-
-                # Track evidence grounding
-                evidence_ids = data.get("evidence_event_ids", [])
-                if evidence_ids:
-                    grounded_decisions += 1
-
-            elif event_type == EventType.TOOL_RESULT:
-                duration = data.get("duration_ms") or getattr(event, "duration_ms", 0) or 0
-                total_tool_duration += duration
-                tool_result_count += 1
-                if data.get("error") or getattr(event, "error", None):
-                    tool_error_count += 1
-
-            elif event_type == EventType.REFUSAL or event_type == EventType.POLICY_VIOLATION:
-                has_refusal = True
-
-            elif event_type == EventType.BEHAVIOR_ALERT:
-                if data.get("alert_type") == "tool_loop":
-                    has_tool_loop = True
-
-            # Multi-agent event tracking
-            elif event_type == EventType.AGENT_TURN:
-                turn_count += 1
-                speaker = data.get("speaker") or data.get("agent_id") or getattr(event, "speaker", None)
-                if speaker:
-                    speakers_in_session.add(speaker)
-
-            elif event_type == EventType.PROMPT_POLICY:
-                template = data.get("template_id") or data.get("name") or getattr(event, "template_id", None)
-                if template and prev_policy_template is not None and template != prev_policy_template:
-                    policy_shift_count += 1
-                if template:
-                    prev_policy_template = template
-
-            # Escalation detection
-            elif event_type in (EventType.SAFETY_CHECK, EventType.POLICY_VIOLATION):
-                has_escalation = True
-
-        if has_tool_loop:
+        if em["has_tool_loop"]:
             tool_loop_sessions += 1
-        if has_refusal:
+        if em["has_refusal"]:
             refusal_sessions += 1
-        if has_escalation or policy_shift_count > 2:
+        if em["has_escalation"] or em["policy_shift_count"] > 2:
             escalation_sessions += 1
-
-        # Aggregate multi-agent metrics
-        total_policy_shifts += policy_shift_count
-        total_turns += turn_count
-        total_speakers += len(speakers_in_session)
 
     session_count = len(sessions)
 
     multi_agent_metrics = None
     if include_multi_agent:
-        multi_agent_metrics = MultiAgentMetrics(
-            avg_policy_shifts_per_session=total_policy_shifts / session_count if session_count > 0 else 0.0,
-            avg_turns_per_session=int(total_turns / session_count) if session_count > 0 else 0,
-            avg_speaker_count=total_speakers / session_count if session_count > 0 else 0.0,
-            escalation_pattern_rate=escalation_sessions / session_count if session_count > 0 else 0.0,
-            evidence_grounding_rate=grounded_decisions / decision_count if decision_count > 0 else 0.0,
+        multi_agent_metrics = _build_multi_agent_metrics(
+            total_policy_shifts, total_turns, total_speakers,
+            escalation_sessions, grounded_decisions, decision_count, session_count,
         )
 
     return AgentBaseline(
@@ -250,10 +337,10 @@ def compute_baseline_from_sessions(
         session_count=session_count,
         computed_at=datetime.now(timezone.utc),
         time_window_days=7,
-        avg_decision_confidence=total_decision_confidence / decision_count if decision_count > 0 else 0.0,
-        low_confidence_rate=low_confidence_count / decision_count if decision_count > 0 else 0.0,
-        avg_tool_duration_ms=total_tool_duration / tool_result_count if tool_result_count > 0 else 0.0,
-        error_rate=tool_error_count / tool_result_count if tool_result_count > 0 else 0.0,
+        avg_decision_confidence=_safe_div(total_decision_confidence, decision_count),
+        low_confidence_rate=_safe_div(low_confidence_count, decision_count),
+        avg_tool_duration_ms=_safe_div(total_tool_duration, tool_result_count),
+        error_rate=_safe_div(tool_error_count, tool_result_count),
         avg_cost_per_session=total_cost / session_count,
         avg_tokens_per_session=int(total_tokens / session_count),
         tool_loop_rate=tool_loop_sessions / session_count,
