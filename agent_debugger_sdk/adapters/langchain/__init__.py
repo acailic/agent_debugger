@@ -16,7 +16,7 @@ Example:
 # Import main classes for backward compatibility
 from .adapter import LangChainAdapter
 from .auto_patch import register_auto_patch
-from .handler import LangChainTracingHandler, LANGCHAIN_AVAILABLE
+from .handler import LANGCHAIN_AVAILABLE, LangChainTracingHandler
 
 # Import types for backward compatibility with tests
 try:
