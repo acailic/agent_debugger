@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"ls -la agent_debugger_sdk/adapters/langchain/ && echo \\\"---\\\" && ls -la agent_debugger_sdk/adapters/pydantic_ai/ && echo \\\"---\\\" && ls -la storage/repository/\",\"description\":\"Check content...",
+  "error": "Exit code 2\ntotal 12\ndrwxrwxr-x 3 nistrator nistrator 4096 Mar 29 00:44 .\ndrwxrwxr-x 6 nistrator nistrator 4096 Mar 29 00:44 ..\ndrwxrwxr-x 2 nistrator nistrator 4096 Mar 29 00:41 __pycache__\n---\ntotal 12\ndrwxrwxr-x 3 nistrator nistrator 4096 Mar 29 00:44 .\ndrwxrwxr-x 6 nistrator nistrator 4096 Mar 29 00:44 ..\ndrwxrwxr-x 2 nistrator nistrator 4096 Mar 29 00:42 __pycache__\n---\nls: cannot access 'storage/repository/': No such file or directory",
+  "timestamp": "2026-03-28T23:45:29.892Z",
+  "retry_count": 5
+}
