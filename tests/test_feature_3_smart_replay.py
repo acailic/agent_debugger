@@ -384,14 +384,12 @@ def mock_smart_replay():
 
     def _build_segment_for_key_event(
         key_event: TraceEvent,
-        session: dict[str, Any],
+        events: list[Any],
+        event_ids: set[str],
         context_window: int,
         segments: list[ReplaySegment],
     ) -> None:
         """Helper to build or merge a segment for a single key event."""
-        events = session.get("events", [])
-        event_ids = {e.id for e in events}
-
         if key_event.id not in event_ids:
             segments.append(
                 ReplaySegment(
@@ -418,6 +416,7 @@ def mock_smart_replay():
                 seg.end_index = max(seg.end_index, end)
                 if key_event.id not in seg.key_event_ids:
                     seg.key_event_ids.append(key_event.id)
+                seg.events = [e.to_dict() for e in events[seg.start_index : seg.end_index + 1]]
                 return
 
         segment = ReplaySegment(
@@ -445,9 +444,10 @@ def mock_smart_replay():
 
         context_window = context_window if context_window is not None else 2
         segments: list[ReplaySegment] = []
+        event_ids = {e.id for e in events}
 
         for key_event in key_events:
-            _build_segment_for_key_event(key_event, session, context_window, segments)
+            _build_segment_for_key_event(key_event, events, event_ids, context_window, segments)
 
         return segments
 
