@@ -105,3 +105,22 @@ class AnomalyAlertModel(Base):
     detection_source: Mapped[str] = mapped_column(String(32))
     detection_config: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+
+
+class FailureClusterModel(Base):
+    """SQLAlchemy ORM model for failure clusters."""
+
+    __tablename__ = "failure_clusters"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), nullable=False, default="local", index=True)
+    fingerprint: Mapped[str] = mapped_column(String(255), index=True)
+    first_seen: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    last_seen: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    session_count: Mapped[int] = mapped_column(default=1)
+    event_count: Mapped[int] = mapped_column(default=0)
+    representative_session_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("sessions.id"), nullable=True)
+    representative_event_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    sample_failure_mode: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    sample_symptom: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    avg_severity: Mapped[float] = mapped_column(Float, default=0.0)
