@@ -171,6 +171,81 @@ class HttpTransport:
             on_delivery_failure=on_delivery_failure,
         )
 
+    async def _execute_http_request(
+        self,
+        method: str,
+        path: str,
+        payload: dict,
+    ) -> None:
+        """Execute a single HTTP request and validate the response.
+
+        Args:
+            method: HTTP method (POST, PUT, etc.)
+            path: API path
+            payload: JSON payload
+
+        Raises:
+            ValueError: If HTTP method is not supported
+            PermanentError: For 4xx status codes
+            TransientError: For 5xx status codes
+        """
+        if method == "POST":
+            response = await self._client.post(path, json=payload)
+        elif method == "PUT":
+            response = await self._client.put(path, json=payload)
+        else:
+            raise ValueError(f"Unsupported HTTP method: {method}")
+
+        if response.status_code >= 500:
+            raise TransientError(
+                f"Server error (status={response.status_code})",
+                status_code=response.status_code,
+            )
+        elif response.status_code >= 400:
+            raise PermanentError(
+                f"Client error (status={response.status_code})",
+                status_code=response.status_code,
+            )
+
+    def _should_retry(self, error: Exception) -> bool:
+        """Determine if an error is retryable.
+
+        Args:
+            error: The exception that occurred
+
+        Returns:
+            True if the error is transient and should be retried
+        """
+        return isinstance(error, TransientError)
+
+    async def _handle_retry_backoff(self, attempt: int) -> None:
+        """Handle exponential backoff between retries.
+
+        Args:
+            attempt: Current attempt number (0-indexed)
+        """
+        if attempt < MAX_RETRIES:
+            backoff = INITIAL_BACKOFF_SECONDS * (BACKOFF_MULTIPLIER**attempt)
+            await asyncio.sleep(backoff)
+
+    def _invoke_failure_callback(
+        self,
+        error: TransportError,
+        callback_override: DeliveryFailureCallback | None = None,
+    ) -> None:
+        """Invoke the failure callback safely.
+
+        Args:
+            error: The error that occurred
+            callback_override: Optional callback that overrides instance-level callback
+        """
+        callback = callback_override or self._on_delivery_failure
+        if callback is not None:
+            try:
+                callback(error)
+            except Exception as exc:
+                logger.error("Error in on_delivery_failure callback: %s", exc)
+
     async def _send_with_retry(
         self,
         *,
@@ -190,38 +265,13 @@ class HttpTransport:
             on_delivery_failure: Optional callback for final failure notification
         """
         last_error: TransportError | None = None
-        backoff = INITIAL_BACKOFF_SECONDS
 
         for attempt in range(MAX_RETRIES + 1):
             try:
-                if method == "POST":
-                    response = await self._client.post(path, json=payload)
-                elif method == "PUT":
-                    response = await self._client.put(path, json=payload)
-                else:
-                    raise ValueError(f"Unsupported HTTP method: {method}")
-
-                # Check for HTTP error status codes
-                if response.status_code >= 500:
-                    # Server error - retryable
-                    raise TransientError(
-                        f"Server error (status={response.status_code})",
-                        status_code=response.status_code,
-                    )
-                elif response.status_code >= 400:
-                    # Client error - not retryable
-                    raise PermanentError(
-                        f"Client error (status={response.status_code})",
-                        status_code=response.status_code,
-                    )
-                # Success - return
+                await self._execute_http_request(method, path, payload)
                 return
-
             except httpx.TimeoutException as exc:
-                last_error = TransientError(
-                    f"Request timeout: {exc}",
-                    status_code=None,
-                )
+                last_error = TransientError(f"Request timeout: {exc}", status_code=None)
                 logger.warning(
                     "Transient error sending to collector (%s, attempt=%d/%d): %s",
                     context,
@@ -230,10 +280,7 @@ class HttpTransport:
                     exc,
                 )
             except httpx.NetworkError as exc:
-                last_error = TransientError(
-                    f"Network error: {exc}",
-                    status_code=None,
-                )
+                last_error = TransientError(f"Network error: {exc}", status_code=None)
                 logger.warning(
                     "Transient error sending to collector (%s, attempt=%d/%d): %s",
                     context,
@@ -241,53 +288,22 @@ class HttpTransport:
                     MAX_RETRIES + 1,
                     exc,
                 )
-            except TransientError as exc:
-                last_error = exc
-                logger.warning(
-                    "Transient error sending to collector (%s, attempt=%d/%d): %s",
-                    context,
-                    attempt + 1,
-                    MAX_RETRIES + 1,
-                    exc,
-                )
-            except PermanentError as exc:
-                # Not retryable - log and break
-                last_error = exc
-                logger.warning(
-                    "Permanent error sending to collector (%s): %s",
-                    context,
-                    exc,
-                )
-                break
-            except Exception as exc:
-                # Unknown error - treat as permanent for safety
-                last_error = PermanentError(
-                    f"Unexpected error: {exc}",
-                    status_code=None,
-                )
-                logger.warning(
-                    "Unexpected error sending to collector (%s): %s",
-                    context,
-                    exc,
-                )
+            except (PermanentError, Exception) as exc:
+                # PermanentError or unexpected - log and stop retrying
+                if isinstance(exc, PermanentError):
+                    last_error = exc
+                else:
+                    last_error = PermanentError(f"Unexpected error: {exc}", status_code=None)
+                logger.warning("Permanent error sending to collector (%s): %s", context, exc)
                 break
 
-            # If we get here with a transient error, wait and retry
-            if isinstance(last_error, TransientError) and attempt < MAX_RETRIES:
-                await asyncio.sleep(backoff)
-                backoff *= BACKOFF_MULTIPLIER
+            # Retry logic for transient errors
+            if self._should_retry(last_error) if last_error else False:
+                await self._handle_retry_backoff(attempt)
 
-        # All retries exhausted or permanent error - invoke callback if provided
+        # All retries exhausted - invoke callback
         if last_error is not None:
-            callback = on_delivery_failure or self._on_delivery_failure
-            if callback is not None:
-                try:
-                    callback(last_error)
-                except Exception as callback_exc:
-                    logger.error(
-                        "Error in on_delivery_failure callback: %s",
-                        callback_exc,
-                    )
+            self._invoke_failure_callback(last_error, on_delivery_failure)
 
     async def close(self) -> None:
         """Close the HTTP client and release resources.
