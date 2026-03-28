@@ -121,8 +121,8 @@ class BaseAdapter(ABC):
                 self._transport.send_event(event.to_dict())
         except Exception:
             logger.warning(
-                "%sAdapter: failed to emit %s event",
-                self.name.capitalize(),
+                "%s: failed to emit %s event",
+                type(self).__name__,
                 event_type_name,
                 exc_info=True,
             )
@@ -153,8 +153,8 @@ class BaseAdapter(ABC):
                 self._transport.send_event(event.to_dict())
         except Exception:
             logger.warning(
-                "%sAdapter: failed to emit %s event%s",
-                self.name.capitalize(),
+                "%s: failed to emit %s event%s",
+                type(self).__name__,
                 event_type.value,
                 " (async)" if is_async else "",
                 exc_info=True,
@@ -188,8 +188,8 @@ class BaseAdapter(ABC):
                 self._transport.send_event(event.to_dict())
         except Exception:
             logger.warning(
-                "%sAdapter: failed to emit ERROR event%s",
-                self.name.capitalize(),
+                "%s: failed to emit ERROR event%s",
+                type(self).__name__,
                 " (async)" if is_async else "",
                 exc_info=True,
             )
