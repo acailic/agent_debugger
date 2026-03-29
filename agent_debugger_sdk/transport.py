@@ -171,6 +171,64 @@ class HttpTransport:
             on_delivery_failure=on_delivery_failure,
         )
 
+    async def _execute_request(
+        self,
+        *,
+        method: str,
+        path: str,
+        payload: dict,
+    ) -> None:
+        """Execute a single HTTP request.
+
+        Args:
+            method: HTTP method (POST, PUT)
+            path: API path
+            payload: JSON payload
+
+        Raises:
+            TransientError: On server errors (5xx)
+            PermanentError: On client errors (4xx)
+            ValueError: On unsupported HTTP method
+        """
+        if method == "POST":
+            response = await self._client.post(path, json=payload)
+        elif method == "PUT":
+            response = await self._client.put(path, json=payload)
+        else:
+            raise ValueError(f"Unsupported HTTP method: {method}")
+
+        # Check for HTTP error status codes
+        if response.status_code >= 500:
+            raise TransientError(
+                f"Server error (status={response.status_code})",
+                status_code=response.status_code,
+            )
+        elif response.status_code >= 400:
+            raise PermanentError(
+                f"Client error (status={response.status_code})",
+                status_code=response.status_code,
+            )
+
+    def _classify_error(self, exc: Exception) -> tuple[TransportError, bool]:
+        """Classify an exception as transient or permanent.
+
+        Args:
+            exc: The exception to classify
+
+        Returns:
+            A tuple of (TransportError, should_retry)
+        """
+        if isinstance(exc, httpx.TimeoutException):
+            return TransientError(f"Request timeout: {exc}"), True
+        if isinstance(exc, httpx.NetworkError):
+            return TransientError(f"Network error: {exc}"), True
+        if isinstance(exc, TransientError):
+            return exc, True
+        if isinstance(exc, PermanentError):
+            return exc, False
+        # Unknown error - treat as permanent for safety
+        return PermanentError(f"Unexpected error: {exc}"), False
+
     async def _send_with_retry(
         self,
         *,
@@ -194,88 +252,31 @@ class HttpTransport:
 
         for attempt in range(MAX_RETRIES + 1):
             try:
-                if method == "POST":
-                    response = await self._client.post(path, json=payload)
-                elif method == "PUT":
-                    response = await self._client.put(path, json=payload)
-                else:
-                    raise ValueError(f"Unsupported HTTP method: {method}")
-
-                # Check for HTTP error status codes
-                if response.status_code >= 500:
-                    # Server error - retryable
-                    raise TransientError(
-                        f"Server error (status={response.status_code})",
-                        status_code=response.status_code,
-                    )
-                elif response.status_code >= 400:
-                    # Client error - not retryable
-                    raise PermanentError(
-                        f"Client error (status={response.status_code})",
-                        status_code=response.status_code,
-                    )
-                # Success - return
+                await self._execute_request(method=method, path=path, payload=payload)
                 return
-
-            except httpx.TimeoutException as exc:
-                last_error = TransientError(
-                    f"Request timeout: {exc}",
-                    status_code=None,
-                )
-                logger.warning(
-                    "Transient error sending to collector (%s, attempt=%d/%d): %s",
-                    context,
-                    attempt + 1,
-                    MAX_RETRIES + 1,
-                    exc,
-                )
-            except httpx.NetworkError as exc:
-                last_error = TransientError(
-                    f"Network error: {exc}",
-                    status_code=None,
-                )
-                logger.warning(
-                    "Transient error sending to collector (%s, attempt=%d/%d): %s",
-                    context,
-                    attempt + 1,
-                    MAX_RETRIES + 1,
-                    exc,
-                )
-            except TransientError as exc:
-                last_error = exc
-                logger.warning(
-                    "Transient error sending to collector (%s, attempt=%d/%d): %s",
-                    context,
-                    attempt + 1,
-                    MAX_RETRIES + 1,
-                    exc,
-                )
-            except PermanentError as exc:
-                # Not retryable - log and break
-                last_error = exc
-                logger.warning(
-                    "Permanent error sending to collector (%s): %s",
-                    context,
-                    exc,
-                )
-                break
             except Exception as exc:
-                # Unknown error - treat as permanent for safety
-                last_error = PermanentError(
-                    f"Unexpected error: {exc}",
-                    status_code=None,
-                )
-                logger.warning(
-                    "Unexpected error sending to collector (%s): %s",
-                    context,
-                    exc,
-                )
-                break
+                last_error, should_retry = self._classify_error(exc)
 
-            # If we get here with a transient error, wait and retry
-            if isinstance(last_error, TransientError) and attempt < MAX_RETRIES:
-                await asyncio.sleep(backoff)
-                backoff *= BACKOFF_MULTIPLIER
+                if not should_retry:
+                    logger.warning(
+                        "Permanent error sending to collector (%s): %s",
+                        context,
+                        last_error,
+                    )
+                    break
+
+                logger.warning(
+                    "Transient error sending to collector (%s, attempt=%d/%d): %s",
+                    context,
+                    attempt + 1,
+                    MAX_RETRIES + 1,
+                    last_error,
+                )
+
+                # Wait and retry if not the last attempt
+                if attempt < MAX_RETRIES:
+                    await asyncio.sleep(backoff)
+                    backoff *= BACKOFF_MULTIPLIER
 
         # All retries exhausted or permanent error - invoke callback if provided
         if last_error is not None:
