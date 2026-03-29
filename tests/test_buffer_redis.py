@@ -98,8 +98,13 @@ async def test_unsubscribe_last_cancels_task():
     buf = RedisEventBuffer(redis_client=mock_redis)
     queue = asyncio.Queue()
 
-    # Create a mock task
-    task = asyncio.create_task(asyncio.sleep(10))
+    # Create a mock task that waits forever
+    forever_event = asyncio.Event()
+
+    async def wait_forever():
+        await forever_event.wait()
+
+    task = asyncio.create_task(wait_forever())
     buf._local_queues["s1"] = [queue]
     buf._pubsub_tasks["s1"] = task
 
@@ -142,9 +147,14 @@ async def test_close_cancels_tasks_and_closes_redis():
 
     buf = RedisEventBuffer(redis_client=mock_redis)
 
-    # Create mock tasks
-    task1 = asyncio.create_task(asyncio.sleep(10))
-    task2 = asyncio.create_task(asyncio.sleep(10))
+    # Create mock tasks that wait forever
+    forever_event = asyncio.Event()
+
+    async def wait_forever():
+        await forever_event.wait()
+
+    task1 = asyncio.create_task(wait_forever())
+    task2 = asyncio.create_task(wait_forever())
     buf._pubsub_tasks = {"s1": task1, "s2": task2}
     buf._local_queues = {"s1": [], "s2": []}
 

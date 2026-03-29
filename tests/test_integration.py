@@ -39,8 +39,8 @@ async def test_basic_tracing():
             evidence=[{"source": "user_input", "content": "What's the weather?"}],
         )
 
-        # Simulate tool execution
-        await asyncio.sleep(0.05)
+        # Yield control to simulate async execution flow
+        await asyncio.sleep(0)
 
         tool_call_id = await ctx.record_tool_call(
             "weather_api",
@@ -81,7 +81,8 @@ async def test_decorator_tracing():
     @trace_tool(name="search")
     async def search_tool(query: str) -> list[str]:
         """Simulated search tool."""
-        await asyncio.sleep(0.05)
+        # Yield control to simulate async execution
+        await asyncio.sleep(0)
         return [f"result_{query}_1", f"result_{query}_2"]
 
     @trace_agent(name="search_agent", framework="test")

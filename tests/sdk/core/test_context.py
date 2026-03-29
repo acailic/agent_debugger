@@ -302,7 +302,8 @@ class TestTraceContextConcurrency:
         async def run_context(session_id: str):
             ctx = TraceContext(session_id=session_id)
             async with ctx:
-                await asyncio.sleep(0.01)
+                # Yield control to allow concurrent context execution
+                await asyncio.sleep(0)
                 results.append((session_id, get_current_session_id()))
 
         await asyncio.gather(
