@@ -8,62 +8,13 @@ This module tests the FailureMemory class which provides:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
 from agent_debugger_sdk.core.events import EventType, TraceEvent
-
-# Note: Feature 2 (failure_memory) tests are implemented but feature module may not exist yet
-
-
-# =============================================================================
-# Custom Exceptions
-# =============================================================================
-
-
-class EmbeddingGenerationError(Exception):
-    """Raised when embedding generation fails."""
-
-    pass
-
-
-# =============================================================================
-# Mock Data Classes for FailureMemory
-# =============================================================================
-
-
-@dataclass
-class FailureSignature:
-    """Signature extracted from a failure event for embedding."""
-
-    error_type: str
-    error_message: str
-    tool_name: str | None = None
-    session_id: str | None = None
-    additional_context: dict[str, Any] = field(default_factory=dict)
-
-    def to_text(self) -> str:
-        """Convert signature to text for embedding."""
-        parts = [f"Error: {self.error_type}", f"Message: {self.error_message}"]
-        if self.tool_name:
-            parts.append(f"Tool: {self.tool_name}")
-        return " | ".join(parts)
-
-
-@dataclass
-class SimilarFailureMatch:
-    """A match from the failure memory search."""
-
-    failure_id: str
-    similarity_score: float
-    signature: FailureSignature
-    fix_applied: str | None = None
-    occurrence_count: int = 1
-    session_id: str | None = None
-
+from collector.failure_memory import EmbeddingGenerationError, SimilarFailureMatch
 
 # =============================================================================
 # Fixtures
