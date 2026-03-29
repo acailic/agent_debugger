@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from api.app_context import require_session_maker
+from api.config import MAX_FIX_NOTE_LENGTH, MAX_SESSION_SEARCH_RESULTS
 from storage import TraceRepository
 
 router = APIRouter(tags=["search"])
@@ -31,7 +32,7 @@ class SearchResponse(BaseModel):
 
 
 class FixNoteRequest(BaseModel):
-    note: str = Field(..., min_length=1, max_length=2000)
+    note: str = Field(..., min_length=1, max_length=MAX_FIX_NOTE_LENGTH)
 
 
 class FixNoteResponse(BaseModel):
@@ -43,7 +44,7 @@ class FixNoteResponse(BaseModel):
 async def search_sessions(
     q: str = Query(..., min_length=2),
     status: str | None = Query(default=None),
-    limit: int = Query(default=20, ge=1, le=100),
+    limit: int = Query(default=20, ge=1, le=MAX_SESSION_SEARCH_RESULTS),
 ) -> SearchResponse:
     """Search sessions by semantic similarity to a text query."""
     async with require_session_maker()() as db_session:
