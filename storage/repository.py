@@ -217,6 +217,21 @@ class TraceRepository:
         """
         return await self._event_repo.get_event_tree(session_id)
 
+    async def get_events(self, session_id: str) -> tuple[list[TraceEvent], int]:
+        """Get events for a session with count.
+
+        This method is used by drift/baseline endpoints that need both
+        the events list and total count.
+
+        Args:
+            session_id: Session ID to get events for
+
+        Returns:
+            Tuple of (events list, total count)
+        """
+        events = await self._event_repo.get_event_tree(session_id)
+        return events, len(events)
+
     # ------------------------------------------------------------------
     # Checkpoint Methods (delegated to CheckpointRepository)
     # ------------------------------------------------------------------

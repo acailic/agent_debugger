@@ -122,10 +122,12 @@ def _safe_div(numerator: float, denominator: int, default: float = 0.0) -> float
     return numerator / denominator if denominator else default
 
 
-def _process_decision(data: dict) -> tuple[float, int, int]:
+def _process_decision(event: Any, data: dict) -> tuple[float, int, int]:
     """Return (confidence, low_confidence_flag, grounded_flag) for a decision event."""
-    confidence = data.get("confidence", 0.5)
-    return confidence, (1 if confidence < 0.5 else 0), (1 if data.get("evidence_event_ids") else 0)
+    # Check both data dict and event attribute (for typed events like DecisionEvent)
+    confidence = data.get("confidence") or getattr(event, "confidence", 0.5)
+    evidence_event_ids = data.get("evidence_event_ids") or getattr(event, "evidence_event_ids", None)
+    return float(confidence), (1 if confidence < 0.5 else 0), (1 if evidence_event_ids else 0)
 
 
 def _process_tool_result(event: Any, data: dict) -> tuple[float, int]:
@@ -207,7 +209,7 @@ def _collect_session_event_metrics(events: list[Any]) -> dict[str, Any]:
         data = getattr(event, "data", {})
 
         if event_type == EventType.DECISION:
-            conf, lc, grnd = _process_decision(data)
+            conf, lc, grnd = _process_decision(event, data)
             decision_confidence += conf
             decision_count += 1
             low_confidence_count += lc

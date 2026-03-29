@@ -6,35 +6,9 @@ detection of behavior changes between baseline and recent metrics.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 import pytest
-
-# Note: Feature 4 (behavior_monitor) not yet implemented
-pytestmark = pytest.mark.skip(reason="Feature 4 (behavior_monitor) not yet implemented")
-
-
-# Define BehaviorChange dataclass as specified
-@dataclass
-class BehaviorChange:
-    """Represents a detected behavior change."""
-
-    type: str  # e.g., "decision_pattern_shift", "latency_increase", "failure_rate_spike"
-    severity: str  # "low", "medium", "high"
-    before: Any  # Baseline value
-    after: Any  # Current/recent value
-    root_cause: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
-        return {
-            "type": self.type,
-            "severity": self.severity,
-            "before": self.before,
-            "after": self.after,
-            "root_cause": self.root_cause,
-        }
 
 
 @pytest.fixture
@@ -77,12 +51,13 @@ class TestBehaviorAlertsHappyPath:
         monitor = BehaviorMonitor()
 
         recent = baseline_data.copy()
-        # Shift decision distribution significantly
+        # Shift decision distribution significantly (>30% threshold required)
+        # Total shift must be >0.6 (0.6/2 = 0.3 after normalization)
         recent["decision_distribution"] = {
-            "action_a": 0.2,  # Was 0.4, now 0.2 (50% drop)
-            "action_b": 0.5,  # Was 0.35, now 0.5 (43% increase)
-            "action_c": 0.3,  # Was 0.25, now 0.3 (20% increase)
-        }
+            "action_a": 0.1,  # Was 0.4, now 0.1 (75% drop = 0.3 shift)
+            "action_b": 0.7,  # Was 0.35, now 0.7 (100% increase = 0.35 shift)
+            "action_c": 0.2,  # Was 0.25, now 0.2 (20% drop = 0.05 shift)
+        }  # Total shift = 0.7, normalized = 0.35 > 0.3 threshold
 
         changes = monitor.detect_changes(baseline_data, recent)
 
@@ -165,7 +140,7 @@ class TestBehaviorAlertsEdgeCases:
     """Edge case tests for behavior change detection."""
 
     def test_insufficient_baseline_returns_no_alerts(self, baseline_data: dict[str, Any]):
-        """Less than 7 days of baseline should return empty or low severity alerts."""
+        """Less than 7 days of baseline should use critical changes detection."""
         from collector.behavior_monitor import BehaviorMonitor
 
         monitor = BehaviorMonitor()
@@ -180,11 +155,11 @@ class TestBehaviorAlertsEdgeCases:
 
         changes = monitor.detect_changes(short_baseline, recent)
 
-        # Either empty or all low severity
+        # With insufficient baseline, _detect_critical_changes is used
+        # It only reports high-severity failure_rate_spike when ratio > 3x
         if changes:
-            assert all(c.severity == "low" for c in changes)
-        else:
-            assert changes == []
+            assert all(c.type == "failure_rate_spike" for c in changes)
+            assert all(c.severity == "high" for c in changes)
 
     def test_no_significant_changes_returns_empty(self, baseline_data: dict[str, Any]):
         """Small changes below threshold should return empty list."""

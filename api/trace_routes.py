@@ -160,8 +160,17 @@ async def get_agent_drift(
     if not agent_sessions:
         return {"agent_name": agent_name, "alerts": [], "error": "No sessions found"}
 
-    baseline_sessions = [s for s in agent_sessions if s.started_at < recent_cutoff]
-    recent_sessions = [s for s in agent_sessions if s.started_at >= recent_cutoff]
+    # Handle both naive and aware datetimes (SQLite may strip timezone info)
+    def _is_baseline(session_started_at: datetime) -> bool:
+        """Check if session is in baseline window (older than 24h)."""
+        dt = session_started_at
+        # If naive, assume UTC
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt < recent_cutoff
+
+    baseline_sessions = [s for s in agent_sessions if _is_baseline(s.started_at)]
+    recent_sessions = [s for s in agent_sessions if not _is_baseline(s.started_at)]
 
     if len(baseline_sessions) < 3:
         return {
