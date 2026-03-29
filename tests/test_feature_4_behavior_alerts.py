@@ -11,8 +11,7 @@ from typing import Any
 
 import pytest
 
-# Skip all tests in this module - feature not yet implemented
-pytestmark = pytest.mark.skip(reason="Feature 4 (behavior_monitor) not yet implemented")
+# Note: Feature 4 (behavior_monitor) tests are implemented but feature module may not exist yet
 
 
 # Define BehaviorChange dataclass as specified

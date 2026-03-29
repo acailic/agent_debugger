@@ -16,8 +16,7 @@ import pytest
 
 from agent_debugger_sdk.core.events import EventType, TraceEvent
 
-# Skip all tests in this module - feature not yet implemented
-pytestmark = pytest.mark.skip(reason="Feature 2 (failure_memory) not yet implemented")
+# Note: Feature 2 (failure_memory) tests are implemented but feature module may not exist yet
 
 
 # =============================================================================
