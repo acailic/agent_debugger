@@ -192,50 +192,27 @@ class TraceIntelligence:
         counts = Counter(fingerprints)
         checkpoint_event_ids = {checkpoint.event_id for checkpoint in checkpoints}
         event_rankings: list[dict[str, Any]] = []
-
-        consecutive_tool_loop = 0
-        previous_tool_name = None
         behavior_alerts: list[dict[str, Any]] = []
 
         # Pre-aggregate metrics during single pass (avoids separate loops)
         total_cost = 0.0
         high_severity_count = 0
+        consecutive_tool_loop = 0
+        previous_tool_name = None
 
         for index, event in enumerate(events):
-            fingerprint = fingerprints[index]
-            severity = self.severity(event)
-            recurrence_count = counts[fingerprint]
-            recurrence = min((recurrence_count - 1) / max(len(events), 1), 1.0)
-            novelty = 1.0 / recurrence_count
-            replay_value = severity * 0.55
-            replay_value += 0.15 if event.id in checkpoint_event_ids else 0.0
-            replay_value += (
-                0.1 if event.event_type in {EventType.DECISION, EventType.REFUSAL, EventType.POLICY_VIOLATION} else 0.0
+            ranking = self._compute_event_ranking(
+                event=event,
+                fingerprint=fingerprints[index],
+                counts=counts,
+                total_events=len(events),
+                checkpoint_event_ids=checkpoint_event_ids,
             )
-            replay_value += (
-                0.1
-                if bool(_event_value(event, "upstream_event_ids", getattr(event, "upstream_event_ids", [])))
-                else 0.0
-            )
-            replay_value += 0.1 if bool(_event_value(event, "evidence_event_ids", [])) else 0.0
-            composite = min(1.0, severity * 0.45 + novelty * 0.2 + recurrence * 0.15 + replay_value * 0.2)
+            event_rankings.append(ranking)
 
             # Pre-aggregate: count high severity during ranking
-            if severity >= 0.9:
+            if ranking["severity"] >= 0.9:
                 high_severity_count += 1
-
-            event_rankings.append(
-                {
-                    "event_id": event.id,
-                    "event_type": str(event.event_type),
-                    "fingerprint": fingerprint,
-                    "severity": round(severity, 4),
-                    "novelty": round(novelty, 4),
-                    "recurrence": round(recurrence, 4),
-                    "replay_value": round(min(replay_value, 1.0), 4),
-                    "composite": round(composite, 4),
-                }
-            )
 
             # Pre-aggregate: accumulate cost from LLM responses
             if event.event_type == EventType.LLM_RESPONSE:
@@ -243,25 +220,13 @@ class TraceIntelligence:
                 if cost:
                     total_cost += float(cost)
 
-            if event.event_type == EventType.TOOL_CALL:
-                tool_name = _event_value(event, "tool_name", "")
-                if tool_name and tool_name == previous_tool_name:
-                    consecutive_tool_loop += 1
-                else:
-                    consecutive_tool_loop = 1
-                previous_tool_name = tool_name
-                if consecutive_tool_loop >= 3:
-                    behavior_alerts.append(
-                        {
-                            "alert_type": "tool_loop",
-                            "severity": "high",
-                            "signal": f"Repeated tool loop for {tool_name}",
-                            "event_id": event.id,
-                        }
-                    )
-            else:
-                previous_tool_name = None
-                consecutive_tool_loop = 0
+            # Detect and track tool loops
+            consecutive_tool_loop, previous_tool_name, new_alerts = self._detect_tool_loop(
+                event=event,
+                consecutive_tool_loop=consecutive_tool_loop,
+                previous_tool_name=previous_tool_name,
+            )
+            behavior_alerts.extend(new_alerts)
 
         # Use FailureClusterAnalyzer for clustering logic
         failure_clusters = self._clusterer.cluster_failures(event_rankings)
@@ -274,42 +239,19 @@ class TraceIntelligence:
         failure_explanations = self._diagnostics.build_failure_explanations(
             events, ranking_by_event_id, self.event_headline
         )
-        checkpoint_rankings: list[dict[str, Any]] = []
-        # total_cost and high_severity_count already computed during main loop
+
+        # Compute checkpoint rankings
+        checkpoint_rankings, checkpoint_values = self._compute_checkpoint_rankings(
+            checkpoints=checkpoints,
+            ranking_by_event_id=ranking_by_event_id,
+            representative_failure_ids=representative_failure_ids,
+        )
+
+        # Compute session-level metrics
         top_composites = [
             ranking["composite"]
             for ranking in sorted(event_rankings, key=lambda item: item["composite"], reverse=True)[:5]
         ]
-        checkpoint_values: list[float] = []
-
-        max_sequence = max((checkpoint.sequence for checkpoint in checkpoints), default=0)
-        for checkpoint in checkpoints:
-            event_ranking = ranking_by_event_id.get(checkpoint.event_id)
-            event_replay = float(event_ranking["replay_value"]) if event_ranking else 0.0
-            event_composite = float(event_ranking["composite"]) if event_ranking else 0.0
-            sequence_weight = checkpoint.sequence / max(max_sequence, 1)
-            restore_value = min(
-                1.0, event_replay * 0.45 + event_composite * 0.2 + checkpoint.importance * 0.2 + sequence_weight * 0.15
-            )
-            checkpoint_values.append(restore_value)
-            checkpoint_rankings.append(
-                {
-                    "checkpoint_id": checkpoint.id,
-                    "event_id": checkpoint.event_id,
-                    "sequence": checkpoint.sequence,
-                    "importance": round(checkpoint.importance, 4),
-                    "replay_value": round(event_replay, 4),
-                    "restore_value": round(restore_value, 4),
-                    "retention_tier": self.retention_tier(
-                        replay_value=restore_value,
-                        high_severity_count=1 if event_ranking and event_ranking["severity"] >= 0.92 else 0,
-                        failure_cluster_count=1 if checkpoint.event_id in representative_failure_ids else 0,
-                        behavior_alert_count=0,
-                    ),
-                }
-            )
-
-        checkpoint_rankings.sort(key=lambda item: (-item["restore_value"], -item["importance"], -item["sequence"]))
         session_replay_value = min(
             1.0,
             _mean(top_composites) * 0.55
@@ -347,3 +289,127 @@ class TraceIntelligence:
             "live_summary": self.build_live_summary(events, checkpoints),
             "highlights": highlights,
         }
+
+    # ------------------------------------------------------------------
+    # Private helper methods to reduce nesting in analyze_session
+    # ------------------------------------------------------------------
+
+    def _compute_event_ranking(
+        self,
+        event: TraceEvent,
+        fingerprint: str,
+        counts: Counter,
+        total_events: int,
+        checkpoint_event_ids: set[str],
+    ) -> dict[str, Any]:
+        """Compute ranking metrics for a single event."""
+        severity = self.severity(event)
+        recurrence_count = counts[fingerprint]
+        recurrence = min((recurrence_count - 1) / max(total_events, 1), 1.0)
+        novelty = 1.0 / recurrence_count
+
+        # Calculate replay value components
+        replay_value = severity * 0.55
+        replay_value += 0.15 if event.id in checkpoint_event_ids else 0.0
+        replay_value += (
+            0.1 if event.event_type in {EventType.DECISION, EventType.REFUSAL, EventType.POLICY_VIOLATION} else 0.0
+        )
+        replay_value += (
+            0.1
+            if bool(_event_value(event, "upstream_event_ids", getattr(event, "upstream_event_ids", [])))
+            else 0.0
+        )
+        replay_value += 0.1 if bool(_event_value(event, "evidence_event_ids", [])) else 0.0
+
+        composite = min(1.0, severity * 0.45 + novelty * 0.2 + recurrence * 0.15 + replay_value * 0.2)
+
+        return {
+            "event_id": event.id,
+            "event_type": str(event.event_type),
+            "fingerprint": fingerprint,
+            "severity": round(severity, 4),
+            "novelty": round(novelty, 4),
+            "recurrence": round(recurrence, 4),
+            "replay_value": round(min(replay_value, 1.0), 4),
+            "composite": round(composite, 4),
+        }
+
+    def _detect_tool_loop(
+        self,
+        event: TraceEvent,
+        consecutive_tool_loop: int,
+        previous_tool_name: str | None,
+    ) -> tuple[int, str | None, list[dict[str, Any]]]:
+        """Detect tool loops and return updated state with any new alerts."""
+        new_alerts: list[dict[str, Any]] = []
+
+        if event.event_type != EventType.TOOL_CALL:
+            return 0, None, new_alerts
+
+        tool_name = _event_value(event, "tool_name", "")
+        if not tool_name:
+            return 0, None, new_alerts
+
+        # Update loop counter
+        if tool_name == previous_tool_name:
+            consecutive_tool_loop += 1
+        else:
+            consecutive_tool_loop = 1
+
+        # Generate alert if loop detected
+        if consecutive_tool_loop >= 3:
+            new_alerts.append(
+                {
+                    "alert_type": "tool_loop",
+                    "severity": "high",
+                    "signal": f"Repeated tool loop for {tool_name}",
+                    "event_id": event.id,
+                }
+            )
+
+        return consecutive_tool_loop, tool_name, new_alerts
+
+    def _compute_checkpoint_rankings(
+        self,
+        checkpoints: list[Checkpoint],
+        ranking_by_event_id: dict[str, dict[str, Any]],
+        representative_failure_ids: list[str],
+    ) -> tuple[list[dict[str, Any]], list[float]]:
+        """Compute checkpoint rankings and return rankings list with values."""
+        checkpoint_rankings: list[dict[str, Any]] = []
+        checkpoint_values: list[float] = []
+
+        max_sequence = max((checkpoint.sequence for checkpoint in checkpoints), default=0)
+
+        for checkpoint in checkpoints:
+            event_ranking = ranking_by_event_id.get(checkpoint.event_id)
+            event_replay = float(event_ranking["replay_value"]) if event_ranking else 0.0
+            event_composite = float(event_ranking["composite"]) if event_ranking else 0.0
+            sequence_weight = checkpoint.sequence / max(max_sequence, 1)
+            restore_value = min(
+                1.0, event_replay * 0.45 + event_composite * 0.2 + checkpoint.importance * 0.2 + sequence_weight * 0.15
+            )
+            checkpoint_values.append(restore_value)
+
+            high_severity_indicator = 1 if event_ranking and event_ranking["severity"] >= 0.92 else 0
+            failure_cluster_indicator = 1 if checkpoint.event_id in representative_failure_ids else 0
+
+            checkpoint_rankings.append(
+                {
+                    "checkpoint_id": checkpoint.id,
+                    "event_id": checkpoint.event_id,
+                    "sequence": checkpoint.sequence,
+                    "importance": round(checkpoint.importance, 4),
+                    "replay_value": round(event_replay, 4),
+                    "restore_value": round(restore_value, 4),
+                    "retention_tier": self.retention_tier(
+                        replay_value=restore_value,
+                        high_severity_count=high_severity_indicator,
+                        failure_cluster_count=failure_cluster_indicator,
+                        behavior_alert_count=0,
+                    ),
+                }
+            )
+
+        checkpoint_rankings.sort(key=lambda item: (-item["restore_value"], -item["importance"], -item["sequence"]))
+        return checkpoint_rankings, checkpoint_values
