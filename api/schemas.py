@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from agent_debugger_sdk.core.events import EventType, RiskLevel, SafetyOutcome, SessionStatus
 
@@ -285,7 +285,7 @@ class CheckpointDeltaSchema(BaseModel):
 class FixNoteRequest(BaseModel):
     """Request schema for adding a fix note to a session."""
 
-    note: str
+    note: str = Field(min_length=1, max_length=2000)
 
 
 class FixNoteResponse(BaseModel):

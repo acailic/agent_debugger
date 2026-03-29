@@ -206,9 +206,15 @@ async def test_fix_note_empty_body():
     app = create_app()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # Empty string note
+        from api import app_context
+
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            await repo.create_session(_make_session("empty-note-session"))
+            await db_session.commit()
+
         resp = await client.post(
-            "/api/sessions/some-session/fix-note",
+            "/api/sessions/empty-note-session/fix-note",
             json={"note": ""},
         )
         assert resp.status_code == 422  # Validation error for min_length=1
@@ -220,10 +226,16 @@ async def test_fix_note_too_long():
     app = create_app()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # Note exceeding 2000 chars
+        from api import app_context
+
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            await repo.create_session(_make_session("long-note-session"))
+            await db_session.commit()
+
         long_note = "x" * 2001
         resp = await client.post(
-            "/api/sessions/some-session/fix-note",
+            "/api/sessions/long-note-session/fix-note",
             json={"note": long_note},
         )
         assert resp.status_code == 422  # Validation error for max_length=2000
