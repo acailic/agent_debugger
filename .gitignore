@@ -48,3 +48,9 @@ old_docs/
 
 # Frontend dependencies
 node_modules/
+
+# OMC local state
+.omc/state/
+
+# Scheduled automation logs
+docs/superpowers/scheduled-reports/
