@@ -15,7 +15,8 @@ from ..highlights import generate_highlights
 from ..live_monitor import LiveMonitor
 from ..ranking import CheckpointRankingService, EventRankingService
 from .compute import compute_checkpoint_rankings, compute_event_ranking, detect_tool_loop
-from .event_utils import event_headline, fingerprint as fingerprint_fn, retention_tier
+from .event_utils import event_headline, retention_tier
+from .event_utils import fingerprint as fingerprint_fn
 from .helpers import event_value, mean
 
 
