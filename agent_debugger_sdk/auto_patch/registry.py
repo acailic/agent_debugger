@@ -46,6 +46,20 @@ class AgentAdapterMixin:
     any exception during event emission is logged but does not propagate.
     """
 
+    def _emit_event_safe(self, event, suffix: str = "") -> None:
+        """Emit an event with error handling.
+
+        Args:
+            event: The event to emit.
+            suffix: Optional suffix for log messages (e.g., "(async)").
+        """
+        if self._transport is None:
+            return
+        try:
+            self._transport.send_event(event.to_dict())
+        except (OSError, ConnectionError, TimeoutError) as e:
+            logger.warning("Failed to emit event%s: %s: %s", suffix, type(e).__name__, e)
+
     def _wrap_sync_call(
         self,
         fn,
@@ -67,46 +81,33 @@ class AgentAdapterMixin:
         """
         from agent_debugger_sdk.core.events import ErrorEvent, EventType, TraceEvent
 
-        transport = self._transport
         session_id = self._session_id or ""
-        try:
-            start_event = TraceEvent(
-                session_id=session_id,
-                event_type=EventType.AGENT_START,
-                name=start_name,
-            )
-            if transport is not None:
-                transport.send_event(start_event.to_dict())
-        except (OSError, ConnectionError, TimeoutError) as e:
-            logger.warning("Failed to emit AGENT_START event: %s: %s", type(e).__name__, e)
+        start_event = TraceEvent(
+            session_id=session_id,
+            event_type=EventType.AGENT_START,
+            name=start_name,
+        )
+        self._emit_event_safe(start_event)
 
         try:
             result = fn()
         except Exception as exc:
-            try:
-                error_event = ErrorEvent(
-                    session_id=session_id,
-                    event_type=EventType.ERROR,
-                    name=error_name,
-                    error_type=type(exc).__name__,
-                    error_message=str(exc),
-                )
-                if transport is not None:
-                    transport.send_event(error_event.to_dict())
-            except (OSError, ConnectionError, TimeoutError) as e:
-                logger.warning("Failed to emit ERROR event: %s: %s", type(e).__name__, e)
+            error_event = ErrorEvent(
+                session_id=session_id,
+                event_type=EventType.ERROR,
+                name=error_name,
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            )
+            self._emit_event_safe(error_event)
             raise
 
-        try:
-            end_event = TraceEvent(
-                session_id=session_id,
-                event_type=EventType.AGENT_END,
-                name=end_name,
-            )
-            if transport is not None:
-                transport.send_event(end_event.to_dict())
-        except (OSError, ConnectionError, TimeoutError) as e:
-            logger.warning("Failed to emit AGENT_END event: %s: %s", type(e).__name__, e)
+        end_event = TraceEvent(
+            session_id=session_id,
+            event_type=EventType.AGENT_END,
+            name=end_name,
+        )
+        self._emit_event_safe(end_event)
 
         return result
 
@@ -131,46 +132,33 @@ class AgentAdapterMixin:
         """
         from agent_debugger_sdk.core.events import ErrorEvent, EventType, TraceEvent
 
-        transport = self._transport
         session_id = self._session_id or ""
-        try:
-            start_event = TraceEvent(
-                session_id=session_id,
-                event_type=EventType.AGENT_START,
-                name=start_name,
-            )
-            if transport is not None:
-                transport.send_event(start_event.to_dict())
-        except (OSError, ConnectionError, TimeoutError) as e:
-            logger.warning("Failed to emit AGENT_START event (async): %s: %s", type(e).__name__, e)
+        start_event = TraceEvent(
+            session_id=session_id,
+            event_type=EventType.AGENT_START,
+            name=start_name,
+        )
+        self._emit_event_safe(start_event, suffix=" (async)")
 
         try:
             result = await fn()
         except Exception as exc:
-            try:
-                error_event = ErrorEvent(
-                    session_id=session_id,
-                    event_type=EventType.ERROR,
-                    name=error_name,
-                    error_type=type(exc).__name__,
-                    error_message=str(exc),
-                )
-                if transport is not None:
-                    transport.send_event(error_event.to_dict())
-            except (OSError, ConnectionError, TimeoutError) as e:
-                logger.warning("Failed to emit ERROR event (async): %s: %s", type(e).__name__, e)
+            error_event = ErrorEvent(
+                session_id=session_id,
+                event_type=EventType.ERROR,
+                name=error_name,
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            )
+            self._emit_event_safe(error_event, suffix=" (async)")
             raise
 
-        try:
-            end_event = TraceEvent(
-                session_id=session_id,
-                event_type=EventType.AGENT_END,
-                name=end_name,
-            )
-            if transport is not None:
-                transport.send_event(end_event.to_dict())
-        except (OSError, ConnectionError, TimeoutError) as e:
-            logger.warning("Failed to emit AGENT_END event (async): %s: %s", type(e).__name__, e)
+        end_event = TraceEvent(
+            session_id=session_id,
+            event_type=EventType.AGENT_END,
+            name=end_name,
+        )
+        self._emit_event_safe(end_event, suffix=" (async)")
 
         return result
 
@@ -236,16 +224,32 @@ class BaseAdapter(ABC):
     # Instrumented call paths (shared implementation)
     # ------------------------------------------------------------------
 
-    def _call_sync(self, original, self_client, *args, **kwargs):
-        """Wrap a sync call with request/response event emission."""
+    def _get_session_ids(self, kwargs: dict) -> tuple[str, str]:
+        """Get session and request IDs, handling errors gracefully.
+
+        Returns:
+            Tuple of (session_id, request_id). Empty strings on error.
+        """
         from agent_debugger_sdk.auto_patch._transport import get_or_create_session
 
         try:
             session_id = get_or_create_session(self._transport, self._config.agent_name, self.name)
             request_id = self._emit_request(kwargs, session_id)
+            return session_id, request_id
         except (OSError, ConnectionError, TimeoutError, TypeError, ValueError) as e:
             logger.warning("Failed to emit LLM request: %s: %s", type(e).__name__, e)
-            session_id, request_id = "", ""
+            return "", ""
+
+    def _emit_response_safe(self, response, request_id: str, session_id: str, duration_ms: float) -> None:
+        """Emit response event with error handling."""
+        try:
+            self._emit_response(response, request_id, session_id, duration_ms)
+        except (OSError, ConnectionError, TimeoutError, TypeError, ValueError) as e:
+            logger.warning("Failed to emit LLM response: %s: %s", type(e).__name__, e)
+
+    def _call_sync(self, original, self_client, *args, **kwargs):
+        """Wrap a sync call with request/response event emission."""
+        session_id, request_id = self._get_session_ids(kwargs)
 
         start = time.perf_counter()
         try:
@@ -253,23 +257,12 @@ class BaseAdapter(ABC):
         finally:
             duration_ms = (time.perf_counter() - start) * 1000
 
-        try:
-            self._emit_response(response, request_id, session_id, duration_ms)
-        except (OSError, ConnectionError, TimeoutError, TypeError, ValueError) as e:
-            logger.warning("Failed to emit LLM response: %s: %s", type(e).__name__, e)
-
+        self._emit_response_safe(response, request_id, session_id, duration_ms)
         return response
 
     async def _call_async(self, original, self_client, *args, **kwargs):
         """Wrap an async call with request/response event emission."""
-        from agent_debugger_sdk.auto_patch._transport import get_or_create_session
-
-        try:
-            session_id = get_or_create_session(self._transport, self._config.agent_name, self.name)
-            request_id = self._emit_request(kwargs, session_id)
-        except (OSError, ConnectionError, TimeoutError, TypeError, ValueError) as e:
-            logger.warning("Failed to emit LLM request: %s: %s", type(e).__name__, e)
-            session_id, request_id = "", ""
+        session_id, request_id = self._get_session_ids(kwargs)
 
         start = time.perf_counter()
         try:
@@ -277,11 +270,7 @@ class BaseAdapter(ABC):
         finally:
             duration_ms = (time.perf_counter() - start) * 1000
 
-        try:
-            self._emit_response(response, request_id, session_id, duration_ms)
-        except (OSError, ConnectionError, TimeoutError, TypeError, ValueError) as e:
-            logger.warning("Failed to emit LLM response: %s: %s", type(e).__name__, e)
-
+        self._emit_response_safe(response, request_id, session_id, duration_ms)
         return response
 
     # ------------------------------------------------------------------
