@@ -79,11 +79,11 @@ class FailureMemory:
 
         if (
             existing_results["ids"]
-            and existing_results["distances"][0][0] < 0.1
+            and existing_results["distances"][0] < 0.1
         ):
             # Update existing failure
-            existing_id = existing_results["ids"][0][0]
-            existing_metadata = existing_results["metadatas"][0][0]
+            existing_id = existing_results["ids"][0]
+            existing_metadata = existing_results["metadatas"][0]
             existing_metadata["occurrence_count"] += 1
             if fix_applied:
                 existing_metadata["fix_applied"] = fix_applied
