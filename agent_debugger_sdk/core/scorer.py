@@ -48,40 +48,74 @@ class ImportanceScorer:
         }
         score = base_scores.get(event.event_type, 0.3)
 
-        if event.event_type == EventType.TOOL_RESULT and _event_value(event, "error"):
-            score += self.error_weight
+        score += self._score_tool_result(event)
+        score += self._score_llm_response(event)
+        score += self._score_duration(event)
+        score += self._score_decision(event)
+        score += self._score_safety_check(event)
+        score += self._score_behavior_alert(event)
+        score += self._score_upstream_links(event)
 
+        return min(score, 1.0)
+
+    def _score_tool_result(self, event: TraceEvent) -> float:
+        """Add bonus for failed tool results."""
+        if event.event_type == EventType.TOOL_RESULT and _event_value(event, "error"):
+            return self.error_weight
+        return 0.0
+
+    def _score_llm_response(self, event: TraceEvent) -> float:
+        """Add bonus for costly LLM responses."""
         if event.event_type == EventType.LLM_RESPONSE:
             cost = float(_event_value(event, "cost_usd", 0) or 0)
             if cost > 0.01:
-                score += self.cost_weight * min(cost / 0.1, 1.0)
+                return self.cost_weight * min(cost / 0.1, 1.0)
+        return 0.0
 
+    def _score_duration(self, event: TraceEvent) -> float:
+        """Add bonus for long-running events."""
         duration = float(_event_value(event, "duration_ms", 0) or 0)
         if duration > 1000:
-            score += self.duration_weight * min(duration / 10000, 1.0)
+            return self.duration_weight * min(duration / 10000, 1.0)
+        return 0.0
 
-        if event.event_type == EventType.DECISION:
-            confidence = float(_event_value(event, "confidence", 0.5) or 0.5)
-            score += self.decision_weight * abs(0.5 - confidence) * 2
-            if not _event_value(event, "evidence", []):
-                score += 0.05
-            if _event_value(event, "evidence_event_ids", []):
-                score += 0.05
+    def _score_decision(self, event: TraceEvent) -> float:
+        """Add bonus for low-confidence or well-evidenced decisions."""
+        if event.event_type != EventType.DECISION:
+            return 0.0
 
+        bonus = 0.0
+        confidence = float(_event_value(event, "confidence", 0.5) or 0.5)
+        bonus += self.decision_weight * abs(0.5 - confidence) * 2
+
+        if not _event_value(event, "evidence", []):
+            bonus += 0.05
+        if _event_value(event, "evidence_event_ids", []):
+            bonus += 0.05
+
+        return bonus
+
+    def _score_safety_check(self, event: TraceEvent) -> float:
+        """Add bonus for failed safety checks."""
         if event.event_type == EventType.SAFETY_CHECK:
             outcome = str(_event_value(event, "outcome", "pass"))
             if outcome != "pass":
-                score += 0.1
+                return 0.1
+        return 0.0
 
+    def _score_behavior_alert(self, event: TraceEvent) -> float:
+        """Add bonus for high-severity behavior alerts."""
         if event.event_type == EventType.BEHAVIOR_ALERT:
             severity = str(_event_value(event, "severity", "medium"))
             if severity == "high":
-                score += 0.05
+                return 0.05
+        return 0.0
 
+    def _score_upstream_links(self, event: TraceEvent) -> float:
+        """Add bonus for events with causal links."""
         if _event_value(event, "upstream_event_ids", getattr(event, "upstream_event_ids", [])):
-            score += 0.03
-
-        return min(score, 1.0)
+            return 0.03
+        return 0.0
 
 
 _importance_scorer: ImportanceScorer | None = None
