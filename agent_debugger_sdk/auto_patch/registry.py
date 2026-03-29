@@ -77,8 +77,8 @@ class AgentAdapterMixin:
             )
             if transport is not None:
                 transport.send_event(start_event.to_dict())
-        except Exception:
-            logger.warning("Failed to emit AGENT_START event", exc_info=True)
+        except (OSError, ConnectionError, TimeoutError) as e:
+            logger.warning("Failed to emit AGENT_START event: %s: %s", type(e).__name__, e)
 
         try:
             result = fn()
@@ -93,8 +93,8 @@ class AgentAdapterMixin:
                 )
                 if transport is not None:
                     transport.send_event(error_event.to_dict())
-            except Exception:
-                logger.warning("Failed to emit ERROR event", exc_info=True)
+            except (OSError, ConnectionError, TimeoutError) as e:
+                logger.warning("Failed to emit ERROR event: %s: %s", type(e).__name__, e)
             raise
 
         try:
@@ -105,8 +105,8 @@ class AgentAdapterMixin:
             )
             if transport is not None:
                 transport.send_event(end_event.to_dict())
-        except Exception:
-            logger.warning("Failed to emit AGENT_END event", exc_info=True)
+        except (OSError, ConnectionError, TimeoutError) as e:
+            logger.warning("Failed to emit AGENT_END event: %s: %s", type(e).__name__, e)
 
         return result
 
@@ -141,8 +141,8 @@ class AgentAdapterMixin:
             )
             if transport is not None:
                 transport.send_event(start_event.to_dict())
-        except Exception:
-            logger.warning("Failed to emit AGENT_START event (async)", exc_info=True)
+        except (OSError, ConnectionError, TimeoutError) as e:
+            logger.warning("Failed to emit AGENT_START event (async): %s: %s", type(e).__name__, e)
 
         try:
             result = await fn()
@@ -157,8 +157,8 @@ class AgentAdapterMixin:
                 )
                 if transport is not None:
                     transport.send_event(error_event.to_dict())
-            except Exception:
-                logger.warning("Failed to emit ERROR event (async)", exc_info=True)
+            except (OSError, ConnectionError, TimeoutError) as e:
+                logger.warning("Failed to emit ERROR event (async): %s: %s", type(e).__name__, e)
             raise
 
         try:
@@ -169,8 +169,8 @@ class AgentAdapterMixin:
             )
             if transport is not None:
                 transport.send_event(end_event.to_dict())
-        except Exception:
-            logger.warning("Failed to emit AGENT_END event (async)", exc_info=True)
+        except (OSError, ConnectionError, TimeoutError) as e:
+            logger.warning("Failed to emit AGENT_END event (async): %s: %s", type(e).__name__, e)
 
         return result
 
@@ -243,8 +243,8 @@ class BaseAdapter(ABC):
         try:
             session_id = get_or_create_session(self._transport, self._config.agent_name, self.name)
             request_id = self._emit_request(kwargs, session_id)
-        except Exception:
-            logger.warning("Failed to emit LLM request", exc_info=True)
+        except (OSError, ConnectionError, TimeoutError, TypeError, ValueError) as e:
+            logger.warning("Failed to emit LLM request: %s: %s", type(e).__name__, e)
             session_id, request_id = "", ""
 
         start = time.perf_counter()
@@ -255,8 +255,8 @@ class BaseAdapter(ABC):
 
         try:
             self._emit_response(response, request_id, session_id, duration_ms)
-        except Exception:
-            logger.warning("Failed to emit LLM response", exc_info=True)
+        except (OSError, ConnectionError, TimeoutError, TypeError, ValueError) as e:
+            logger.warning("Failed to emit LLM response: %s: %s", type(e).__name__, e)
 
         return response
 
@@ -267,8 +267,8 @@ class BaseAdapter(ABC):
         try:
             session_id = get_or_create_session(self._transport, self._config.agent_name, self.name)
             request_id = self._emit_request(kwargs, session_id)
-        except Exception:
-            logger.warning("Failed to emit LLM request", exc_info=True)
+        except (OSError, ConnectionError, TimeoutError, TypeError, ValueError) as e:
+            logger.warning("Failed to emit LLM request: %s: %s", type(e).__name__, e)
             session_id, request_id = "", ""
 
         start = time.perf_counter()
@@ -279,8 +279,8 @@ class BaseAdapter(ABC):
 
         try:
             self._emit_response(response, request_id, session_id, duration_ms)
-        except Exception:
-            logger.warning("Failed to emit LLM response", exc_info=True)
+        except (OSError, ConnectionError, TimeoutError, TypeError, ValueError) as e:
+            logger.warning("Failed to emit LLM response: %s: %s", type(e).__name__, e)
 
         return response
 
@@ -353,8 +353,8 @@ class PatchRegistry:
                 adapter.patch(config)
                 self._patched.append(adapter)
                 logger.info("Auto-patched adapter: %s", adapter.name)
-            except Exception:
-                logger.warning("Failed to patch adapter %r", adapter.name, exc_info=True)
+            except (AttributeError, ImportError, TypeError, RuntimeError, OSError) as e:
+                logger.warning("Failed to patch adapter %r: %s: %s", adapter.name, type(e).__name__, e)
 
     def unapply(self) -> None:
         """Undo patching for all currently patched adapters."""
@@ -362,8 +362,8 @@ class PatchRegistry:
             try:
                 adapter.unpatch()
                 logger.info("Unpatched adapter: %s", adapter.name)
-            except Exception:
-                logger.warning("Failed to unpatch adapter %r", adapter.name, exc_info=True)
+            except (AttributeError, RuntimeError, OSError) as e:
+                logger.warning("Failed to unpatch adapter %r: %s: %s", adapter.name, type(e).__name__, e)
         self._patched.clear()
 
     def patched_names(self) -> list[str]:
