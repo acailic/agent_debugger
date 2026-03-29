@@ -5,7 +5,8 @@ The main entry point is the :class:`TraceIntelligence` class.
 """
 
 from .facade import TraceIntelligence
-from .helpers import event_value as _event_value, mean as _mean
+from .helpers import event_value as _event_value
+from .helpers import mean as _mean
 
 __all__ = [
     "TraceIntelligence",

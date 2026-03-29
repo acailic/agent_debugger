@@ -7,8 +7,8 @@ from typing import Any
 
 from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
 
-from .helpers import event_value
 from .event_utils import retention_tier
+from .helpers import event_value
 
 
 def compute_event_ranking(

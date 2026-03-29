@@ -222,6 +222,8 @@ class HttpTransport:
             return TransientError(f"Request timeout: {exc}"), True
         if isinstance(exc, httpx.NetworkError):
             return TransientError(f"Network error: {exc}"), True
+        if isinstance(exc, OSError):
+            return TransientError(f"OS-level connection error: {exc}"), True
         if isinstance(exc, TransientError):
             return exc, True
         if isinstance(exc, PermanentError):
@@ -254,7 +256,14 @@ class HttpTransport:
             try:
                 await self._execute_request(method=method, path=path, payload=payload)
                 return
-            except (httpx.TimeoutException, httpx.NetworkError, TransientError, PermanentError, ValueError) as exc:
+            except (
+                httpx.TimeoutException,
+                httpx.NetworkError,
+                OSError,
+                TransientError,
+                PermanentError,
+                ValueError,
+            ) as exc:
                 last_error, should_retry = self._classify_error(exc)
 
                 if not should_retry:
