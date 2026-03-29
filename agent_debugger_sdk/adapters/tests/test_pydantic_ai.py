@@ -80,12 +80,6 @@ class TestPydanticAIAdapter:
             assert reloaded.PYDANTIC_AI_AVAILABLE is True
             assert reloaded.Agent is fake_package.Agent
             assert reloaded.AgentRunResult is fake_package.AgentRunResult
-            assert reloaded.ModelRequest is fake_messages.ModelRequest
-            assert reloaded.ModelResponse is fake_messages.ModelResponse
-            assert reloaded.ToolCallPart is fake_messages.ToolCallPart
-            assert reloaded.ToolReturnPart is fake_messages.ToolReturnPart
-            assert reloaded.UserPromptPart is fake_messages.UserPromptPart
-            assert reloaded.TextPart is fake_messages.TextPart
             assert reloaded.Model is fake_models.Model
 
         importlib.reload(pydantic_ai_mod)
@@ -249,9 +243,9 @@ class TestPydanticAIAdapter:
     @pytest.mark.asyncio
     async def test_import_error_without_pydantic_ai(self):
         """Test that ImportError is raised when PydanticAI is not available."""
-        with patch("agent_debugger_sdk.adapters.pydantic_ai.PYDANTIC_AI_AVAILABLE", False):
+        with patch("agent_debugger_sdk.adapters.pydantic_ai.adapter.PYDANTIC_AI_AVAILABLE", False):
             with pytest.raises(ImportError, match="PydanticAI is not installed"):
-                from agent_debugger_sdk.adapters.pydantic_ai import PydanticAIAdapter
+                from agent_debugger_sdk.adapters.pydantic_ai.adapter import PydanticAIAdapter
 
                 PydanticAIAdapter(MagicMock())
 
@@ -338,14 +332,17 @@ class TestPydanticAIAdapter:
 
         with (
             patch("agent_debugger_sdk.adapters.pydantic_ai.PYDANTIC_AI_AVAILABLE", True),
-            patch("agent_debugger_sdk.adapters.pydantic_ai.ModelRequest", FakeModelRequest, create=True),
-            patch("agent_debugger_sdk.adapters.pydantic_ai.ModelResponse", FakeModelResponse, create=True),
-            patch("agent_debugger_sdk.adapters.pydantic_ai.UserPromptPart", FakeUserPromptPart, create=True),
-            patch("agent_debugger_sdk.adapters.pydantic_ai.ToolCallPart", FakeToolCallPart, create=True),
-            patch("agent_debugger_sdk.adapters.pydantic_ai.ToolReturnPart", FakeToolReturnPart, create=True),
-            patch("agent_debugger_sdk.adapters.pydantic_ai.TextPart", FakeTextPart, create=True),
-            patch("agent_debugger_sdk.adapters.pydantic_ai.SystemPromptPart", FakeSystemPromptPart, create=True),
-            patch("agent_debugger_sdk.adapters.pydantic_ai.RetryPromptPart", FakeRetryPromptPart, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.message_processing.ModelRequest", FakeModelRequest, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.message_processing.ModelResponse", FakeModelResponse, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.utils.UserPromptPart", FakeUserPromptPart, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.utils.ToolCallPart", FakeToolCallPart, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.utils.ToolReturnPart", FakeToolReturnPart, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.utils.TextPart", FakeTextPart, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.utils.SystemPromptPart", FakeSystemPromptPart, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.utils.RetryPromptPart", FakeRetryPromptPart, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.message_processing.ToolCallPart", FakeToolCallPart, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.message_processing.ToolReturnPart", FakeToolReturnPart, create=True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.message_processing.TextPart", FakeTextPart, create=True),
         ):
             adapter = PydanticAIAdapter(
                 mock_agent,
@@ -416,7 +413,6 @@ class TestPydanticAIAdapter:
 
             await adapter._capture_result(MagicMock(all_messages=lambda: []))
             await adapter._process_messages([MagicMock()])
-            await adapter._emit_message_event(MagicMock(parts=[]), model_name="gpt-4")
 
 
 class TestPydanticAIInstrumentor:
