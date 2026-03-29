@@ -51,6 +51,7 @@ interface SessionStore {
   activeTab: AppTab
   sessionSortMode: SessionSortMode
   selectedEventId: string | null
+  focusEventId: string | null
   selectedCheckpointId: string | null
   currentHighlightIndex: number
 
@@ -108,6 +109,7 @@ interface SessionStore {
   setActiveTab: (tab: AppTab) => void
   setSessionSortMode: (mode: SessionSortMode) => void
   setSelectedEventId: (id: string | null) => void
+  setFocusEventId: (id: string | null) => void
   setSelectedCheckpointId: (id: string | null) => void
   setCurrentHighlightIndex: (index: number) => void
 
@@ -170,6 +172,7 @@ const initialState = {
   activeTab: 'trace' as AppTab,
   sessionSortMode: 'replay_value' as SessionSortMode,
   selectedEventId: null,
+  focusEventId: null,
   selectedCheckpointId: null,
   currentHighlightIndex: 0,
 
@@ -241,6 +244,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setActiveTab: (activeTab) => set({ activeTab }),
   setSessionSortMode: (sessionSortMode) => set({ sessionSortMode }),
   setSelectedEventId: (selectedEventId) => set({ selectedEventId }),
+  setFocusEventId: (focusEventId) => set({ focusEventId }),
   setSelectedCheckpointId: (selectedCheckpointId) => set({ selectedCheckpointId }),
   setCurrentHighlightIndex: (currentHighlightIndex) => set({ currentHighlightIndex }),
 
@@ -287,6 +291,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     liveSummary: null,
     streamConnected: false,
     selectedEventId: null,
+    focusEventId: null,
     selectedCheckpointId: null,
     currentIndex: 0,
     isPlaying: false,
