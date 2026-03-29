@@ -98,6 +98,90 @@ async def build_live_summary(repo: TraceRepository, session_id: str) -> dict[str
     return app_context.require_trace_intelligence().build_live_summary(events, checkpoints)
 
 
+def compute_dict_delta(
+    previous: dict[str, Any] | None,
+    current: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Compute the delta between two dictionaries.
+
+    Returns a dictionary containing:
+    - Keys with changed values
+    - New keys added in current
+    - Keys removed from previous (with None as value)
+    """
+    if not previous:
+        return current or {}
+
+    if not current:
+        return {k: None for k in (previous or {})}
+
+    all_keys = set(previous.keys()) | set(current.keys())
+    delta: dict[str, Any] = {}
+
+    for key in all_keys:
+        prev_value = previous.get(key)
+        curr_value = current.get(key)
+
+        if key not in previous:
+            # New key in current
+            delta[key] = curr_value
+        elif key not in current:
+            # Key was removed
+            delta[key] = None
+        elif prev_value != curr_value:
+            # Value changed
+            delta[key] = curr_value
+
+    return delta
+
+
+def compute_checkpoint_deltas(
+    checkpoints: list[Checkpoint],
+) -> list[dict[str, Any]]:
+    """Compute state and memory deltas between consecutive checkpoints.
+
+    Args:
+        checkpoints: List of checkpoints ordered by sequence/timestamp
+
+    Returns:
+        List of delta dictionaries with checkpoint_id, previous_checkpoint_id,
+        state_delta, and memory_delta
+    """
+    if not checkpoints:
+        return []
+
+    deltas = []
+    # Sort checkpoints by sequence to ensure correct ordering
+    sorted_checkpoints = sorted(checkpoints, key=lambda cp: cp.sequence)
+
+    for i, checkpoint in enumerate(sorted_checkpoints):
+        if i == 0:
+            # First checkpoint has no previous
+            deltas.append(
+                {
+                    "checkpoint_id": checkpoint.id,
+                    "previous_checkpoint_id": None,
+                    "state_delta": checkpoint.state or {},
+                    "memory_delta": checkpoint.memory or {},
+                }
+            )
+        else:
+            prev_checkpoint = sorted_checkpoints[i - 1]
+            state_delta = compute_dict_delta(prev_checkpoint.state, checkpoint.state)
+            memory_delta = compute_dict_delta(prev_checkpoint.memory, checkpoint.memory)
+
+            deltas.append(
+                {
+                    "checkpoint_id": checkpoint.id,
+                    "previous_checkpoint_id": prev_checkpoint.id,
+                    "state_delta": state_delta,
+                    "memory_delta": memory_delta,
+                }
+            )
+
+    return deltas
+
+
 async def enrich_sessions_for_listing(
     repo: TraceRepository,
     sessions: list[Session],

@@ -9,6 +9,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from api.dependencies import get_repository
 from api.schemas import (
+    CheckpointDeltaSchema,
+    CheckpointDeltasResponse,
     CheckpointListResponse,
     DecisionTreeResponse,
     DeleteResponse,
@@ -20,6 +22,7 @@ from api.schemas import (
     TraceListResponse,
 )
 from api.services import (
+    compute_checkpoint_deltas,
     enrich_sessions_for_listing,
     event_generator,
     normalize_checkpoint,
@@ -123,6 +126,25 @@ async def list_checkpoints(
     checkpoints = await repo.list_checkpoints(session_id)
     return CheckpointListResponse(
         checkpoints=[normalize_checkpoint(checkpoint) for checkpoint in checkpoints],
+        session_id=session_id,
+    )
+
+
+@router.get("/api/sessions/{session_id}/checkpoints/deltas", response_model=CheckpointDeltasResponse)
+async def get_checkpoint_deltas(
+    session_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> CheckpointDeltasResponse:
+    """Get state and memory deltas between consecutive checkpoints.
+
+    Returns a list of deltas comparing each checkpoint with its predecessor,
+    showing what changed in state and memory between checkpoints.
+    """
+    await require_session(repo, session_id)
+    checkpoints = await repo.list_checkpoints(session_id)
+    deltas = compute_checkpoint_deltas(checkpoints)
+    return CheckpointDeltasResponse(
+        deltas=[CheckpointDeltaSchema(**delta) for delta in deltas],
         session_id=session_id,
     )
 
