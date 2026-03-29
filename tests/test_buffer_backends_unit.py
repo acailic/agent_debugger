@@ -114,8 +114,11 @@ async def test_redis_event_buffer_publish_subscribe_unsubscribe_and_close():
     )
     buffer = RedisEventBuffer(redis_client=redis_client)
 
+    # Create an event that will never be set - task waits forever until cancelled
+    forever_event = asyncio.Event()
+
     async def fake_listen(session_id: str) -> None:
-        await asyncio.sleep(60)
+        await forever_event.wait()
 
     buffer._listen = fake_listen
 
@@ -133,7 +136,8 @@ async def test_redis_event_buffer_publish_subscribe_unsubscribe_and_close():
     await buffer.unsubscribe("redis-session", queue)
     assert await buffer.get_session_ids() == []
 
-    buffer._pubsub_tasks["other-session"] = asyncio.create_task(asyncio.sleep(60))
+    # Create a task that waits forever - will be cancelled by close()
+    buffer._pubsub_tasks["other-session"] = asyncio.create_task(forever_event.wait())
     buffer._local_queues["other-session"] = [asyncio.Queue()]
     await buffer.close()
     redis_client.close.assert_awaited_once()
