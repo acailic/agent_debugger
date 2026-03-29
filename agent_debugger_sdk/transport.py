@@ -254,7 +254,7 @@ class HttpTransport:
             try:
                 await self._execute_request(method=method, path=path, payload=payload)
                 return
-            except (httpx.TimeoutException, httpx.NetworkError, TransientError, PermanentError, ValueError) as exc:
+            except Exception as exc:
                 last_error, should_retry = self._classify_error(exc)
 
                 if not should_retry:
