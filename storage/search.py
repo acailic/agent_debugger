@@ -153,10 +153,10 @@ class SessionSearchService:
             .where(SessionModel.tenant_id == self.tenant_id)
             .where(
                 or_(
-                    EventModel.name.ilike(search_term),
-                    EventModel.event_type.ilike(search_term),
-                    cast(EventModel.data, String).ilike(search_term),
-                    cast(EventModel.event_metadata, String).ilike(search_term),
+                    EventModel.name.ilike(search_term, escape="\\"),
+                    EventModel.event_type.ilike(search_term, escape="\\"),
+                    cast(EventModel.data, String).ilike(search_term, escape="\\"),
+                    cast(EventModel.event_metadata, String).ilike(search_term, escape="\\"),
                 )
             )
             .order_by(EventModel.timestamp.desc())
