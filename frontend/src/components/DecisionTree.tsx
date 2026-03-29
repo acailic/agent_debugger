@@ -298,24 +298,24 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         </button>
         <span className="zoom-level">{Math.round(zoom * 100)}%</span>
       </div>
-      <div className="tree-legend">
-        <span className="legend-item">
+      <div className="tree-legend" role="legend" aria-label="Decision tree legend">
+        <span className="legend-item" aria-label="Session nodes: agent start and end events">
           <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.agent_start }} />
           Session
         </span>
-        <span className="legend-item">
+        <span className="legend-item" aria-label="LLM nodes: large language model requests and responses">
           <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.llm_request }} />
           LLM
         </span>
-        <span className="legend-item">
+        <span className="legend-item" aria-label="Tool nodes: tool calls and results">
           <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.tool_call }} />
           Tool
         </span>
-        <span className="legend-item">
+        <span className="legend-item" aria-label="Decision nodes: agent decision points">
           <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.decision }} />
           Decision
         </span>
-        <span className="legend-item">
+        <span className="legend-item" aria-label="Risk nodes: errors and policy violations">
           <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.error }} />
           Risk
         </span>
