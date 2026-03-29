@@ -31,7 +31,7 @@ class TestPydanticAIAdapter:
         """Test adapter initializes correctly."""
         from agent_debugger_sdk.adapters.pydantic_ai import PydanticAIAdapter
 
-        with patch("agent_debugger_sdk.adapters.pydantic_ai.PYDANTIC_AI_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.pydantic_ai.adapter.PYDANTIC_AI_AVAILABLE", True):
             mock_agent = MagicMock()
             mock_agent.__class__.__name__ = "Agent"
 
@@ -89,7 +89,7 @@ class TestPydanticAIAdapter:
         """Test context manager creates a session."""
         from agent_debugger_sdk.adapters.pydantic_ai import PydanticAIAdapter
 
-        with patch("agent_debugger_sdk.adapters.pydantic_ai.PYDANTIC_AI_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.pydantic_ai.adapter.PYDANTIC_AI_AVAILABLE", True):
             mock_agent = MagicMock()
             adapter = PydanticAIAdapter(
                 mock_agent,
@@ -108,7 +108,7 @@ class TestPydanticAIAdapter:
         """Test context manager emits start and end events."""
         from agent_debugger_sdk.adapters.pydantic_ai import PydanticAIAdapter
 
-        with patch("agent_debugger_sdk.adapters.pydantic_ai.PYDANTIC_AI_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.pydantic_ai.adapter.PYDANTIC_AI_AVAILABLE", True):
             mock_agent = MagicMock()
             adapter = PydanticAIAdapter(
                 mock_agent,
@@ -131,7 +131,7 @@ class TestPydanticAIAdapter:
         """Test recording LLM request events."""
         from agent_debugger_sdk.adapters.pydantic_ai import PydanticAIAdapter
 
-        with patch("agent_debugger_sdk.adapters.pydantic_ai.PYDANTIC_AI_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.pydantic_ai.adapter.PYDANTIC_AI_AVAILABLE", True):
             mock_agent = MagicMock()
             adapter = PydanticAIAdapter(
                 mock_agent,
@@ -160,7 +160,7 @@ class TestPydanticAIAdapter:
         """Test recording LLM response events."""
         from agent_debugger_sdk.adapters.pydantic_ai import PydanticAIAdapter
 
-        with patch("agent_debugger_sdk.adapters.pydantic_ai.PYDANTIC_AI_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.pydantic_ai.adapter.PYDANTIC_AI_AVAILABLE", True):
             mock_agent = MagicMock()
             adapter = PydanticAIAdapter(
                 mock_agent,
@@ -190,7 +190,7 @@ class TestPydanticAIAdapter:
         """Test recording tool call events."""
         from agent_debugger_sdk.adapters.pydantic_ai import PydanticAIAdapter
 
-        with patch("agent_debugger_sdk.adapters.pydantic_ai.PYDANTIC_AI_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.pydantic_ai.adapter.PYDANTIC_AI_AVAILABLE", True):
             mock_agent = MagicMock()
             adapter = PydanticAIAdapter(
                 mock_agent,
@@ -217,7 +217,7 @@ class TestPydanticAIAdapter:
         """Test recording tool result events."""
         from agent_debugger_sdk.adapters.pydantic_ai import PydanticAIAdapter
 
-        with patch("agent_debugger_sdk.adapters.pydantic_ai.PYDANTIC_AI_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.pydantic_ai.adapter.PYDANTIC_AI_AVAILABLE", True):
             mock_agent = MagicMock()
             adapter = PydanticAIAdapter(
                 mock_agent,
@@ -331,7 +331,7 @@ class TestPydanticAIAdapter:
         mock_agent.run = AsyncMock(return_value=result)
 
         with (
-            patch("agent_debugger_sdk.adapters.pydantic_ai.PYDANTIC_AI_AVAILABLE", True),
+            patch("agent_debugger_sdk.adapters.pydantic_ai.adapter.PYDANTIC_AI_AVAILABLE", True),
             patch("agent_debugger_sdk.adapters.pydantic_ai.message_processing.ModelRequest", FakeModelRequest, create=True),
             patch("agent_debugger_sdk.adapters.pydantic_ai.message_processing.ModelResponse", FakeModelResponse, create=True),
             patch("agent_debugger_sdk.adapters.pydantic_ai.utils.UserPromptPart", FakeUserPromptPart, create=True),
@@ -403,7 +403,7 @@ class TestPydanticAIAdapter:
         """Test adapter helpers are no-ops when no trace context is active."""
         from agent_debugger_sdk.adapters.pydantic_ai import PydanticAIAdapter
 
-        with patch("agent_debugger_sdk.adapters.pydantic_ai.PYDANTIC_AI_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.pydantic_ai.adapter.PYDANTIC_AI_AVAILABLE", True):
             adapter = PydanticAIAdapter(MagicMock(), session_id="no-context", agent_name="test_agent")
 
             assert await adapter.record_llm_request("gpt-4", []) == ""
