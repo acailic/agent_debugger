@@ -144,6 +144,18 @@ class CheckpointListResponse(BaseModel):
     session_id: str
 
 
+class CheckpointDeltaSchema(BaseModel):
+    checkpoint_id: str
+    previous_checkpoint_id: str | None
+    state_delta: dict[str, Any]
+    memory_delta: dict[str, Any]
+
+
+class CheckpointDeltasResponse(BaseModel):
+    deltas: list[CheckpointDeltaSchema]
+    session_id: str
+
+
 
 class RestoreRequest(BaseModel):
     session_id: str | None = None
@@ -267,19 +279,6 @@ class AnomalyAlertListResponse(BaseModel):
     session_id: str
     alerts: list[AnomalyAlertSchema]
     total: int
-
-
-class CheckpointDeltaSchema(BaseModel):
-    """Schema for checkpoint delta information."""
-
-    checkpoint_id: str
-    event_id: str
-    sequence: int
-    time_since_previous: float
-    events_since_previous: int
-    importance_delta: float
-    restore_value: float
-    state_keys_changed: list[str]
 
 
 class FixNoteRequest(BaseModel):
