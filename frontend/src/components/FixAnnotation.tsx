@@ -50,7 +50,7 @@ export default function FixAnnotation({ sessionId, existingNote }: FixAnnotation
       <div className="fix-annotation">
         <span className="fix-label">Fix:</span>
         <span className="fix-text">{savedNote}</span>
-        <button className="fix-edit-btn" onClick={() => setIsEditing(true)}>Edit</button>
+        <button className="fix-edit-btn" onClick={() => setIsEditing(true)} aria-label="Edit fix note">Edit</button>
       </div>
     )
   }

@@ -712,24 +712,41 @@ function App() {
               )}
             </div>
             <div className="breakpoint-grid">
-              <label>
+              <label htmlFor="breakpoint-events">
                 Event breakpoints
-                <input value={breakpointEventTypes} onChange={(event) => setBreakpointEventTypes(event.target.value)} />
-              </label>
-              <label>
-                Tool breakpoints
-                <input value={breakpointToolNames} onChange={(event) => setBreakpointToolNames(event.target.value)} />
-              </label>
-              <label>
-                Confidence floor
-                <input value={breakpointConfidenceBelow} onChange={(event) => setBreakpointConfidenceBelow(event.target.value)} />
-              </label>
-              <label>
-                Safety outcomes
-                <input value={breakpointSafetyOutcomes} onChange={(event) => setBreakpointSafetyOutcomes(event.target.value)} />
-              </label>
-              <label className="checkbox-label">
                 <input
+                  id="breakpoint-events"
+                  value={breakpointEventTypes}
+                  onChange={(event) => setBreakpointEventTypes(event.target.value)}
+                />
+              </label>
+              <label htmlFor="breakpoint-tools">
+                Tool breakpoints
+                <input
+                  id="breakpoint-tools"
+                  value={breakpointToolNames}
+                  onChange={(event) => setBreakpointToolNames(event.target.value)}
+                />
+              </label>
+              <label htmlFor="breakpoint-confidence">
+                Confidence floor
+                <input
+                  id="breakpoint-confidence"
+                  value={breakpointConfidenceBelow}
+                  onChange={(event) => setBreakpointConfidenceBelow(event.target.value)}
+                />
+              </label>
+              <label htmlFor="breakpoint-safety">
+                Safety outcomes
+                <input
+                  id="breakpoint-safety"
+                  value={breakpointSafetyOutcomes}
+                  onChange={(event) => setBreakpointSafetyOutcomes(event.target.value)}
+                />
+              </label>
+              <label className="checkbox-label" htmlFor="stop-at-breakpoint">
+                <input
+                  id="stop-at-breakpoint"
                   type="checkbox"
                   checked={stopAtBreakpoint}
                   onChange={(event) => setStopAtBreakpoint(event.target.checked)}
