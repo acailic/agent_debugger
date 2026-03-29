@@ -59,6 +59,7 @@ function App() {
     activeTab,
     sessionSortMode,
     selectedEventId,
+    focusEventId,
     selectedCheckpointId,
     currentHighlightIndex,
     breakpointEventTypes,
@@ -97,6 +98,7 @@ function App() {
     setActiveTab,
     setSessionSortMode,
     setSelectedEventId,
+    setFocusEventId,
     setSelectedCheckpointId,
     setCurrentHighlightIndex,
     setBreakpointEventTypes,
@@ -112,7 +114,6 @@ function App() {
   } = useSessionStore()
 
   // Local state for items not yet moved to the store
-  const focusEventId: string | null = null
   const rollingSummaryData: RollingSummary | null = null
   const policyShifts: PolicyShift[] = []
   const failureClusters: FailureCluster[] = []
@@ -1061,6 +1062,11 @@ function App() {
             onFocusReplay={(eventId) => {
               handleInspectEvent(eventId)
               setReplayMode('focus')
+            }}
+            onReplayFromHere={(eventId) => {
+              setFocusEventId(eventId)
+              setReplayMode('focus')
+              setSelectedEventId(eventId)
             }}
             onResetReplay={() => setReplayMode('full')}
           />

@@ -10,6 +10,7 @@ interface EventDetailProps {
   eventLookup: Map<string, TraceEvent>
   onSelectEvent: (eventId: string) => void
   onFocusReplay: (eventId: string) => void
+  onReplayFromHere: (eventId: string) => void
   onResetReplay: () => void
 }
 
@@ -21,6 +22,7 @@ export function EventDetail({
   eventLookup,
   onSelectEvent,
   onFocusReplay,
+  onReplayFromHere,
   onResetReplay,
 }: EventDetailProps) {
   if (!event) {
@@ -51,7 +53,7 @@ export function EventDetail({
         <button type="button" onClick={() => onFocusReplay(event.id)}>
           Focus replay
         </button>
-        <button type="button" onClick={() => onFocusReplay(event.id)}>
+        <button type="button" onClick={() => onReplayFromHere(event.id)}>
           Replay from here
         </button>
         <button type="button" onClick={onResetReplay}>
