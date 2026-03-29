@@ -50,6 +50,25 @@ export function ToolInspector({ event }: ToolInspectorProps) {
   const isError = !!event.error
   const duration = event.duration_ms ?? null
   const timestamp = event.timestamp
+  const result = event.result
+
+  // Show loading state for tool calls waiting for results
+  if (isToolCall && !isToolResult && !isError) {
+    return (
+      <div className="tool-inspector loading">
+        <div className="tool-header">
+          <div className="tool-title">
+            <span className="tool-icon">🔧</span>
+            <h3>{toolName}</h3>
+          </div>
+        </div>
+        <div className="tool-loading-state">
+          <span className="loading-icon">⏳</span>
+          <p>Waiting for result...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={`tool-inspector ${isError ? 'error-state' : ''}`}>
@@ -99,16 +118,9 @@ export function ToolInspector({ event }: ToolInspectorProps) {
           ) : (
             <pre
               className="code-block json"
-              dangerouslySetInnerHTML={{ __html: highlightJSON(event.result) }}
+              dangerouslySetInnerHTML={{ __html: highlightJSON(result) }}
             />
           )}
-        </div>
-      )}
-
-      {isToolCall && (
-        <div className="tool-section pending">
-          <span className="pending-icon">⏳</span>
-          <span>Waiting for result...</span>
         </div>
       )}
     </div>
