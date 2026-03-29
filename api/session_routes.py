@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from api.config import MAX_SESSIONS_PER_PAGE, MAX_TRACES_PER_REQUEST
 from api.dependencies import get_repository
 from api.schemas import (
     CheckpointDeltaSchema,
@@ -37,7 +38,7 @@ router = APIRouter(tags=["sessions"])
 
 @router.get("/api/sessions", response_model=SessionListResponse)
 async def list_sessions(
-    limit: int = Query(default=50, ge=1, le=1000),
+    limit: int = Query(default=50, ge=1, le=MAX_SESSIONS_PER_PAGE),
     offset: int = Query(default=0, ge=0),
     sort_by: str = Query(default="started_at", pattern="^(started_at|replay_value)$"),
     repo: TraceRepository = Depends(get_repository),
@@ -92,7 +93,7 @@ async def delete_session(
 @router.get("/api/sessions/{session_id}/traces", response_model=TraceListResponse)
 async def get_session_traces(
     session_id: str,
-    limit: int = Query(default=100, ge=1, le=10000),
+    limit: int = Query(default=100, ge=1, le=MAX_TRACES_PER_REQUEST),
     offset: int = Query(default=0, ge=0),
     repo: TraceRepository = Depends(get_repository),
 ) -> TraceListResponse:
@@ -172,7 +173,7 @@ async def export_session(
     repo: TraceRepository = Depends(get_repository),
 ) -> JSONResponse:
     session = await require_session(repo, session_id)
-    events = await repo.list_events(session_id, limit=10_000)
+    events = await repo.list_events(session_id, limit=MAX_TRACES_PER_REQUEST)
     checkpoints = await repo.list_checkpoints(session_id)
 
     export_data = {

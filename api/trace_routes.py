@@ -8,6 +8,12 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.analytics_db import record_event
+from api.config import (
+    MAX_ALERTS_PER_REQUEST,
+    MAX_EVENTS_FOR_ANALYSIS,
+    MAX_QUERY_LENGTH,
+    MAX_SEARCH_RESULTS,
+)
 from api.dependencies import get_repository
 from api.schemas import (
     AnalysisResponse,
@@ -37,7 +43,7 @@ async def _load_agent_sessions_with_events(
     agent_name: str,
 ) -> tuple[list[Any], dict[str, list[Any]]]:
     """Load sessions and their events for a specific agent."""
-    sessions = await repo.list_sessions(limit=1000)
+    sessions = await repo.list_sessions(limit=MAX_EVENTS_FOR_ANALYSIS)
     agent_sessions = [s for s in sessions if s.agent_name == agent_name]
     events_by_session = {}
     for session in agent_sessions:
@@ -96,10 +102,10 @@ async def get_session_live_summary(
 
 @router.get("/api/traces/search", response_model=TraceSearchResponse)
 async def search_traces(
-    query: str = Query(min_length=1, max_length=256),
+    query: str = Query(min_length=1, max_length=MAX_QUERY_LENGTH),
     session_id: str | None = Query(default=None),
     event_type: str | None = Query(default=None),
-    limit: int = Query(default=50, ge=1, le=500),
+    limit: int = Query(default=50, ge=1, le=MAX_SEARCH_RESULTS),
     repo: TraceRepository = Depends(get_repository),
 ) -> TraceSearchResponse:
     results = await repo.search_events(
@@ -186,7 +192,7 @@ async def get_agent_drift(
 @router.get("/api/sessions/{session_id}/alerts", response_model=AnomalyAlertListResponse)
 async def get_session_alerts(
     session_id: str,
-    limit: int = Query(default=50, ge=1, le=200),
+    limit: int = Query(default=50, ge=1, le=MAX_ALERTS_PER_REQUEST),
     repo: TraceRepository = Depends(get_repository),
 ) -> AnomalyAlertListResponse:
     """Get all anomaly alerts for a session.
