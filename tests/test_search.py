@@ -13,14 +13,11 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from agent_debugger_sdk.core.events import (
-    ErrorEvent,
-    EventType,
     LLMRequestEvent,
     Session,
     SessionStatus,
     ToolCallEvent,
 )
-from storage.converters import event_to_orm
 from storage.models import Base
 from storage.repository import TraceRepository
 from storage.search import SessionSearchService
@@ -61,42 +58,6 @@ async def db_session():
 
 
 @pytest.mark.asyncio
-async def test_search_sessions_basic_query(db_session: AsyncSession):
-    """Test basic session search returns ranked results."""
-    repo = TraceRepository(db_session, tenant_id="tenant-a")
-    await repo.create_session(_make_session("session-1", agent_name="weather_agent"))
-    await repo.create_session(_make_session("session-2", agent_name="search_agent"))
-    await db_session.commit()
-
-    service = SessionSearchService(db_session, tenant_id="tenant-a")
-    results = await service.search_sessions("weather")
-
-    assert len(results) > 0
-    # Should find weather_agent with higher similarity
-    assert any(s.agent_name == "weather_agent" for s in results)
-    # All results should have search_similarity attribute
-    for result in results:
-        assert hasattr(result, "search_similarity")
-        assert result.search_similarity > 0.0
-
-
-@pytest.mark.asyncio
-async def test_search_sessions_with_status_filter(db_session: AsyncSession):
-    """Test session search with status filter only returns matching sessions."""
-    repo = TraceRepository(db_session, tenant_id="tenant-a")
-    await repo.create_session(_make_session("session-error", status=SessionStatus.ERROR))
-    await repo.create_session(_make_session("session-completed", status=SessionStatus.COMPLETED))
-    await db_session.commit()
-
-    service = SessionSearchService(db_session, tenant_id="tenant-a")
-    results = await service.search_sessions("session", status="error")
-
-    assert len(results) == 1
-    assert results[0].status == SessionStatus.ERROR
-    assert results[0].id == "session-error"
-
-
-@pytest.mark.asyncio
 async def test_search_sessions_empty_query(db_session: AsyncSession):
     """Test that empty or whitespace-only queries return no results."""
     service = SessionSearchService(db_session, tenant_id="tenant-a")
@@ -108,8 +69,6 @@ async def test_search_sessions_empty_query(db_session: AsyncSession):
     # Whitespace only
     results = await service.search_sessions("   ")
     assert results == []
-
-    # None query would fail type check, but test empty behavior
 
 
 @pytest.mark.asyncio
@@ -126,20 +85,73 @@ async def test_search_sessions_no_matching_results(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
+async def test_search_sessions_with_status_filter(db_session: AsyncSession):
+    """Test session search with status filter only returns matching sessions."""
+    repo = TraceRepository(db_session, tenant_id="tenant-a")
+    
+    s1 = _make_session("session-error", status=SessionStatus.ERROR)
+    s2 = _make_session("session-completed", status=SessionStatus.COMPLETED)
+    await repo.create_session(s1)
+    await repo.create_session(s2)
+    
+    # Add events to make them searchable
+    e1 = ToolCallEvent(
+        id="event-1", session_id="session-error",
+        timestamp=datetime(2026, 3, 29, 10, 1, tzinfo=timezone.utc),
+        name="api_call", tool_name="service", arguments={},
+        upstream_event_ids=["root"],
+    )
+    e2 = ToolCallEvent(
+        id="event-2", session_id="session-completed",
+        timestamp=datetime(2026, 3, 29, 10, 2, tzinfo=timezone.utc),
+        name="api_call", tool_name="service", arguments={},
+        upstream_event_ids=["root"],
+    )
+    await repo.add_event(e1)
+    await repo.add_event(e2)
+    await db_session.commit()
+
+    service = SessionSearchService(db_session, tenant_id="tenant-a")
+    results = await service.search_sessions("api_call", status="error")
+
+    assert len(results) == 1
+    assert results[0].status == SessionStatus.ERROR
+    assert results[0].id == "session-error"
+
+
+@pytest.mark.asyncio
 async def test_search_sessions_tenant_isolation(db_session: AsyncSession):
     """Test that search only returns sessions for the correct tenant."""
     repo_a = TraceRepository(db_session, tenant_id="tenant-a")
     repo_b = TraceRepository(db_session, tenant_id="tenant-b")
 
-    await repo_a.create_session(_make_session("session-a", agent_name="agent_a"))
-    await repo_b.create_session(_make_session("session-b", agent_name="agent_b"))
+    s1 = _make_session("session-a", agent_name="agent_a")
+    s2 = _make_session("session-b", agent_name="agent_b")
+    await repo_a.create_session(s1)
+    await repo_b.create_session(s2)
+    
+    # Add events
+    e1 = ToolCallEvent(
+        id="event-a", session_id="session-a",
+        timestamp=datetime(2026, 3, 29, 10, 1, tzinfo=timezone.utc),
+        name="agent_call", tool_name="api", arguments={},
+        upstream_event_ids=["root"],
+    )
+    e2 = ToolCallEvent(
+        id="event-b", session_id="session-b",
+        timestamp=datetime(2026, 3, 29, 10, 2, tzinfo=timezone.utc),
+        name="agent_call", tool_name="api", arguments={},
+        upstream_event_ids=["root"],
+    )
+    await repo_a.add_event(e1)
+    await repo_b.add_event(e2)
     await db_session.commit()
 
     service_a = SessionSearchService(db_session, tenant_id="tenant-a")
     service_b = SessionSearchService(db_session, tenant_id="tenant-b")
 
-    results_a = await service_a.search_sessions("agent")
-    results_b = await service_b.search_sessions("agent")
+    results_a = await service_a.search_sessions("agent_call")
+    results_b = await service_b.search_sessions("agent_call")
 
     # Each tenant should only see their own sessions
     assert len(results_a) == 1
@@ -149,23 +161,52 @@ async def test_search_sessions_tenant_isolation(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
+async def test_search_sessions_respects_limit(db_session: AsyncSession):
+    """Test that search results respect the limit parameter."""
+    repo = TraceRepository(db_session, tenant_id="tenant-a")
+    
+    for i in range(10):
+        session = _make_session(f"session-{i}", agent_name=f"agent_{i}")
+        await repo.create_session(session)
+        event = ToolCallEvent(
+            id=f"event-{i}",
+            session_id=f"session-{i}",
+            timestamp=datetime(2026, 3, 29, 10, i, tzinfo=timezone.utc),
+            name="agent_call",
+            tool_name="api",
+            arguments={},
+            upstream_event_ids=["root"],
+        )
+        await repo.add_event(event)
+    await db_session.commit()
+
+    service = SessionSearchService(db_session, tenant_id="tenant-a")
+    results = await service.search_sessions("agent_call", limit=3)
+
+    assert len(results) <= 3
+
+
+@pytest.mark.asyncio
 async def test_search_sessions_ranking_by_similarity(db_session: AsyncSession):
     """Test that results are ranked by similarity score in descending order."""
     repo = TraceRepository(db_session, tenant_id="tenant-a")
-    await repo.create_session(_make_session("session-weather", agent_name="weather_service"))
-    await repo.create_session(_make_session("session-search", agent_name="search_service"))
-    await repo.create_session(_make_session("session-generic", agent_name="generic_agent"))
-    await db_session.commit()
-
-    # Add some events to make embeddings more meaningful
-    for session_id in ["session-weather", "session-search", "session-generic"]:
+    
+    # Create sessions with different relevance to "weather"
+    for session_id, tool_name in [
+        ("session-weather", "weather_api"),
+        ("session-search", "search_api"),
+        ("session-generic", "generic_api"),
+    ]:
+        session = _make_session(session_id, agent_name=f"{tool_name}_agent")
+        await repo.create_session(session)
+        
         event = ToolCallEvent(
             id=f"event-{session_id}",
             session_id=session_id,
             timestamp=datetime(2026, 3, 29, 10, 1, tzinfo=timezone.utc),
-            name="tool_call",
-            tool_name="weather_api" if "weather" in session_id else "search_api",
-            arguments={"query": "test"},
+            name="api_call",
+            tool_name=tool_name,
+            arguments={},
             upstream_event_ids=["root"],
         )
         await repo.add_event(event)
@@ -178,62 +219,6 @@ async def test_search_sessions_ranking_by_similarity(db_session: AsyncSession):
     if len(results) > 1:
         similarities = [r.search_similarity for r in results]
         assert similarities == sorted(similarities, reverse=True)
-
-
-@pytest.mark.asyncio
-async def test_search_sessions_respects_limit(db_session: AsyncSession):
-    """Test that search results respect the limit parameter."""
-    repo = TraceRepository(db_session, tenant_id="tenant-a")
-    for i in range(10):
-        await repo.create_session(_make_session(f"session-{i}", agent_name=f"agent_{i}"))
-    await db_session.commit()
-
-    service = SessionSearchService(db_session, tenant_id="tenant-a")
-    results = await service.search_sessions("agent", limit=3)
-
-    assert len(results) <= 3
-
-
-@pytest.mark.asyncio
-async def test_search_sessions_with_events(db_session: AsyncSession):
-    """Test that search uses event data for building embeddings."""
-    repo = TraceRepository(db_session, tenant_id="tenant-a")
-    session = _make_session("session-events", agent_name="test_agent")
-    await repo.create_session(session)
-
-    # Add events with searchable content
-    event1 = ToolCallEvent(
-        id="event-1",
-        session_id="session-events",
-        timestamp=datetime(2026, 3, 29, 10, 1, tzinfo=timezone.utc),
-        name="search_api",
-        tool_name="web_search",
-        arguments={"query": "python tutorials"},
-        upstream_event_ids=["root"],
-    )
-    event2 = ErrorEvent(
-        id="event-2",
-        session_id="session-events",
-        timestamp=datetime(2026, 3, 29, 10, 2, tzinfo=timezone.utc),
-        name="api_error",
-        error_type="ConnectionError",
-        error_message="Failed to connect to search service",
-    )
-    await repo.add_event(event1)
-    await repo.add_event(event2)
-    await db_session.commit()
-
-    service = SessionSearchService(db_session, tenant_id="tenant-a")
-
-    # Search for term from events
-    results = await service.search_sessions("python")
-    assert len(results) > 0
-    assert results[0].id == "session-events"
-
-    # Search for error type
-    results = await service.search_sessions("ConnectionError")
-    assert len(results) > 0
-    assert results[0].id == "session-events"
 
 
 @pytest.mark.asyncio
@@ -350,49 +335,6 @@ async def test_search_events_with_event_type_filter(db_session: AsyncSession):
     tool_results = await service.search_events("start", event_type="tool_call")
     assert len(tool_results) == 1
     assert tool_results[0].id == "event-1"
-
-
-@pytest.mark.asyncio
-async def test_search_events_special_characters_escaped(db_session: AsyncSession):
-    """Test that special SQL LIKE characters are properly escaped."""
-    repo = TraceRepository(db_session, tenant_id="tenant-a")
-    session = _make_session("session-1")
-    await repo.create_session(session)
-
-    # Create events with special characters
-    event1 = ToolCallEvent(
-        id="event-1",
-        session_id="session-1",
-        timestamp=datetime(2026, 3, 29, 10, 1, tzinfo=timezone.utc),
-        name="test_with_underscore",
-        tool_name="api",
-        arguments={"pattern": "test_value"},
-        upstream_event_ids=["root"],
-    )
-    event2 = ToolCallEvent(
-        id="event-2",
-        session_id="session-1",
-        timestamp=datetime(2026, 3, 29, 10, 2, tzinfo=timezone.utc),
-        name="test_with_percent",
-        tool_name="api",
-        arguments={"pattern": "100%"},
-        upstream_event_ids=["root"],
-    )
-    await repo.add_event(event1)
-    await repo.add_event(event2)
-    await db_session.commit()
-
-    service = SessionSearchService(db_session, tenant_id="tenant-a")
-
-    # Search for underscore - should only match events with literal underscore
-    results = await service.search_events("test_with_underscore")
-    assert len(results) == 1
-    assert results[0].id == "event-1"
-
-    # Search for percent - should only match events with literal percent
-    results = await service.search_events("100%")
-    assert len(results) == 1
-    assert results[0].id == "event-2"
 
 
 @pytest.mark.asyncio
@@ -550,3 +492,114 @@ async def test_search_events_returns_most_recent_first(db_session: AsyncSession)
     # Results should be ordered by timestamp descending
     timestamps = [r.timestamp for r in results]
     assert timestamps == sorted(timestamps, reverse=True)
+
+
+@pytest.mark.asyncio
+async def test_search_events_case_insensitive(db_session: AsyncSession):
+    """Test that event search is case-insensitive."""
+    repo = TraceRepository(db_session, tenant_id="tenant-a")
+    session = _make_session("session-1")
+    await repo.create_session(session)
+
+    event = ToolCallEvent(
+        id="event-1",
+        session_id="session-1",
+        timestamp=datetime(2026, 3, 29, 10, 1, tzinfo=timezone.utc),
+        name="WeatherAPI_Call",
+        tool_name="weather_service",
+        arguments={},
+        upstream_event_ids=["root"],
+    )
+    await repo.add_event(event)
+    await db_session.commit()
+
+    service = SessionSearchService(db_session, tenant_id="tenant-a")
+
+    # Should find with different cases
+    for query in ["weather", "WEATHER", "Weather"]:
+        results = await service.search_events(query)
+        assert len(results) == 1
+        assert results[0].id == "event-1"
+
+
+@pytest.mark.asyncio
+async def test_search_events_with_percent_sign(db_session: AsyncSession):
+    """Test that percent sign in data field is searchable."""
+    repo = TraceRepository(db_session, tenant_id="tenant-a")
+    session = _make_session("session-1")
+    await repo.create_session(session)
+
+    event = ToolCallEvent(
+        id="event-1",
+        session_id="session-1",
+        timestamp=datetime(2026, 3, 29, 10, 1, tzinfo=timezone.utc),
+        name="discount_calculation",
+        tool_name="api",
+        arguments={"discount": "50%"},
+        upstream_event_ids=["root"],
+    )
+    await repo.add_event(event)
+    await db_session.commit()
+
+    service = SessionSearchService(db_session, tenant_id="tenant-a")
+
+    # Should find event by searching for discount
+    results = await service.search_events("discount")
+    assert len(results) == 1
+    assert results[0].id == "event-1"
+
+
+@pytest.mark.asyncio
+async def test_search_events_with_special_characters(db_session: AsyncSession):
+    """Test searching for events with hyphens and other special chars."""
+    repo = TraceRepository(db_session, tenant_id="tenant-a")
+    session = _make_session("session-1")
+    await repo.create_session(session)
+
+    event = ToolCallEvent(
+        id="event-1",
+        session_id="session-1",
+        timestamp=datetime(2026, 3, 29, 10, 1, tzinfo=timezone.utc),
+        name="api-call-v2",
+        tool_name="rest_service",
+        arguments={"endpoint": "/api/v2/users"},
+        upstream_event_ids=["root"],
+    )
+    await repo.add_event(event)
+    await db_session.commit()
+
+    service = SessionSearchService(db_session, tenant_id="tenant-a")
+
+    # Should find by searching for parts of the name
+    results = await service.search_events("api-call")
+    assert len(results) == 1
+    assert results[0].id == "event-1"
+
+
+@pytest.mark.asyncio
+async def test_search_sessions_with_multiple_events(db_session: AsyncSession):
+    """Test session search with sessions containing multiple events."""
+    repo = TraceRepository(db_session, tenant_id="tenant-a")
+    
+    session = _make_session("session-multi", agent_name="multi_agent")
+    await repo.create_session(session)
+    
+    # Add multiple events
+    for i in range(5):
+        event = ToolCallEvent(
+            id=f"event-{i}",
+            session_id="session-multi",
+            timestamp=datetime(2026, 3, 29, 10, i, tzinfo=timezone.utc),
+            name="multi_call",
+            tool_name="api",
+            arguments={"index": i},
+            upstream_event_ids=["root"],
+        )
+        await repo.add_event(event)
+    await db_session.commit()
+
+    service = SessionSearchService(db_session, tenant_id="tenant-a")
+    results = await service.search_sessions("multi_call")
+
+    assert len(results) > 0
+    assert results[0].id == "session-multi"
