@@ -8,17 +8,66 @@ interface CostPanelProps {
 
 export default function CostPanel({ sessionId }: CostPanelProps) {
   const [data, setData] = useState<SessionCost | null>(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!sessionId) return
-    getSessionCost(sessionId)
-      .then(setData)
-      .catch(err => setError(err.message))
+    if (!sessionId) {
+      setLoading(false)
+      return
+    }
+
+    let ignore = false
+    async function fetchData() {
+      setLoading(true)
+      setError(null)
+      try {
+        const response = await getSessionCost(sessionId)
+        if (!ignore) {
+          setData(response)
+        }
+      } catch (err) {
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : 'Failed to load cost data')
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false)
+        }
+      }
+    }
+    void fetchData()
+    return () => {
+      ignore = true
+    }
   }, [sessionId])
 
-  if (error) return null
-  if (!data) return null
+  if (loading) {
+    return (
+      <div className="cost-panel">
+        <h4>Session Cost</h4>
+        <p className="cost-loading">Loading...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="cost-panel">
+        <h4>Session Cost</h4>
+        <p className="cost-error">Cost data unavailable</p>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="cost-panel">
+        <h4>Session Cost</h4>
+        <p className="cost-empty">No cost data available</p>
+      </div>
+    )
+  }
 
   return (
     <div className="cost-panel">
