@@ -280,3 +280,16 @@ class CheckpointDeltaSchema(BaseModel):
     importance_delta: float
     restore_value: float
     state_keys_changed: list[str]
+
+
+class FixNoteRequest(BaseModel):
+    """Request schema for adding a fix note to a session."""
+
+    note: str
+
+
+class FixNoteResponse(BaseModel):
+    """Response schema for fix note creation."""
+
+    session_id: str
+    fix_note: str

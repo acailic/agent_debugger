@@ -12,6 +12,8 @@ from api.schemas import (
     CheckpointListResponse,
     DecisionTreeResponse,
     DeleteResponse,
+    FixNoteRequest,
+    FixNoteResponse,
     SessionDetailResponse,
     SessionListResponse,
     SessionUpdateRequest,
@@ -163,3 +165,19 @@ async def export_session(
         content=export_data,
         headers={"Content-Disposition": f'attachment; filename="session_{session_id}_export.json"'},
     )
+
+
+@router.post("/api/sessions/{session_id}/fix-note", response_model=FixNoteResponse)
+async def add_fix_note(
+    session_id: str,
+    request: FixNoteRequest,
+    repo: TraceRepository = Depends(get_repository),
+) -> FixNoteResponse:
+    """Add or update a fix note for a session."""
+    await require_session(repo, session_id)
+    session = await repo.add_fix_note(session_id, request.note)
+    if session is None:
+        session = await require_session(repo, session_id)
+    else:
+        await repo.commit()
+    return FixNoteResponse(session_id=session_id, fix_note=request.note)
