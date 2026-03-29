@@ -49,6 +49,7 @@ class TestPydanticAIAdapter:
     def test_module_marks_pydantic_ai_available_when_imports_succeed(self):
         """Test module import-path sets availability when dependencies exist."""
         import agent_debugger_sdk.adapters.pydantic_ai as pydantic_ai_mod
+        import agent_debugger_sdk.adapters.pydantic_ai.adapter as adapter_mod
 
         fake_package = types.ModuleType("pydantic_ai")
         fake_messages = types.ModuleType("pydantic_ai.messages")
@@ -76,12 +77,15 @@ class TestPydanticAIAdapter:
                 "pydantic_ai.models": fake_models,
             },
         ):
+            # Reload adapter submodule first so PYDANTIC_AI_AVAILABLE is recalculated
+            importlib.reload(adapter_mod)
             reloaded = importlib.reload(pydantic_ai_mod)
             assert reloaded.PYDANTIC_AI_AVAILABLE is True
             assert reloaded.Agent is fake_package.Agent
             assert reloaded.AgentRunResult is fake_package.AgentRunResult
             assert reloaded.Model is fake_models.Model
 
+        importlib.reload(adapter_mod)
         importlib.reload(pydantic_ai_mod)
 
     @pytest.mark.asyncio
