@@ -88,7 +88,7 @@ class TestBUG002DuplicateEvents:
         buffer = get_event_buffer()
         buffer._events.clear()  # Clear any previous state
 
-        with patch("agent_debugger_sdk.adapters.pydantic_ai.PYDANTIC_AI_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.pydantic_ai.adapter.PYDANTIC_AI_AVAILABLE", True):
             from agent_debugger_sdk.adapters.pydantic_ai import PydanticAIAdapter
             from agent_debugger_sdk.core.events import LLMRequestEvent
 
