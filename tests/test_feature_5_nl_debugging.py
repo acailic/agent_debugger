@@ -203,6 +203,8 @@ def create_debugger(llm_client):
 
             return Context(events=relevant)
 
+    return NaturalLanguageDebugger(llm_client)
+
 
 # Test Classes
 
