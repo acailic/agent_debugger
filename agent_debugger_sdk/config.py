@@ -11,7 +11,6 @@ class Config:
     api_key: str | None = None
     endpoint: str = "http://localhost:8000"
     enabled: bool = True
-    sample_rate: float = 1.0
     redact_prompts: bool = False
     max_payload_kb: int = 100
     mode: str = "local"  # "local" or "cloud"
@@ -30,7 +29,6 @@ def init(
     api_key: str | None = None,
     endpoint: str | None = None,
     enabled: bool = True,
-    sample_rate: float = 1.0,
     redact_prompts: bool = False,
     max_payload_kb: int = 100,
 ) -> Config:
@@ -55,7 +53,6 @@ def init(
         api_key=resolved_key,
         endpoint=resolved_endpoint,
         enabled=resolved_enabled,
-        sample_rate=float(os.environ.get("AGENT_DEBUGGER_SAMPLE_RATE", sample_rate)),
         redact_prompts=os.environ.get("AGENT_DEBUGGER_REDACT_PROMPTS", str(redact_prompts)).lower() == "true",
         max_payload_kb=int(os.environ.get("AGENT_DEBUGGER_MAX_PAYLOAD_KB", max_payload_kb)),
     )

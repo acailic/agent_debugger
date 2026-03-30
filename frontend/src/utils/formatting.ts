@@ -1,5 +1,11 @@
 import type { EventType, TraceEvent } from '../types'
 
+export function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
+  return `${(ms / 60_000).toFixed(1)}m`
+}
+
 export function formatNumber(value: number, digits = 0): string {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: digits }).format(value)
 }

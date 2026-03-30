@@ -1,16 +1,11 @@
 import type { CollapsedSegment } from '../types'
+import { formatDuration } from '../utils/formatting'
 
 interface HighlightChipProps {
   segment: CollapsedSegment
   children: React.ReactNode
   isExpanded?: boolean
   onToggle: () => void
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
-  return `${(ms / 60_000).toFixed(1)}m`
 }
 
 export default function HighlightChip({

@@ -25,12 +25,7 @@ import { EventDetail } from './components/EventDetail'
 import { FailureExplanationCard } from './components/FailureExplanationCard'
 import { formatEventHeadline, formatNumber, SEARCHABLE_EVENT_TYPES } from './utils/formatting'
 import { useSessionStore } from './stores/sessionStore'
-import type { FailureCluster, Highlight, PolicyShift, RollingSummary, TraceEvent } from './types'
-
-type AppTab = 'trace' | 'analytics'
-type ReplayMode = 'full' | 'focus' | 'failure' | 'highlights'
-type SessionSortMode = 'started_at' | 'replay_value'
-type SearchScope = 'current' | 'all'
+import type { AppTab, FailureCluster, Highlight, PolicyShift, ReplayMode, RollingSummary, SearchScope, SessionSortMode, TraceEvent } from './types'
 
 function App() {
   // Get all state and actions from the store

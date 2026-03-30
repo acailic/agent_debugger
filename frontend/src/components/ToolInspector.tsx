@@ -1,12 +1,8 @@
 import type { TraceEvent } from '../types'
+import { formatDuration } from '../utils/formatting'
 
 interface ToolInspectorProps {
   event: TraceEvent | null
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`
-  return `${(ms / 1000).toFixed(1)}s`
 }
 
 function formatTimestamp(timestamp: string): string {

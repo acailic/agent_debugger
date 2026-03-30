@@ -8,12 +8,11 @@ import type {
   LiveSummary,
   DriftResponse,
   EventType,
+  AppTab,
+  ReplayMode,
+  SearchScope,
+  SessionSortMode,
 } from '../types'
-
-type AppTab = 'trace' | 'analytics'
-type ReplayMode = 'full' | 'focus' | 'failure' | 'highlights'
-type SessionSortMode = 'started_at' | 'replay_value'
-type SearchScope = 'current' | 'all'
 
 interface SessionStore {
   // Sessions list and selection

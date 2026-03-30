@@ -1,3 +1,8 @@
+export type AppTab = 'trace' | 'analytics'
+export type ReplayMode = 'full' | 'focus' | 'failure' | 'highlights'
+export type SessionSortMode = 'started_at' | 'replay_value'
+export type SearchScope = 'current' | 'all'
+
 export type EventType =
   | 'trace_root'
   | 'agent_start'

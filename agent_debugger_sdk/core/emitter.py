@@ -61,6 +61,29 @@ class EventEmitter:
         """Update the session update hook target."""
         self._session_update_hook = session_update_hook
 
+    @staticmethod
+    async def _safe_call(
+        target: object | None,
+        args: object,
+        *,
+        label: str,
+        context: str,
+        is_method: bool = False,
+    ) -> None:
+        """Invoke *target* (callback or method) swallowing exceptions."""
+        if target is None:
+            return
+        try:
+            if is_method:
+                await getattr(target, "publish")(*args)
+            else:
+                await target(args)
+        except Exception:
+            logger.warning(
+                "Failed to %s %s: collector may be unavailable",
+                label, context, exc_info=True,
+            )
+
     async def emit(self, event: TraceEvent) -> None:
         """Emit an event to storage, hooks, and live consumers."""
         from agent_debugger_sdk.config import get_config as _get_config
@@ -84,32 +107,19 @@ class EventEmitter:
             self._session.total_cost_usd += event.cost_usd
             self._session.llm_calls += 1
 
-        if self._event_persister is not None:
-            try:
-                await self._event_persister(event)
-            except Exception:
-                logger.warning(
-                    "Failed to persist event %s: collector may be unavailable",
-                    event.id,
-                    exc_info=True,
-                )
-
-        if self._session_update_hook is not None:
-            try:
-                await self._session_update_hook(self._session)
-            except Exception:
-                logger.warning(
-                    "Failed to update session %s: collector may be unavailable",
-                    self._session_id,
-                    exc_info=True,
-                )
-
-        if self._event_buffer is not None:
-            try:
-                await self._event_buffer.publish(self._session_id, event)
-            except Exception:
-                logger.warning(
-                    "Failed to publish event %s to buffer",
-                    event.id,
-                    exc_info=True,
-                )
+        await self._safe_call(
+            self._event_persister, event,
+            label="persist event",
+            context=event.id,
+        )
+        await self._safe_call(
+            self._session_update_hook, self._session,
+            label="update session",
+            context=self._session_id,
+        )
+        await self._safe_call(
+            self._event_buffer, (self._session_id, event),
+            label="publish event to buffer",
+            context=event.id,
+            is_method=True,
+        )
