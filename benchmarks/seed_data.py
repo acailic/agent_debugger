@@ -68,7 +68,11 @@ async def run_prompt_injection_session(session_id: str | None = None) -> SeedSes
             policy_name="prompt_injection",
             violation_type="instruction_override",
             severity="high",
-            details={"source": "user_input", "signature": "ignore previous instructions", "attack_type": "prompt injection"},
+            details={
+                "source": "user_input",
+                "signature": "ignore previous instructions",
+                "attack_type": "prompt injection",
+            },
             upstream_event_ids=[policy_event_id],
         )
         await ctx.record_refusal(
