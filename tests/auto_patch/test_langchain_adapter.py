@@ -303,6 +303,87 @@ class TestSyncTracingCallbackHandlerEvents:
         handler.on_llm_start({}, ["hello"], run_id=run_id)
         self._flush_handler(handler)
 
+    def test_on_llm_start_contains_model_from_invocation_params(self, mock_httpx) -> None:
+        """Verify the llm_request event has model field set from invocation_params."""
+        handler = self._make_handler(mock_httpx)
+        run_id = uuid.uuid4()
+        handler.on_llm_start(
+            {"name": "ChatOpenAI"},
+            ["Hello"],
+            run_id=run_id,
+            invocation_params={"model": "gpt-4o", "temperature": 0.7},
+        )
+        self._flush_handler(handler)
+        sent = _get_trace_events(mock_httpx)
+        req = next(e for e in sent if e["event_type"] == "llm_request")
+        assert req["model"] == "gpt-4o"
+
+    def test_on_llm_end_contains_model_and_usage(self, mock_httpx) -> None:
+        """Verify llm_response has model and usage with input_tokens/output_tokens."""
+        handler = self._make_handler(mock_httpx)
+        run_id = uuid.uuid4()
+        handler.on_llm_start(
+            {},
+            ["Hi"],
+            run_id=run_id,
+            invocation_params={"model": "gpt-4o"},
+        )
+        result = _make_fake_llm_result("OK")
+        handler.on_llm_end(result, run_id=run_id)
+        self._flush_handler(handler)
+        sent = _get_trace_events(mock_httpx)
+        resp = next(e for e in sent if e["event_type"] == "llm_response")
+        assert resp["model"] == "gpt-4o"
+        assert "usage" in resp
+        assert resp["usage"]["input_tokens"] == 10
+        assert resp["usage"]["output_tokens"] == 20
+
+    def test_on_llm_end_has_duration(self, mock_httpx) -> None:
+        """Verify the response event has duration_ms field (>= 0)."""
+        handler = self._make_handler(mock_httpx)
+        run_id = uuid.uuid4()
+        handler.on_llm_start(
+            {},
+            ["Hi"],
+            run_id=run_id,
+            invocation_params={"model": "gpt-4o"},
+        )
+        result = _make_fake_llm_result("OK")
+        handler.on_llm_end(result, run_id=run_id)
+        self._flush_handler(handler)
+        sent = _get_trace_events(mock_httpx)
+        resp = next(e for e in sent if e["event_type"] == "llm_response")
+        assert "duration_ms" in resp
+        assert resp["duration_ms"] >= 0
+
+    def test_on_chat_model_start_routes_to_on_llm_start(self, mock_httpx) -> None:
+        """Verify that on_chat_model_start properly converts message lists to prompts and emits an llm_request event."""
+        from langchain_core.messages import AIMessage, HumanMessage
+
+        handler = self._make_handler(mock_httpx, capture_content=True)
+        run_id = uuid.uuid4()
+        # Simulate chat model start with message list (list of lists)
+        messages = [
+            [
+                HumanMessage(content="Hello"),
+                AIMessage(content="Hi there"),
+            ]
+        ]
+        handler.on_chat_model_start(
+            {"name": "ChatOpenAI"},
+            messages,
+            run_id=run_id,
+            invocation_params={"model": "gpt-4o"},
+        )
+        self._flush_handler(handler)
+        sent = _get_trace_events(mock_httpx)
+        types_ = [e["event_type"] for e in sent]
+        assert "llm_request" in types_
+        req = next(e for e in sent if e["event_type"] == "llm_request")
+        assert req["model"] == "gpt-4o"
+        # Messages should be converted from message objects to prompt strings
+        assert len(req["messages"]) >= 1
+
 
 # ---------------------------------------------------------------------------
 # Full adapter integration (patch -> callback -> unpatch)
@@ -328,3 +409,47 @@ class TestLangChainAdapterIntegration:
         adapter.patch(config)
         adapter.unpatch()
         adapter.unpatch()  # second call — should be no-op
+
+    def test_on_tool_start_extracts_tool_name_from_serialized(self, mock_httpx) -> None:
+        """Verify tool_name is extracted from serialized dict."""
+        transport = transport_module.SyncTransport("http://localhost:9999")
+        handler = _SyncTracingCallbackHandler(
+            session_id="test-session",
+            transport=transport,
+            capture_content=False,
+        )
+        run_id = uuid.uuid4()
+        handler.on_tool_start(
+            {"name": "search_web", "description": "Search the web"},
+            "python docs",
+            run_id=run_id,
+        )
+        handler._transport._queue.put(transport_module._SENTINEL)
+        handler._transport._thread.join(timeout=_FLUSH_TIMEOUT)
+        sent = _get_trace_events(mock_httpx)
+        tool_event = next(e for e in sent if e["event_type"] == "tool_call")
+        assert tool_event["tool_name"] == "search_web"
+
+    def test_on_tool_start_with_dict_input(self, mock_httpx) -> None:
+        """Verify that dict input_str is used as arguments directly."""
+        transport = transport_module.SyncTransport("http://localhost:9999")
+        handler = _SyncTracingCallbackHandler(
+            session_id="test-session",
+            transport=transport,
+            capture_content=False,
+        )
+        run_id = uuid.uuid4()
+        # Simulate dict input (JSON stringified arguments)
+        tool_input = '{"query": "python docs", "limit": 5}'
+        handler.on_tool_start(
+            {"name": "search_web"},
+            tool_input,
+            run_id=run_id,
+        )
+        handler._transport._queue.put(transport_module._SENTINEL)
+        handler._transport._thread.join(timeout=_FLUSH_TIMEOUT)
+        sent = _get_trace_events(mock_httpx)
+        tool_event = next(e for e in sent if e["event_type"] == "tool_call")
+        assert "arguments" in tool_event
+        # Arguments are wrapped in a dict with 'input' key
+        assert tool_event["arguments"]["input"] == tool_input

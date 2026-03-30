@@ -299,6 +299,99 @@ class TestOpenAIAdapterSyncPatch:
         result = wrapper(MagicMock(), model="gpt-4o", messages=[])
         assert result is fake_response
 
+    def test_request_event_contains_model_and_settings(self, fake_openai, mock_httpx) -> None:
+        fake_response = _make_fake_response()
+        original_create = MagicMock(return_value=fake_response)
+
+        adapter = OpenAIAdapter()
+        config = PatchConfig(server_url="http://localhost:9999", capture_content=True)
+        adapter.patch(config)
+
+        wrapper = adapter._make_sync_wrapper(original_create)
+        wrapper(
+            MagicMock(),
+            model="gpt-4o",
+            messages=[{"role": "user", "content": "Hello"}],
+            temperature=0.7,
+            max_tokens=1000,
+        )
+
+        _flush(adapter)
+        sent = _get_trace_events(mock_httpx)
+        req = next(e for e in sent if e["event_type"] == "llm_request")
+        assert req["model"] == "gpt-4o"
+        assert req["settings"]["temperature"] == 0.7
+        assert req["settings"]["max_tokens"] == 1000
+
+    def test_response_event_contains_usage_tokens(self, fake_openai, mock_httpx) -> None:
+        fake_response = _make_fake_response(prompt_tokens=42, completion_tokens=58)
+        original_create = MagicMock(return_value=fake_response)
+
+        adapter = OpenAIAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        wrapper = adapter._make_sync_wrapper(original_create)
+        wrapper(MagicMock(), model="gpt-4o", messages=[])
+
+        _flush(adapter)
+        sent = _get_trace_events(mock_httpx)
+        resp = next(e for e in sent if e["event_type"] == "llm_response")
+        assert resp["usage"]["input_tokens"] == 42
+        assert resp["usage"]["output_tokens"] == 58
+
+    def test_response_event_has_duration_ms(self, fake_openai, mock_httpx) -> None:
+        fake_response = _make_fake_response()
+        original_create = MagicMock(return_value=fake_response)
+
+        adapter = OpenAIAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        wrapper = adapter._make_sync_wrapper(original_create)
+        wrapper(MagicMock(), model="gpt-4o", messages=[])
+
+        _flush(adapter)
+        sent = _get_trace_events(mock_httpx)
+        resp = next(e for e in sent if e["event_type"] == "llm_response")
+        assert resp["duration_ms"] > 0
+
+    def test_no_tool_calls_when_finish_reason_is_stop(self, fake_openai, mock_httpx) -> None:
+        fake_response = _make_fake_response(finish_reason="stop")
+        original_create = MagicMock(return_value=fake_response)
+
+        adapter = OpenAIAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        wrapper = adapter._make_sync_wrapper(original_create)
+        wrapper(MagicMock(), model="gpt-4o", messages=[])
+
+        _flush(adapter)
+        sent = _get_trace_events(mock_httpx)
+        tool_events = [e for e in sent if e["event_type"] == "tool_call"]
+        assert len(tool_events) == 0
+
+    def test_multiple_tool_calls_emit_separate_events(self, fake_openai, mock_httpx) -> None:
+        tc1 = _make_fake_tool_call(tc_id="call_1", name="get_weather", arguments={"city": "Paris"})
+        tc2 = _make_fake_tool_call(tc_id="call_2", name="get_time", arguments={"timezone": "UTC"})
+        fake_response = _make_fake_response(finish_reason="tool_calls", tool_calls=[tc1, tc2])
+        original_create = MagicMock(return_value=fake_response)
+
+        adapter = OpenAIAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        wrapper = adapter._make_sync_wrapper(original_create)
+        wrapper(MagicMock(), model="gpt-4o", messages=[])
+
+        _flush(adapter)
+        sent = _get_trace_events(mock_httpx)
+        tool_events = [e for e in sent if e["event_type"] == "tool_call"]
+        assert len(tool_events) == 2
+        tool_names = {e["tool_name"] for e in tool_events}
+        assert tool_names == {"get_weather", "get_time"}
+
 
 # ---------------------------------------------------------------------------
 # Async path
@@ -375,3 +468,21 @@ class TestOpenAIAdapterAsyncPatch:
         wrapper = adapter._make_async_wrapper(async_original)
         result = asyncio.run(wrapper(MagicMock(), model="gpt-4o", messages=[]))
         assert result is fake_response
+
+    def test_async_request_event_contains_model(self, fake_openai, mock_httpx) -> None:
+        fake_response = _make_fake_response()
+
+        async def async_original(self_client, *args, **kwargs):
+            return fake_response
+
+        adapter = OpenAIAdapter()
+        config = PatchConfig(server_url="http://localhost:9999", capture_content=True)
+        adapter.patch(config)
+
+        wrapper = adapter._make_async_wrapper(async_original)
+        asyncio.run(wrapper(MagicMock(), model="gpt-4o-mini", messages=[]))
+
+        _flush(adapter)
+        sent = _get_trace_events(mock_httpx)
+        req = next(e for e in sent if e["event_type"] == "llm_request")
+        assert req["model"] == "gpt-4o-mini"

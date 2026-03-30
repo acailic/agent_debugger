@@ -347,3 +347,42 @@ class TestLlamaIndexAdapterAsyncEventEmission:
         assert start["name"] == "llamaindex.aquery"
 
         adapter.unpatch()
+
+    def test_aquery_error_emits_error_event_and_reraises(self, fake_llama_index, mock_httpx) -> None:
+        """When aquery raises, an error event should be sent and the exception re-raised."""
+        _, _, query_engine = fake_llama_index
+
+        adapter = LlamaIndexAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        # Inject failure via the saved original — after patching, not before
+        saved_original = adapter._original_aquery
+        adapter._original_aquery = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("aquery failed"))
+        try:
+            engine_instance = query_engine.BaseQueryEngine()
+            with pytest.raises(RuntimeError, match="aquery failed"):
+                asyncio.run(query_engine.BaseQueryEngine.aquery(engine_instance, "test"))
+
+            _flush(adapter)
+            sent = _get_trace_events(mock_httpx)
+            types_ = [e["event_type"] for e in sent]
+            assert "error" in types_
+        finally:
+            adapter._original_aquery = saved_original
+            adapter.unpatch()
+
+    def test_aquery_server_unreachable_does_not_raise(self, fake_llama_index, mock_httpx) -> None:
+        """Even if the server is unreachable, the aquery should complete."""
+        mock_httpx.post.side_effect = Exception("connection refused")
+        _, _, query_engine = fake_llama_index
+
+        adapter = LlamaIndexAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        engine_instance = query_engine.BaseQueryEngine()
+        result = asyncio.run(query_engine.BaseQueryEngine.aquery(engine_instance, "safe async query"))
+        assert result == "aquery_result"
+
+        adapter.unpatch()

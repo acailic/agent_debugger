@@ -321,6 +321,97 @@ class TestAnthropicAdapterSyncPatch:
         result = wrapper(MagicMock(), model="claude-3-5-sonnet-20241022", messages=[])
         assert result is fake_response
 
+    def test_request_event_contains_model_and_settings(self, fake_anthropic, mock_httpx) -> None:
+        fake_response = _make_fake_response()
+        original_create = MagicMock(return_value=fake_response)
+
+        adapter = AnthropicAdapter()
+        config = PatchConfig(server_url="http://localhost:9999", capture_content=True)
+        adapter.patch(config)
+
+        wrapper = adapter._make_sync_wrapper(original_create)
+        wrapper(
+            MagicMock(),
+            model="claude-3-5-sonnet-20241022",
+            messages=[{"role": "user", "content": "Hello"}],
+            temperature=0.5,
+            max_tokens=2000,
+        )
+
+        _flush(adapter)
+        sent = _get_trace_events(mock_httpx)
+        req = next(e for e in sent if e["event_type"] == "llm_request")
+        assert req["model"] == "claude-3-5-sonnet-20241022"
+        assert req["settings"]["temperature"] == 0.5
+        assert req["settings"]["max_tokens"] == 2000
+
+    def test_response_event_contains_usage_tokens(self, fake_anthropic, mock_httpx) -> None:
+        fake_response = _make_fake_response(input_tokens=123, output_tokens=456)
+        original_create = MagicMock(return_value=fake_response)
+
+        adapter = AnthropicAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        wrapper = adapter._make_sync_wrapper(original_create)
+        wrapper(MagicMock(), model="claude-3-5-sonnet-20241022", messages=[])
+
+        _flush(adapter)
+        sent = _get_trace_events(mock_httpx)
+        resp = next(e for e in sent if e["event_type"] == "llm_response")
+        assert resp["usage"]["input_tokens"] == 123
+        assert resp["usage"]["output_tokens"] == 456
+
+    def test_response_event_has_duration_ms(self, fake_anthropic, mock_httpx) -> None:
+        fake_response = _make_fake_response()
+        original_create = MagicMock(return_value=fake_response)
+
+        adapter = AnthropicAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        wrapper = adapter._make_sync_wrapper(original_create)
+        wrapper(MagicMock(), model="claude-3-5-sonnet-20241022", messages=[])
+
+        _flush(adapter)
+        sent = _get_trace_events(mock_httpx)
+        resp = next(e for e in sent if e["event_type"] == "llm_response")
+        assert resp["duration_ms"] > 0
+
+    def test_no_tool_calls_when_stop_reason_is_end_turn(self, fake_anthropic, mock_httpx) -> None:
+        fake_response = _make_fake_response(stop_reason="end_turn")
+        original_create = MagicMock(return_value=fake_response)
+
+        adapter = AnthropicAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        wrapper = adapter._make_sync_wrapper(original_create)
+        wrapper(MagicMock(), model="claude-3-5-sonnet-20241022", messages=[])
+
+        _flush(adapter)
+        sent = _get_trace_events(mock_httpx)
+        tool_events = [e for e in sent if e["event_type"] == "tool_call"]
+        assert len(tool_events) == 0
+
+    def test_tool_call_event_has_correct_name(self, fake_anthropic, mock_httpx) -> None:
+        block = _tool_use_block(tool_id="toolu_abc123", name="get_weather", input_data={"city": "Tokyo"})
+        fake_response = _make_fake_response(content_blocks=[block], stop_reason="tool_use")
+        original_create = MagicMock(return_value=fake_response)
+
+        adapter = AnthropicAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        wrapper = adapter._make_sync_wrapper(original_create)
+        wrapper(MagicMock(), model="claude-3-5-sonnet-20241022", messages=[])
+
+        _flush(adapter)
+        sent = _get_trace_events(mock_httpx)
+        tool_event = next(e for e in sent if e["event_type"] == "tool_call")
+        assert tool_event["tool_name"] == "get_weather"
+        assert tool_event["arguments"] == {"city": "Tokyo"}
+
 
 # ---------------------------------------------------------------------------
 # Async path
@@ -397,3 +488,25 @@ class TestAnthropicAdapterAsyncPatch:
         wrapper = adapter._make_async_wrapper(async_original)
         result = asyncio.run(wrapper(MagicMock(), model="claude-3-5-sonnet-20241022", messages=[]))
         assert result is fake_response
+
+    def test_async_response_contains_model_and_usage(self, fake_anthropic, mock_httpx) -> None:
+        fake_response = _make_fake_response(
+            model="claude-3-5-haiku-20241022", input_tokens=99, output_tokens=88
+        )
+
+        async def async_original(self_client, *args, **kwargs):
+            return fake_response
+
+        adapter = AnthropicAdapter()
+        config = PatchConfig(server_url="http://localhost:9999", capture_content=True)
+        adapter.patch(config)
+
+        wrapper = adapter._make_async_wrapper(async_original)
+        asyncio.run(wrapper(MagicMock(), model="claude-3-5-haiku-20241022", messages=[]))
+
+        _flush(adapter)
+        sent = _get_trace_events(mock_httpx)
+        resp = next(e for e in sent if e["event_type"] == "llm_response")
+        assert resp["model"] == "claude-3-5-haiku-20241022"
+        assert resp["usage"]["input_tokens"] == 99
+        assert resp["usage"]["output_tokens"] == 88

@@ -321,3 +321,25 @@ class TestCrewAIAdapterAsyncEventEmission:
         assert start["name"] == "crew.kickoff_async"
 
         adapter.unpatch()
+
+    def test_kickoff_async_error_emits_error_event_and_reraises(self, fake_crewai, mock_httpx) -> None:
+        """When kickoff_async raises, an error event should be sent and the exception re-raised."""
+        adapter = CrewAIAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        # Inject failure via the saved original — after patching, not before
+        saved_original = adapter._original_kickoff_async
+        adapter._original_kickoff_async = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("async crew failed"))
+        try:
+            crew_instance = fake_crewai.Crew()
+            with pytest.raises(RuntimeError, match="async crew failed"):
+                asyncio.run(fake_crewai.Crew.kickoff_async(crew_instance))
+
+            _flush(adapter)
+            sent = _get_trace_events(mock_httpx)
+            types_ = [e["event_type"] for e in sent]
+            assert "error" in types_
+        finally:
+            adapter._original_kickoff_async = saved_original
+            adapter.unpatch()

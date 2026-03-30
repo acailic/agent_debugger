@@ -436,3 +436,170 @@ def test_build_config_from_env_agent_name_default(monkeypatch):
     assert config.agent_name == "auto-patched-agent", (
         f"Expected default agent_name='auto-patched-agent', got {config.agent_name!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Test 8: All 7 adapters share the same session ID when activated together
+# ---------------------------------------------------------------------------
+
+
+def test_all_adapters_share_same_session_id(monkeypatch, mock_httpx):
+    """When all 7 adapters are activated, they share a single global session ID.
+
+    This verifies that ``get_or_create_session()`` returns the same session_id
+    across all adapters. The session ID is cached in ``_current_session_id``
+    after the first call and reused for subsequent adapters.
+
+    Note: OpenAI and Anthropic adapters do NOT create a session during patch().
+    They create it lazily on the first LLM call. The other 5 adapters (langchain,
+    autogen, crewai, pydanticai, llamaindex) create the session during patch(),
+    which sets the global _current_session_id.
+    """
+    _inject_all_libs(monkeypatch)
+    monkeypatch.delenv("PEAKY_PEEK_AUTO_PATCH", raising=False)
+
+    config = PatchConfig(server_url="http://localhost:9999")
+    try:
+        activate(config)
+
+        # Verify all 7 adapters were patched
+        names = get_registry().patched_names()
+        assert len(names) == 7, f"Expected 7 patched adapters, got {names}"
+
+        # The global session ID should be set after activation
+        # (set by the first adapter that calls get_or_create_session during patch)
+        global_session_id = transport_module._current_session_id
+        assert global_session_id is not None, "_current_session_id should be set after activation"
+
+        # Verify all adapters have their transport initialized
+        for adapter in get_registry()._patched:
+            assert adapter._transport is not None, f"{adapter.name} should have transport set"
+
+        # Adapters that call get_or_create_session during patch() store it
+        # These are: langchain, autogen, crewai, pydanticai, llamaindex
+        adapters_with_session = [a for a in get_registry()._patched if hasattr(a, "_session_id")]
+        assert len(adapters_with_session) >= 4, (
+            f"Expected at least 4 adapters with _session_id, got {[a.name for a in adapters_with_session]}"
+        )
+
+        # All adapters that have _session_id should share the same global session ID
+        for adapter in adapters_with_session:
+            assert adapter._session_id == global_session_id, (
+                f"{adapter.name} session_id ({adapter._session_id}) should match global ({global_session_id})"
+            )
+    finally:
+        deactivate()
+
+
+# ---------------------------------------------------------------------------
+# Test 9: Selective activation only patches the specified adapter
+# ---------------------------------------------------------------------------
+
+
+def test_selective_activation_does_not_affect_other_adapters(monkeypatch, mock_httpx):
+    """When only 'openai' is activated, other adapters remain unpatched.
+
+    This verifies that setting ``PEAKY_PEEK_AUTO_PATCH=openai`` results in:
+    * Only the 'openai' adapter appearing in ``patched_names()``
+    * Other library methods remaining as their original (unwrapped) versions
+    """
+    _inject_all_libs(monkeypatch)
+    monkeypatch.setenv("PEAKY_PEEK_AUTO_PATCH", "openai")
+
+    # Get the original Crew.kickoff method before activation
+    import crewai  # noqa: PLC0415
+
+    original_kickoff = crewai.Crew.kickoff
+
+    config = PatchConfig(server_url="http://localhost:9999")
+    try:
+        activate(config)
+
+        # Only openai should be patched
+        names = get_registry().patched_names()
+        assert names == ["openai"], f"Expected only 'openai' patched, got {names}"
+
+        # Crew.kickoff should still be the original (unwrapped) method
+        assert crewai.Crew.kickoff is original_kickoff, "Crew.kickoff should not be patched"
+
+        # The original method should not have the patched flag
+        assert getattr(original_kickoff, "_peaky_peek_patched", False) is False, (
+            "Original kickoff method should not have _peaky_peek_patched=True"
+        )
+    finally:
+        deactivate()
+
+
+# ---------------------------------------------------------------------------
+# Test 10: Activate with a single adapter name (not comma-separated)
+# ---------------------------------------------------------------------------
+
+
+def test_activate_with_single_name_string(monkeypatch, mock_httpx):
+    """Setting PEAKY_PEEK_AUTO_PATCH='openai' (single name, no comma) works.
+
+    This verifies the parser handles both 'openai' and 'openai,anthropic' formats.
+    """
+    _inject_all_libs(monkeypatch)
+    monkeypatch.setenv("PEAKY_PEEK_AUTO_PATCH", "openai")
+
+    config = PatchConfig(server_url="http://localhost:9999")
+    try:
+        activate(config)
+        names = get_registry().patched_names()
+        assert names == ["openai"], f"Expected only 'openai' patched, got {names}"
+    finally:
+        deactivate()
+
+
+# ---------------------------------------------------------------------------
+# Test 11: Activate -> deactivate -> reactivate preserves functionality
+# ---------------------------------------------------------------------------
+
+
+def test_activate_deactivate_reactivate_preserves_functionality(monkeypatch, mock_httpx):
+    """After a full activate/deactivate/reactivate cycle, the adapter still works.
+
+    This tests that:
+    * ``unpatch()`` restores the original (unwrapped) methods
+    * The ``_peaky_peek_patched`` guard resets correctly on deactivation
+    * Re-activation can successfully patch the original methods again
+
+    Note: Uses 'crewai' instead of 'openai' because crewai calls
+    get_or_create_session() during patch(), which sets the global session ID.
+    OpenAI only creates the session lazily on the first LLM call.
+
+    Note: The mock httpx fixture returns the same session ID each time, so
+    we verify that a session IS created (not None) rather than checking for
+    different IDs. The key assertion is that the session is reset to None
+    on deactivate and recreated on reactivate.
+    """
+    _inject_all_libs(monkeypatch)
+    monkeypatch.setenv("PEAKY_PEEK_AUTO_PATCH", "crewai")
+
+    config = PatchConfig(server_url="http://localhost:9999")
+    try:
+        # --- First activation ---
+        activate(config)
+        assert "crewai" in get_registry().patched_names()
+        first_session_id = transport_module._current_session_id
+        assert first_session_id is not None
+
+        # --- Deactivate ---
+        deactivate()
+        assert get_registry().patched_names() == []
+        assert transport_module._current_session_id is None
+
+        # --- Reactivate ---
+        activate(config)
+        assert "crewai" in get_registry().patched_names()
+        second_session_id = transport_module._current_session_id
+        assert second_session_id is not None
+
+        # The key behavior: session was reset and is now available again
+        # (With the mock, the ID is the same, but in production it would differ)
+        assert first_session_id == second_session_id, (
+            "Session IDs should match with mock (same response each time)"
+        )
+    finally:
+        deactivate()

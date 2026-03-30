@@ -267,6 +267,40 @@ class TestPydanticAIAdapterEventEmission:
 
         adapter.unpatch()
 
+    def test_request_event_contains_model_name(self, fake_pydantic_ai, mock_httpx) -> None:
+        """Verify model field in the request event matches the agent's model."""
+        adapter = PydanticAIAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        agent_instance = fake_pydantic_ai.Agent()
+        asyncio.run(fake_pydantic_ai.Agent.run(agent_instance, "Hello"))
+
+        _flush(adapter)
+        sent = _get_trace_events(mock_httpx)
+        req = next(e for e in sent if e["event_type"] == "llm_request")
+        assert req["model"] == "openai:gpt-4o"
+
+        adapter.unpatch()
+
+    def test_response_event_contains_usage(self, fake_pydantic_ai, mock_httpx) -> None:
+        """Verify the response event has usage with non-zero tokens."""
+        adapter = PydanticAIAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        agent_instance = fake_pydantic_ai.Agent()
+        asyncio.run(fake_pydantic_ai.Agent.run(agent_instance, "Hello"))
+
+        _flush(adapter)
+        sent = _get_trace_events(mock_httpx)
+        resp = next(e for e in sent if e["event_type"] == "llm_response")
+        assert "usage" in resp
+        assert resp["usage"]["input_tokens"] == 5
+        assert resp["usage"]["output_tokens"] == 10
+
+        adapter.unpatch()
+
 
 # ---------------------------------------------------------------------------
 # Helper function unit tests
@@ -287,6 +321,12 @@ class TestGetModelName:
         obj = SimpleNamespace()
         assert _get_model_name(obj) == "unknown"
 
+    def test_model_attribute_from_model_object_with_name(self) -> None:
+        """Test _get_model_name when agent has a model object with .name (not .model_name)."""
+        model_obj = SimpleNamespace(name="claude-3-5-sonnet-20241022")
+        obj = SimpleNamespace(model=model_obj)
+        assert _get_model_name(obj) == "claude-3-5-sonnet-20241022"
+
 
 class TestExtractUsage:
     def test_callable_usage(self) -> None:
@@ -306,3 +346,19 @@ class TestExtractUsage:
         result = SimpleNamespace()
         extracted = _extract_usage(result)
         assert extracted == {"input_tokens": 0, "output_tokens": 0}
+
+    def test_non_callable_usage_with_request_tokens(self) -> None:
+        """Test usage attribute with request_tokens (not input_tokens) key."""
+        usage_obj = SimpleNamespace(request_tokens=8, response_tokens=12)
+        result = SimpleNamespace(usage=usage_obj)
+        extracted = _extract_usage(result)
+        assert extracted["input_tokens"] == 8
+        assert extracted["output_tokens"] == 12
+
+    def test_non_callable_usage_with_response_tokens(self) -> None:
+        """Test usage attribute with response_tokens (not output_tokens) key."""
+        usage_obj = SimpleNamespace(request_tokens=15, response_tokens=25)
+        result = SimpleNamespace(usage=usage_obj)
+        extracted = _extract_usage(result)
+        assert extracted["input_tokens"] == 15
+        assert extracted["output_tokens"] == 25

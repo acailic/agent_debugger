@@ -158,6 +158,15 @@ class TestAutoGenAdapterIsAvailable:
             adapter = AutoGenAdapter()
             assert adapter.is_available() is True
 
+    def test_returns_true_when_both_packages_present(self) -> None:
+        """When both autogen v0.2 and autogen_agentchat v0.4 are present, should still return True."""
+        fake_v02 = types.ModuleType("autogen")
+        fake_v02.ConversableAgent = object  # type: ignore[attr-defined]
+        fake_v04 = types.ModuleType("autogen_agentchat")
+        with patch.dict(sys.modules, {"autogen": fake_v02, "autogen_agentchat": fake_v04}):
+            adapter = AutoGenAdapter()
+            assert adapter.is_available() is True
+
 
 # ---------------------------------------------------------------------------
 # patch / unpatch  — v0.2
@@ -326,3 +335,77 @@ class TestAutoGenAdapterV04EventEmission:
         assert "agent_end" in types_
 
         adapter.unpatch()
+
+    def test_run_error_emits_error_event_and_reraises(self, fake_autogen_v04, mock_httpx) -> None:
+        """When AssistantAgent.run raises, an error event should be sent and the exception re-raised."""
+        _, agents = fake_autogen_v04
+
+        adapter = AutoGenAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        # Inject failure via the saved original — after patching, not before
+        saved_original = adapter._original_method
+        adapter._original_method = lambda *a, **kw: (_ for _ in ()).throw(ValueError("run failed"))
+        try:
+            agent_instance = agents.AssistantAgent()
+            with pytest.raises(ValueError, match="run failed"):
+                asyncio.run(agents.AssistantAgent.run(agent_instance))
+
+            _flush(adapter)
+            sent = _get_trace_events(mock_httpx)
+            types_ = [e["event_type"] for e in sent]
+            assert "error" in types_
+        finally:
+            adapter._original_method = saved_original
+            adapter.unpatch()
+
+    def test_run_server_unreachable_does_not_raise(self, fake_autogen_v04, mock_httpx) -> None:
+        """Even if the server is unreachable, the run should complete."""
+        mock_httpx.post.side_effect = Exception("connection refused")
+        _, agents = fake_autogen_v04
+
+        adapter = AutoGenAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        agent_instance = agents.AssistantAgent()
+        result = asyncio.run(agents.AssistantAgent.run(agent_instance))
+        assert result == "v04_run_result"
+
+        adapter.unpatch()
+
+
+# ---------------------------------------------------------------------------
+# Version preference
+# ---------------------------------------------------------------------------
+
+
+class TestAutoGenAdapterVersionPreference:
+    def test_v02_preferred_over_v04(self, mock_httpx) -> None:
+        """When both v0.2 and v0.4 are available, patch should target v0.2."""
+        fake_v02 = types.ModuleType("autogen")
+
+        class FakeConversableAgent:
+            def initiate_chat(self, *args: Any, **kwargs: Any) -> str:
+                return "v02_chat_result"
+
+        fake_v02.ConversableAgent = FakeConversableAgent  # type: ignore[attr-defined]
+
+        fake_v04 = types.ModuleType("autogen_agentchat")
+
+        with patch.dict(
+            sys.modules,
+            {"autogen": fake_v02, "autogen_agentchat": fake_v04},
+        ):
+            adapter = AutoGenAdapter()
+            config = PatchConfig(server_url="http://localhost:9999")
+            adapter.patch(config)
+
+            # Should patch v0.2, not v0.4
+            assert adapter._api_version == "v02"
+            assert hasattr(adapter, "_original_method")
+            # The patched method should be on ConversableAgent.initiate_chat
+            assert getattr(fake_v02.ConversableAgent.initiate_chat, "_peaky_peek_patched", False) is True
+
+            adapter.unpatch()
