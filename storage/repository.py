@@ -161,16 +161,23 @@ class TraceRepository:
     async def add_event(self, event: TraceEvent) -> TraceEvent:
         """Add a new event to the database.
 
+        Automatically increments session.errors when an ERROR event is added.
+
         Args:
             event: TraceEvent instance to persist
 
         Returns:
             The created TraceEvent instance
         """
-        return await self._event_repo.add_event(event)
+        result = await self._event_repo.add_event(event)
+        if event.event_type.value == "error":
+            await self._increment_session_error_count(event.session_id)
+        return result
 
     async def add_events_batch(self, events: list[TraceEvent]) -> list[TraceEvent]:
         """Add multiple events to the database in a single transaction.
+
+        Automatically increments session.errors for each ERROR event in the batch.
 
         Args:
             events: List of TraceEvent instances to persist
@@ -178,7 +185,24 @@ class TraceRepository:
         Returns:
             List of created TraceEvent instances
         """
-        return await self._event_repo.add_events_batch(events)
+        results = await self._event_repo.add_events_batch(events)
+        # Group error events by session_id and batch-increment
+        error_counts: dict[str, int] = {}
+        for event in events:
+            if event.event_type.value == "error":
+                error_counts[event.session_id] = error_counts.get(event.session_id, 0) + 1
+        for session_id, count in error_counts.items():
+            await self._increment_session_error_count(session_id, count)
+        return results
+
+    async def _increment_session_error_count(self, session_id: str, count: int = 1) -> None:
+        """Increment the errors counter on a session.
+
+        Silently skips if the session does not exist.
+        """
+        session = await self._session_repo.get_session(session_id)
+        if session is not None:
+            await self._session_repo.update_session(session_id, errors=session.errors + count)
 
     async def get_event(self, event_id: str) -> TraceEvent | None:
         """Retrieve an event by ID with tenant isolation.
