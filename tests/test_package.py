@@ -30,7 +30,7 @@ def test_version_exists():
     except PackageNotFoundError:
         # Package not installed in development mode - this is OK
         # Just verify the hardcoded version is valid
-        assert agent_debugger_sdk.__version__ == "0.1.8"
+        assert agent_debugger_sdk.__version__ == "0.1.10"
 
 
 def test_version_format():
