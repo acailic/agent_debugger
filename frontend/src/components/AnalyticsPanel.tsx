@@ -101,15 +101,15 @@ export function AnalyticsPanel() {
 
       <div className="analytics-stats">
         <div className="stat-card">
-          <span className="stat-value">{metrics.sessions_created}</span>
+          <span className="stat-value">{metrics.sessions_created.toLocaleString()}</span>
           <span className="stat-label">Sessions</span>
         </div>
         <div className="stat-card">
-          <span className="stat-value">{derived.estimated_time_saved_minutes}</span>
+          <span className="stat-value">{derived.estimated_time_saved_minutes.toLocaleString()}</span>
           <span className="stat-label">Time Saved (min)</span>
         </div>
         <div className="stat-card">
-          <span className="stat-value">{metrics.why_button_clicks}</span>
+          <span className="stat-value">{metrics.why_button_clicks.toLocaleString()}</span>
           <span className="stat-label">Why Clicks</span>
         </div>
       </div>

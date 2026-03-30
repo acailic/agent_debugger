@@ -686,9 +686,9 @@ function App() {
                       </div>
                     )}
                     <div className="checkpoint-compare-grid">
-                      <CheckpointSnapshot title="Selected checkpoint" checkpoint={selectedCheckpoint} />
+                      <CheckpointSnapshot title="Selected checkpoint" checkpoint={selectedCheckpoint} variant="selected" />
                       {replay?.nearest_checkpoint && replay.nearest_checkpoint.id !== selectedCheckpoint.id ? (
-                        <CheckpointSnapshot title="Replay anchor" checkpoint={replay.nearest_checkpoint} />
+                        <CheckpointSnapshot title="Replay anchor" checkpoint={replay.nearest_checkpoint} variant="anchor" />
                       ) : null}
                     </div>
                   </>
@@ -751,7 +751,13 @@ function App() {
               </button>
             ))}
           </div>
-          {loading && !sessions.length ? <p>Loading sessions...</p> : null}
+          {loading && !sessions.length ? (
+            <div className="session-skeleton" aria-label="Loading sessions">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          ) : null}
           {!loading && !sessions.length ? (
             <EmptyState
               icon="&#128269;"

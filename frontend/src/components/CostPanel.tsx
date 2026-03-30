@@ -83,11 +83,11 @@ export default function CostPanel({ sessionId }: CostPanelProps) {
         </div>
         <div className="cost-row">
           <span>LLM Calls</span>
-          <span>{data.llm_calls}</span>
+          <span>{data.llm_calls.toLocaleString()}</span>
         </div>
         <div className="cost-row">
           <span>Tool Calls</span>
-          <span>{data.tool_calls}</span>
+          <span>{data.tool_calls.toLocaleString()}</span>
         </div>
       </div>
     </div>

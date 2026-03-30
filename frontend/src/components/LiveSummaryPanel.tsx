@@ -72,7 +72,7 @@ export function LiveSummaryPanel({
           <h2>Session pulse</h2>
         </div>
         <div className={`live-badge ${isConnected ? 'connected' : 'offline'}`}>
-          <span className="live-dot" />
+          <span className={`live-dot ${isConnected ? 'pulsing' : ''}`} />
           <strong>{isConnected ? 'Connected' : 'Offline'}</strong>
         </div>
       </div>

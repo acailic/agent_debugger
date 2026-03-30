@@ -25,7 +25,7 @@ export default function CostSummary() {
         </div>
         <div className="cost-stat">
           <span className="cost-label">Sessions</span>
-          <span className="cost-value">{data.session_count}</span>
+          <span className="cost-value">{data.session_count.toLocaleString()}</span>
         </div>
         <div className="cost-stat">
           <span className="cost-label">Avg / Session</span>

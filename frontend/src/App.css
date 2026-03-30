@@ -34,6 +34,9 @@
 }
 
 body {
+  text-rendering: optimizeLegibility;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--muted), transparent 40%) transparent;
   margin: 0;
   min-width: 320px;
   font-family: 'Manrope', sans-serif;
@@ -50,6 +53,40 @@ select {
   font: inherit;
 }
 
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--muted), transparent 40%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--muted), transparent 25%);
+}
+
+/* Text selection styling */
+::selection {
+  background: color-mix(in oklch, var(--accent), transparent 75%);
+  color: var(--text);
+}
+
+/* Focus visible styling for accessibility */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 button {
   border: 0;
 }
@@ -71,12 +108,13 @@ button {
   border: 1px solid var(--panel-border);
   border-radius: 1.4rem;
   background: var(--panel);
+  border-top: 2px solid var(--accent);
 }
 
 .eyebrow {
   margin: 0 0 0.35rem;
   font-size: 0.74rem;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -112,12 +150,18 @@ button {
 .hero-metrics > div,
 .session-stats > div,
 .detail-grid > div {
-  padding: 1rem;
+  padding: 1.1rem;
   border-radius: 1.2rem;
   background: color-mix(in oklch, var(--panel), var(--accent) 4%);
   border: 1px solid color-mix(in oklch, var(--panel-border), var(--accent) 22%);
   min-width: 0;
   overflow: hidden;
+  transition: box-shadow 200ms ease, background-color 200ms ease;
+}
+
+.hero-metrics > div:hover {
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent), white 35%), 0 8px 24px color-mix(in oklch, var(--accent), transparent 70%);
+  background: color-mix(in oklch, var(--panel), var(--accent) 8%);
 }
 
 .metric-label {
@@ -136,15 +180,46 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .error-banner {
+  position: relative;
   margin-top: 1rem;
-  padding: 1rem 1.2rem;
+  padding: 1rem 3rem 1rem 1.2rem;
   border-radius: 1rem;
   background: color-mix(in oklch, var(--danger), white 85%);
-  border: 1px solid color-mix(in oklch, var(--danger), white 50%);
+  border-left: 4px solid var(--danger);
   color: var(--danger);
+  animation: slideDown 200ms ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.error-banner::after {
+  content: "×";
+  position: absolute;
+  top: 50%;
+  right: 1.2rem;
+  transform: translateY(-50%);
+  cursor: pointer;
+  font-size: 1.4rem;
+  line-height: 1;
+  opacity: 0.5;
+  transition: opacity 180ms ease;
+}
+
+.error-banner:hover::after {
+  opacity: 1;
 }
 
 .error-banner .retry-link {
@@ -392,12 +467,34 @@ button {
   display: grid;
   gap: 1rem;
   margin-top: 1rem;
+  animation: fadeInUp 200ms ease;
+}
+
+.inspect-grid > *:nth-child(1) { animation-delay: 0ms; }
+.inspect-grid > *:nth-child(2) { animation-delay: 50ms; }
+.inspect-grid > *:nth-child(3) { animation-delay: 100ms; }
+.inspect-grid > *:nth-child(4) { animation-delay: 150ms; }
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .replay-bar {
   display: grid;
   gap: 0.85rem;
   margin-bottom: 0.5rem;
+  padding: 0.85rem;
+  border-radius: 1.1rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 15%);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(12px);
 }
 
 .replay-bar .mode-switches {
@@ -412,7 +509,7 @@ button {
   padding: 0.85rem;
   border-radius: 1rem;
   border: 1px solid var(--panel-border);
-  background: color-mix(in oklch, var(--panel), var(--bg-strong) 20%);
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 25%);
 }
 
 .breakpoint-bar label {
@@ -428,6 +525,13 @@ button {
   border: 1px solid var(--panel-border);
   background: var(--panel);
   color: var(--text);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.breakpoint-bar input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent), transparent 75%);
 }
 
 .breakpoint-bar .checkbox-label {
@@ -442,6 +546,7 @@ button {
 .panel {
   border-radius: 1.4rem;
   background: var(--panel);
+  transition: opacity 200ms ease, transform 200ms ease;
 }
 
 .panel--primary {
@@ -491,6 +596,37 @@ button {
   gap: 0.7rem;
 }
 
+.session-skeleton {
+  display: flex;
+  gap: 0.7rem;
+  padding: 0.5rem 0;
+}
+
+.session-skeleton span {
+  flex: 1;
+  height: 3.5rem;
+  border-radius: 1.1rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 38%);
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+.session-skeleton span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.session-skeleton span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
 .session-card,
 .cluster-pill,
 .alert-row,
@@ -508,12 +644,15 @@ button {
   gap: 0.25rem;
   width: 100%;
   padding: 1rem;
+  padding-left: calc(1rem - 3px);
   border-radius: 1.1rem;
   background: color-mix(in oklch, var(--panel), var(--bg-strong) 38%);
   border: 1px solid transparent;
+  border-left: 3px solid transparent;
   text-align: left;
   min-width: 0;
   overflow: hidden;
+  transition: box-shadow 180ms ease, background-color 180ms ease, border-color 180ms ease, transform 160ms ease;
 }
 
 .session-card:hover,
@@ -526,7 +665,13 @@ button {
   transform: translateY(-1px);
 }
 
-.session-card.active,
+.session-card.active {
+  border-left-color: var(--node-session);
+  border-color: color-mix(in oklch, var(--node-session), white 50%);
+  background: color-mix(in oklch, var(--panel), var(--node-session) 12%);
+  box-shadow: 0 4px 16px color-mix(in oklch, var(--node-session), transparent 60%);
+}
+
 .mode-switches button.active {
   border-color: color-mix(in oklch, var(--accent), white 50%);
   background: color-mix(in oklch, var(--panel), var(--accent) 14%);
@@ -595,13 +740,15 @@ button {
 .retention-pill {
   display: inline-flex;
   align-items: center;
-  padding: 0.18rem 0.55rem;
+  padding: 0.25rem 0.65rem;
   border-radius: 999px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.68rem;
   color: white;
   background: var(--muted);
+  text-shadow: 0 1px 2px color-mix(in oklch, black, transparent 65%);
+  transition: all 180ms ease;
 }
 
 .retention-pill.full {
@@ -818,6 +965,7 @@ button {
 }
 
 .conversation-list {
+  scroll-behavior: smooth;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.85rem;
@@ -833,6 +981,14 @@ button {
   text-align: left;
   cursor: pointer;
   transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+
+.conversation-row.agent_turn {
+  border-left: 3px solid var(--node-llm);
+}
+
+.conversation-row.prompt_policy {
+  border-left: 3px solid var(--accent);
 }
 
 .conversation-row:hover {
@@ -1103,6 +1259,7 @@ button {
 .highlight-info-card {
   background: var(--highlight-bg);
   border: 1px solid var(--highlight);
+  border-left: 3px solid var(--highlight);
   border-radius: 6px;
   padding: 8px 12px;
   margin-bottom: 12px;
@@ -1429,6 +1586,7 @@ button {
   border-radius: 1.2rem;
   background: color-mix(in oklch, var(--panel), var(--olive) 7%);
   border: 1px solid color-mix(in oklch, var(--panel-border), var(--olive) 16%);
+  border-left: 3px solid var(--node-checkpoint);
 }
 
 .checkpoint-copy h3,
@@ -1501,6 +1659,7 @@ button {
 .diagnosis-card {
   padding: 1rem;
   background: color-mix(in oklch, var(--panel), var(--accent) 6%);
+  border-left: 3px solid var(--danger);
 }
 
 .diagnosis-head,
@@ -1545,6 +1704,12 @@ button {
   padding: 0.9rem;
   border-radius: 1rem;
   background: color-mix(in oklch, var(--panel), var(--bg-strong) 42%);
+  font-family: 'Manrope', monospace;
+  font-size: 0.8rem;
+}
+
+.detail-sections > div:last-child > pre {
+  background: color-mix(in oklch, var(--bg-strong), black 4%);
 }
 
 .content,
@@ -1555,6 +1720,17 @@ pre {
 }
 
 .tool-inspector .tool-section h4,
+.llm-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.llm-section:last-child {
+  border-bottom: none;
+}
+
+
 .llm-section h4,
 .detail-sections h3 {
   margin: 0 0 0.5rem;
@@ -1597,7 +1773,23 @@ pre {
 }
 
 .empty-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 12rem;
+  gap: 0.75rem;
   color: var(--muted);
+  text-align: center;
+}
+
+.empty-panel .empty-icon {
+  font-size: 2rem;
+  opacity: 0.5;
+}
+
+.empty-panel p {
+  margin: 0;
 }
 
 .alerts-panel p:last-child {
@@ -2806,30 +2998,39 @@ pre {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1rem;
-  padding: 0 0.5rem;
+  padding: 0.5rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 25%);
+  border-radius: 1.2rem;
+  border: 1px solid var(--panel-border);
+  position: relative;
 }
 
 .tab-btn {
   padding: 0.75rem 1.5rem;
   border-radius: 999px;
-  background: color-mix(in oklch, var(--panel), var(--bg-strong) 30%);
+  background: transparent;
   border: 1px solid transparent;
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
-  transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease;
+  transition: all 180ms ease;
   min-height: 44px;
+  position: relative;
+  color: var(--muted);
 }
 
 .tab-btn:hover {
   transform: translateY(-1px);
-  background: color-mix(in oklch, var(--panel), var(--accent) 10%);
+  color: var(--text);
+  background: color-mix(in oklch, var(--panel), var(--accent) 8%);
 }
 
 .tab-btn.active {
   border-color: color-mix(in oklch, var(--accent), white 50%);
-  background: color-mix(in oklch, var(--panel), var(--accent) 14%);
+  background: var(--panel);
   font-weight: 600;
+  color: var(--text);
+  box-shadow: 0 2px 8px color-mix(in oklch, var(--accent), transparent 65%);
 }
 
 /* Analytics full-page layout */
@@ -3292,4 +3493,291 @@ pre {
   background: color-mix(in oklch, var(--panel), var(--accent) 12%);
   border-color: color-mix(in oklch, var(--panel-border), var(--accent) 30%);
   color: var(--accent-deep);
+}
+
+/* Search input enhancements */
+.search-input-wrapper {
+  position: relative;
+}
+
+.search-input-wrapper::before {
+  content: "🔍";
+  position: absolute;
+  left: 0.95rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.9rem;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.search-controls input,
+.search-controls select {
+  padding: 0.8rem 0.95rem 0.8rem 2.8rem !important;
+  transition: box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.search-controls input:focus,
+.search-controls select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent), transparent 85%);
+}
+
+.search-skeleton {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+}
+
+.search-skeleton-item {
+  height: 60px;
+  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 34%);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.search-skeleton-item:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.search-skeleton-item:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.search-result {
+  border-left: 3px solid transparent;
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+
+.search-result:hover {
+  transform: translateX(2px);
+}
+
+.search-result[data-event-type="decision"] {
+  border-left-color: var(--node-decision);
+}
+
+.search-result[data-event-type="tool_call"],
+.search-result[data-event-type="tool_result"] {
+  border-left-color: var(--node-tool);
+}
+
+.search-result[data-event-type="llm_request"],
+.search-result[data-event-type="llm_response"] {
+  border-left-color: var(--node-llm);
+}
+
+.search-result[data-event-type="safety_check"],
+.search-result[data-event-type="refusal"],
+.search-result[data-event-type="policy_violation"] {
+  border-left-color: var(--node-risk);
+}
+
+.search-result[data-event-type="checkpoint"] {
+  border-left-color: var(--node-checkpoint);
+}
+
+.search-result[data-event-type="agent_turn"] {
+  border-left-color: var(--node-session);
+}
+
+/* Analytics panel enhancements */
+.analytics-panel .stat-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.analytics-panel .stat-card {
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.analytics-panel .stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px oklch(0.52 0.04 60 / 0.1);
+}
+
+.analytics-panel .cost-value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Alert panel severity indicators */
+.live-alert-row {
+  position: relative;
+  padding-left: calc(1rem + 4px);
+  border-left: 4px solid transparent;
+  transition: border-color 180ms ease;
+}
+
+.live-alert-row.low {
+  border-left-color: var(--olive);
+}
+
+.live-alert-row.medium {
+  border-left-color: var(--warning);
+}
+
+.live-alert-row.high {
+  border-left-color: var(--danger);
+  animation: alertPulse 2s ease-in-out infinite;
+}
+
+@keyframes alertPulse {
+  0%, 100% {
+    background: color-mix(in oklch, var(--panel), var(--danger) 8%);
+  }
+  50% {
+    background: color-mix(in oklch, var(--panel), var(--danger) 14%);
+  }
+}
+
+/* Drift alert enhancements */
+.drift-alert {
+  position: relative;
+  padding-left: calc(10px + 4px);
+  border-left-width: 4px;
+  border-left-style: solid;
+}
+
+.drift-alert.low {
+  border-left-color: var(--olive);
+}
+
+.drift-alert.medium {
+  border-left-color: var(--warning);
+}
+
+.drift-alert.high {
+  border-left-color: var(--danger);
+}
+
+/* Failure cluster enhancements */
+.cluster-card {
+  position: relative;
+  padding-left: calc(1rem + 4px);
+  border-left: 4px solid transparent;
+  transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.cluster-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px oklch(0.52 0.04 60 / 0.1);
+}
+
+.cluster-card[data-severity="high"] {
+  border-left-color: var(--danger);
+}
+
+.cluster-card[data-severity="medium"] {
+  border-left-color: var(--warning);
+}
+
+.cluster-card[data-severity="low"] {
+  border-left-color: var(--olive);
+}
+
+/* Cost panel tabular numbers */
+.cost-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-summary .cost-value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Detail grid tabular numbers */
+.detail-grid strong {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Badge values tabular numbers */
+.badge-value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Metric badges tabular numbers */
+.metric-badge .badge-value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Live dot pulsing animation */
+.live-dot.pulsing {
+  animation: dotPulse 2s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--olive), transparent 60%);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in oklch, var(--olive), transparent 0%);
+  }
+}
+
+/* Live alert items polish */
+.live-alert-row {
+  transition: background-color 180ms ease, transform 180ms ease;
+}
+
+.live-alert-row:hover {
+  transform: translateX(2px);
+}
+
+/* Metric badges polish */
+.metric-badge {
+  padding: 0.4rem 0.7rem;
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 40%);
+  transition: background-color 180ms ease;
+}
+
+.metric-badge:hover {
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 50%);
+}
+
+/* Rolling window info polish */
+.rolling-window-info {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  background: color-mix(in oklch, var(--accent), transparent 85%);
+  color: var(--accent);
+  font-size: 0.75rem;
+}
+
+/* Analysis strip polish */
+.analysis-strip {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 35%);
+}
+
+/* Stat card hover effects */
+.stat-card {
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px oklch(0.52 0.04 60 / 0.1);
+}
+
+/* Adoption bar polish */
+.adoption-bar-row {
+  transition: background-color 180ms ease;
+}
+
+.adoption-bar-row:hover {
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 8%);
+  border-radius: 8px;
+}
+
+/* Checkpoint label distinction */
+.checkpoint-preview.selected .eyebrow {
+  color: var(--accent);
+}
+
+.checkpoint-preview.anchor .eyebrow {
+  color: var(--muted);
 }

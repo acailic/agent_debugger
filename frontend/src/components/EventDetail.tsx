@@ -28,6 +28,7 @@ export function EventDetail({
   if (!event) {
     return (
       <section className="event-detail panel panel--primary empty-panel">
+        <span className="empty-icon">🔍</span>
         <p>Choose a trace node to inspect provenance, guardrails, and replay value.</p>
       </section>
     )
