@@ -103,7 +103,7 @@ def record_event(
 
             # Update daily aggregate
             aggregate_column = EVENT_TO_AGGREGATE_COLUMN.get(event_type)
-            if aggregate_column:
+            if aggregate_column and aggregate_column in EVENT_TO_AGGREGATE_COLUMN.values():
                 # Use INSERT OR REPLACE pattern for upsert
                 # First try to insert the row for today if it doesn't exist
                 conn.execute(
@@ -114,13 +114,10 @@ def record_event(
                     (today,),
                 )
                 # Then increment the appropriate counter
-                conn.execute(
-                    f"""
-                    UPDATE daily_aggregates
-                    SET {aggregate_column} = {aggregate_column} + 1
-                    WHERE date = ?
-                    """,
-                    (today,),
+                sql = (  # nosec B608: aggregate_column validated against hardcoded allowlist
+                    f"UPDATE daily_aggregates SET {aggregate_column} = {aggregate_column} + 1 WHERE date = ?"
+                )
+                conn.execute(sql, (today,),
                 )
 
             conn.commit()
