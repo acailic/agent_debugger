@@ -15,16 +15,15 @@ These tests are designed to FAIL with the current code and document the
 expected behavior. They should pass after the issues are fixed.
 """
 
+import uuid
 from datetime import datetime, timezone
 
 import pytest
 
-from agent_debugger_sdk.core.events import Session, SessionStatus, TraceEvent, EventType
+from agent_debugger_sdk.core.events import EventType, Session, TraceEvent
 from agent_debugger_sdk.pricing import calculate_cost
 from storage.models import AnomalyAlertModel
 from storage.repository import TraceRepository
-import uuid
-
 
 # =============================================================================
 # Helper Functions
@@ -139,6 +138,7 @@ async def test_retention_tier_populated_for_sessions(db_session):
     Current behavior: May fail if retention_tier is not properly set during session creation.
     """
     from sqlalchemy import select
+
     from storage.models import SessionModel
 
     repo = TraceRepository(db_session, tenant_id="local")
@@ -521,6 +521,7 @@ async def test_seed_session_complete_enrichment(db_session):
 
     # Set retention_tier (requires direct SQL as in seed script)
     from sqlalchemy import update
+
     from storage.models import SessionModel
 
     await db_session.execute(
@@ -545,6 +546,7 @@ async def test_seed_session_complete_enrichment(db_session):
 
     # retention_tier is on SessionModel, not SDK Session — query DB directly
     from sqlalchemy import select
+
     from storage.models import SessionModel
 
     result = await db_session.execute(

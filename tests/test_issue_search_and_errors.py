@@ -26,7 +26,6 @@ from agent_debugger_sdk.core.events import (
 )
 from storage.repository import TraceRepository
 
-
 # =============================================================================
 # ISSUE #1: Search returns no results
 # =============================================================================

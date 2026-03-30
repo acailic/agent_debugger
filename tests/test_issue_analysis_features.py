@@ -17,25 +17,23 @@ Issue #5: Behavior alerts empty across all sessions
 from __future__ import annotations
 
 import asyncio
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
-import uuid
 
 import api.main as api_main
 from agent_debugger_sdk.core.context import configure_event_pipeline
 from agent_debugger_sdk.core.events import EventType, TraceEvent
 from api import app_context
 from api import services as api_services
-from collector.baseline import AgentBaseline, compute_baseline_from_sessions, detect_drift
+from collector.baseline import AgentBaseline, detect_drift
 from collector.behavior_monitor import BehaviorMonitor
 from collector.buffer import get_event_buffer
 from collector.server import SessionCreate, configure_storage, create_session
 from storage import Base, TraceRepository
 from storage.models import AnomalyAlertModel
-
 
 # =============================================================================
 # Helper Functions (borrowed from test_drift_alerts_api.py)
@@ -73,7 +71,6 @@ def _create_mock_request():
 @pytest.fixture
 def drift_repo_factory(tmp_path, monkeypatch):
     """Create a test repository for drift/alert tests."""
-    import uuid
 
     db_path = tmp_path / "drift-alerts.db"
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}", echo=False)
