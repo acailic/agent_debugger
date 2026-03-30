@@ -1,6 +1,11 @@
 """Agent Debugger SDK - Core types and interfaces for tracing agent execution."""
 
-__version__ = "0.1.10"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("peaky-peek")
+except PackageNotFoundError:
+    __version__ = "dev"
 
 from agent_debugger_sdk.checkpoints import (
     BaseCheckpointState,
