@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from agent_debugger_sdk.core.events import Session, TraceEvent
+from storage.converters import orm_to_event, orm_to_session
 from storage.embedding import build_session_embedding, cosine_similarity, text_to_vector
 from storage.models import EventModel, SessionModel
 
@@ -110,9 +111,6 @@ class SessionSearchService:
 
         scored.sort(key=lambda x: x[0], reverse=True)
 
-        # Import converter at module level for consistency
-        from storage.converters import orm_to_session
-
         results: list[Session] = []
         for sim, db_sess in scored[:limit]:
             session = orm_to_session(db_sess)
@@ -169,8 +167,5 @@ class SessionSearchService:
             stmt = stmt.where(EventModel.event_type == event_type)
 
         result = await self.session.execute(stmt)
-
-        # Import converter at module level for consistency
-        from storage.converters import orm_to_event
 
         return [orm_to_event(db) for db in result.scalars()]
