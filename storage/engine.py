@@ -85,7 +85,10 @@ def _repair_legacy_sqlite_schema(connection) -> None:
             stamp_version = "003_add_research_features"
         else:
             stamp_version = "002_add_session_replay_value"
-        connection.execute(text(f"INSERT INTO alembic_version (version_num) VALUES ('{stamp_version}')"))
+        connection.execute(
+            text("INSERT INTO alembic_version (version_num) VALUES (:stamp_version)"),
+            {"stamp_version": stamp_version},
+        )
         repaired_legacy = True
 
     return repaired_legacy
