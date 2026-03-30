@@ -29,11 +29,13 @@ install-dev:
 	pip install -e ".[server,langchain,pydantic-ai,crewai]"
 	pip install pytest pytest-asyncio ruff
 
+API_PORT ?= 8000
+
 server:
-	uvicorn api.main:app --reload --port 8000
+	uvicorn api.main:app --reload --port $(API_PORT)
 
 frontend:
-	cd frontend && npm install && npm run dev
+	cd frontend && API_PORT=$(API_PORT) npm run dev
 
 test:
 	python3 -m pytest -q
