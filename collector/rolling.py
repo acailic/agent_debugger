@@ -13,6 +13,87 @@ from .models import RollingSummary, RollingWindow
 class RollingWindowCalculator:
     """Calculate rolling window metrics for live monitoring."""
 
+    def _handle_tool_call(
+        self,
+        window: RollingWindow,
+        event: TraceEvent,
+        confidences: list[float],
+    ) -> None:
+        del confidences
+        window.tool_calls += 1
+        tool_name = _event_value(event, "tool_name", "")
+        if tool_name:
+            window.unique_tools.add(tool_name)
+
+    def _handle_llm_call(
+        self,
+        window: RollingWindow,
+        event: TraceEvent,
+        confidences: list[float],
+    ) -> None:
+        del confidences
+        window.llm_calls += 1
+        usage = _event_value(event, "usage", {}) or {}
+        if isinstance(usage, dict):
+            window.total_tokens += usage.get("total_tokens", 0)
+        cost = _event_value(event, "cost_usd", 0.0)
+        if isinstance(cost, (int, float)):
+            window.total_cost_usd += float(cost)
+
+    def _handle_decision(
+        self,
+        window: RollingWindow,
+        event: TraceEvent,
+        confidences: list[float],
+    ) -> None:
+        window.decisions += 1
+        confidence = _event_value(event, "confidence", None)
+        if confidence is not None and isinstance(confidence, (int, float)):
+            confidences.append(float(confidence))
+
+    def _handle_error(
+        self,
+        window: RollingWindow,
+        event: TraceEvent,
+        confidences: list[float],
+    ) -> None:
+        del event, confidences
+        window.errors += 1
+
+    def _handle_refusal(
+        self,
+        window: RollingWindow,
+        event: TraceEvent,
+        confidences: list[float],
+    ) -> None:
+        del event, confidences
+        window.refusals += 1
+
+    def _handle_agent_turn(
+        self,
+        window: RollingWindow,
+        event: TraceEvent,
+        confidences: list[float],
+    ) -> None:
+        del confidences
+        speaker = _event_value(event, "speaker", "")
+        if speaker:
+            window.unique_agents.add(speaker)
+        state_summary = _event_value(event, "state_summary", "")
+        if state_summary and isinstance(state_summary, str):
+            window.state_progression.append(state_summary)
+
+    def _event_handlers(self) -> dict[EventType, Any]:
+        return {
+            EventType.TOOL_CALL: self._handle_tool_call,
+            EventType.LLM_REQUEST: self._handle_llm_call,
+            EventType.LLM_RESPONSE: self._handle_llm_call,
+            EventType.DECISION: self._handle_decision,
+            EventType.ERROR: self._handle_error,
+            EventType.REFUSAL: self._handle_refusal,
+            EventType.AGENT_TURN: self._handle_agent_turn,
+        }
+
     def compute_rolling_window(
         self,
         events: list[TraceEvent],
@@ -43,38 +124,12 @@ class RollingWindowCalculator:
         ]
 
         confidences: list[float] = []
+        handlers = self._event_handlers()
         for event in recent_events:
             window.event_count += 1
-
-            if event.event_type == EventType.TOOL_CALL:
-                window.tool_calls += 1
-                tool_name = _event_value(event, "tool_name", "")
-                if tool_name:
-                    window.unique_tools.add(tool_name)
-            elif event.event_type == EventType.LLM_REQUEST or event.event_type == EventType.LLM_RESPONSE:
-                window.llm_calls += 1
-                usage = _event_value(event, "usage", {}) or {}
-                if isinstance(usage, dict):
-                    window.total_tokens += usage.get("total_tokens", 0)
-                cost = _event_value(event, "cost_usd", 0.0)
-                if isinstance(cost, (int, float)):
-                    window.total_cost_usd += float(cost)
-            elif event.event_type == EventType.DECISION:
-                window.decisions += 1
-                confidence = _event_value(event, "confidence", None)
-                if confidence is not None and isinstance(confidence, (int, float)):
-                    confidences.append(float(confidence))
-            elif event.event_type == EventType.ERROR:
-                window.errors += 1
-            elif event.event_type == EventType.REFUSAL:
-                window.refusals += 1
-            elif event.event_type == EventType.AGENT_TURN:
-                speaker = _event_value(event, "speaker", "")
-                if speaker:
-                    window.unique_agents.add(speaker)
-                state_summary = _event_value(event, "state_summary", "")
-                if state_summary and isinstance(state_summary, str):
-                    window.state_progression.append(state_summary)
+            handler = handlers.get(event.event_type)
+            if handler is not None:
+                handler(window, event, confidences)
 
         if confidences:
             window.avg_confidence = sum(confidences) / len(confidences)

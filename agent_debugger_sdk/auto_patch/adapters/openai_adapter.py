@@ -66,7 +66,7 @@ class OpenAIAdapter(BaseAdapter):
             if "async_create" in self._originals:
                 openai.AsyncOpenAI.chat.completions.create = self._originals["async_create"]
         except Exception:
-            pass
+            logger.warning("OpenAIAdapter: failed to restore original client methods", exc_info=True)
         finally:
             if self._transport is not None:
                 self._transport.shutdown()

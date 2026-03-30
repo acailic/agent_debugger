@@ -205,7 +205,7 @@ def _extract_usage(result: Any) -> dict[str, int]:
                 "output_tokens": getattr(usage_obj, "response_tokens", 0) or 0,
             }
         except Exception:
-            pass
+            logger.warning("PydanticAIAdapter: failed to extract usage from result.usage()", exc_info=True)
 
     # Older / alternate attribute layouts
     if hasattr(result, "usage") and not callable(result.usage):

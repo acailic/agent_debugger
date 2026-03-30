@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from agent_debugger_sdk.core.events import Session, TraceEvent
+from storage.converters import orm_to_event, orm_to_session
 from storage.embedding import build_session_embedding, cosine_similarity, text_to_vector
 from storage.models import EventModel, SessionModel
 
@@ -60,66 +61,12 @@ class SessionSearchService:
         if not query_vec:
             return []
 
-        # Fetch candidate sessions with eager-loaded events (limit to prevent unbounded memory usage)
-        CANDIDATE_LIMIT = 500
-        stmt = (
-            select(SessionModel)
-            .options(selectinload(SessionModel.events))
-            .where(SessionModel.tenant_id == self.tenant_id)
-            .order_by(SessionModel.started_at.desc())
-            .limit(CANDIDATE_LIMIT)
-        )
-        if status:
-            stmt = stmt.where(SessionModel.status == status)
-
-        result = await self.session.execute(stmt)
-        db_sessions = list(result.scalars().all())
-
+        db_sessions = await self._load_candidate_sessions(status=status)
         if not db_sessions:
             return []
 
-        # Build similarity scores
-        scored: list[tuple[float, SessionModel]] = []
-        for db_sess in db_sessions:
-            # Events are already loaded via selectinload
-            db_events = db_sess.events
-
-            # Build event dicts with flattened data for embedding
-            event_dicts = []
-            for e in db_events:
-                event_dict = {
-                    "event_type": e.event_type,
-                    "name": e.name,
-                }
-                # Flatten nested fields from data
-                if e.data:
-                    if "error_type" in e.data:
-                        event_dict["error_type"] = e.data["error_type"]
-                    if "error_message" in e.data:
-                        event_dict["error_message"] = e.data["error_message"]
-                    if "tool_name" in e.data:
-                        event_dict["tool_name"] = e.data["tool_name"]
-                    if "model" in e.data:
-                        event_dict["model"] = e.data["model"]
-                event_dicts.append(event_dict)
-
-            session_vec = build_session_embedding(event_dicts)
-            sim = cosine_similarity(query_vec, session_vec)
-            if sim > 0.0:
-                scored.append((sim, db_sess))
-
-        scored.sort(key=lambda x: x[0], reverse=True)
-
-        # Import converter at module level for consistency
-        from storage.converters import orm_to_session
-
-        results: list[Session] = []
-        for sim, db_sess in scored[:limit]:
-            session = orm_to_session(db_sess)
-            session.search_similarity = sim
-            results.append(session)
-
-        return results
+        scored = self._score_sessions(db_sessions, query_vec)
+        return self._build_ranked_session_results(scored, limit)
 
     async def search_events(
         self,
@@ -170,7 +117,74 @@ class SessionSearchService:
 
         result = await self.session.execute(stmt)
 
-        # Import converter at module level for consistency
-        from storage.converters import orm_to_event
-
         return [orm_to_event(db) for db in result.scalars()]
+
+    async def _load_candidate_sessions(self, *, status: str | None) -> list[SessionModel]:
+        """Fetch recent tenant-scoped sessions with events eagerly loaded."""
+        candidate_limit = 500
+        stmt = (
+            select(SessionModel)
+            .options(selectinload(SessionModel.events))
+            .where(SessionModel.tenant_id == self.tenant_id)
+            .order_by(SessionModel.started_at.desc())
+            .limit(candidate_limit)
+        )
+        if status:
+            stmt = stmt.where(SessionModel.status == status)
+
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    def _score_sessions(
+        self,
+        db_sessions: list[SessionModel],
+        query_vec: dict[str, float],
+    ) -> list[tuple[float, SessionModel]]:
+        """Return positive-scoring sessions paired with cosine similarity."""
+        scored: list[tuple[float, SessionModel]] = []
+        for db_session in db_sessions:
+            similarity = self._score_session(db_session, query_vec)
+            if similarity > 0.0:
+                scored.append((similarity, db_session))
+        scored.sort(key=lambda item: item[0], reverse=True)
+        return scored
+
+    def _score_session(self, db_session: SessionModel, query_vec: dict[str, float]) -> float:
+        """Compute semantic similarity between a query vector and a stored session."""
+        event_dicts = [self._embedding_event_dict(db_event) for db_event in db_session.events]
+        session_vec = build_session_embedding(event_dicts)
+        return cosine_similarity(query_vec, session_vec)
+
+    def _embedding_event_dict(self, db_event) -> dict[str, str]:
+        """Flatten searchable event fields into an embedding payload."""
+        event_dict = {
+            "event_type": db_event.event_type,
+            "name": db_event.name,
+        }
+        event_dict.update(self._embedding_data_fields(db_event.data))
+        return event_dict
+
+    def _embedding_data_fields(self, event_data: dict | None) -> dict[str, str]:
+        """Extract nested event fields that contribute to semantic search."""
+        if not event_data:
+            return {}
+
+        searchable_fields = ("error_type", "error_message", "tool_name", "model")
+        return {
+            field_name: event_data[field_name]
+            for field_name in searchable_fields
+            if field_name in event_data
+        }
+
+    def _build_ranked_session_results(
+        self,
+        scored_sessions: list[tuple[float, SessionModel]],
+        limit: int,
+    ) -> list[Session]:
+        """Convert scored ORM sessions into API models with attached similarity."""
+        results: list[Session] = []
+        for similarity, db_session in scored_sessions[:limit]:
+            session = orm_to_session(db_session)
+            session.search_similarity = similarity
+            results.append(session)
+        return results

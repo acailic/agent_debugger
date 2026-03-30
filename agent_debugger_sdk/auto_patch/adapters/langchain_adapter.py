@@ -337,7 +337,7 @@ class LangChainAdapter(BaseAdapter):
             try:
                 _mgr._handlers.remove(handler)  # type: ignore[attr-defined]
             except ValueError:
-                pass
+                logger.warning("LangChainAdapter: handler missing from global _handlers during teardown", exc_info=True)
         elif hasattr(_mgr, "get_callback_manager"):
             mgr = _mgr.get_callback_manager()
             if hasattr(mgr, "remove_handler"):
@@ -346,9 +346,15 @@ class LangChainAdapter(BaseAdapter):
                 try:
                     mgr.handlers.remove(handler)
                 except ValueError:
-                    pass
+                    logger.warning(
+                        "LangChainAdapter: handler missing from callback manager handlers during teardown",
+                        exc_info=True,
+                    )
         elif hasattr(_mgr, "_peaky_peek_handlers"):
             try:
                 _mgr._peaky_peek_handlers.remove(handler)  # type: ignore[attr-defined]
             except ValueError:
-                pass
+                logger.warning(
+                    "LangChainAdapter: handler missing from fallback handler registry during teardown",
+                    exc_info=True,
+                )

@@ -17,6 +17,7 @@ The tests verify:
 from __future__ import annotations
 
 import asyncio
+import logging
 import sys
 import types
 from types import SimpleNamespace
@@ -172,6 +173,17 @@ class TestPydanticAIAdapterPatchUnpatch:
         assert fake_pydantic_ai.Agent.run is first_run
 
         adapter.unpatch()
+
+
+class TestPydanticAIAdapterHelpers:
+    def test_extract_usage_logs_failures(self, caplog) -> None:
+        result = SimpleNamespace(usage=MagicMock(side_effect=RuntimeError("broken usage")))
+
+        with caplog.at_level(logging.WARNING, logger="agent_debugger.auto_patch"):
+            usage = _extract_usage(result)
+
+        assert usage == {"input_tokens": 0, "output_tokens": 0}
+        assert "PydanticAIAdapter: failed to extract usage from result.usage()" in caplog.text
 
 
 # ---------------------------------------------------------------------------

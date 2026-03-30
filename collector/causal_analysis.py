@@ -100,6 +100,159 @@ class CausalAnalyzer:
                 return event
         return None
 
+    def _add_direct_cause(
+        self,
+        direct_causes: list[tuple[TraceEvent, str, bool, float]],
+        seen_ids: set[str],
+        *,
+        source_event_id: str,
+        cause_id: str | None,
+        relation: str,
+        explicit: bool,
+        weight: float,
+        id_lookup: dict[str, TraceEvent],
+    ) -> None:
+        if not cause_id or cause_id == source_event_id or cause_id in seen_ids:
+            return
+        cause = id_lookup.get(cause_id)
+        if cause is None:
+            return
+        seen_ids.add(cause_id)
+        direct_causes.append((cause, relation, explicit, weight))
+
+    def _iter_explicit_cause_refs(self, event: TraceEvent) -> list[tuple[str | None, str, bool, float]]:
+        refs: list[tuple[str | None, str, bool, float]] = []
+        refs.append((event.parent_id, "parent", True, 0.86))
+        refs.extend(
+            (upstream_id, "upstream", True, 0.98)
+            for upstream_id in _event_value(event, "upstream_event_ids", getattr(event, "upstream_event_ids", []))
+            or []
+        )
+        refs.extend(
+            (evidence_id, "evidence", True, 0.94)
+            for evidence_id in _event_value(event, "evidence_event_ids", []) or []
+        )
+        refs.extend(
+            (related_id, "related", True, 0.76)
+            for related_id in _event_value(event, "related_event_ids", []) or []
+        )
+        return refs
+
+    def _lookup_previous_related_events(
+        self,
+        event: TraceEvent,
+        *,
+        events: list[TraceEvent],
+        event_index: int,
+    ) -> dict[str, TraceEvent | None]:
+        tool_name = _event_value(event, "tool_name", "")
+        return {
+            "decision": self._find_previous_event(
+                events,
+                start_index=event_index,
+                predicate=lambda candidate: candidate.event_type == EventType.DECISION,
+                max_distance=6,
+            ),
+            "policy": self._find_previous_event(
+                events,
+                start_index=event_index,
+                predicate=lambda candidate: candidate.event_type == EventType.PROMPT_POLICY,
+                max_distance=8,
+            ),
+            "guardrail": self._find_previous_event(
+                events,
+                start_index=event_index,
+                predicate=lambda candidate: (
+                    candidate.event_type in {EventType.SAFETY_CHECK, EventType.REFUSAL, EventType.POLICY_VIOLATION}
+                ),
+                max_distance=6,
+            ),
+            "llm_response": self._find_previous_event(
+                events,
+                start_index=event_index,
+                predicate=lambda candidate: candidate.event_type == EventType.LLM_RESPONSE,
+                max_distance=5,
+            ),
+            "tool_call": self._find_previous_event(
+                events,
+                start_index=event_index,
+                predicate=lambda candidate: (
+                    candidate.event_type == EventType.TOOL_CALL
+                    and bool(tool_name)
+                    and _event_value(candidate, "tool_name", "") == tool_name
+                ),
+                max_distance=6,
+            ),
+            "tool_result": self._find_previous_event(
+                events,
+                start_index=event_index,
+                predicate=lambda candidate: (
+                    candidate.event_type == EventType.TOOL_RESULT
+                    and bool(tool_name)
+                    and _event_value(candidate, "tool_name", "") == tool_name
+                ),
+                max_distance=6,
+            ),
+        }
+
+    def _iter_inferred_cause_refs(
+        self,
+        event: TraceEvent,
+        *,
+        previous_events: dict[str, TraceEvent | None],
+    ) -> list[tuple[str | None, str, bool, float]]:
+        decision_id = previous_events["decision"].id if previous_events["decision"] else None
+        policy_id = previous_events["policy"].id if previous_events["policy"] else None
+        guardrail_id = previous_events["guardrail"].id if previous_events["guardrail"] else None
+        llm_response_id = previous_events["llm_response"].id if previous_events["llm_response"] else None
+        tool_call_id = previous_events["tool_call"].id if previous_events["tool_call"] else None
+        tool_result_id = previous_events["tool_result"].id if previous_events["tool_result"] else None
+
+        refs: list[tuple[str | None, str, bool, float]] = []
+        if event.event_type == EventType.DECISION:
+            refs.extend(
+                [
+                    (llm_response_id, "inferred_llm_response", False, 0.6),
+                    (guardrail_id, "inferred_guardrail", False, 0.52),
+                ]
+            )
+
+        if event.event_type == EventType.TOOL_RESULT and bool(_event_value(event, "error")):
+            refs.extend(
+                [
+                    (tool_call_id, "inferred_tool_call", False, 0.82),
+                    (decision_id, "inferred_decision", False, 0.72),
+                ]
+            )
+
+        if event.event_type in {EventType.ERROR, EventType.REFUSAL, EventType.POLICY_VIOLATION}:
+            refs.extend(
+                [
+                    (decision_id, "inferred_decision", False, 0.74),
+                    (guardrail_id, "inferred_guardrail", False, 0.8),
+                    (policy_id, "inferred_policy", False, 0.66),
+                    (tool_result_id, "inferred_tool_result", False, 0.62),
+                ]
+            )
+
+        if event.event_type == EventType.SAFETY_CHECK and _event_value(event, "outcome", "pass") != "pass":
+            refs.extend(
+                [
+                    (decision_id, "inferred_decision", False, 0.68),
+                    (policy_id, "inferred_policy", False, 0.78),
+                ]
+            )
+
+        if event.event_type == EventType.BEHAVIOR_ALERT:
+            refs.extend(
+                [
+                    (decision_id, "inferred_decision", False, 0.62),
+                    (tool_call_id, "inferred_tool_call", False, 0.72),
+                ]
+            )
+
+        return refs
+
     def iter_direct_causes(
         self,
         event: TraceEvent,
@@ -112,93 +265,37 @@ class CausalAnalyzer:
         seen_ids: set[str] = set()
         event_index = index_lookup.get(event.id, 0)
 
-        def add(event_id: str | None, relation: str, explicit: bool, weight: float) -> None:
-            if not event_id or event_id == event.id or event_id in seen_ids:
-                return
-            cause = id_lookup.get(event_id)
-            if cause is None:
-                return
-            seen_ids.add(event_id)
-            direct_causes.append((cause, relation, explicit, weight))
+        for cause_id, relation, explicit, weight in self._iter_explicit_cause_refs(event):
+            self._add_direct_cause(
+                direct_causes,
+                seen_ids,
+                source_event_id=event.id,
+                cause_id=cause_id,
+                relation=relation,
+                explicit=explicit,
+                weight=weight,
+                id_lookup=id_lookup,
+            )
 
-        add(event.parent_id, "parent", True, 0.86)
-
-        for upstream_id in _event_value(event, "upstream_event_ids", getattr(event, "upstream_event_ids", [])) or []:
-            add(upstream_id, "upstream", True, 0.98)
-        for evidence_id in _event_value(event, "evidence_event_ids", []) or []:
-            add(evidence_id, "evidence", True, 0.94)
-        for related_id in _event_value(event, "related_event_ids", []) or []:
-            add(related_id, "related", True, 0.76)
-
-        tool_name = _event_value(event, "tool_name", "")
-        previous_decision = self._find_previous_event(
-            events,
-            start_index=event_index,
-            predicate=lambda candidate: candidate.event_type == EventType.DECISION,
-            max_distance=6,
+        previous_events = self._lookup_previous_related_events(
+            event,
+            events=events,
+            event_index=event_index,
         )
-        previous_policy = self._find_previous_event(
-            events,
-            start_index=event_index,
-            predicate=lambda candidate: candidate.event_type == EventType.PROMPT_POLICY,
-            max_distance=8,
-        )
-        previous_guardrail = self._find_previous_event(
-            events,
-            start_index=event_index,
-            predicate=lambda candidate: (
-                candidate.event_type in {EventType.SAFETY_CHECK, EventType.REFUSAL, EventType.POLICY_VIOLATION}
-            ),
-            max_distance=6,
-        )
-        previous_llm_response = self._find_previous_event(
-            events,
-            start_index=event_index,
-            predicate=lambda candidate: candidate.event_type == EventType.LLM_RESPONSE,
-            max_distance=5,
-        )
-        previous_tool_call = self._find_previous_event(
-            events,
-            start_index=event_index,
-            predicate=lambda candidate: (
-                candidate.event_type == EventType.TOOL_CALL
-                and bool(tool_name)
-                and _event_value(candidate, "tool_name", "") == tool_name
-            ),
-            max_distance=6,
-        )
-        previous_tool_result = self._find_previous_event(
-            events,
-            start_index=event_index,
-            predicate=lambda candidate: (
-                candidate.event_type == EventType.TOOL_RESULT
-                and bool(tool_name)
-                and _event_value(candidate, "tool_name", "") == tool_name
-            ),
-            max_distance=6,
-        )
-
-        if event.event_type == EventType.DECISION:
-            add(previous_llm_response.id if previous_llm_response else None, "inferred_llm_response", False, 0.6)
-            add(previous_guardrail.id if previous_guardrail else None, "inferred_guardrail", False, 0.52)
-
-        if event.event_type == EventType.TOOL_RESULT and bool(_event_value(event, "error")):
-            add(previous_tool_call.id if previous_tool_call else None, "inferred_tool_call", False, 0.82)
-            add(previous_decision.id if previous_decision else None, "inferred_decision", False, 0.72)
-
-        if event.event_type in {EventType.ERROR, EventType.REFUSAL, EventType.POLICY_VIOLATION}:
-            add(previous_decision.id if previous_decision else None, "inferred_decision", False, 0.74)
-            add(previous_guardrail.id if previous_guardrail else None, "inferred_guardrail", False, 0.8)
-            add(previous_policy.id if previous_policy else None, "inferred_policy", False, 0.66)
-            add(previous_tool_result.id if previous_tool_result else None, "inferred_tool_result", False, 0.62)
-
-        if event.event_type == EventType.SAFETY_CHECK and _event_value(event, "outcome", "pass") != "pass":
-            add(previous_decision.id if previous_decision else None, "inferred_decision", False, 0.68)
-            add(previous_policy.id if previous_policy else None, "inferred_policy", False, 0.78)
-
-        if event.event_type == EventType.BEHAVIOR_ALERT:
-            add(previous_decision.id if previous_decision else None, "inferred_decision", False, 0.62)
-            add(previous_tool_call.id if previous_tool_call else None, "inferred_tool_call", False, 0.72)
+        for cause_id, relation, explicit, weight in self._iter_inferred_cause_refs(
+            event,
+            previous_events=previous_events,
+        ):
+            self._add_direct_cause(
+                direct_causes,
+                seen_ids,
+                source_event_id=event.id,
+                cause_id=cause_id,
+                relation=relation,
+                explicit=explicit,
+                weight=weight,
+                id_lookup=id_lookup,
+            )
 
         return direct_causes
 

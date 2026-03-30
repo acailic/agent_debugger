@@ -16,6 +16,7 @@ The tests verify:
 
 from __future__ import annotations
 
+import logging
 import sys
 import types
 import uuid
@@ -168,6 +169,18 @@ class TestLangChainAdapterPatchUnpatch:
 
         adapter.unpatch()
         assert len(manager_mod._handlers) == 0
+
+    def test_unpatch_logs_missing_handler(self, fake_langchain_core, mock_httpx, caplog) -> None:
+        manager_mod = fake_langchain_core.callbacks.manager
+        adapter = LangChainAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        manager_mod._handlers.clear()
+        with caplog.at_level(logging.WARNING, logger="agent_debugger.auto_patch"):
+            adapter.unpatch()
+
+        assert "LangChainAdapter: handler missing from global _handlers during teardown" in caplog.text
 
     def test_unpatch_without_patch_does_not_raise(self) -> None:
         """Calling unpatch() before patch() should be a no-op."""

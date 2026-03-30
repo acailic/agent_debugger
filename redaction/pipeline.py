@@ -118,48 +118,120 @@ class RedactionPipeline:
         event.data = remaining
 
     def _truncate_payload(self, payload: dict[str, Any], max_bytes: int) -> tuple[dict[str, Any], bool]:
-        if self._payload_size_bytes(payload) <= max_bytes:
+        current_size = self._payload_size_bytes(payload)
+        if current_size <= max_bytes:
             return payload, False
 
         truncated = copy.deepcopy(payload)
+        current_size, did_truncate = self._truncate_strings_to_fit(
+            truncated,
+            max_bytes=max_bytes,
+            current_size=current_size,
+        )
+        if current_size <= max_bytes:
+            return truncated, did_truncate
+
+        current_size, did_truncate = self._truncate_containers_to_fit(
+            truncated,
+            max_bytes=max_bytes,
+            current_size=current_size,
+            did_truncate=did_truncate,
+        )
+        return truncated, did_truncate
+
+    def _truncate_strings_to_fit(
+        self,
+        payload: dict[str, Any],
+        *,
+        max_bytes: int,
+        current_size: int,
+    ) -> tuple[int, bool]:
+        """Shrink string values in priority order until the payload fits or progress stops."""
         did_truncate = False
+        for priority_only in self._string_truncation_passes():
+            current_size, changed = self._run_string_truncation_pass(
+                payload,
+                max_bytes=max_bytes,
+                current_size=current_size,
+                priority_only=priority_only,
+            )
+            did_truncate = did_truncate or changed
+            if current_size <= max_bytes:
+                break
+        return current_size, did_truncate
 
-        for priority_only in (True, False):
-            while True:
-                current_size = self._payload_size_bytes(truncated)
-                if current_size <= max_bytes:
-                    return truncated, True
+    def _string_truncation_passes(self) -> tuple[bool, bool]:
+        """Return the ordered string-truncation strategy passes."""
+        return (True, False)
 
-                candidates = self._collect_string_candidates(truncated, priority_only=priority_only)
-                if not candidates:
-                    break
+    def _run_string_truncation_pass(
+        self,
+        payload: dict[str, Any],
+        *,
+        max_bytes: int,
+        current_size: int,
+        priority_only: bool,
+    ) -> tuple[int, bool]:
+        """Repeat one string truncation strategy until it stops making progress."""
+        did_truncate = False
+        while current_size > max_bytes:
+            candidates = self._collect_string_candidates(payload, priority_only=priority_only)
+            if not candidates:
+                break
 
-                changed = False
-                for path, value in candidates:
-                    excess = current_size - max_bytes
-                    replacement = self._truncate_string(value, excess)
-                    if replacement == value:
-                        continue
+            current_size, changed = self._apply_string_truncation_candidates(
+                payload,
+                candidates,
+                max_bytes=max_bytes,
+                current_size=current_size,
+            )
+            did_truncate = did_truncate or changed
+            if not changed:
+                break
 
-                    self._set_nested_value(truncated, path, replacement)
-                    did_truncate = True
-                    changed = True
+        return current_size, did_truncate
 
-                    current_size -= self._estimate_string_reduction(value, replacement)
-                    if current_size <= max_bytes:
-                        return truncated, True
+    def _apply_string_truncation_candidates(
+        self,
+        payload: dict[str, Any],
+        candidates: list[tuple[tuple[str | int, ...], str]],
+        *,
+        max_bytes: int,
+        current_size: int,
+    ) -> tuple[int, bool]:
+        """Apply the current batch of string truncation candidates in size order."""
+        changed = False
+        for path, value in candidates:
+            excess = current_size - max_bytes
+            replacement = self._truncate_string(value, excess)
+            if replacement == value:
+                continue
 
-                if not changed:
-                    break
+            self._set_nested_value(payload, path, replacement)
+            current_size -= self._estimate_string_reduction(value, replacement)
+            changed = True
+            if current_size <= max_bytes:
+                break
 
-        while self._payload_size_bytes(truncated) > max_bytes:
-            container_candidates = self._collect_container_candidates(truncated)
+        return current_size, changed
+
+    def _truncate_containers_to_fit(
+        self,
+        payload: dict[str, Any],
+        *,
+        max_bytes: int,
+        current_size: int,
+        did_truncate: bool,
+    ) -> tuple[int, bool]:
+        """Replace oversized container values with a marker until the payload fits."""
+        while current_size > max_bytes:
+            container_candidates = self._collect_container_candidates(payload)
             if not container_candidates:
                 break
-            self._set_nested_value(truncated, container_candidates[0], TRUNCATED_MARKER)
+            self._set_nested_value(payload, container_candidates[0], TRUNCATED_MARKER)
+            current_size = self._payload_size_bytes(payload)
             did_truncate = True
-
-        return truncated, did_truncate
+        return current_size, did_truncate
 
     def _collect_string_candidates(
         self,

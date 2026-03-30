@@ -15,6 +15,7 @@ The tests verify:
 from __future__ import annotations
 
 import asyncio
+import logging
 import sys
 import types
 from types import SimpleNamespace
@@ -188,6 +189,17 @@ class TestAnthropicAdapterSyncPatch:
 
         assert fake_anthropic.Anthropic.messages.create is original_sync
         assert fake_anthropic.AsyncAnthropic.messages.create is original_async
+
+    def test_unpatch_logs_restore_failures(self, fake_anthropic, mock_httpx, caplog) -> None:
+        adapter = AnthropicAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        with patch.dict(sys.modules, {"anthropic": None}):
+            with caplog.at_level(logging.WARNING, logger="agent_debugger.auto_patch"):
+                adapter.unpatch()
+
+        assert "AnthropicAdapter: failed to restore original client methods" in caplog.text
 
     def test_non_streaming_emits_request_and_response(self, fake_anthropic, mock_httpx) -> None:
         fake_response = _make_fake_response(content_blocks=[_text_block("Sure!")])

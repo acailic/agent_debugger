@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import sys
 import types
 from types import SimpleNamespace
@@ -190,6 +191,17 @@ class TestOpenAIAdapterSyncPatch:
 
         assert fake_openai.OpenAI.chat.completions.create is original_sync
         assert fake_openai.AsyncOpenAI.chat.completions.create is original_async
+
+    def test_unpatch_logs_restore_failures(self, fake_openai, mock_httpx, caplog) -> None:
+        adapter = OpenAIAdapter()
+        config = PatchConfig(server_url="http://localhost:9999")
+        adapter.patch(config)
+
+        with patch.dict(sys.modules, {"openai": None}):
+            with caplog.at_level(logging.WARNING, logger="agent_debugger.auto_patch"):
+                adapter.unpatch()
+
+        assert "OpenAIAdapter: failed to restore original client methods" in caplog.text
 
     def test_non_streaming_emits_request_and_response(self, fake_openai, mock_httpx) -> None:
         fake_response = _make_fake_response(content="Hi!")

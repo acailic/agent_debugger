@@ -101,44 +101,90 @@ def _collect_focus_scope_ids(
         return {event.id for event in events[start_index:]}
 
     event_by_id = {event.id: event for event in events}
+    children_by_parent = _build_children_by_parent(events)
+
+    scoped_ids = _collect_scoped_ancestor_ids(
+        focus_event_id,
+        event_index=event_index,
+        event_by_id=event_by_id,
+        start_index=start_index,
+    )
+    scoped_ids.update(
+        _collect_scoped_descendant_ids(
+            focus_event_id,
+            event_index=event_index,
+            children_by_parent=children_by_parent,
+            start_index=start_index,
+        )
+    )
+
+    if start_index < len(events):
+        scoped_ids.add(events[start_index].id)
+
+    return scoped_ids
+
+
+def _build_children_by_parent(events: list[TraceEvent]) -> dict[str, list[str]]:
     children_by_parent: dict[str, list[str]] = defaultdict(list)
     for event in events:
         if event.parent_id:
             children_by_parent[event.parent_id].append(event.id)
+    return children_by_parent
 
+
+def _collect_scoped_ancestor_ids(
+    focus_event_id: str,
+    *,
+    event_index: dict[str, int],
+    event_by_id: dict[str, TraceEvent],
+    start_index: int,
+) -> set[str]:
     scoped_ids: set[str] = set()
-    visited_ancestors: set[str] = set()
-    ancestor_stack = [focus_event_id]
-    while ancestor_stack:
-        current_id = ancestor_stack.pop()
-        if current_id in visited_ancestors:
-            continue
-        visited_ancestors.add(current_id)
-        current_index = event_index.get(current_id)
-        if current_index is None or current_index < start_index:
-            continue
-        scoped_ids.add(current_id)
-
-        event = event_by_id[current_id]
-        if event.parent_id:
-            ancestor_stack.append(event.parent_id)
-        ancestor_stack.extend(getattr(event, "upstream_event_ids", []))
-
-    visited: set[str] = set()
+    visited_ids: set[str] = set()
     stack = [focus_event_id]
+
     while stack:
         event_id = stack.pop()
-        if event_id in visited:
+        if event_id in visited_ids:
             continue
-        visited.add(event_id)
+        visited_ids.add(event_id)
+
         current_index = event_index.get(event_id)
         if current_index is None or current_index < start_index:
             continue
+
+        scoped_ids.add(event_id)
+        event = event_by_id[event_id]
+        if event.parent_id:
+            stack.append(event.parent_id)
+        stack.extend(getattr(event, "upstream_event_ids", []))
+
+    return scoped_ids
+
+
+def _collect_scoped_descendant_ids(
+    focus_event_id: str,
+    *,
+    event_index: dict[str, int],
+    children_by_parent: dict[str, list[str]],
+    start_index: int,
+) -> set[str]:
+    scoped_ids: set[str] = set()
+    visited_ids: set[str] = set()
+    stack = [focus_event_id]
+
+    while stack:
+        event_id = stack.pop()
+        if event_id in visited_ids:
+            continue
+        visited_ids.add(event_id)
+
+        current_index = event_index.get(event_id)
+        if current_index is None or current_index < start_index:
+            continue
+
         scoped_ids.add(event_id)
         stack.extend(children_by_parent.get(event_id, ()))
-
-    if start_index < len(events):
-        scoped_ids.add(events[start_index].id)
 
     return scoped_ids
 
