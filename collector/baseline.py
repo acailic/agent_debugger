@@ -125,16 +125,24 @@ def _safe_div(numerator: float, denominator: int, default: float = 0.0) -> float
 def _process_decision(event: Any, data: dict) -> tuple[float, int, int]:
     """Return (confidence, low_confidence_flag, grounded_flag) for a decision event."""
     # Check both data dict and event attribute (for typed events like DecisionEvent)
-    confidence = data.get("confidence") or getattr(event, "confidence", 0.5)
-    evidence_event_ids = data.get("evidence_event_ids") or getattr(event, "evidence_event_ids", None)
+    confidence = data.get("confidence")
+    if confidence is None:
+        confidence = getattr(event, "confidence", 0.5)
+    evidence_event_ids = data.get("evidence_event_ids")
+    if evidence_event_ids is None:
+        evidence_event_ids = getattr(event, "evidence_event_ids", None)
     return float(confidence), (1 if confidence < 0.5 else 0), (1 if evidence_event_ids else 0)
 
 
 def _process_tool_result(event: Any, data: dict) -> tuple[float, int]:
     """Return (duration_ms, error_flag) for a tool result event."""
-    duration = data.get("duration_ms") or getattr(event, "duration_ms", 0) or 0
-    has_error = bool(data.get("error") or getattr(event, "error", None))
-    return float(duration), int(has_error)
+    duration = data.get("duration_ms")
+    if duration is None:
+        duration = getattr(event, "duration_ms", 0)
+    error = data.get("error")
+    if error is None:
+        error = getattr(event, "error", None)
+    return float(duration), int(bool(error))
 
 
 def _get_speaker(event: Any, data: dict) -> str | None:
@@ -206,7 +214,7 @@ def _collect_session_event_metrics(events: list[Any]) -> dict[str, Any]:
 
     for event in events:
         event_type = getattr(event, "event_type", None)
-        data = getattr(event, "data", {})
+        data = getattr(event, "data", None) or {}
 
         if event_type == EventType.DECISION:
             conf, lc, grnd = _process_decision(event, data)
@@ -237,7 +245,7 @@ def _collect_session_event_metrics(events: list[Any]) -> dict[str, Any]:
                 template, prev_policy_template, policy_shift_count
             )
 
-        elif event_type in _ESCALATION_TYPES:
+        if event_type in _ESCALATION_TYPES:
             has_escalation = True
 
     return {
@@ -262,6 +270,7 @@ def compute_baseline_from_sessions(
     sessions: list[Any],  # List of Session objects
     events_by_session: dict[str, list[Any]],  # session_id -> events
     include_multi_agent: bool = True,
+    computed_at: datetime | None = None,
 ) -> AgentBaseline:
     """Compute baseline metrics from a list of sessions.
 
@@ -270,15 +279,19 @@ def compute_baseline_from_sessions(
         sessions: List of Session objects
         events_by_session: Mapping of session_id to events
         include_multi_agent: Whether to compute multi-agent metrics
+        computed_at: Timestamp for the baseline (defaults to now)
 
     Returns:
         AgentBaseline with computed metrics
     """
+    if computed_at is None:
+        computed_at = datetime.now(timezone.utc)
+
     if not sessions:
         return AgentBaseline(
             agent_name=agent_name,
             session_count=0,
-            computed_at=datetime.now(timezone.utc),
+            computed_at=computed_at,
         )
 
     total_decision_confidence = 0.0
@@ -337,17 +350,17 @@ def compute_baseline_from_sessions(
     return AgentBaseline(
         agent_name=agent_name,
         session_count=session_count,
-        computed_at=datetime.now(timezone.utc),
+        computed_at=computed_at,
         time_window_days=7,
         avg_decision_confidence=_safe_div(total_decision_confidence, decision_count),
         low_confidence_rate=_safe_div(low_confidence_count, decision_count),
         avg_tool_duration_ms=_safe_div(total_tool_duration, tool_result_count),
         error_rate=_safe_div(tool_error_count, tool_result_count),
-        avg_cost_per_session=total_cost / session_count,
-        avg_tokens_per_session=int(total_tokens / session_count),
-        tool_loop_rate=tool_loop_sessions / session_count,
-        refusal_rate=refusal_sessions / session_count,
-        avg_session_replay_value=total_replay_value / session_count,
+        avg_cost_per_session=_safe_div(total_cost, session_count),
+        avg_tokens_per_session=int(_safe_div(total_tokens, session_count)),
+        tool_loop_rate=_safe_div(tool_loop_sessions, session_count),
+        refusal_rate=_safe_div(refusal_sessions, session_count),
+        avg_session_replay_value=_safe_div(total_replay_value, session_count),
         multi_agent_metrics=multi_agent_metrics,
     )
 
@@ -355,6 +368,8 @@ def compute_baseline_from_sessions(
 def detect_drift(
     baseline: AgentBaseline,
     current: AgentBaseline,
+    warning_threshold: float = WARNING_THRESHOLD,
+    critical_threshold: float = CRITICAL_THRESHOLD,
 ) -> list[DriftAlert]:
     """Detect significant drift between baseline and current metrics."""
     alerts = []
@@ -371,6 +386,10 @@ def detect_drift(
         higher_is_better: bool = True,
         likely_cause: str | None = None,
     ) -> DriftAlert | None:
+        # Skip negative values — not meaningful for percentage drift
+        if baseline_val < 0 or current_val < 0:
+            return None
+
         if baseline_val == 0:
             if current_val > 0:
                 # Went from zero to non-zero
@@ -397,9 +416,9 @@ def detect_drift(
             # Decrease is good, increase is bad
             is_negative = change > 0
 
-        if abs_change >= CRITICAL_THRESHOLD and is_negative:
+        if abs_change >= critical_threshold and is_negative:
             severity = "critical"
-        elif abs_change >= WARNING_THRESHOLD and is_negative:
+        elif abs_change >= warning_threshold and is_negative:
             severity = "warning"
         else:
             return None
