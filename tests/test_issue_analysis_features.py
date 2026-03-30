@@ -184,23 +184,22 @@ async def _create_anomaly_alert(
 
 
 # =============================================================================
-# Issue #4: Drift Detection Needs More Data (3+ Sessions Required)
+# Issue #4: Drift Detection Needs More Data (FIXED: 1+ Sessions Required)
 # =============================================================================
 
 
 class TestIssue4DriftDetectionInsufficientData:
-    """Regression tests for Issue #4: Drift detection requires 3+ baseline sessions.
+    """Regression tests for Issue #4: Drift detection lowered to 1 baseline session.
 
-    The drift detection system returns "Need at least 3 baseline sessions" when
-    there are fewer than 3 baseline sessions for an agent. This is by design
-    for statistical validity, but can be confusing with minimal seed data.
+    The drift detection system now returns alerts with 1+ baseline sessions for an agent.
+    This was changed from 3+ sessions to work with demo data that has 1 session per agent.
     """
 
     def test_drift_with_zero_baseline_sessions_returns_empty(self):
         """Reproduce Issue #4: Zero baseline sessions should return empty alerts list.
 
-        EXPECTED (current behavior): detect_drift returns [] when baseline.session_count < 3
-        This test documents that drift detection intentionally requires 3+ sessions.
+        EXPECTED (current behavior): detect_drift returns [] when baseline.session_count < 1
+        This test documents that drift detection intentionally requires 1+ session.
         """
         baseline = AgentBaseline(
             agent_name="test-agent",
@@ -220,11 +219,11 @@ class TestIssue4DriftDetectionInsufficientData:
         # EXPECTED: No alerts due to insufficient baseline
         assert len(alerts) == 0, "Drift detection should not trigger with 0 baseline sessions"
 
-    def test_drift_with_one_baseline_session_returns_empty(self):
-        """Reproduce Issue #4: One baseline session should return empty alerts list.
+    def test_drift_with_one_baseline_session_detects_drift(self):
+        """Verify Issue #4 fix: One baseline session should now detect drift.
 
-        EXPECTED (current behavior): detect_drift returns [] when baseline.session_count < 3
-        Even with massive changes (confidence 0.8 -> 0.2), no drift is detected.
+        EXPECTED (current behavior): detect_drift returns alerts when baseline.session_count >= 1
+        Even with massive changes (confidence 0.8 -> 0.2), drift is now detected.
         """
         baseline = AgentBaseline(
             agent_name="test-agent",
@@ -237,20 +236,22 @@ class TestIssue4DriftDetectionInsufficientData:
             agent_name="test-agent",
             session_count=1,
             computed_at=datetime.now(timezone.utc),
-            avg_decision_confidence=0.2,  # 75% drop - would be critical
-            error_rate=0.5,  # 400% increase - would be critical
+            avg_decision_confidence=0.2,  # 75% drop - critical
+            error_rate=0.5,  # 400% increase - critical
         )
 
         alerts = detect_drift(baseline, current)
 
-        # EXPECTED: No alerts despite massive changes
-        assert len(alerts) == 0, "Drift detection should not trigger with only 1 baseline session"
+        # EXPECTED: Alerts detected with 1 baseline session (FIXED)
+        assert len(alerts) >= 1, "Drift detection should trigger with 1 baseline session"
+        assert any(a.metric == "decision_confidence" for a in alerts), "Should detect confidence drop"
+        assert any(a.metric == "error_rate" for a in alerts), "Should detect error rate spike"
 
-    def test_drift_with_two_baseline_sessions_returns_empty(self):
-        """Reproduce Issue #4: Two baseline sessions should return empty alerts list.
+    def test_drift_with_two_baseline_sessions_detects_drift(self):
+        """Verify Issue #4 fix: Two baseline sessions should detect drift.
 
-        EXPECTED (current behavior): detect_drift returns [] when baseline.session_count < 3
-        The requirement is strict: 3 is the minimum, not 2.
+        EXPECTED (current behavior): detect_drift returns alerts when baseline.session_count >= 1
+        The threshold is now 1, not 3.
         """
         baseline = AgentBaseline(
             agent_name="test-agent",
@@ -267,14 +268,16 @@ class TestIssue4DriftDetectionInsufficientData:
 
         alerts = detect_drift(baseline, current)
 
-        # EXPECTED: No alerts with 2 baseline sessions
-        assert len(alerts) == 0, "Drift detection should not trigger with only 2 baseline sessions"
+        # EXPECTED: Alerts with 2 baseline sessions (FIXED)
+        assert len(alerts) >= 1, "Drift detection should trigger with 2 baseline sessions"
+        assert alerts[0].severity == "critical"
+        assert alerts[0].metric == "decision_confidence"
 
     def test_drift_with_three_baseline_sessions_succeeds(self):
         """Verify Issue #4 fix: Three baseline sessions should enable drift detection.
 
-        EXPECTED (current behavior): detect_drift returns alerts when baseline.session_count >= 3
-        This is the minimum threshold where drift detection becomes active.
+        EXPECTED (current behavior): detect_drift returns alerts when baseline.session_count >= 1
+        This still works with 3+ sessions (original behavior preserved).
         """
         baseline = AgentBaseline(
             agent_name="test-agent",
@@ -297,35 +300,34 @@ class TestIssue4DriftDetectionInsufficientData:
         assert alerts[0].metric == "decision_confidence"
 
     def test_drift_api_endpoint_insufficient_sessions_message(self, drift_repo_factory):
-        """Reproduce Issue #4: API endpoint returns "Need at least 3 baseline sessions" message.
+        """Verify Issue #4 fix: API endpoint returns "Need at least 1 baseline session" message.
 
         EXPECTED (current behavior): /api/agents/{agent_name}/drift returns specific message
-        when baseline_session_count < 3, rather than attempting drift detection.
+        when baseline_session_count < 1, rather than attempting drift detection.
         """
         drift_endpoint = _get_route_endpoint("/api/agents/{agent_name}/drift", "GET")
 
         async def run():
             now = datetime.now(timezone.utc)
 
-            # Create only 2 baseline sessions (insufficient)
-            for i in range(2):
-                await _create_session_with_events(
-                    drift_repo_factory,
-                    agent_name="insufficient-agent",
-                    started_at=now - timedelta(days=3),
-                    events_data=[
-                        {
-                            "event_type": EventType.DECISION,
-                            "name": f"decision-{i}",
-                            "data": {"confidence": 0.8},
-                        },
-                    ],
-                )
-
-            # Create recent session
+            # Create only 1 baseline session (now sufficient for drift)
             await _create_session_with_events(
                 drift_repo_factory,
-                agent_name="insufficient-agent",
+                agent_name="sufficient-agent",
+                started_at=now - timedelta(days=3),
+                events_data=[
+                    {
+                        "event_type": EventType.DECISION,
+                        "name": "baseline-decision",
+                        "data": {"confidence": 0.8},
+                    },
+                ],
+            )
+
+            # Create recent session with different confidence
+            await _create_session_with_events(
+                drift_repo_factory,
+                agent_name="sufficient-agent",
                 started_at=now - timedelta(hours=1),
                 events_data=[
                     {
@@ -338,17 +340,21 @@ class TestIssue4DriftDetectionInsufficientData:
 
             async with drift_repo_factory() as session:
                 repo = TraceRepository(session)
-                return await drift_endpoint(agent_name="insufficient-agent", repo=repo)
+                return await drift_endpoint(agent_name="sufficient-agent", repo=repo)
 
         result = asyncio.run(run())
 
-        # EXPECTED: Specific message about insufficient sessions
-        assert result["agent_name"] == "insufficient-agent"
-        assert result["baseline_session_count"] == 2
-        assert result["recent_session_count"] == 1
-        assert "message" in result
-        assert "Need at least 3 baseline sessions" in result["message"]
-        assert result["alerts"] == []
+        # EXPECTED: Drift detected with 1 baseline session (FIXED)
+        assert result["agent_name"] == "sufficient-agent"
+        # When drift detection succeeds, returns baseline/current objects with session_count inside
+        assert "baseline" in result, "Should return baseline when drift detection runs"
+        assert result["baseline"]["session_count"] == 1
+        assert "current" in result, "Should return current when drift detection runs"
+        assert result["current"]["session_count"] == 1
+        # Should have alerts now, not a message about insufficient sessions
+        assert "message" not in result or "Need at least" not in result.get("message", "")
+        # May have alerts if confidence difference triggers drift
+        assert isinstance(result.get("alerts"), list)
 
     def test_drift_per_agent_independence(self, drift_repo_factory):
         """Verify Issue #4: Drift detection works independently per agent.
@@ -361,26 +367,26 @@ class TestIssue4DriftDetectionInsufficientData:
         async def run():
             now = datetime.now(timezone.utc)
 
-            # Agent A: 3 baseline sessions (sufficient)
-            for i in range(3):
-                await _create_session_with_events(
-                    drift_repo_factory,
-                    agent_name="agent-a",
-                    started_at=now - timedelta(days=3),
-                    events_data=[
-                        {
-                            "event_type": EventType.DECISION,
-                            "name": f"decision-a-{i}",
-                            "data": {"confidence": 0.8},
-                        },
-                    ],
-                )
+            # Agent A: 1 baseline session (now sufficient)
+            await _create_session_with_events(
+                drift_repo_factory,
+                agent_name="agent-a",
+                started_at=now - timedelta(days=3),
+                events_data=[
+                    {
+                        "event_type": EventType.DECISION,
+                        "name": "decision-a",
+                        "data": {"confidence": 0.8},
+                    },
+                ],
+            )
 
-            # Agent B: Only 1 baseline session (insufficient)
+            # Agent B: 0 baseline sessions (insufficient)
+            # Create only recent session, no baseline
             await _create_session_with_events(
                 drift_repo_factory,
                 agent_name="agent-b",
-                started_at=now - timedelta(days=3),
+                started_at=now - timedelta(hours=1),
                 events_data=[
                     {
                         "event_type": EventType.DECISION,
@@ -398,10 +404,10 @@ class TestIssue4DriftDetectionInsufficientData:
 
         result_a, result_b = asyncio.run(run())
 
-        # EXPECTED: Agent A has sufficient baseline, Agent B does not
-        assert "message" not in result_a or result_a.get("baseline_session_count", 0) >= 3
+        # EXPECTED: Agent A has sufficient baseline, Agent B does not (0 sessions)
+        assert "message" not in result_a or result_a.get("baseline_session_count", 0) >= 1
         assert "message" in result_b
-        assert "Need at least 3 baseline sessions" in result_b["message"]
+        assert "Need at least 1 baseline session" in result_b["message"]
 
 
 # =============================================================================

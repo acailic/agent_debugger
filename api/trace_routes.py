@@ -172,13 +172,13 @@ async def get_agent_drift(
     baseline_sessions = [s for s in agent_sessions if _is_baseline(s.started_at)]
     recent_sessions = [s for s in agent_sessions if not _is_baseline(s.started_at)]
 
-    if len(baseline_sessions) < 3:
+    if len(baseline_sessions) < 1:
         return {
             "agent_name": agent_name,
             "alerts": [],
             "baseline_session_count": len(baseline_sessions),
             "recent_session_count": len(recent_sessions),
-            "message": "Need at least 3 baseline sessions for drift detection",
+            "message": "Need at least 1 baseline session for drift detection",
         }
 
     baseline = compute_baseline_from_sessions(agent_name, baseline_sessions, events_by_session)

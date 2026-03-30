@@ -5,6 +5,10 @@
 <h1 align="center">Debug AI Agents Like Software, Not Magic.</h1>
 
 <p align="center">
+  <code>pip install peaky-peek-server && peaky-peek --open</code>
+</p>
+
+<p align="center">
   <strong>Local-first, open-source agent debugger.</strong> Capture decisions, replay from checkpoints, visualize reasoning trees — all on your machine, no data sent anywhere.
 </p>
 
@@ -15,10 +19,6 @@
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" /></a>
   <a href="https://github.com/acailic/agent_debugger/actions/workflows/ci.yml"><img src="https://github.com/acailic/agent_debugger/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <img src="https://img.shields.io/pypi/dm/peaky-peek" alt="Downloads" />
-</p>
-
-<p align="center">
-  <code>pip install peaky-peek-server && peaky-peek --open</code>
 </p>
 
 ---

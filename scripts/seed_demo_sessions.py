@@ -25,14 +25,16 @@ from storage.models import AnomalyAlertModel
 DATABASE_URL = os.environ.get("AGENT_DEBUGGER_DB_URL", "sqlite+aiosqlite:///./data/agent_debugger.db")
 
 # Session enrichment data: realistic values for demo sessions
+# Note: failure_count is computed in API layer (services.py) as errors count
+# behavior_alert_count is computed in API layer from AnomalyAlertModel records
 SESSION_ENRICHMENT = {
     "seed-prompt-injection": {
         "total_tokens": 856,
         "total_cost_usd": 0.0042,
         "retention_tier": "summarized",
-        "fix_note": None,
+        "fix_note": "Added input sanitization and prompt boundary checks",
         "errors": 0,
-        "behavior_alerts": 0,
+        "behavior_alerts": 1,
     },
     "seed-evidence-grounding": {
         "total_tokens": 140,
@@ -54,9 +56,9 @@ SESSION_ENRICHMENT = {
         "total_tokens": 164,
         "total_cost_usd": 0.0028,
         "retention_tier": "summarized",
-        "fix_note": None,
+        "fix_note": "Added policy consistency checks across turns",
         "errors": 0,
-        "behavior_alerts": 0,
+        "behavior_alerts": 1,
     },
     "seed-safety-escalation": {
         "total_tokens": 1987,
@@ -64,13 +66,13 @@ SESSION_ENRICHMENT = {
         "retention_tier": "full",
         "fix_note": "Added output validation after tool call",
         "errors": 1,
-        "behavior_alerts": 0,
+        "behavior_alerts": 1,
     },
     "seed-looping-behavior": {
         "total_tokens": 1245,
         "total_cost_usd": 0.0089,
         "retention_tier": "summarized",
-        "fix_note": None,
+        "fix_note": "Added max iteration limit with circuit breaker",
         "errors": 0,
         "behavior_alerts": 2,
     },
@@ -78,9 +80,9 @@ SESSION_ENRICHMENT = {
         "total_tokens": 1567,
         "total_cost_usd": 0.0112,
         "retention_tier": "full",
-        "fix_note": None,
-        "errors": 3,
-        "behavior_alerts": 0,
+        "fix_note": "Added pre-call validation and error recovery",
+        "errors": 0,
+        "behavior_alerts": 1,
     },
     "seed-replay-determinism": {
         "total_tokens": 289,

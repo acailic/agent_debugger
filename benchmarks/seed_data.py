@@ -47,6 +47,7 @@ async def run_prompt_injection_session(session_id: str | None = None) -> SeedSes
     session_id = session_id or DEFAULT_SEED_SESSION_IDS["prompt_injection"]
     async with TraceContext(session_id=session_id, agent_name="guardrail_agent", framework="benchmark") as ctx:
         policy_event_id = await ctx.record_prompt_policy(
+            name="Policy injection: secure routing configuration",
             template_id="secure-router-v2",
             policy_parameters={"persona": "defensive", "risk_budget": "low"},
             speaker="router",
@@ -54,6 +55,7 @@ async def run_prompt_injection_session(session_id: str | None = None) -> SeedSes
             goal="Route suspicious request safely",
         )
         await ctx.record_safety_check(
+            name="Safety check: prompt injection block",
             policy_name="prompt_injection",
             outcome="block",
             risk_level="high",
@@ -62,13 +64,15 @@ async def run_prompt_injection_session(session_id: str | None = None) -> SeedSes
             upstream_event_ids=[policy_event_id],
         )
         await ctx.record_policy_violation(
+            name="Policy violation: prompt injection detected",
             policy_name="prompt_injection",
             violation_type="instruction_override",
             severity="high",
-            details={"source": "user_input", "signature": "ignore previous instructions"},
+            details={"source": "user_input", "signature": "ignore previous instructions", "attack_type": "prompt injection"},
             upstream_event_ids=[policy_event_id],
         )
         await ctx.record_refusal(
+            name="Refusal: prompt injection blocked",
             reason="Prompt injection attempt detected.",
             policy_name="prompt_injection",
             risk_level="high",
@@ -215,6 +219,7 @@ async def run_safety_escalation_session(session_id: str | None = None) -> SeedSe
     session_id = session_id or DEFAULT_SEED_SESSION_IDS["safety_escalation"]
     async with TraceContext(session_id=session_id, agent_name="guarded_tool_agent", framework="benchmark") as ctx:
         policy_id = await ctx.record_prompt_policy(
+            name="Safety policy: tool guard configuration",
             template_id="tool-guard-v4",
             policy_parameters={"allow_external_writes": False, "risk_budget": "medium"},
             speaker="controller",
@@ -228,12 +233,14 @@ async def run_safety_escalation_session(session_id: str | None = None) -> SeedSe
             upstream_event_ids=[policy_id],
         )
         tool_call_id = await ctx.record_tool_call(
-            "hr.write_payroll",
-            {"scope": "production", "operation": "update"},
+            name="Tool call: hr.write_payroll",
+            tool_name="hr.write_payroll",
+            arguments={"scope": "production", "operation": "update"},
             upstream_event_ids=[request_id],
             parent_id=request_id,
         )
         await ctx.record_safety_check(
+            name="Safety check: destructive tool use warning",
             policy_name="destructive_tool_use",
             outcome="warn",
             risk_level="medium",
@@ -242,7 +249,8 @@ async def run_safety_escalation_session(session_id: str | None = None) -> SeedSe
             upstream_event_ids=[tool_call_id],
         )
         tool_result_id = await ctx.record_tool_result(
-            "hr.write_payroll",
+            name="Tool result: hr.write_payroll blocked",
+            tool_name="hr.write_payroll",
             result=None,
             error=None,  # Don't count as session error - we'll use explicit error event
             duration_ms=71.0,
@@ -250,6 +258,7 @@ async def run_safety_escalation_session(session_id: str | None = None) -> SeedSe
             parent_id=tool_call_id,
         )
         await ctx.record_error(
+            name="Error: safety approval token missing",
             error_type="ApprovalTokenMissing",
             error_message="Approval token missing for hr.write_payroll tool call",
         )
@@ -259,6 +268,7 @@ async def run_safety_escalation_session(session_id: str | None = None) -> SeedSe
             importance=0.91,
         )
         await ctx.record_safety_check(
+            name="Safety check: block destructive tool use",
             policy_name="destructive_tool_use",
             outcome="block",
             risk_level="high",
@@ -267,13 +277,15 @@ async def run_safety_escalation_session(session_id: str | None = None) -> SeedSe
             upstream_event_ids=[tool_result_id],
         )
         await ctx.record_policy_violation(
+            name="Policy violation: safety escalation required",
             policy_name="destructive_tool_use",
             violation_type="missing_approval_token",
             severity="high",
-            details={"tool_name": "hr.write_payroll"},
+            details={"tool_name": "hr.write_payroll", "safety_check": "required"},
             upstream_event_ids=[tool_result_id],
         )
         await ctx.record_refusal(
+            name="Refusal: safety escalation blocked tool call",
             reason="Cannot modify production payroll without an approval token.",
             policy_name="destructive_tool_use",
             risk_level="high",
@@ -311,11 +323,13 @@ async def run_failure_cluster_session(session_id: str | None = None) -> SeedSess
         last_violation_id = None
         for attempt in range(1, 4):
             tool_call_id = await ctx.record_tool_call(
-                "catalog.lookup",
-                {"sku": "missing-item", "attempt": attempt},
+                name=f"Tool call: catalog lookup failure attempt {attempt}",
+                tool_name="catalog.lookup",
+                arguments={"sku": "missing-item", "attempt": attempt},
             )
             tool_result_id = await ctx.record_tool_result(
-                "catalog.lookup",
+                name=f"Tool result: catalog lookup failure {attempt}",
+                tool_name="catalog.lookup",
                 result=None,
                 error=None,  # Don't count as session error - we'll use explicit error events
                 duration_ms=20.0 + attempt,
@@ -323,18 +337,21 @@ async def run_failure_cluster_session(session_id: str | None = None) -> SeedSess
                 parent_id=tool_call_id,
             )
             await ctx.record_error(
+                name=f"Error: catalog lookup failure attempt {attempt}",
                 error_type="ItemNotFoundError",
                 error_message=f"Catalog lookup failed for SKU 'missing-item' (attempt {attempt})",
             )
             violation_id = await ctx.record_policy_violation(
+                name=f"Policy violation: catalog lookup failure {attempt}",
                 policy_name="inventory_integrity",
                 violation_type="missing_catalog_item",
                 severity="high",
-                details={"sku": "missing-item", "attempt": attempt},
+                details={"sku": "missing-item", "attempt": attempt, "error": "failure"},
                 upstream_event_ids=[tool_result_id],
             )
             last_violation_id = violation_id
         await ctx.record_behavior_alert(
+            name="Behavior alert: failure cluster detected",
             alert_type="loop",
             severity="medium",
             signal="Repeated policy violations suggest stuck retry pattern",

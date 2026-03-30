@@ -299,18 +299,18 @@ def test_drift_returns_error_when_no_sessions_found(drift_repo_factory):
 
 
 def test_drift_returns_message_when_insufficient_baseline_sessions(drift_repo_factory):
-    """Test drift endpoint returns message when insufficient baseline sessions (< 3)."""
+    """Test drift endpoint returns message when insufficient baseline sessions (< 1)."""
     drift_endpoint = _get_route_endpoint("/api/agents/{agent_name}/drift", "GET")
 
     async def run():
         now = datetime.now(timezone.utc)
 
-        # Create only 2 baseline sessions
-        for i in range(2):
+        # Create only recent sessions (no baseline sessions older than 24h)
+        for i in range(3):
             await _create_session_with_events(
                 drift_repo_factory,
                 agent_name="insufficient-agent",
-                started_at=now - timedelta(days=3),
+                started_at=now - timedelta(hours=1),
                 events_data=[
                     {
                         "event_type": EventType.DECISION,
@@ -320,20 +320,6 @@ def test_drift_returns_message_when_insufficient_baseline_sessions(drift_repo_fa
                 ],
             )
 
-        # Create recent session
-        await _create_session_with_events(
-            drift_repo_factory,
-            agent_name="insufficient-agent",
-            started_at=now - timedelta(hours=1),
-            events_data=[
-                {
-                    "event_type": EventType.DECISION,
-                    "name": "recent-decision",
-                    "data": {"confidence": 0.3},
-                },
-            ],
-        )
-
         async with drift_repo_factory() as session:
             repo = TraceRepository(session)
             return await drift_endpoint(agent_name="insufficient-agent", repo=repo)
@@ -342,10 +328,10 @@ def test_drift_returns_message_when_insufficient_baseline_sessions(drift_repo_fa
 
     assert result["agent_name"] == "insufficient-agent"
     assert result["alerts"] == []
-    assert result["baseline_session_count"] == 2
-    assert result["recent_session_count"] == 1
+    assert result["baseline_session_count"] == 0
+    assert result["recent_session_count"] == 3
     assert "message" in result
-    assert "Need at least 3 baseline sessions" in result["message"]
+    assert "Need at least 1 baseline session" in result["message"]
 
 
 # ==============================================================================

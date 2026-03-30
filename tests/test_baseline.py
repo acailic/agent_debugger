@@ -425,10 +425,10 @@ class TestDetectDrift:
     """Tests for detect_drift function."""
 
     def test_small_baseline_no_drift(self):
-        """Baselines with less than 3 sessions should not trigger drift."""
+        """Baselines with less than 1 session should not trigger drift."""
         baseline = AgentBaseline(
             agent_name="test-agent",
-            session_count=2,
+            session_count=0,
             computed_at=datetime.now(timezone.utc),
             avg_decision_confidence=0.8,
         )

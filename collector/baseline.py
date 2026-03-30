@@ -374,8 +374,8 @@ def detect_drift(
     """Detect significant drift between baseline and current metrics."""
     alerts = []
 
-    # Need at least 3 sessions for meaningful baseline
-    if baseline.session_count < 3:
+    # Need at least 1 session for baseline comparison
+    if baseline.session_count < 1:
         return alerts
 
     def check_drift(
