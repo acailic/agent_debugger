@@ -179,3 +179,16 @@ def get_event_buffer() -> EventBuffer:
     if _event_buffer is None:
         _event_buffer = EventBuffer()
     return _event_buffer
+
+
+def set_event_buffer(buf: EventBuffer | None) -> None:
+    """Override the global event buffer.
+
+    Pass ``None`` to reset so the next ``get_event_buffer()`` call creates
+    a fresh instance.  Intended for tests that need an isolated buffer.
+
+    Args:
+        buf: An EventBuffer instance to use, or None to clear.
+    """
+    global _event_buffer
+    _event_buffer = buf

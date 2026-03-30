@@ -4,6 +4,8 @@ import os
 import tempfile
 
 import pytest
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Each xdist worker gets its own DB file to avoid SQLite lock contention.
 _worker_id = os.environ.get("PYTEST_XDIST_WORKER_ID", "master")
@@ -12,7 +14,8 @@ _test_db_path = os.path.join(_temp_dir, f"test_agent_debugger_{_worker_id}.db")
 os.environ["AGENT_DEBUGGER_DB_URL"] = f"sqlite+aiosqlite:///{_test_db_path}"
 
 from agent_debugger_sdk import config as cfg_mod
-from agent_debugger_sdk.core.events import EventType, TraceEvent
+from agent_debugger_sdk.core.events import Checkpoint, EventType, Session, SessionStatus, TraceEvent
+from storage import Base
 
 
 def pytest_configure(config):
@@ -113,6 +116,158 @@ def make_llm_event():
         )
 
     return _make_llm_event
+
+
+@pytest.fixture
+def make_session():
+    """Factory fixture to create Session instances for tests."""
+
+    def _make(
+        session_id: str = "s1",
+        agent_name: str = "test_agent",
+        framework: str = "custom",
+        status: str = "running",
+        total_tokens: int = 0,
+        total_cost_usd: float = 0.0,
+        **overrides,
+    ) -> Session:
+        return Session(
+            id=session_id,
+            agent_name=agent_name,
+            framework=framework,
+            status=SessionStatus(status),
+            total_tokens=total_tokens,
+            total_cost_usd=total_cost_usd,
+            **overrides,
+        )
+
+    return _make
+
+
+@pytest.fixture
+def make_checkpoint():
+    """Factory fixture to create Checkpoint instances for tests."""
+
+    def _make(
+        session_id: str = "s1",
+        event_id: str = "e1",
+        sequence: int = 1,
+        **overrides,
+    ) -> Checkpoint:
+        return Checkpoint(
+            session_id=session_id,
+            event_id=event_id,
+            sequence=sequence,
+            **overrides,
+        )
+
+    return _make
+
+
+@pytest.fixture
+def make_decision_event():
+    """Factory fixture to create decision events for tests."""
+
+    def _make(
+        session_id: str = "s1",
+        reasoning: str = "test reasoning",
+        confidence: float = 0.85,
+        chosen_action: str = "test_action",
+        **overrides,
+    ) -> TraceEvent:
+        return TraceEvent(
+            session_id=session_id,
+            parent_id=None,
+            event_type=EventType.DECISION,
+            name="decision",
+            importance=0.5,
+            upstream_event_ids=[],
+            data={
+                "reasoning": reasoning,
+                "confidence": confidence,
+                "chosen_action": chosen_action,
+                "evidence": [],
+            },
+            **overrides,
+        )
+
+    return _make
+
+
+@pytest.fixture
+def make_error_event():
+    """Factory fixture to create error events for tests."""
+
+    def _make(
+        session_id: str = "s1",
+        error_message: str = "test error",
+        error_type: str = "RuntimeError",
+        **overrides,
+    ) -> TraceEvent:
+        return TraceEvent(
+            session_id=session_id,
+            parent_id=None,
+            event_type=EventType.ERROR,
+            name="error",
+            importance=0.8,
+            upstream_event_ids=[],
+            data={
+                "error_message": error_message,
+                "error_type": error_type,
+            },
+            **overrides,
+        )
+
+    return _make
+
+
+@pytest.fixture
+def reset_event_buffer():
+    """Reset the global event buffer after each test."""
+    from collector import buffer as buf_mod
+
+    original = buf_mod._event_buffer
+    buf_mod._event_buffer = None
+    yield
+    buf_mod._event_buffer = original
+
+
+# =============================================================================
+# In-memory database fixtures
+# =============================================================================
+
+
+@pytest.fixture
+async def db_session_maker():
+    """Provide an isolated session maker for tests.
+
+    Uses a temp file so that separate connections share the same database.
+    """
+    fd, db_path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    url = f"sqlite+aiosqlite:///{db_path}"
+    engine = create_async_engine(url)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+    yield maker
+    await engine.dispose()
+    os.unlink(db_path)
+
+
+@pytest_asyncio.fixture
+async def db_session():
+    """Provide an in-memory SQLite session for tests.
+
+    Creates a fresh database for each test function.
+    """
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with session_factory() as session:
+        yield session
+    await engine.dispose()
 
 
 # =============================================================================

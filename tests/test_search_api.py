@@ -3,8 +3,6 @@
 from datetime import datetime, timezone
 
 import pytest
-import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from agent_debugger_sdk.core.events import (
     EventType,
@@ -12,7 +10,6 @@ from agent_debugger_sdk.core.events import (
     SessionStatus,
     TraceEvent,
 )
-from storage.models import Base
 from storage.repository import TraceRepository
 
 
@@ -64,17 +61,6 @@ def _make_tool_event(session_id: str, tool_name: str = "search_api") -> TraceEve
             "model": "gpt-4",
         },
     )
-
-
-@pytest_asyncio.fixture
-async def db_session():
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with session_factory() as session:
-        yield session
-    await engine.dispose()
 
 
 @pytest.mark.asyncio

@@ -38,11 +38,12 @@ async def replay_session(
     collapse_threshold: float = Query(default=0.35, ge=0.0, le=1.0),
     repo: TraceRepository = Depends(get_repository),
 ) -> ReplayResponse:
-    # Unwrap Query defaults when called directly (e.g. in tests)
-    collapse_threshold = collapse_threshold.default if hasattr(collapse_threshold, "default") else collapse_threshold  # noqa: B008
-
     await require_session(repo, session_id)
     events, checkpoints = await load_session_artifacts(repo, session_id)
+
+    # Unwrap Query default (FastAPI resolves this in HTTP calls but not in direct/unit-test calls)
+    if hasattr(collapse_threshold, "default"):
+        collapse_threshold = collapse_threshold.default
 
     # Record analytics event (fire-and-forget)
     record_event("replay_started", session_id=session_id, properties={"mode": mode})

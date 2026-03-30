@@ -53,6 +53,7 @@ class MessageProcessor:
         """
         self.session_id = session_id
         self._context = context
+        self._agent = None
 
     async def process_messages(
         self,
@@ -229,10 +230,13 @@ class MessageProcessor:
         return response_event.id
 
     def _resolve_model_name(self, requested_model: Model | str | None) -> str:
-        """Resolve the model name.
+        """Resolve the model name using the agent if available."""
+        from .utils import resolve_model_name
 
-        This is a placeholder - the actual implementation should use the agent.
-        """
+        if self._agent:
+            return resolve_model_name(self._agent, requested_model)
+
+        # Fallback to basic resolution without agent
         if isinstance(requested_model, str):
             return requested_model
         if requested_model is not None:

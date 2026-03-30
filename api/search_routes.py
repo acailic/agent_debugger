@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Query
+from pydantic import BaseModel
 
 from api.app_context import require_session_maker
-from api.config import MAX_FIX_NOTE_LENGTH, MAX_SESSION_SEARCH_RESULTS
+from api.config import MAX_SESSION_SEARCH_RESULTS
 from storage import TraceRepository
 
 router = APIRouter(tags=["search"])
@@ -29,15 +29,6 @@ class SearchResponse(BaseModel):
     query: str
     total: int
     results: list[SearchResult]
-
-
-class FixNoteRequest(BaseModel):
-    note: str = Field(..., min_length=1, max_length=MAX_FIX_NOTE_LENGTH)
-
-
-class FixNoteResponse(BaseModel):
-    session_id: str
-    fix_note: str
 
 
 @router.get("/api/search", response_model=SearchResponse)
@@ -66,15 +57,3 @@ async def search_sessions(
         for s in sessions
     ]
     return SearchResponse(query=q, total=len(results), results=results)
-
-
-@router.post("/api/sessions/{session_id}/fix-note", response_model=FixNoteResponse)
-async def add_fix_note(session_id: str, body: FixNoteRequest) -> FixNoteResponse:
-    """Add or update a fix note for a session."""
-    async with require_session_maker()() as db_session:
-        repo = TraceRepository(db_session)
-        session = await repo.add_fix_note(session_id, body.note)
-        await db_session.commit()
-    if session is None:
-        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-    return FixNoteResponse(session_id=session_id, fix_note=body.note)

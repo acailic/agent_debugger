@@ -16,7 +16,6 @@ from agent_debugger_sdk.core.context import TraceContext
 
 from .event_recording import EventRecorder
 from .message_processing import MessageProcessor
-from .utils import resolve_model_name
 
 try:
     from pydantic_ai import Agent, AgentRunResult
@@ -189,8 +188,8 @@ class PydanticAIAdapter(Generic[T]):
             return
 
         if hasattr(result, "all_messages"):
-            # Update message processor with resolved model name
-            self._message_processor._resolve_model_name = lambda model: resolve_model_name(self.agent, model)
+            # Update message processor with agent for model name resolution
+            self._message_processor._agent = self.agent
             await self._message_processor.process_messages(
                 result.all_messages(),
                 requested_model=requested_model,
