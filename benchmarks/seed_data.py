@@ -153,12 +153,18 @@ async def run_multi_agent_dialogue_session(session_id: str | None = None) -> See
             content="What if the retrieval result is stale or contradictory?",
             upstream_event_ids=[first_turn],
         )
-        await ctx.record_decision(
+        decision_id = await ctx.record_decision(
             reasoning="Debate reveals the need to verify freshness before responding.",
             confidence=0.44,
             evidence=[{"source": "critic", "content": "Need freshness check"}],
             chosen_action="perform_freshness_check",
             upstream_event_ids=[second_turn],
+        )
+        await ctx.record_behavior_alert(
+            alert_type="role_confusion",
+            severity="low",
+            signal="Speaker roles may have overlapped in this exchange",
+            upstream_event_ids=[decision_id],
         )
         records = await ctx.get_events()
 
@@ -238,10 +244,14 @@ async def run_safety_escalation_session(session_id: str | None = None) -> SeedSe
         tool_result_id = await ctx.record_tool_result(
             "hr.write_payroll",
             result=None,
-            error="Approval token missing",
+            error=None,  # Don't count as session error - we'll use explicit error event
             duration_ms=71.0,
             upstream_event_ids=[tool_call_id],
             parent_id=tool_call_id,
+        )
+        await ctx.record_error(
+            error_type="ApprovalTokenMissing",
+            error_message="Approval token missing for hr.write_payroll tool call",
         )
         await ctx.create_checkpoint(
             state={"phase": "guard-escalation", "approval_token": None},
@@ -282,7 +292,13 @@ async def run_looping_behavior_session(session_id: str | None = None) -> SeedSes
     async with TraceContext(session_id=session_id, agent_name="looping_agent", framework="benchmark") as ctx:
         first_call = await ctx.record_tool_call("search", {"query": "capital of Serbia"})
         second_call = await ctx.record_tool_call("search", {"query": "capital of Serbia again"}, parent_id=first_call)
-        await ctx.record_tool_call("search", {"query": "capital of Serbia retry"}, parent_id=second_call)
+        third_call = await ctx.record_tool_call("search", {"query": "capital of Serbia retry"}, parent_id=second_call)
+        await ctx.record_behavior_alert(
+            alert_type="oscillation",
+            severity="high",
+            signal="Agent repeated the same action 3+ times without progress",
+            upstream_event_ids=[third_call],
+        )
         records = await ctx.get_events()
 
     events, checkpoints = _split_records(records)
@@ -292,6 +308,7 @@ async def run_looping_behavior_session(session_id: str | None = None) -> SeedSes
 async def run_failure_cluster_session(session_id: str | None = None) -> SeedSession:
     session_id = session_id or DEFAULT_SEED_SESSION_IDS["failure_cluster"]
     async with TraceContext(session_id=session_id, agent_name="cluster_agent", framework="benchmark") as ctx:
+        last_violation_id = None
         for attempt in range(1, 4):
             tool_call_id = await ctx.record_tool_call(
                 "catalog.lookup",
@@ -300,18 +317,29 @@ async def run_failure_cluster_session(session_id: str | None = None) -> SeedSess
             tool_result_id = await ctx.record_tool_result(
                 "catalog.lookup",
                 result=None,
-                error="Item not found",
+                error=None,  # Don't count as session error - we'll use explicit error events
                 duration_ms=20.0 + attempt,
                 upstream_event_ids=[tool_call_id],
                 parent_id=tool_call_id,
             )
-            await ctx.record_policy_violation(
+            await ctx.record_error(
+                error_type="ItemNotFoundError",
+                error_message=f"Catalog lookup failed for SKU 'missing-item' (attempt {attempt})",
+            )
+            violation_id = await ctx.record_policy_violation(
                 policy_name="inventory_integrity",
                 violation_type="missing_catalog_item",
                 severity="high",
                 details={"sku": "missing-item", "attempt": attempt},
                 upstream_event_ids=[tool_result_id],
             )
+            last_violation_id = violation_id
+        await ctx.record_behavior_alert(
+            alert_type="loop",
+            severity="medium",
+            signal="Repeated policy violations suggest stuck retry pattern",
+            upstream_event_ids=[last_violation_id] if last_violation_id else [],
+        )
         records = await ctx.get_events()
 
     events, checkpoints = _split_records(records)

@@ -10,6 +10,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import uuid
+
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from agent_debugger_sdk.core.context import configure_event_pipeline
@@ -18,8 +20,134 @@ from benchmarks import DEFAULT_SEED_SESSION_IDS, iter_seed_scenarios
 from collector.buffer import get_event_buffer
 from collector.server import configure_storage
 from storage import Base, TraceRepository
+from storage.models import AnomalyAlertModel
 
 DATABASE_URL = os.environ.get("AGENT_DEBUGGER_DB_URL", "sqlite+aiosqlite:///./data/agent_debugger.db")
+
+# Session enrichment data: realistic values for demo sessions
+SESSION_ENRICHMENT = {
+    "seed-prompt-injection": {
+        "total_tokens": 856,
+        "total_cost_usd": 0.0042,
+        "retention_tier": "summarized",
+        "fix_note": None,
+        "errors": 0,
+        "behavior_alerts": 0,
+    },
+    "seed-evidence-grounding": {
+        "total_tokens": 140,
+        "total_cost_usd": 0.0021,
+        "retention_tier": "summarized",
+        "fix_note": None,
+        "errors": 0,
+        "behavior_alerts": 0,
+    },
+    "seed-multi-agent-dialogue": {
+        "total_tokens": 412,
+        "total_cost_usd": 0.0038,
+        "retention_tier": "summarized",
+        "fix_note": None,
+        "errors": 0,
+        "behavior_alerts": 0,
+    },
+    "seed-prompt-policy-shift": {
+        "total_tokens": 164,
+        "total_cost_usd": 0.0028,
+        "retention_tier": "summarized",
+        "fix_note": None,
+        "errors": 0,
+        "behavior_alerts": 0,
+    },
+    "seed-safety-escalation": {
+        "total_tokens": 1987,
+        "total_cost_usd": 0.0142,
+        "retention_tier": "full",
+        "fix_note": "Added output validation after tool call",
+        "errors": 1,
+        "behavior_alerts": 0,
+    },
+    "seed-looping-behavior": {
+        "total_tokens": 1245,
+        "total_cost_usd": 0.0089,
+        "retention_tier": "summarized",
+        "fix_note": None,
+        "errors": 0,
+        "behavior_alerts": 2,
+    },
+    "seed-failure-cluster": {
+        "total_tokens": 1567,
+        "total_cost_usd": 0.0112,
+        "retention_tier": "full",
+        "fix_note": None,
+        "errors": 3,
+        "behavior_alerts": 0,
+    },
+    "seed-replay-determinism": {
+        "total_tokens": 289,
+        "total_cost_usd": 0.0031,
+        "retention_tier": "summarized",
+        "fix_note": None,
+        "errors": 0,
+        "behavior_alerts": 0,
+    },
+}
+
+
+async def enrich_session(session_id: str, session_maker: async_sessionmaker[AsyncSession]) -> None:
+    """Enrich a session with realistic data fields and behavior alerts."""
+    enrichment = SESSION_ENRICHMENT.get(session_id, {})
+    if not enrichment:
+        return
+
+    async with session_maker() as db_session:
+        repo = TraceRepository(db_session)
+
+        # Update session fields
+        update_data = {
+            "total_tokens": enrichment.get("total_tokens", 0),
+            "total_cost_usd": enrichment.get("total_cost_usd", 0.0),
+            "errors": enrichment.get("errors", 0),
+        }
+
+        if enrichment.get("fix_note"):
+            update_data["fix_note"] = enrichment["fix_note"]
+
+        await repo.update_session(session_id, **update_data)
+
+        # Update retention_tier directly on the ORM model
+        from sqlalchemy import update
+
+        from storage.models import SessionModel
+
+        if enrichment.get("retention_tier"):
+            await db_session.execute(
+                update(SessionModel)
+                .where(SessionModel.id == session_id)
+                .values(retention_tier=enrichment["retention_tier"])
+            )
+
+        # Create behavior alerts if needed
+        behavior_alerts = enrichment.get("behavior_alerts", 0)
+        if behavior_alerts > 0:
+            # Get session events for alert context
+            events = await repo.list_events(session_id, limit=10)
+            event_ids = [e.id for e in events[:behavior_alerts]] if events else []
+
+            for i in range(behavior_alerts):
+                alert = AnomalyAlertModel(
+                    id=str(uuid.uuid4()),
+                    tenant_id="local",
+                    session_id=session_id,
+                    alert_type="looping_behavior",
+                    severity=0.7 + (i * 0.1),
+                    signal=f"Detected repeated tool call pattern (iteration {i + 1})",
+                    event_ids=event_ids[i:i+1] if i < len(event_ids) else [],
+                    detection_source="demo_seed",
+                    detection_config={"threshold": 3, "window": 60},
+                )
+                await repo.create_anomaly_alert(alert)
+
+        await db_session.commit()
 
 
 async def main() -> None:
@@ -83,6 +211,7 @@ async def main() -> None:
             repo = TraceRepository(db_session)
             await repo.delete_session(session_id)
         await runner(session_id)
+        await enrich_session(session_id, session_maker)
         print(f"seeded {session_id}")
 
     await engine.dispose()
