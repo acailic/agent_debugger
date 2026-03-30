@@ -1,31 +1,52 @@
+# Multi-stage Dockerfile for peaky-peek-server
+# Stage 1: Build frontend
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /frontend
+
+# Copy frontend package files
+COPY frontend/package.json frontend/package-lock.json* ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy frontend source and build
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: Runtime image
 FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# Copy package definition
+COPY pyproject-server.toml ./
 
-# Copy pyproject.toml first for dependency caching
-COPY pyproject.toml ./
+# Copy built frontend from stage 1
+COPY --from=frontend-builder /frontend/dist ./frontend/dist
 
-# Install Python dependencies
-RUN pip install --no-cache-dir .[server,cloud]
+# Copy SDK and server source
+COPY agent_debugger_sdk/ ./agent_debugger_sdk/
+COPY api/ ./api/
+COPY auth/ ./auth/
+COPY collector/ ./collector/
+COPY redaction/ ./redaction/
+COPY storage/ ./storage/
 
-# Copy application code
-COPY . .
+# Install the package
+RUN pip install --no-cache-dir -e .
 
-# Create non-root user for security
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Create traces directory for data persistence
+RUN mkdir -p /app/traces && \
+    adduser --disabled-password --gecos '' appuser
 USER appuser
 
 # Expose port
-EXPOSE 8080
+EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:8080/health').raise_for_status()" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()" || exit 1
 
-# Run migrations then start
-CMD ["sh", "-c", "alembic upgrade head && uvicorn api.main:app --host 0.0.0.0 --port 8080"]
+# Default command
+CMD ["peaky-peek", "--host", "0.0.0.0", "--port", "8000"]

@@ -8,6 +8,7 @@ management.
 from __future__ import annotations
 
 import uuid
+from contextlib import asynccontextmanager
 
 from agent_debugger_sdk.core.context import TraceContext
 
@@ -20,14 +21,26 @@ class LangChainAdapter:
     Provides a higher-level interface for instrumenting LangChain components
     with automatic context management.
 
-    Example:
-        >>> from langchain_openai import ChatOpenAI
-        >>> from agent_debugger_sdk.adapters import LangChainAdapter
-        >>>
-        >>> adapter = LangChainAdapter(agent_name="my_agent")
-        >>> async with adapter.trace_session() as session_id:
-        ...     llm = ChatOpenAI(callbacks=[adapter.handler])
-        ...     result = await llm.ainvoke("Hello")
+    The adapter supports two usage patterns:
+
+    1. **As a context manager** - Use ``async with`` to automatically create
+       and manage a trace session:
+
+       >>> from langchain_openai import ChatOpenAI
+       >>> from agent_debugger_sdk.adapters import LangChainAdapter
+       >>>
+       >>> adapter = LangChainAdapter(agent_name="my_agent")
+       >>> async with adapter:
+       ...     llm = ChatOpenAI(callbacks=[adapter.handler])
+       ...     result = await llm.ainvoke("Hello")
+
+    2. **With explicit trace_session** - Call ``trace_session()`` for more
+       control over session parameters:
+
+       >>> adapter = LangChainAdapter()
+       >>> async with adapter.trace_session(agent_name="my_agent") as session_id:
+       ...     llm = ChatOpenAI(callbacks=[adapter.handler])
+       ...     result = await llm.ainvoke("Hello")
     """
 
     def __init__(
@@ -63,6 +76,46 @@ class LangChainAdapter:
                 tags=self.tags,
             )
         return self._handler
+
+    @asynccontextmanager
+    async def trace_session(
+        self,
+        agent_name: str = "",
+        tags: list[str] | None = None,
+    ):
+        """Context manager for tracing a complete LangChain run.
+
+        Use this method to create a new trace session with optional overrides
+        for the agent name and tags. The handler is automatically wired to
+        emit events to the session.
+
+        Args:
+            agent_name: Optional override for the agent name.
+            tags: Optional override for the tags.
+
+        Yields:
+            The session ID string.
+
+        Example:
+            >>> adapter = LangChainAdapter()
+            >>> async with adapter.trace_session(agent_name="my_agent") as session_id:
+            ...     print(f"Tracing session: {session_id}")
+            ...     llm = ChatOpenAI(callbacks=[adapter.handler])
+            ...     result = await llm.ainvoke("Hello")
+        """
+        effective_agent_name = agent_name or self.agent_name
+        effective_tags = tags or self.tags
+
+        self._context = TraceContext(
+            session_id=self.session_id,
+            agent_name=effective_agent_name,
+            framework="langchain",
+            tags=effective_tags,
+        )
+
+        async with self._context:
+            self.handler.set_context(self._context)
+            yield self.session_id
 
     async def __aenter__(self) -> LangChainAdapter:
         """Enter the tracing context.

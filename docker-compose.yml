@@ -1,15 +1,14 @@
+version: "3.8"
+
 services:
-  api:
-    build: .
+  peaky-peek:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: peaky-peek-server:latest
+    container_name: peaky-peek
     ports:
-      - "8080:8080"
+      - "8000:8000"
     volumes:
-      - ./data/agent_debugger.db:/app/data/agent_debugger.db
-    environment:
-      - AGENT_DEBUGGER_ENABLED=true
-    healthcheck:
-      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8080/health').raise_for_status()"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      - ./traces:/app/traces
+    restart: unless-stopped

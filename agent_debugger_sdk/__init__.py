@@ -30,6 +30,7 @@ from agent_debugger_sdk.core.events import (
 )
 from agent_debugger_sdk.core.scorer import ImportanceScorer, get_importance_scorer
 from agent_debugger_sdk.pricing import ModelPricing, calculate_cost, get_pricing
+from agent_debugger_sdk.simple import trace, trace_session
 
 __all__ = [
     # SDK Configuration
@@ -63,6 +64,9 @@ __all__ = [
     "get_current_context",
     "configure_event_pipeline",
     "get_importance_scorer",
+    # Simplified API (zero-setup tracing)
+    "trace",
+    "trace_session",
     # Decorators
     "trace_agent",
     "trace_tool",

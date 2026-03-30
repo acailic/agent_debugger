@@ -42,19 +42,51 @@ _extract_invocation_settings = extract_invocation_settings
 class LangChainTracingHandler(AsyncCallbackHandler):
     """Async callback handler for LangChain tracing.
 
-    Hooks into LangChain's callback system to capture:
-    - LLM requests and responses
-    - Tool calls and results
-    - Chain executions
-    - Agent actions
+    This handler hooks into LangChain's callback system to capture execution
+    traces including LLM requests/responses, tool calls, chain executions, and
+    agent actions.
 
-    Example:
-        >>> from langchain_openai import ChatOpenAI
+    **Usage Pattern:**
+
+    The handler must be paired with a :class:`~agent_debugger_sdk.core.context.TraceContext`
+    to emit events. Use :class:`~agent_debugger_sdk.adapters.langchain.LangChainAdapter`
+    for automatic context management, or set the context manually:
+
+    **Automatic (recommended):**
+
+        >>> from agent_debugger_sdk.adapters import LangChainAdapter
+        >>>
+        >>> adapter = LangChainAdapter(agent_name="my_agent")
+        >>> async with adapter:
+        ...     llm = ChatOpenAI(callbacks=[adapter.handler])
+        ...     result = await llm.ainvoke("Hello")
+
+    **Manual context management:**
+
         >>> from agent_debugger_sdk.adapters import LangChainTracingHandler
+        >>> from agent_debugger_sdk.core.context import TraceContext
         >>>
         >>> handler = LangChainTracingHandler(session_id="my-session")
-        >>> llm = ChatOpenAI(callbacks=[handler])
-        >>> await llm.ainvoke("Hello")
+        >>> context = TraceContext(session_id="my-session", agent_name="my_agent", framework="langchain")
+        >>>
+        >>> async with context:
+        ...     handler.set_context(context)
+        ...     llm = ChatOpenAI(callbacks=[handler])
+        ...     result = await llm.ainvoke("Hello")
+
+    **Events Captured:**
+
+    - ``LLMRequestEvent`` - When an LLM call starts
+    - ``LLMResponseEvent`` - When an LLM call completes
+    - ``ToolCallEvent`` - When a tool is invoked
+    - ``TraceEvent`` (AGENT_START/AGENT_END) - For chain boundaries
+    - ``ErrorEvent`` - When any step fails
+
+    **Error Handling:**
+
+    All callback methods include error boundaries - exceptions during event
+    emission are logged but never propagated to LangChain, ensuring that
+    tracing failures don't break your application.
     """
 
     def __init__(

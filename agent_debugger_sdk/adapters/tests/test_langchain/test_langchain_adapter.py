@@ -83,3 +83,23 @@ class TestLangChainAdapter:
             adapter = LangChainAdapter(session_id="cached-handler")
             assert adapter.handler is adapter.handler
             await adapter.__aexit__(None, None, None)
+
+    @pytest.mark.asyncio
+    async def test_trace_session_context_manager(self):
+        """Test trace_session context manager creates session and returns session_id."""
+        from agent_debugger_sdk.adapters.langchain import LangChainAdapter
+
+        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+            adapter = LangChainAdapter(session_id="trace-session-test")
+
+            async with adapter.trace_session(agent_name="test_agent", tags=["test"]) as session_id:
+                assert session_id == "trace-session-test"
+                assert adapter._context is not None
+                assert adapter.handler._context is not None
+
+            buffer = get_event_buffer()
+            events = await buffer.get_events("trace-session-test")
+
+            assert len(events) >= 2
+            assert events[0].event_type == EventType.AGENT_START
+            assert events[-1].event_type == EventType.AGENT_END

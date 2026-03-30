@@ -114,7 +114,21 @@ class _SyncTracingCallbackHandler(BaseCallbackHandler):
         metadata: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Adapt LangChain chat-model callbacks into the LLM start path."""
+        """Adapt LangChain chat-model callbacks into the LLM start path.
+
+        LangChain's newer chat models use ``on_chat_model_start`` with structured
+        message lists instead of string prompts. This adapter normalizes those
+        messages to strings and routes them through the standard LLM start path.
+
+        Args:
+            serialized: Serialized model configuration.
+            messages: List of message lists (one per prompt).
+            run_id: Unique identifier for this run.
+            parent_run_id: Parent run ID if nested.
+            tags: Tags associated with this run.
+            metadata: Additional metadata.
+            **kwargs: Additional keyword arguments passed to LLM start.
+        """
         prompts = [get_buffer_string(message_list) for message_list in messages]
         self.on_llm_start(
             serialized,
