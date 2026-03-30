@@ -13,6 +13,7 @@ from agent_debugger_sdk.core.events import (
     ErrorEvent,
     EventType,
     PolicyViolationEvent,
+    ToolCallEvent,
 )
 from collector.intelligence import TraceIntelligence
 

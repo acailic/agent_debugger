@@ -153,7 +153,7 @@ def run_benchmark(name: str, command: list[str]) -> dict:
 
 def main():
     benchmarks = [
-        ("session_analysis", ["python", "-m", "pytest", "tests/test_adaptive_intelligence.py", "-q"]),
+        ("session_analysis", ["python", "-m", "pytest", "tests/intelligence/", "-q"]),
         ("replay_building", ["python", "-m", "pytest", "tests/test_replay_collapse.py", "-q"]),
     ]
 

@@ -54,7 +54,6 @@ class TestCrossSessionClustering:
                 tool_error_event,
             ]
             from agent_debugger_sdk.core.events import Checkpoint
-
             from tests.intelligence.conftest import make_session_with_events
 
             checkpoints = [
