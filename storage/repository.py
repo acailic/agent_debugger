@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agent_debugger_sdk.core.events import Checkpoint, Session, TraceEvent
+from agent_debugger_sdk.core.events import Checkpoint, EventType, Session, TraceEvent
 from storage.converters import event_to_orm, orm_to_checkpoint, orm_to_event, orm_to_session
 from storage.models import AnomalyAlertModel, CheckpointModel, EventModel, SessionModel
 from storage.repositories.alert_repo import AnomalyAlertRepository
@@ -167,7 +167,10 @@ class TraceRepository:
         Returns:
             The created TraceEvent instance
         """
-        return await self._event_repo.add_event(event)
+        result = await self._event_repo.add_event(event)
+        if event.event_type == EventType.ERROR:
+            await self._increment_session_errors(event.session_id, 1)
+        return result
 
     async def add_events_batch(self, events: list[TraceEvent]) -> list[TraceEvent]:
         """Add multiple events to the database in a single transaction.
@@ -178,7 +181,31 @@ class TraceRepository:
         Returns:
             List of created TraceEvent instances
         """
-        return await self._event_repo.add_events_batch(events)
+        results = await self._event_repo.add_events_batch(events)
+        # Group error counts by session to do one update per session
+        error_counts: dict[str, int] = {}
+        for event in events:
+            if event.event_type == EventType.ERROR:
+                error_counts[event.session_id] = error_counts.get(event.session_id, 0) + 1
+        for session_id, count in error_counts.items():
+            await self._increment_session_errors(session_id, count)
+        return results
+
+    async def _increment_session_errors(self, session_id: str, count: int) -> None:
+        """Atomically increment errors on the ORM session object.
+
+        Uses ORM-level update so the identity map stays in sync and subsequent
+        get_session() calls within the same transaction see the new value.
+        """
+        result = await self.session.execute(
+            select(SessionModel).where(
+                SessionModel.id == session_id,
+                SessionModel.tenant_id == self.tenant_id,
+            )
+        )
+        db_session = result.scalar_one_or_none()
+        if db_session is not None:
+            db_session.errors = (db_session.errors or 0) + count
 
     async def get_event(self, event_id: str) -> TraceEvent | None:
         """Retrieve an event by ID with tenant isolation.

@@ -261,14 +261,14 @@ async def test_issue_2_session_with_actual_errors_shows_correct_count(db_session
     """
     repo = TraceRepository(db_session, tenant_id="tenant-error-count-positive")
 
-    # Create a session with errors=3 (matching the 3 ERROR events we'll create)
+    # Create a session with errors=0 — auto-incremented by add_event for each ERROR event
     session = Session(
         id="session-with-errors",
         agent_name="test_agent",
         framework="pytest",
         started_at=datetime(2026, 3, 30, 13, 0, tzinfo=timezone.utc),
         status=SessionStatus.ERROR,
-        errors=3,  # Set to 3 because we have 3 ERROR events
+        errors=0,
     )
     await repo.create_session(session)
 
@@ -338,14 +338,14 @@ async def test_issue_2_session_with_mixed_events_errors_count_only_errors(db_ses
     """
     repo = TraceRepository(db_session, tenant_id="tenant-mixed-events")
 
-    # Create a session with errors=3 (only counting the ERROR events)
+    # Create a session with errors=0 — auto-incremented by add_event for each ERROR event
     session = Session(
         id="session-mixed-events",
         agent_name="test_agent",
         framework="pytest",
         started_at=datetime(2026, 3, 30, 14, 0, tzinfo=timezone.utc),
         status=SessionStatus.ERROR,
-        errors=3,  # 3 ERROR events, not 5 total events
+        errors=0,
     )
     await repo.create_session(session)
 

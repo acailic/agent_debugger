@@ -159,7 +159,6 @@ async def test_retention_tier_populated_for_sessions(db_session):
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="Issue #3: session.errors is not auto-computed from error events — must be set manually", strict=True)
 async def test_failure_count_populated_for_sessions_with_errors(db_session):
     """Reproduction test for Issue #3: Test that failure_count is populated when session has error events.
 
