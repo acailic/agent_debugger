@@ -32,6 +32,7 @@ async def main() -> None:
             existing = await repo.get_session(session.id)
             if existing is None:
                 await repo.create_session(session)
+                await db_session.commit()
 
     async def persist_session_update(session: Session) -> None:
         async with session_maker() as db_session:
@@ -50,16 +51,19 @@ async def main() -> None:
                 config=session.config,
                 tags=session.tags,
             )
+            await db_session.commit()
 
     async def persist_event(event: TraceEvent) -> None:
         async with session_maker() as db_session:
             repo = TraceRepository(db_session)
             await repo.add_event(event)
+            await db_session.commit()
 
     async def persist_checkpoint(checkpoint: Checkpoint) -> None:
         async with session_maker() as db_session:
             repo = TraceRepository(db_session)
             await repo.create_checkpoint(checkpoint)
+            await db_session.commit()
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
