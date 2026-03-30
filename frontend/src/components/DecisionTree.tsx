@@ -19,22 +19,22 @@ interface D3TreeNode {
 }
 
 const NODE_COLORS: Record<string, string> = {
-  trace_root: '#64748b',
-  agent_start: '#3b82f6',
-  agent_end: '#1d4ed8',
-  llm_request: '#a855f7',
-  llm_response: '#a855f7',
-  tool_call: '#22c55e',
-  tool_result: '#22c55e',
-  decision: '#f97316',
-  error: '#ef4444',
-  checkpoint: '#0f766e',
-  safety_check: '#d97706',
-  refusal: '#b91c1c',
-  policy_violation: '#991b1b',
-  prompt_policy: '#7c3aed',
-  agent_turn: '#0369a1',
-  behavior_alert: '#c2410c',
+  trace_root: 'var(--node-default)',
+  agent_start: 'var(--node-session)',
+  agent_end: 'var(--node-session)',
+  llm_request: 'var(--node-llm)',
+  llm_response: 'var(--node-llm)',
+  tool_call: 'var(--node-tool)',
+  tool_result: 'var(--node-tool)',
+  decision: 'var(--node-decision)',
+  error: 'var(--node-risk)',
+  checkpoint: 'var(--node-checkpoint)',
+  safety_check: 'var(--node-decision)',
+  refusal: 'var(--node-risk)',
+  policy_violation: 'var(--node-risk)',
+  prompt_policy: 'var(--node-llm)',
+  agent_turn: 'var(--node-session)',
+  behavior_alert: 'var(--node-decision)',
 }
 
 const NODE_SIZE = 12
@@ -169,9 +169,8 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         return `M${sourceX},${sourceY}C${sourceX},${midY} ${targetX},${midY} ${targetX},${targetY}`
       })
       .attr('fill', 'none')
-      .attr('stroke', '#4b5563')
+      .attr('stroke', 'var(--link-stroke)')
       .attr('stroke-width', 2)
-      .attr('stroke-opacity', 0.6)
 
     const nodes = g
       .selectAll('.node')
@@ -191,8 +190,8 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         const importance = d.data.event.importance ?? 1
         return NODE_SIZE * Math.sqrt(importance)
       })
-      .attr('fill', (d) => NODE_COLORS[d.data.event.event_type] || '#6b7280')
-      .attr('stroke', (d) => (d.data.id === selectedEventId ? '#fbbf24' : '#1f2937'))
+      .attr('fill', (d) => NODE_COLORS[d.data.event.event_type] || 'var(--node-default)')
+      .attr('stroke', (d) => (d.data.id === selectedEventId ? 'var(--node-selected)' : 'var(--node-stroke)'))
       .attr('stroke-width', (d) => (d.data.id === selectedEventId ? 3 : 2))
       .attr('cursor', 'pointer')
       .attr('transition', 'all 0.2s ease')
@@ -201,7 +200,7 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
       .append('text')
       .attr('dy', 4)
       .attr('text-anchor', 'middle')
-      .attr('fill', '#fff')
+      .attr('fill', 'white')
       .attr('font-size', '10px')
       .attr('font-weight', 'bold')
       .attr('pointer-events', 'none')
@@ -218,7 +217,7 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
             .append('text')
             .attr('x', 20)
             .attr('dy', 4)
-            .attr('fill', '#9ca3af')
+            .attr('fill', 'var(--muted)')
             .attr('font-size', '11px')
             .text(`+${child.data.children.length}`)
         }
@@ -277,7 +276,6 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
     return (
       <div className="decision-tree empty">
         <div className="empty-state">
-          <span className="empty-icon">🌳</span>
           <span>No tree data available</span>
         </div>
       </div>

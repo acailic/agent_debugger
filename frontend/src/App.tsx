@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import './App.css'
 import { createEventSource, getAgentDrift, getLiveSummary, getReplay, getSessions, getTraceBundle, searchTraces } from './api/client'
 import { AnalyticsPanel } from './components/AnalyticsPanel'
+import { EmptyState } from './components/EmptyState'
 import { Logo } from './components/Logo'
 import { ConversationPanel } from './components/ConversationPanel'
 import CostPanel from './components/CostPanel'
@@ -13,7 +14,6 @@ import FixAnnotation from './components/FixAnnotation'
 import { LLMViewer } from './components/LLMViewer'
 import { LiveSummaryPanel } from './components/LiveSummaryPanel'
 import { PolicyDiffView } from './components/PolicyDiffView'
-import SearchBar from './components/SearchBar'
 import { SessionComparisonPanel } from './components/SessionComparisonPanel'
 import { SessionReplay } from './components/SessionReplay'
 import { ToolInspector } from './components/ToolInspector'
@@ -22,7 +22,6 @@ import WhyButton from './components/WhyButton'
 import HighlightChip from './components/HighlightChip'
 import { CheckpointSnapshot } from './components/CheckpointSnapshot'
 import { EventDetail } from './components/EventDetail'
-import { FailureExplanationCard } from './components/FailureExplanationCard'
 import { formatEventHeadline, formatNumber, SEARCHABLE_EVENT_TYPES } from './utils/formatting'
 import { useSessionStore } from './stores/sessionStore'
 import type { AppTab, FailureCluster, Highlight, PolicyShift, ReplayMode, RollingSummary, SearchScope, SessionSortMode, TraceEvent } from './types'
@@ -407,10 +406,6 @@ function App() {
   }, [activeEventForInspectors?.id, bundle?.analysis.failure_explanations, selectedEventId])
 
   const currentSession = sessions.find((session) => session.id === selectedSessionId) ?? bundle?.session ?? null
-  const fullRetentionCount = useMemo(
-    () => sessions.filter((session) => session.retention_tier === 'full').length,
-    [sessions],
-  )
   const selectedCheckpoint = (
     (selectedCheckpointId ? checkpointLookup.get(selectedCheckpointId) : null)
     ?? (replay?.nearest_checkpoint ? checkpointLookup.get(replay.nearest_checkpoint.id) ?? replay.nearest_checkpoint : null)
@@ -542,22 +537,18 @@ function App() {
     <div className="app-shell">
       <header className="hero">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Logo size={40} />
+          <Logo size={32} />
           <div>
-            <p className="eyebrow">Research-grade agent debugging</p>
-          <h1>Edge Trace Console</h1>
-          <p className="hero-copy">
-            One coherent surface for safety-aware traces, provenance, adaptive replay, and failure clustering.
-          </p>
-        </div>
+            <h1>Peaky Peek</h1>
+          </div>
         </div>
         <div className="hero-metrics">
           <div>
-            <span className="metric-label">Full retention</span>
-            <strong>{formatNumber(fullRetentionCount)}</strong>
+            <span className="metric-label">Sessions</span>
+            <strong>{formatNumber(sessions.length)}</strong>
           </div>
           <div>
-            <span className="metric-label">Failures Clustered</span>
+            <span className="metric-label">Failures</span>
             <strong>{formatNumber(bundle?.analysis.failure_clusters.length ?? 0)}</strong>
           </div>
           <div>
@@ -567,24 +558,17 @@ function App() {
         </div>
       </header>
 
-      <div className="search-container">
-        <SearchBar onSelectSession={(sessionId: string) => {
-          setSelectedSessionId(sessionId)
-          setActiveTab('trace')
-        }} />
-      </div>
-
       {error && <div className="error-banner">{error}</div>}
 
       <nav className="app-tabs">
-        {(['trace', 'analytics'] as AppTab[]).map((tab) => (
+        {(['trace', 'inspect', 'analytics'] as AppTab[]).map((tab) => (
           <button
             key={tab}
             type="button"
             className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab === 'trace' ? 'Trace Inspector' : 'Analytics'}
+            {tab === 'trace' ? 'Trace' : tab === 'inspect' ? 'Inspect' : 'Analytics'}
           </button>
         ))}
       </nav>
@@ -596,9 +580,166 @@ function App() {
         </div>
       )}
 
+      {activeTab === 'inspect' && (
+        <main className="workspace">
+          <section className="main-stage">
+            {!selectedSessionId ? (
+              <EmptyState
+                icon="&#128300;"
+                title="No session selected"
+                description="Go to the Trace tab and select a session to inspect its decision tree, checkpoints, and behavior alerts."
+              />
+            ) : null}
+            <div className="trace-layout" style={selectedSessionId ? undefined : { opacity: 0.3, pointerEvents: 'none' as const }}>
+              <div className="panel panel--primary timeline-panel">
+                <DecisionTree tree={bundle?.tree ?? null} selectedEventId={selectedEventId} onSelectEvent={setSelectedEventId} />
+              </div>
+            </div>
+
+            <div className="inspect-grid">
+              <section className="panel panel--primary">
+                <div className="inspectors-grid">
+                  <ToolInspector event={toolEvent} />
+                  <LLMViewer request={llmRequest} response={llmResponse} />
+                </div>
+              </section>
+
+              <section className="panel panel--secondary">
+                <ConversationPanel
+                  events={mergedSessionEvents}
+                  selectedEventId={selectedEventId}
+                  onSelectEvent={handleInspectEvent}
+                />
+              </section>
+
+              <section className="panel panel--secondary">
+                <SessionComparisonPanel
+                  primaryBundle={bundle}
+                  secondaryBundle={secondaryBundle}
+                  sessions={sessions}
+                  selectedSessionId={selectedSessionId}
+                  secondarySessionId={secondarySessionId}
+                  compareLoading={compareLoading}
+                  onSelectSecondarySession={setSecondarySessionId}
+                />
+              </section>
+
+              <section className="panel panel--secondary">
+                <LiveSummaryPanel
+                  session={currentSession}
+                  events={mergedSessionEvents}
+                  checkpoints={bundle?.checkpoints ?? []}
+                  liveSummary={liveSummary}
+                  rollingSummaryData={rollingSummaryData}
+                  isConnected={streamConnected}
+                  liveEventCount={liveEvents.length}
+                  onSelectEvent={handleInspectEvent}
+                />
+              </section>
+
+              <section className="panel panel--secondary">
+                <div className="panel-head">
+                  <p className="eyebrow">Checkpoint Ranking</p>
+                  <h2>Restore candidates</h2>
+                </div>
+                <div className="checkpoint-list">
+                  {bundle?.analysis.checkpoint_rankings.slice(0, 5).map((ranking) => {
+                    const checkpoint = checkpointLookup.get(ranking.checkpoint_id)
+                    if (!checkpoint) return null
+                    return (
+                      <button
+                        key={ranking.checkpoint_id}
+                        type="button"
+                        className={`checkpoint-card ${selectedCheckpointId === checkpoint.id ? 'active' : ''}`}
+                        onClick={() => setSelectedCheckpointId(checkpoint.id)}
+                      >
+                        <span>Sequence {checkpoint.sequence}</span>
+                        <strong>Restore {ranking.restore_value.toFixed(2)}</strong>
+                        <small>Replay {ranking.replay_value.toFixed(2)}</small>
+                        <small>{ranking.retention_tier}</small>
+                      </button>
+                    )
+                  }) ?? <p>No checkpoints captured.</p>}
+                </div>
+                {selectedCheckpoint && (
+                  <>
+                    <div className="checkpoint-actions">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleInspectEvent(selectedCheckpoint.event_id)
+                          setReplayMode('focus')
+                        }}
+                      >
+                        Focus replay
+                      </button>
+                      <button type="button" onClick={() => handleInspectEvent(selectedCheckpoint.event_id)}>
+                        Inspect event
+                      </button>
+                    </div>
+                    {selectedCheckpointRanking && (
+                      <div className="analysis-strip">
+                        <span>Restore {selectedCheckpointRanking.restore_value.toFixed(2)}</span>
+                        <span>Replay {selectedCheckpointRanking.replay_value.toFixed(2)}</span>
+                        <span>Importance {selectedCheckpointRanking.importance.toFixed(2)}</span>
+                        <span>Tier {selectedCheckpointRanking.retention_tier}</span>
+                      </div>
+                    )}
+                    <div className="checkpoint-compare-grid">
+                      <CheckpointSnapshot title="Selected checkpoint" checkpoint={selectedCheckpoint} />
+                      {replay?.nearest_checkpoint && replay.nearest_checkpoint.id !== selectedCheckpoint.id ? (
+                        <CheckpointSnapshot title="Replay anchor" checkpoint={replay.nearest_checkpoint} />
+                      ) : null}
+                    </div>
+                  </>
+                )}
+              </section>
+
+              <section className="panel alerts-panel">
+                <p className="eyebrow">Behavior Alerts</p>
+                <h2>Live heuristics</h2>
+                <div className="alert-list">
+                  {bundle?.analysis.behavior_alerts.length ? (
+                    bundle.analysis.behavior_alerts.map((alert) => (
+                      <button
+                        key={`${alert.alert_type}-${alert.event_id}`}
+                        type="button"
+                        className="alert-row"
+                        onClick={() => handleInspectEvent(alert.event_id)}
+                      >
+                        <span>{alert.alert_type}</span>
+                        <strong>{alert.severity}</strong>
+                        <small>{alert.signal}</small>
+                      </button>
+                    ))
+                  ) : (
+                    <p>No oscillation or loop alerts detected.</p>
+                  )}
+                </div>
+              </section>
+
+              <DriftAlertsPanel
+                agentName={currentSession?.agent_name ?? null}
+                driftData={driftData}
+                loading={driftLoading}
+              />
+              <PolicyDiffView
+                policyShifts={policyShifts}
+                onSelectEvent={handleInspectEvent}
+              />
+              <FailureClusterPanel
+                clusters={failureClusters}
+                onSelectSession={setSelectedSessionId}
+                selectedSessionId={selectedSessionId}
+              />
+            </div>
+          </section>
+        </main>
+      )}
+
       {activeTab === 'trace' && (
       <main className="workspace">
-        <aside className="session-rail panel">
+        <aside className="session-rail panel panel--secondary">
           <div className="rail-head">
             <p className="eyebrow">Sessions</p>
             <h2>Captured Runs</h2>
@@ -611,6 +752,18 @@ function App() {
             ))}
           </div>
           {loading && !sessions.length ? <p>Loading sessions...</p> : null}
+          {!loading && !sessions.length ? (
+            <EmptyState
+              icon="&#128269;"
+              title="No sessions yet"
+              description="Capture your first agent run to start debugging."
+              steps={[
+                { label: 'Install the SDK', detail: 'pip install peaky-peek' },
+                { label: 'Add @trace decorator', detail: 'Wrap your agent function' },
+                { label: 'Run your agent', detail: 'Traces appear here automatically' },
+              ]}
+            />
+          ) : null}
           <div className="session-list">
             {sessions.map((session) => (
               <button
@@ -671,11 +824,14 @@ function App() {
         </aside>
 
         <section className="main-stage">
-          <section className="control-bar panel">
-            <div className="control-copy">
-              <p className="eyebrow">Replay</p>
-              <h2>Checkpoint-aware playback</h2>
-            </div>
+          {!selectedSessionId ? (
+            <EmptyState
+              icon="&#128065;"
+              title="Select a session to inspect"
+              description="Choose a captured run from the sidebar to replay its trace, inspect decisions, and search events."
+            />
+          ) : null}
+          <div className="replay-bar" style={selectedSessionId ? undefined : { opacity: 0.3, pointerEvents: 'none' as const }}>
             <div className="mode-switches">
               {(['full', 'focus', 'failure', 'highlights'] as ReplayMode[]).map((mode) => (
                 <button
@@ -706,7 +862,7 @@ function App() {
                 </div>
               )}
             </div>
-            <div className="breakpoint-grid">
+            <div className="breakpoint-bar">
               <label htmlFor="breakpoint-events">
                 Event breakpoints
                 <input
@@ -749,80 +905,82 @@ function App() {
                 Stop at breakpoint
               </label>
             </div>
+          </div>
+
+          <section className="panel panel--primary replay-panel">
+            <SessionReplay
+              events={activeEvents}
+              breakpointEventIds={breakpointEventIds}
+              currentIndex={currentIndex}
+              isPlaying={isPlaying}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onStepForward={() => seekReplayIndex(currentIndex + 1)}
+              onStepBackward={() => seekReplayIndex(currentIndex - 1)}
+              onSeek={seekReplayIndex}
+              speed={speed}
+              onSpeedChange={setSpeed}
+            />
+            <div className="replay-summary">
+              <span>Scope events: {activeEvents.length}</span>
+              <span>Nearest checkpoint: {replay?.nearest_checkpoint?.sequence ?? 'none'}</span>
+              <span>Breakpoints hit: {replay?.breakpoints.length ?? 0}</span>
+              <span>Failures: {replay?.failure_event_ids.length ?? 0}</span>
+              {replay?.collapsed_segments && replay.collapsed_segments.length > 0 && (
+                <span>Collapsed segments: {replay.collapsed_segments.length}</span>
+              )}
+              {replay?.highlight_indices && replay.highlight_indices.length > 0 && (
+                <span>Highlights: {replay.highlight_indices.length}</span>
+              )}
+              {replay?.stopped_at_breakpoint && (
+                <span className="breakpoint-stop-indicator">Stopped at breakpoint</span>
+              )}
+            </div>
           </section>
 
-          <section className="analysis-ribbon panel">
-            <div>
-              <p className="eyebrow">Adaptive Intelligence</p>
-              <h2>Representative failures</h2>
-            </div>
-            <div className="cluster-list">
-              {bundle?.analysis.failure_clusters.slice(0, 3).map((cluster) => (
-                <button
-                  key={cluster.fingerprint}
-                  type="button"
-                  className="cluster-pill"
-                  onClick={() => {
-                    setSelectedEventId(cluster.representative_event_id)
-                    setReplayMode('focus')
-                  }}
-                >
-                  <span>{cluster.fingerprint}</span>
-                  <strong>{cluster.count}x</strong>
+          <section className="panel panel--primary timeline-panel">
+            {replayMode === 'highlights' && (
+              <div className="highlight-nav">
+                <button type="button" onClick={() => goToHighlight(-1)} disabled={currentHighlightIndex === 0}>
+                  Prev
                 </button>
-              )) ?? <p>No clustered failures yet.</p>}
-            </div>
-            <div className="analysis-strip">
-              <span>Retention {bundle?.analysis.retention_tier ?? 'downsampled'}</span>
-              <span>Checkpoints ranked {bundle?.analysis.checkpoint_rankings.length ?? 0}</span>
-              <span>High severity {bundle?.analysis.session_summary.high_severity_count ?? 0}</span>
-            </div>
-            <div className="diagnosis-overview-grid">
-              {bundle?.analysis.failure_explanations.slice(0, 3).map((explanation) => (
-                <FailureExplanationCard
-                  key={explanation.failure_event_id}
-                  explanation={explanation}
-                  onInspect={handleInspectEvent}
-                  onFocusReplay={(eventId) => {
-                    setReplayMode('focus')
-                    setSelectedEventId(eventId)
-                  }}
-                />
-              )) ?? null}
-            </div>
-          </section>
-
-          <section className="panel coordination-panel">
-            <ConversationPanel
-              events={mergedSessionEvents}
+                <span className="highlight-position">
+                  {highlightEvents.length > 0 ? `${currentHighlightIndex + 1} of ${highlightEvents.length} highlights` : 'No highlights in this session'}
+                </span>
+                <button type="button" onClick={() => goToHighlight(1)} disabled={currentHighlightIndex >= highlightEvents.length - 1}>
+                  Next
+                </button>
+              </div>
+            )}
+            <TraceTimeline
+              events={displayEvents}
               selectedEventId={selectedEventId}
               onSelectEvent={handleInspectEvent}
+              highlightEventIds={highlightEventIds}
+              highlightsMap={highlightsMap}
             />
-          </section>
-
-          <section className="panel comparison-shell">
-            <SessionComparisonPanel
-              primaryBundle={bundle}
-              secondaryBundle={secondaryBundle}
-              sessions={sessions}
-              selectedSessionId={selectedSessionId}
-              secondarySessionId={secondarySessionId}
-              compareLoading={compareLoading}
-              onSelectSecondarySession={setSecondarySessionId}
-            />
-          </section>
-
-          <section className="panel live-shell">
-            <LiveSummaryPanel
-              session={currentSession}
-              events={mergedSessionEvents}
-              checkpoints={bundle?.checkpoints ?? []}
-              liveSummary={liveSummary}
-              rollingSummaryData={rollingSummaryData}
-              isConnected={streamConnected}
-              liveEventCount={liveEvents.length}
-              onSelectEvent={handleInspectEvent}
-            />
+            {replayMode === 'highlights' && replay?.collapsed_segments?.map((segment, index) => (
+              <HighlightChip
+                key={index}
+                segment={segment}
+                isExpanded={expandedSegments.has(index)}
+                onToggle={() => toggleExpandedSegment(index)}
+              >
+                {mergedSessionEvents
+                  .slice(segment.start_index, segment.end_index + 1)
+                  .map((event) => (
+                    <button
+                      key={event.id}
+                      type="button"
+                      className="reference-chip"
+                      onClick={() => handleInspectEvent(event.id)}
+                    >
+                      <span>{event.event_type.replaceAll('_', ' ')}</span>
+                      <strong>{formatEventHeadline(event)}</strong>
+                    </button>
+                  ))}
+              </HighlightChip>
+            ))}
           </section>
 
           {currentSession && (currentSession.status === 'error' || (currentSession.failure_count ?? 0) > 0) && (
@@ -838,162 +996,10 @@ function App() {
               }}
             />
           )}
-
-          <div className="trace-layout">
-            <div className="panel timeline-panel">
-              {replayMode === 'highlights' && (
-                <div className="highlight-nav">
-                  <button type="button" onClick={() => goToHighlight(-1)} disabled={currentHighlightIndex === 0}>
-                    Prev
-                  </button>
-                  <span className="highlight-position">
-                    {highlightEvents.length > 0 ? `${currentHighlightIndex + 1} of ${highlightEvents.length} highlights` : 'No highlights in this session'}
-                  </span>
-                  <button type="button" onClick={() => goToHighlight(1)} disabled={currentHighlightIndex >= highlightEvents.length - 1}>
-                    Next
-                  </button>
-                </div>
-              )}
-              <TraceTimeline
-                events={displayEvents}
-                selectedEventId={selectedEventId}
-                onSelectEvent={handleInspectEvent}
-                highlightEventIds={highlightEventIds}
-                highlightsMap={highlightsMap}
-              />
-              {replayMode === 'highlights' && replay?.collapsed_segments?.map((segment, index) => (
-                <HighlightChip
-                  key={index}
-                  segment={segment}
-                  isExpanded={expandedSegments.has(index)}
-                  onToggle={() => toggleExpandedSegment(index)}
-                >
-                  {mergedSessionEvents
-                    .slice(segment.start_index, segment.end_index + 1)
-                    .map((event) => (
-                      <button
-                        key={event.id}
-                        type="button"
-                        className="reference-chip"
-                        onClick={() => handleInspectEvent(event.id)}
-                      >
-                        <span>{event.event_type.replaceAll('_', ' ')}</span>
-                        <strong>{formatEventHeadline(event)}</strong>
-                      </button>
-                    ))}
-                </HighlightChip>
-              ))}
-            </div>
-            <div className="panel tree-panel">
-              <DecisionTree tree={bundle?.tree ?? null} selectedEventId={selectedEventId} onSelectEvent={setSelectedEventId} />
-            </div>
-          </div>
-
-          <div className="replay-layout">
-            <section className="panel replay-panel">
-              <div className="panel-head">
-                <p className="eyebrow">Replay Controls</p>
-                <h2>Nearest checkpoint plus suffix</h2>
-              </div>
-              <SessionReplay
-                events={activeEvents}
-                breakpointEventIds={breakpointEventIds}
-                currentIndex={currentIndex}
-                isPlaying={isPlaying}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-                onStepForward={() => seekReplayIndex(currentIndex + 1)}
-                onStepBackward={() => seekReplayIndex(currentIndex - 1)}
-                onSeek={seekReplayIndex}
-                speed={speed}
-                onSpeedChange={setSpeed}
-              />
-              <div className="replay-summary">
-                <span>Scope events: {activeEvents.length}</span>
-                <span>Nearest checkpoint: {replay?.nearest_checkpoint?.sequence ?? 'none'}</span>
-                <span>Breakpoints hit: {replay?.breakpoints.length ?? 0}</span>
-                <span>Failures: {replay?.failure_event_ids.length ?? 0}</span>
-                {replay?.collapsed_segments && replay.collapsed_segments.length > 0 && (
-                  <span>Collapsed segments: {replay.collapsed_segments.length}</span>
-                )}
-                {replay?.highlight_indices && replay.highlight_indices.length > 0 && (
-                  <span>Highlights: {replay.highlight_indices.length}</span>
-                )}
-                {replay?.stopped_at_breakpoint && (
-                  <span className="breakpoint-stop-indicator">Stopped at breakpoint</span>
-                )}
-              </div>
-            </section>
-
-            <section className="panel checkpoint-panel">
-              <div className="panel-head">
-                <p className="eyebrow">Checkpoint Ranking</p>
-                <h2>Restore candidates</h2>
-              </div>
-              <div className="checkpoint-list">
-                {bundle?.analysis.checkpoint_rankings.slice(0, 5).map((ranking) => {
-                  const checkpoint = checkpointLookup.get(ranking.checkpoint_id)
-                  if (!checkpoint) return null
-                  return (
-                    <button
-                      key={ranking.checkpoint_id}
-                      type="button"
-                      className={`checkpoint-card ${selectedCheckpointId === checkpoint.id ? 'active' : ''}`}
-                      onClick={() => setSelectedCheckpointId(checkpoint.id)}
-                    >
-                      <span>Sequence {checkpoint.sequence}</span>
-                      <strong>Restore {ranking.restore_value.toFixed(2)}</strong>
-                      <small>Replay {ranking.replay_value.toFixed(2)}</small>
-                      <small>{ranking.retention_tier}</small>
-                    </button>
-                  )
-                }) ?? <p>No checkpoints captured.</p>}
-              </div>
-              {selectedCheckpoint && (
-                <>
-                  <div className="checkpoint-actions">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleInspectEvent(selectedCheckpoint.event_id)
-                        setReplayMode('focus')
-                      }}
-                    >
-                      Focus replay
-                    </button>
-                    <button type="button" onClick={() => handleInspectEvent(selectedCheckpoint.event_id)}>
-                      Inspect event
-                    </button>
-                  </div>
-                  {selectedCheckpointRanking && (
-                    <div className="analysis-strip">
-                      <span>Restore {selectedCheckpointRanking.restore_value.toFixed(2)}</span>
-                      <span>Replay {selectedCheckpointRanking.replay_value.toFixed(2)}</span>
-                      <span>Importance {selectedCheckpointRanking.importance.toFixed(2)}</span>
-                      <span>Tier {selectedCheckpointRanking.retention_tier}</span>
-                    </div>
-                  )}
-                  <div className="checkpoint-compare-grid">
-                    <CheckpointSnapshot title="Selected checkpoint" checkpoint={selectedCheckpoint} />
-                    {replay?.nearest_checkpoint && replay.nearest_checkpoint.id !== selectedCheckpoint.id ? (
-                      <CheckpointSnapshot title="Replay anchor" checkpoint={replay.nearest_checkpoint} />
-                    ) : null}
-                  </div>
-                </>
-              )}
-            </section>
-
-            <section className="panel inspectors">
-              <div className="inspectors-grid">
-                <ToolInspector event={toolEvent} />
-                <LLMViewer request={llmRequest} response={llmResponse} />
-              </div>
-            </section>
-          </div>
         </section>
 
         <aside className="detail-rail">
-          <section className="panel search-panel">
+          <section className="panel panel--secondary search-panel">
             <div className="search-head">
               <div>
                 <p className="eyebrow">Trace Search</p>
@@ -1081,42 +1087,6 @@ function App() {
               setSelectedEventId(eventId)
             }}
             onResetReplay={() => setReplayMode('full')}
-          />
-          <section className="panel alerts-panel">
-            <p className="eyebrow">Behavior Alerts</p>
-            <h2>Live heuristics</h2>
-            <div className="alert-list">
-              {bundle?.analysis.behavior_alerts.length ? (
-                bundle.analysis.behavior_alerts.map((alert) => (
-                  <button
-                    key={`${alert.alert_type}-${alert.event_id}`}
-                    type="button"
-                    className="alert-row"
-                    onClick={() => handleInspectEvent(alert.event_id)}
-                  >
-                    <span>{alert.alert_type}</span>
-                    <strong>{alert.severity}</strong>
-                    <small>{alert.signal}</small>
-                  </button>
-                ))
-              ) : (
-                <p>No oscillation or loop alerts detected.</p>
-              )}
-            </div>
-          </section>
-          <DriftAlertsPanel
-            agentName={currentSession?.agent_name ?? null}
-            driftData={driftData}
-            loading={driftLoading}
-          />
-          <PolicyDiffView
-            policyShifts={policyShifts}
-            onSelectEvent={handleInspectEvent}
-          />
-          <FailureClusterPanel
-            clusters={failureClusters}
-            onSelectSession={setSelectedSessionId}
-            selectedSessionId={selectedSessionId}
           />
         </aside>
       </main>

@@ -13,6 +13,19 @@
   --olive: oklch(0.55 0.08 115);
   --danger: oklch(0.56 0.18 28);
   --warning: oklch(0.72 0.15 74);
+  --highlight: oklch(0.76 0.16 70);
+  --highlight-bg: oklch(0.96 0.04 85);
+  --highlight-text: oklch(0.55 0.14 60);
+  --node-session: oklch(0.55 0.16 250);
+  --node-llm: oklch(0.58 0.2 300);
+  --node-tool: oklch(0.65 0.18 145);
+  --node-decision: oklch(0.68 0.18 60);
+  --node-risk: oklch(0.58 0.22 25);
+  --node-checkpoint: oklch(0.55 0.1 195);
+  --node-default: oklch(0.55 0.03 260);
+  --node-stroke: oklch(0.35 0.03 260);
+  --node-selected: oklch(0.78 0.14 85);
+  --link-stroke: oklch(0.5 0.03 260 / 0.6);
   --shadow: 0 24px 80px oklch(0.52 0.04 60 / 0.12);
 }
 
@@ -53,14 +66,11 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(18rem, 0.7fr);
   gap: 1.5rem;
-  align-items: end;
-  padding: clamp(1.5rem, 2vw, 2rem);
+  align-items: center;
+  padding: clamp(0.75rem, 1.5vw, 1.25rem);
   border: 1px solid var(--panel-border);
-  border-radius: 2rem;
-  background:
-    linear-gradient(135deg, oklch(0.99 0.005 75 / 0.92), oklch(0.94 0.02 84 / 0.92)),
-    var(--panel);
-  box-shadow: var(--shadow);
+  border-radius: 1.4rem;
+  background: var(--panel);
 }
 
 .eyebrow {
@@ -81,8 +91,8 @@ button {
 }
 
 .hero h1 {
-  font-size: clamp(2.4rem, 4vw, 4.8rem);
-  line-height: 0.95;
+  font-size: clamp(1.4rem, 2.5vw, 2rem);
+  line-height: 1;
 }
 
 .hero-copy {
@@ -373,11 +383,79 @@ button {
   align-items: start;
 }
 
-.panel {
+.workspace:not(:has(> .session-rail)),
+.workspace:has(> .main-stage:only-child) {
+  grid-template-columns: 1fr;
+}
+
+.inspect-grid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.replay-bar {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.replay-bar .mode-switches {
+  gap: 0.5rem;
+}
+
+.breakpoint-bar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  gap: 0.75rem;
+  align-items: end;
+  padding: 0.85rem;
+  border-radius: 1rem;
   border: 1px solid var(--panel-border);
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 20%);
+}
+
+.breakpoint-bar label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.breakpoint-bar input {
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.breakpoint-bar .checkbox-label {
+  align-self: end;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+/* Panel hierarchy: subtle (default) < secondary < primary */
+.panel {
+  border-radius: 1.4rem;
+  background: var(--panel);
+}
+
+.panel--primary {
+  border: 1.5px solid color-mix(in oklch, var(--accent), white 40%);
   border-radius: 1.6rem;
   background: var(--panel);
   box-shadow: var(--shadow);
+}
+
+.panel--secondary {
+  border: 1px solid var(--panel-border);
+  border-radius: 1.4rem;
+  background: var(--panel);
+  box-shadow: 0 8px 24px oklch(0.52 0.04 60 / 0.06);
 }
 
 .session-rail,
@@ -998,14 +1076,14 @@ button {
 
 /* Highlight markers */
 .timeline-event.highlight {
-  border-left: 3px solid #f59e0b;
+  border-left: 3px solid var(--highlight);
 }
 
 .highlight-marker {
   position: absolute;
   right: 4px;
   top: 4px;
-  color: #f59e0b;
+  color: var(--highlight);
   font-weight: bold;
   font-size: 1rem;
 }
@@ -1013,8 +1091,8 @@ button {
 .highlight-reason {
   display: block;
   font-size: 11px;
-  color: #92400e;
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: var(--highlight-text);
+  background: var(--highlight-bg);
   padding: 2px 6px;
   border-radius: 4px;
   margin-top: 4px;
@@ -1023,8 +1101,8 @@ button {
 
 /* Highlight info card */
 .highlight-info-card {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-  border: 1px solid #f59e0b;
+  background: var(--highlight-bg);
+  border: 1px solid var(--highlight);
   border-radius: 6px;
   padding: 8px 12px;
   margin-bottom: 12px;
@@ -1033,7 +1111,7 @@ button {
 .highlight-info-card h4 {
   margin: 0 0 4px 0;
   font-size: 12px;
-  color: #92400e;
+  color: var(--highlight-text);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -1041,7 +1119,7 @@ button {
 .highlight-info-card p {
   margin: 0;
   font-size: 13px;
-  color: #78350f;
+  color: var(--highlight-text);
 }
 
 /* Highlight navigation */
@@ -1077,7 +1155,7 @@ button {
 
 .highlight-position {
   font-size: 12px;
-  color: #666;
+  color: var(--muted);
   flex: 1;
   text-align: center;
 }
@@ -2942,127 +3020,6 @@ pre {
   font-family: 'Fraunces', serif;
   font-weight: 600;
   color: var(--accent-deep);
-}
-
-/* ============================================
-   Search Bar
-   ============================================ */
-
-.search-bar {
-  position: relative;
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.search-input {
-  width: 100%;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--panel-border);
-  border-radius: 1rem;
-  background: var(--panel);
-  font-size: 1rem;
-  transition: border-color 0.2s ease;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.search-input::placeholder {
-  color: var(--muted);
-}
-
-.search-loading {
-  position: absolute;
-  right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-.search-results {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  left: 0;
-  right: 0;
-  max-height: 400px;
-  overflow-y: auto;
-  border: 1px solid var(--panel-border);
-  border-radius: 1rem;
-  background: var(--panel);
-  box-shadow: var(--shadow);
-  z-index: 100;
-}
-
-.search-result-item {
-  width: 100%;
-  padding: 1rem;
-  text-align: left;
-  border-bottom: 1px solid var(--panel-border);
-  background: transparent;
-  transition: background 0.15s ease;
-}
-
-.search-result-item:last-child {
-  border-bottom: none;
-}
-
-.search-result-item:hover {
-  background: color-mix(in oklch, var(--panel), var(--bg-strong) 40%);
-}
-
-.search-result-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.search-result-agent {
-  font-weight: 600;
-  color: var(--text);
-}
-
-.search-result-similarity {
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-.search-result-meta {
-  display: flex;
-  gap: 0.75rem;
-  margin-bottom: 0.35rem;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-.search-result-status {
-  padding: 0.25rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.search-result-status.error {
-  background: color-mix(in oklch, var(--danger), transparent 85%);
-  color: var(--danger);
-}
-
-.search-result-status.success {
-  background: color-mix(in oklch, var(--olive), transparent 85%);
-  color: var(--olive);
-}
-
-.search-result-fix {
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  background: color-mix(in oklch, var(--warning), transparent 90%);
-  font-size: 0.85rem;
-  color: var(--text);
 }
 
 /* ============================================

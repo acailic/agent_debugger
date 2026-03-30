@@ -1,4 +1,4 @@
-export type AppTab = 'trace' | 'analytics'
+export type AppTab = 'trace' | 'inspect' | 'analytics'
 export type ReplayMode = 'full' | 'focus' | 'failure' | 'highlights'
 export type SessionSortMode = 'started_at' | 'replay_value'
 export type SearchScope = 'current' | 'all'

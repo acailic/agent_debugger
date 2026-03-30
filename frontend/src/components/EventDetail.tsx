@@ -27,14 +27,14 @@ export function EventDetail({
 }: EventDetailProps) {
   if (!event) {
     return (
-      <section className="event-detail panel empty-panel">
+      <section className="event-detail panel panel--primary empty-panel">
         <p>Choose a trace node to inspect provenance, guardrails, and replay value.</p>
       </section>
     )
   }
 
   return (
-    <section className="event-detail panel">
+    <section className="event-detail panel panel--primary">
       {highlight && (
         <div className="highlight-info-card">
           <h4>Why highlighted</h4>
