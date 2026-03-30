@@ -165,9 +165,9 @@ class TestBenchmarkScenarioGeneration:
         tool_results = [e for e in session.events if e.event_type == EventType.TOOL_RESULT]
         assert len(tool_results) == 3
 
-        # All results should have errors
-        failed_results = [tr for tr in tool_results if getattr(tr, "error", None)]
-        assert len(failed_results) == 3
+        # All results should have explicit error events (not embedded in tool_result)
+        errors = [e for e in session.events if e.event_type == EventType.ERROR]
+        assert len(errors) == 3
 
         # Should have 3 corresponding policy violations
         violations = [e for e in session.events if e.event_type == EventType.POLICY_VIOLATION]
@@ -286,16 +286,18 @@ class TestCIRegressionAssertions:
 
     @pytest.mark.asyncio
     async def test_failure_cluster_all_attempts_fail(self):
-        """Regression: All 3 attempts in failure cluster should fail with same error."""
+        """Regression: All 3 attempts in failure cluster should produce error events."""
         session = await run_failure_cluster_session()
 
         tool_results = [e for e in session.events if e.event_type == EventType.TOOL_RESULT]
         assert len(tool_results) == 3
 
-        for result in tool_results:
-            error = getattr(result, "error", None)
-            assert error is not None, "Expected error on tool result"
-            assert "not found" in str(error).lower()
+        errors = [e for e in session.events if e.event_type == EventType.ERROR]
+        assert len(errors) == 3
+
+        for error in errors:
+            msg = error.error_message or error.error_type or ""
+            assert "not found" in msg.lower() or "failed" in msg.lower()
 
     @pytest.mark.asyncio
     async def test_looping_behavior_creates_parent_chain(self):
@@ -392,16 +394,14 @@ class TestSafeUnsafePaths:
 
     @pytest.mark.asyncio
     async def test_safety_escalation_tool_result_has_error(self):
-        """Unsafe path: Safety escalation tool result should have error."""
+        """Unsafe path: Safety escalation should produce an explicit error event."""
         session = await run_safety_escalation_session()
 
-        tool_results = [e for e in session.events if e.event_type == EventType.TOOL_RESULT]
-        assert len(tool_results) == 1
+        errors = [e for e in session.events if e.event_type == EventType.ERROR]
+        assert len(errors) == 1
 
-        result = tool_results[0]
-        error = getattr(result, "error", None)
-        assert error is not None
-        assert "Approval" in error  # Approval token missing
+        error = errors[0]
+        assert "Approval" in (error.error_message or "") or "Approval" in (error.error_type or "")
 
     @pytest.mark.asyncio
     async def test_safety_escalation_refusal_offers_sandbox(self):
@@ -446,14 +446,17 @@ class TestSafeUnsafePaths:
 
     @pytest.mark.asyncio
     async def test_failure_cluster_all_tools_fail(self):
-        """Unsafe path: Failure cluster should have all tools failing."""
+        """Unsafe path: Failure cluster should have error events for each tool."""
         session = await run_failure_cluster_session()
 
         tool_results = [e for e in session.events if e.event_type == EventType.TOOL_RESULT]
+        assert len(tool_results) == 3
 
         for result in tool_results:
-            assert getattr(result, "error", None) is not None
             assert getattr(result, "result", None) is None
+
+        errors = [e for e in session.events if e.event_type == EventType.ERROR]
+        assert len(errors) == 3
 
     @pytest.mark.asyncio
     async def test_replay_determinism_blocks_unsafe_continuation(self):
