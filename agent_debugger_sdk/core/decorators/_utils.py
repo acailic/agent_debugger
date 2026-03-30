@@ -1,8 +1,4 @@
-"""Shared utilities for decorators.
-
-This module provides common type definitions and helper functions
-used across the agent, tool, and LLM decorators.
-"""
+"""Shared utilities for decorators."""
 
 from typing import Any, ParamSpec, TypeVar
 
@@ -13,18 +9,7 @@ __all__ = ["P", "T", "_truncate_value", "_sanitize_arguments", "_sanitize_result
 
 
 def _sanitize_arguments(args: tuple, kwargs: dict) -> dict[str, Any]:
-    """Sanitize function arguments for trace storage.
-
-    Converts positional and keyword arguments to a dictionary,
-    truncating large values.
-
-    Args:
-        args: Positional arguments.
-        kwargs: Keyword arguments.
-
-    Returns:
-        A dictionary of sanitized arguments.
-    """
+    """Convert positional and keyword arguments to a dictionary, truncating large values."""
     sanitized: dict[str, Any] = {}
 
     for i, arg in enumerate(args):
@@ -38,15 +23,7 @@ def _sanitize_arguments(args: tuple, kwargs: dict) -> dict[str, Any]:
 
 
 def _truncate_value(value: Any, max_length: int = 1000) -> Any:
-    """Truncate a value if it's too large for trace storage.
-
-    Args:
-        value: The value to potentially truncate.
-        max_length: Maximum string length before truncation.
-
-    Returns:
-        The value, possibly truncated.
-    """
+    """Truncate a value if it's too large for trace storage."""
     if isinstance(value, str):
         if len(value) > max_length:
             return value[:max_length] + "...[truncated]"
@@ -72,12 +49,5 @@ def _truncate_value(value: Any, max_length: int = 1000) -> Any:
 
 
 def _sanitize_result(result: Any) -> Any:
-    """Sanitize a function result for trace storage.
-
-    Args:
-        result: The result to sanitize.
-
-    Returns:
-        A sanitized version of the result.
-    """
+    """Truncate a function result for trace storage."""
     return _truncate_value(result, max_length=5000)

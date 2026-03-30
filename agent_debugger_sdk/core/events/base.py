@@ -114,20 +114,7 @@ def _serialize_field_value(value: Any) -> Any:
 class TraceEvent:
     """Base dataclass for all trace events.
 
-    All events in the trace hierarchy inherit from this class. Events form
-    a tree structure via the parent_id field, enabling hierarchical analysis
-    of agent execution.
-
-    Attributes:
-        id: Unique identifier for this event (auto-generated UUID)
-        session_id: ID of the session this event belongs to
-        parent_id: ID of the parent event, if any (for hierarchical traces)
-        event_type: Type of this event
-        timestamp: When this event occurred (auto-generated)
-        name: Human-readable name for this event
-        data: Event-specific data payload
-        metadata: Additional metadata about the event
-        importance: Relative importance score (0.0-1.0) for filtering/display
+    Events form a tree structure via parent_id.
     """
 
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -142,14 +129,7 @@ class TraceEvent:
     upstream_event_ids: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the event to a dictionary.
-
-        Converts the event to a JSON-serializable dictionary format,
-        handling datetime serialization and nested data structures.
-
-        Returns:
-            Dictionary representation of this event
-        """
+        """Serialize to a JSON-serializable dictionary."""
         return {field_info.name: _serialize_field_value(getattr(self, field_info.name)) for field_info in fields(self)}
 
     @classmethod
@@ -166,17 +146,7 @@ class TraceEvent:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TraceEvent:
-        """Deserialize a dictionary to a TraceEvent.
-
-        Converts a dictionary back to a TraceEvent, handling
-        datetime deserialization and EventType enum conversion.
-
-        Args:
-            data: Dictionary representation of an event
-
-        Returns:
-            TraceEvent instance
-        """
+        """Deserialize a dictionary to a TraceEvent."""
         # Handle timestamp deserialization
         if isinstance(data.get("timestamp"), str):
             data["timestamp"] = datetime.fromisoformat(data["timestamp"])

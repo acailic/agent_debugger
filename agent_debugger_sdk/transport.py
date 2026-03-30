@@ -13,11 +13,6 @@ from agent_debugger_sdk.core.events import Session, TraceEvent
 logger = logging.getLogger("agent_debugger")
 
 
-# =============================================================================
-# Typed Exceptions
-# =============================================================================
-
-
 class TransportError(Exception):
     """Base exception for transport-related errors."""
 
@@ -38,16 +33,8 @@ class PermanentError(TransportError):
     pass
 
 
-# =============================================================================
-# Callback Type
-# =============================================================================
-
 DeliveryFailureCallback = Callable[[TransportError], None]
 
-
-# =============================================================================
-# Retry Configuration
-# =============================================================================
 
 MAX_RETRIES = 3
 INITIAL_BACKOFF_SECONDS = 0.5
@@ -55,18 +42,7 @@ BACKOFF_MULTIPLIER = 2.0
 
 
 class HttpTransport:
-    """HTTP transport for sending trace events and sessions to the collector.
-
-    This class provides async methods to send events and session data to a remote
-    collector via HTTP. It includes API key authentication for multi-tenant isolation
-    and graceful error handling to prevent transport failures from breaking agent execution.
-
-    Attributes:
-        _endpoint: The base URL of the collector endpoint
-        _headers: HTTP headers to include in all requests (including auth)
-        _client: The httpx async HTTP client
-        _on_delivery_failure: Optional callback invoked when delivery fails after retries
-    """
+    """Async HTTP transport for sending trace events and sessions to the collector."""
 
     def __init__(
         self,
@@ -75,15 +51,7 @@ class HttpTransport:
         *,
         on_delivery_failure: DeliveryFailureCallback | None = None,
     ) -> None:
-        """Initialize the HTTP transport.
-
-        Args:
-            endpoint: The base URL of the collector (e.g., "http://localhost:8000")
-            api_key: Optional API key for authentication. If provided, will be
-                included in the Authorization header as a Bearer token.
-            on_delivery_failure: Optional callback invoked when delivery fails after
-                all retry attempts. Receives the final TransportError.
-        """
+        """Initialize the HTTP transport."""
         self._endpoint = endpoint.rstrip("/")
         self._headers: dict[str, str] = {"Content-Type": "application/json"}
         if api_key:
@@ -101,18 +69,7 @@ class HttpTransport:
         *,
         on_delivery_failure: DeliveryFailureCallback | None = None,
     ) -> None:
-        """Send a trace event to the collector.
-
-        Posts the event to the /api/traces endpoint. If the request fails for any
-        reason (network error, server error, timeout), the error is logged and
-        swallowed to prevent breaking agent execution. Transient errors (5xx, timeouts)
-        will be retried with exponential backoff up to 3 times.
-
-        Args:
-            event: The TraceEvent to send
-            on_delivery_failure: Optional callback invoked when delivery fails after
-                all retry attempts. If provided, overrides the instance-level callback.
-        """
+        """Send a trace event to the collector."""
         await self._send_with_retry(
             method="POST",
             path="/api/traces",
@@ -127,17 +84,7 @@ class HttpTransport:
         *,
         on_delivery_failure: DeliveryFailureCallback | None = None,
     ) -> None:
-        """Send a session start event to create a new session.
-
-        Posts the session to the /api/sessions endpoint. If the request fails,
-        the error is logged and swallowed. Transient errors (5xx, timeouts)
-        will be retried with exponential backoff up to 3 times.
-
-        Args:
-            session: The Session object to create
-            on_delivery_failure: Optional callback invoked when delivery fails after
-                all retry attempts. If provided, overrides the instance-level callback.
-        """
+        """Create a new session on the collector."""
         await self._send_with_retry(
             method="POST",
             path="/api/sessions",
@@ -152,17 +99,7 @@ class HttpTransport:
         *,
         on_delivery_failure: DeliveryFailureCallback | None = None,
     ) -> None:
-        """Send a session update to the collector.
-
-        Puts the updated session data to the /api/sessions/{id} endpoint.
-        If the request fails, the error is logged and swallowed. Transient errors
-        (5xx, timeouts) will be retried with exponential backoff up to 3 times.
-
-        Args:
-            session: The Session object with updated data
-            on_delivery_failure: Optional callback invoked when delivery fails after
-                all retry attempts. If provided, overrides the instance-level callback.
-        """
+        """Update a session on the collector."""
         await self._send_with_retry(
             method="PUT",
             path=f"/api/sessions/{session.id}",
@@ -178,18 +115,7 @@ class HttpTransport:
         path: str,
         payload: dict,
     ) -> None:
-        """Execute a single HTTP request.
-
-        Args:
-            method: HTTP method (POST, PUT)
-            path: API path
-            payload: JSON payload
-
-        Raises:
-            TransientError: On server errors (5xx)
-            PermanentError: On client errors (4xx)
-            ValueError: On unsupported HTTP method
-        """
+        """Execute a single HTTP request."""
         if method == "POST":
             response = await self._client.post(path, json=payload)
         elif method == "PUT":
@@ -210,14 +136,7 @@ class HttpTransport:
             )
 
     def _classify_error(self, exc: Exception) -> tuple[TransportError, bool]:
-        """Classify an exception as transient or permanent.
-
-        Args:
-            exc: The exception to classify
-
-        Returns:
-            A tuple of (TransportError, should_retry)
-        """
+        """Classify an exception as transient or permanent."""
         if isinstance(exc, httpx.TimeoutException):
             return TransientError(f"Request timeout: {exc}"), True
         if isinstance(exc, httpx.NetworkError):
@@ -238,15 +157,7 @@ class HttpTransport:
         context: str,
         on_delivery_failure: DeliveryFailureCallback | None = None,
     ) -> None:
-        """Send a request with retry logic for transient errors.
-
-        Args:
-            method: HTTP method (POST, PUT, etc.)
-            path: API path
-            payload: JSON payload
-            context: Context string for logging (e.g., "event_id=abc")
-            on_delivery_failure: Optional callback for final failure notification
-        """
+        """Send a request with retry logic for transient errors."""
         last_error: TransportError | None = None
         backoff = INITIAL_BACKOFF_SECONDS
 
@@ -291,9 +202,5 @@ class HttpTransport:
                     )
 
     async def close(self) -> None:
-        """Close the HTTP client and release resources.
-
-        Should be called when the transport is no longer needed to properly
-        clean up network resources.
-        """
+        """Close the HTTP client and release resources."""
         await self._client.aclose()

@@ -1,18 +1,8 @@
 import type { TraceEvent } from '../types'
-import { formatDuration } from '../utils/formatting'
+import { formatDuration, formatTime } from '../utils/formatting'
 
 interface ToolInspectorProps {
   event: TraceEvent | null
-}
-
-function formatTimestamp(timestamp: string): string {
-  const date = new Date(timestamp)
-  return date.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  })
 }
 
 function highlightJSON(obj: unknown): string {
@@ -89,7 +79,7 @@ export function ToolInspector({ event }: ToolInspectorProps) {
         <span className="label">ID:</span>
         <code className="tool-id">{toolId}</code>
         {timestamp && (
-          <span className="timestamp">{formatTimestamp(timestamp)}</span>
+          <span className="timestamp">{formatTime(timestamp)}</span>
         )}
       </div>
 
