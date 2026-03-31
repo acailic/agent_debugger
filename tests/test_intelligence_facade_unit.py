@@ -7,7 +7,7 @@ or database required.
 from __future__ import annotations
 
 from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
-from collector.intelligence import TraceIntelligence
+from collector.intelligence.facade import TraceIntelligence
 
 
 def _make_event(event_type: EventType = EventType.TOOL_CALL, session_id: str = "s1", **overrides) -> TraceEvent:

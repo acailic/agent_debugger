@@ -11,7 +11,7 @@ from agent_debugger_sdk.core.events import (
     PromptPolicyEvent,
     SafetyCheckEvent,
 )
-from collector.intelligence import TraceIntelligence
+from collector.intelligence.facade import TraceIntelligence
 
 
 class TestPolicyEscalationTracking:

@@ -15,7 +15,7 @@ from agent_debugger_sdk.core.events import (
     PolicyViolationEvent,
     ToolCallEvent,
 )
-from collector.intelligence import TraceIntelligence
+from collector.intelligence.facade import TraceIntelligence
 
 
 class TestRetentionTierAssignment:

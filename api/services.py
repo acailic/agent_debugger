@@ -14,7 +14,7 @@ from agent_debugger_sdk.core.events import Checkpoint, Session, SessionStatus, T
 from api import app_context
 from api.schemas import CheckpointSchema, SessionSchema, TraceEventSchema
 from collector.buffer import EventBuffer, get_event_buffer
-from collector.intelligence import TraceIntelligence
+from collector.intelligence.facade import TraceIntelligence
 from redaction.pipeline import RedactionPipeline
 from storage import TraceRepository
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from collector.intelligence import TraceIntelligence
+from collector.intelligence.facade import TraceIntelligence
 from redaction.pipeline import RedactionPipeline
 from storage.engine import create_db_engine, create_session_maker
 

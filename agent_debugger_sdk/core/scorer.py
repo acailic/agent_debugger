@@ -10,19 +10,9 @@ from dataclasses import dataclass
 
 from agent_debugger_sdk.core.events import EventType, TraceEvent
 
-# Import event_value from collector helpers to consolidate duplication
-# Note: This is safe because helpers.py only imports TraceEvent, not scorer
-try:
-    from collector.intelligence.helpers import event_value
-except ImportError:
-    # Fallback for environments where collector is not available
-    def event_value(event: TraceEvent | None, key: str, default: object = None) -> object:
-        """Read structured event fields before falling back to event.data."""
-        if event is None:
-            return default
-        if hasattr(event, key):
-            return getattr(event, key)
-        return event.data.get(key, default)
+# Import event_value from collector helpers.
+# This is safe because helpers.py only imports TraceEvent, not scorer.
+from collector.intelligence.helpers import event_value
 
 
 @dataclass

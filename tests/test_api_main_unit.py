@@ -31,7 +31,7 @@ def _get_route_endpoint(path: str, method: str):
 
 @pytest.fixture
 def api_repo_factory(tmp_path, monkeypatch):
-    from collector.intelligence import TraceIntelligence
+    from collector.intelligence.facade import TraceIntelligence
     from redaction.pipeline import RedactionPipeline
 
     db_path = tmp_path / "api-main-unit.db"

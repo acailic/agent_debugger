@@ -21,12 +21,12 @@ from agent_debugger_sdk.core.events import (
     Session,
     TraceEvent,
 )
+from agent_debugger_sdk.core.scorer import get_importance_scorer
 from auth.middleware import get_tenant_from_api_key
 from redaction.pipeline import RedactionPipeline
 from storage import TraceRepository
 
 from .buffer import get_event_buffer
-from .scorer import get_importance_scorer
 
 # Input size limits for security (DoS prevention)
 MAX_DATA_SIZE_BYTES = 1 * 1024 * 1024  # 1MB

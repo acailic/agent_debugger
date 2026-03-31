@@ -20,7 +20,6 @@ export type EventType =
   | 'prompt_policy'
   | 'agent_turn'
   | 'behavior_alert'
-  | 'repair_attempt'
 
 export interface TraceEvent {
   id: string
@@ -80,11 +79,6 @@ export interface TraceEvent {
   alert_type?: string
   signal?: string
   related_event_ids?: string[]
-  repair_sequence_id?: string
-  attempted_fix?: string
-  validation_result?: string
-  repair_outcome?: 'success' | 'failure' | 'partial'
-  repair_diff?: string
 }
 
 export interface ToolCall {
@@ -135,12 +129,6 @@ export interface Checkpoint {
 export interface TreeNode {
   event: TraceEvent
   children: TreeNode[]
-}
-
-export interface ReplayState {
-  isPlaying: boolean
-  currentIndex: number
-  speed: number
 }
 
 export interface TraceAnalysisRanking {
@@ -341,29 +329,6 @@ export interface FailureCluster {
   avg_severity: number
   representative_session_id: string
   sample_symptom: string | null
-}
-
-export interface RollingSummary {
-  text: string
-  metrics: Record<string, number>
-  window_type: string
-  window_size: number
-}
-
-export interface EscalationSignal {
-  event_id: string
-  turn_index: number
-  signal_type: string
-  magnitude: number
-  narrative: string
-}
-
-export interface PolicyShift {
-  event_id: string
-  turn_index: number
-  previous_template: string | null
-  new_template: string
-  shift_magnitude: number
 }
 
 export interface AnalyticsMetrics {

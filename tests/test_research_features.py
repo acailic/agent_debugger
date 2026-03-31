@@ -17,11 +17,11 @@ from agent_debugger_sdk.core.events import (
     ToolCallEvent,
     TraceEvent,
 )
+from agent_debugger_sdk.core.scorer import get_importance_scorer
 from collector.buffer import EventBuffer
-from collector.intelligence import TraceIntelligence
+from collector.intelligence.facade import TraceIntelligence
 from collector.persistence import PersistenceManager
 from collector.replay import build_replay
-from collector.scorer import get_importance_scorer
 
 
 @pytest.mark.asyncio

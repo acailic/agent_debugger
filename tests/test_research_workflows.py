@@ -12,7 +12,7 @@ from benchmarks import (
     run_replay_determinism_session,
     run_safety_escalation_session,
 )
-from collector.intelligence import TraceIntelligence
+from collector.intelligence.facade import TraceIntelligence
 from collector.replay import build_replay
 
 

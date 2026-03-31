@@ -17,8 +17,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 
 from agent_debugger_sdk import EventType, TraceContext, trace_agent, trace_tool
+from agent_debugger_sdk.core.scorer import get_importance_scorer
 from collector.buffer import get_event_buffer
-from collector.scorer import get_importance_scorer
 
 pytestmark = pytest.mark.asyncio
 

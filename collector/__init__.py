@@ -8,17 +8,14 @@ for agent execution events.
 from . import persistence  # noqa: F401
 from .buffer import EventBuffer, get_event_buffer
 from .buffer_base import BufferBase
-from .intelligence import TraceIntelligence
+from .intelligence.facade import TraceIntelligence
 from .persistence import PersistenceManager
-from .scorer import ImportanceScorer, get_importance_scorer
 
 __all__ = [
     "EventBuffer",
     "get_event_buffer",
     "BufferBase",
     "create_buffer",
-    "ImportanceScorer",
-    "get_importance_scorer",
     "TraceIntelligence",
     "PersistenceManager",
 ]

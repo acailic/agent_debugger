@@ -1,12 +1,11 @@
-import type { Checkpoint, LiveSummary, RollingSummary, Session, TraceEvent } from '../types'
-import { computeCheckpointDelta, formatEventHeadline, formatMetricLabel, latestOf } from '../utils/formatting'
+import type { Checkpoint, LiveSummary, Session, TraceEvent } from '../types'
+import { computeCheckpointDelta, formatEventHeadline, latestOf } from '../utils/formatting'
 
 interface LiveDashboardProps {
   session: Session | null
   events: TraceEvent[]
   checkpoints: Checkpoint[]
   liveSummary: LiveSummary | null
-  rollingSummaryData?: RollingSummary | null
   isConnected: boolean
   liveEventCount: number
   onSelectEvent: (eventId: string) => void
@@ -46,7 +45,6 @@ export function LiveDashboard({
   events,
   checkpoints,
   liveSummary,
-  rollingSummaryData,
   isConnected,
   liveEventCount,
   onSelectEvent,
@@ -63,15 +61,11 @@ export function LiveDashboard({
   const behaviorAlerts = liveSummary?.recent_alerts ?? []
   const hasOscillation = behaviorAlerts.some(alert => alert.alert_type === 'oscillation')
 
-  const rollingSummary = rollingSummaryData?.text
-    ?? liveSummary?.rolling_summary
+  const rollingSummary = liveSummary?.rolling_summary
     ?? latestTurn?.state_summary
     ?? latestPolicy?.state_summary
     ?? latestDecision?.reasoning
     ?? 'Awaiting richer live summaries'
-
-  const metrics = rollingSummaryData?.metrics ?? {}
-  const metricEntries = Object.entries(metrics)
 
   const checkpointDelta = computeCheckpointDelta(latestCheckpoint, previousCheckpoint)
 
@@ -187,27 +181,7 @@ export function LiveDashboard({
       <div className="dashboard-rolling">
         <h3>Rolling summary</h3>
         <p>{rollingSummary}</p>
-        {rollingSummaryData && (
-          <small className="rolling-window-info">
-            Window: {rollingSummaryData.window_size} {rollingSummaryData.window_type}
-          </small>
-        )}
       </div>
-
-      {/* Session metrics */}
-      {metricEntries.length > 0 && (
-        <div className="dashboard-metrics">
-          <h3>Session metrics</h3>
-          <div className="metric-badges">
-            {metricEntries.map(([key, value]) => (
-              <span key={key} className="metric-badge">
-                <span className="badge-label">{formatMetricLabel(key)}</span>
-                <strong className="badge-value">{typeof value === 'number' ? value.toFixed(2) : String(value)}</strong>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Connection status */}
       <div className={`live-badge ${isConnected ? 'connected' : 'offline'}`}>

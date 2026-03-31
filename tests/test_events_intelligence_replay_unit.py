@@ -20,7 +20,9 @@ from agent_debugger_sdk.core.events import (
     ToolResultEvent,
     TraceEvent,
 )
-from collector.intelligence import TraceIntelligence, _event_value, _mean
+from collector.intelligence.facade import TraceIntelligence
+from collector.intelligence.helpers import event_value as _event_value
+from collector.intelligence.helpers import mean as _mean
 from collector.replay import _collect_focus_scope_ids, build_replay, build_tree, event_is_failure, matches_breakpoint
 
 

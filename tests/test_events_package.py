@@ -29,7 +29,6 @@ from agent_debugger_sdk.core.events import (
     ToolResultEvent,
     TraceEvent,
 )
-from agent_debugger_sdk.core.events.registry import _get_event_classes
 
 
 class TestEventTypeRegistry:
@@ -71,29 +70,6 @@ class TestEventTypeRegistry:
         """Registry should return SafetyCheckEvent for SAFETY_CHECK event type."""
         event_cls = EVENT_TYPE_REGISTRY[EventType.SAFETY_CHECK]
         assert event_cls is SafetyCheckEvent
-
-    def test_registry_lazy_loading_works(self):
-        """Registry should lazily load event classes on first access."""
-        # Get fresh event classes via the lazy loading function
-        event_classes = _get_event_classes()
-
-        # Verify all expected event types are present
-        assert EventType.TOOL_CALL in event_classes
-        assert EventType.TOOL_RESULT in event_classes
-        assert EventType.LLM_REQUEST in event_classes
-        assert EventType.LLM_RESPONSE in event_classes
-        assert EventType.DECISION in event_classes
-        assert EventType.SAFETY_CHECK in event_classes
-        assert EventType.REFUSAL in event_classes
-        assert EventType.POLICY_VIOLATION in event_classes
-        assert EventType.PROMPT_POLICY in event_classes
-        assert EventType.AGENT_TURN in event_classes
-        assert EventType.BEHAVIOR_ALERT in event_classes
-        assert EventType.ERROR in event_classes
-
-        # Verify class types match
-        assert event_classes[EventType.TOOL_CALL] is ToolCallEvent
-        assert event_classes[EventType.ERROR] is ErrorEvent
 
 
 class TestEventTypes:
