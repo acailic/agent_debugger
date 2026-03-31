@@ -54,3 +54,6 @@ node_modules/
 
 # Scheduled automation logs
 docs/superpowers/scheduled-reports/
+
+# Local demo/test artifacts
+test-results/
