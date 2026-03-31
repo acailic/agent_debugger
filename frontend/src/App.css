@@ -489,8 +489,8 @@ button {
 /* Inspect tab: full-width workspace with proper panel layout */
 .workspace--inspect {
   grid-template-columns: 1fr;
-  overflow-y: auto;
-  max-height: calc(100vh - 12rem);
+  max-height: none;
+  overflow-y: visible;
 }
 
 .workspace--inspect .main-stage {
@@ -514,10 +514,14 @@ button {
   min-width: 0;
 }
 
-/* DecisionTree max-height to prevent cutoff */
+/* Inspect tab: DecisionTree spans full width and auto-sizes */
+.workspace--inspect .trace-layout {
+  grid-template-columns: 1fr;
+}
+
 .workspace--inspect .timeline-panel {
-  max-height: 400px;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 /* Panel hierarchy: subtle (default) < secondary < primary */
