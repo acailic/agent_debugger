@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import collector.persistence  # noqa: F401 — ensure submodule accessible for patch() on Python 3.10
 from agent_debugger_sdk.core.events import EventType, TraceEvent
 from collector.buffer import EventBuffer
 from collector.persistence import (

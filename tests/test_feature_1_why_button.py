@@ -13,6 +13,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import collector.causal_analysis  # noqa: F401 — ensure submodule accessible for patch() on Python 3.10
+
 # =============================================================================
 # Custom Exceptions (module-level as specified)
 # =============================================================================

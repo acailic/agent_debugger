@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+import collector.persistence  # noqa: F401 — ensure submodule accessible for patch() on Python 3.10
 from collector.persistence import DEFAULT_STORAGE_PATH, USER_STORAGE_PATH, PersistenceManager
 
 
