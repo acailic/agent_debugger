@@ -2,7 +2,7 @@
   <img src="docs/assets/logo.jpeg" alt="Peaky Peek" width="128" />
 </p>
 
-<h1 align="center">Debug AI Agents Like Software, Not Magic.</h1>
+<h1 align="center">Local-first agent debugger with replay, failure memory, smart highlights, and drift detection.</h1>
 
 <p align="center">
   <code>pip install peaky-peek-server && peaky-peek --open</code>
@@ -23,7 +23,7 @@
 
 ---
 
-![Agent Debugger UI](./docs/assets/screenshot-full-ui.png)
+![Agent Debugger UI](./docs/screenshots/01-hero-session-list.png)
 
 ## Why Peaky Peek?
 
@@ -148,32 +148,32 @@ import agent_debugger_sdk.auto_patch  # activates on import when PEAKY_PEEK_AUTO
 
 ### Decision Tree Visualization
 
-![Decision Tree view](./docs/assets/screenshot-decision-tree.png)
+![Decision Tree view](./docs/screenshots/12-decision-tree.png)
 
 Navigate agent reasoning as an interactive tree. Click nodes to inspect events, zoom to explore complex flows, and trace the causal chain from policy to tool call to safety check.
 
 ### Checkpoint Replay
 
-![Checkpoint replay](./docs/assets/screenshot-checkpoint-state.png)
+![Checkpoint replay](./docs/screenshots/17-checkpoint-detail.png)
 
 Time-travel through agent execution with checkpoint-aware playback. Play, pause, step, and seek to any point in the trace. Checkpoints are ranked by restore value so you jump to the most useful state.
 
 ### Trace Search
 
-![Trace search](./docs/assets/screenshot-search.png)
+![Trace search](./docs/screenshots/07-trace-search.png)
 
 Find specific events across all sessions. Search by keyword, filter by event type, and jump directly to results.
 
 ### Safety Audit Trail
 
-![Refusal detail](./docs/assets/screenshot-refusal-detail.png)
+![Refusal detail](./docs/screenshots/09-event-detail-llm.png)
 
 Full safety trail from policy → tool guard → block → policy violation → refusal. Filter by safety checks, policy violations, or refusals.
 
 ### Failure Clustering & Multi-Agent Coordination
 
-![Failure clustering](./docs/assets/screenshot-failure-cluster.png)
-![Multi-agent coordination](./docs/assets/screenshot-multi-agent-coord.png)
+![Failure clustering](./docs/screenshots/05-failure-mode.png)
+![Multi-agent coordination](./docs/screenshots/15-conversation-panel.png)
 
 Adaptive analysis groups similar failures. Inspect planner/critic debates, speaker topology, and prompt policy parameters across multi-agent systems.
 
