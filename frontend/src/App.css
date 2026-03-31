@@ -492,6 +492,15 @@ button {
   }
 }
 
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
 /* Inspect tab: full-width workspace with proper panel layout */
 .workspace--inspect {
   grid-template-columns: 1fr;
@@ -507,7 +516,7 @@ button {
 .workspace--inspect .inspect-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 34rem), 1fr));
-  gap: 1rem;
+  gap: 1.2rem;
 }
 
 /* Primary panel spans full width */
@@ -536,25 +545,50 @@ button {
   background: var(--panel);
   padding: var(--space-md);
   border: 1px solid var(--panel-border);
-  transition: box-shadow 150ms ease, border-color 150ms ease;
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 150ms ease;
 }
 
 .panel:hover {
-  box-shadow: 0 4px 12px oklch(0.52 0.04 60 / 0.08);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px oklch(0.52 0.04 60 / 0.12);
 }
 
 .panel--primary {
+  position: relative;
   border: 1.5px solid color-mix(in oklch, var(--accent), white 40%);
   border-radius: 1.6rem;
   background: var(--panel);
   box-shadow: var(--shadow);
 }
 
+.panel--primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--accent);
+  border-radius: 1.6rem 1.6rem 0 0;
+}
+
 .panel--secondary {
+  position: relative;
   border: 1px solid var(--panel-border);
   border-radius: 1.4rem;
   background: var(--panel);
   box-shadow: 0 8px 24px oklch(0.52 0.04 60 / 0.06);
+}
+
+.panel--secondary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--panel-border);
+  border-radius: 1.4rem 1.4rem 0 0;
 }
 
 /* Panel accent modifier for important panels */
@@ -586,7 +620,7 @@ button {
   font-size: 0.7rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--text-secondary);
 }
 
 .panel-head h2 {
@@ -622,14 +656,37 @@ button {
   background: var(--olive);
 }
 
-/* Section dividers for inspect grid groups */
+/* Section dividers for inspect grid groups with color coding */
 .inspect-section-divider {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 1.2rem 0.5rem 0.5rem;
+  padding: 1.2rem 0.5rem 0.5rem 0.8rem;
   margin: 0.5rem 0 0;
+  border-left: 3px solid transparent;
+  border-radius: 0.2rem;
+}
+
+/* Analysis section: blue accent */
+.inspect-section-divider:nth-of-type(1),
+.inspect-grid > .inspect-section-divider:has(+ .panel--primary),
+.inspect-grid > .panel--primary + * + .inspect-section-divider {
+  border-left-color: oklch(0.58 0.14 200);
+  background: oklch(0.58 0.14 200 / 0.03);
+}
+
+/* Monitoring section: green accent */
+.inspect-section-divider:nth-of-type(2),
+.inspect-grid > .inspect-section-divider:has(+ .panel--secondary):has(+ .panel--secondary .live-dashboard) {
+  border-left-color: oklch(0.55 0.12 145);
+  background: oklch(0.55 0.12 145 / 0.03);
+}
+
+/* Intelligence section: purple accent */
+.inspect-section-divider:nth-of-type(3) {
+  border-left-color: oklch(0.58 0.18 285);
+  background: oklch(0.58 0.18 285 / 0.03);
 }
 
 .inspect-section-divider::before {
@@ -641,8 +698,8 @@ button {
 }
 
 .inspect-section-label {
-  font-size: 0.68rem;
-  font-weight: 600;
+  font-size: 0.7rem;
+  font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--muted);
@@ -816,6 +873,17 @@ button {
   overflow: hidden;
 }
 
+/* Detail rail sticky header */
+.detail-rail > *:first-child {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 1.4rem 1.4rem 0 0;
+}
+
 .session-rail,
 .control-bar,
 .analysis-ribbon,
@@ -831,6 +899,23 @@ button {
 .alerts-panel h2,
 .search-panel h2 {
   font-size: 1.45rem;
+  position: relative;
+}
+
+/* Alert badge in panel header */
+.alerts-panel h2 .alert-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  margin-left: 0.5rem;
+  padding: 0 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 999px;
+  background: oklch(0.56 0.18 28);
+  color: white;
 }
 
 .session-list,
@@ -1074,13 +1159,35 @@ button {
 
 .cluster-pill,
 .alert-row {
+  position: relative;
   display: grid;
   gap: 0.2rem;
   padding: 0.85rem 1rem;
+  padding-left: 1.3rem;
   border-radius: 1rem;
   border: 1px solid var(--panel-border);
   background: color-mix(in oklch, var(--panel), var(--olive) 10%);
   text-align: left;
+}
+
+.alert-row::before {
+  content: '';
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.alert-row[data-severity="warning"]::before {
+  background: #f59e0b;
+}
+
+.alert-row[data-severity="critical"]::before {
+  background: oklch(0.56 0.18 28);
 }
 
 .search-head {
@@ -1816,13 +1923,30 @@ button {
 }
 
 .checkpoint-card {
+  position: relative;
   display: grid;
   gap: 0.25rem;
   padding: 0.9rem;
+  padding-left: 1rem;
   border-radius: 1rem;
   border: 1px solid var(--panel-border);
+  border-left-width: 4px;
+  border-left-color: var(--muted);
   background: color-mix(in oklch, var(--panel), var(--bg-strong) 34%);
   text-align: left;
+}
+
+/* Tier-based left border colors */
+.checkpoint-card[data-tier="1"] {
+  border-left-color: #f59e0b;
+}
+
+.checkpoint-card[data-tier="2"] {
+  border-left-color: #94a3b8;
+}
+
+.checkpoint-card[data-tier="3"] {
+  border-left-color: #78716c;
 }
 
 .checkpoint-card.active {
@@ -1840,11 +1964,23 @@ button {
 }
 
 .checkpoint-actions button {
-  padding: 0.85rem 1rem;
-  border-radius: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-radius: 999px;
   border: 1px solid var(--panel-border);
   background: color-mix(in oklch, var(--panel), var(--bg-strong) 38%);
   color: var(--text);
+  transition: all 160ms ease;
+}
+
+.checkpoint-actions button:hover {
+  background: color-mix(in oklch, var(--accent), white 75%);
+  border-color: color-mix(in oklch, var(--accent), white 40%);
 }
 
 .checkpoint-compare-grid {
@@ -4167,9 +4303,11 @@ pre {
 @keyframes dotPulse {
   0%, 100% {
     box-shadow: 0 0 0 0 color-mix(in oklch, var(--olive), transparent 60%);
+    opacity: 1;
   }
   50% {
     box-shadow: 0 0 0 6px color-mix(in oklch, var(--olive), transparent 0%);
+    opacity: 0.5;
   }
 }
 
@@ -4517,6 +4655,206 @@ pre {
   50% {
     opacity: 0.8;
     transform: scale(1.1);
+  }
+}
+
+/* Decision Tree - Redesigned Professional Styles */
+
+/* Legend divider */
+.legend-divider {
+  width: 1px;
+  height: 1rem;
+  background: var(--panel-border);
+  margin: 0 0.2rem;
+}
+
+/* Zoom badge */
+.zoom-badge {
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 42%);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 3.5rem;
+  text-align: center;
+}
+
+/* Enhanced tree controls with backdrop blur */
+.tree-controls {
+  backdrop-filter: blur(8px);
+  background: color-mix(in oklch, var(--panel), transparent 30%);
+  padding: 0.5rem;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in oklch, var(--panel-border), transparent 50%);
+}
+
+.tree-controls button {
+  padding: 0.5rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  min-height: 36px;
+  transition: all 160ms ease;
+}
+
+.tree-controls button:hover {
+  background: color-mix(in oklch, var(--panel), var(--accent) 12%);
+  transform: translateY(-1px);
+}
+
+/* Enhanced legend with pill-shaped items */
+.tree-legend {
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.8rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 15%);
+  border: 1px solid color-mix(in oklch, var(--panel-border), transparent 50%);
+  font-size: 0.75rem;
+  gap: 0.7rem;
+}
+
+.legend-item {
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 25%);
+  transition: background-color 160ms ease;
+}
+
+.legend-item:hover {
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 35%);
+}
+
+.legend-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px color-mix(in oklch, currentColor, transparent 85%);
+}
+
+/* Enhanced tooltip as card */
+.tree-tooltip {
+  padding: 0.9rem 1rem;
+  border-radius: 0.8rem;
+  border: 1px solid var(--panel-border);
+  border-left: 3px solid var(--accent);
+  background: color-mix(in oklch, var(--panel), white 30%);
+  box-shadow: 0 4px 20px color-mix(in oklch, var(--shadow), transparent 30%);
+  pointer-events: none;
+  min-width: 180px;
+  max-width: 280px;
+}
+
+.tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.tooltip-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px color-mix(in oklch, currentColor, transparent 85%);
+}
+
+.tooltip-type {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.tooltip-time {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+
+.tooltip-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 0.3rem;
+  word-break: break-word;
+}
+
+.tooltip-importance {
+  font-size: 0.7rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tooltip-importance::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+/* Node styling - pill shapes with shadows */
+.node-rect {
+  transition: all 0.2s ease;
+}
+
+.node.selected .node-rect {
+  filter: drop-shadow(0 0 8px color-mix(in oklch, var(--node-selected), transparent 40%));
+}
+
+.node.recommended .node-rect {
+  animation: pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% {
+    stroke-opacity: 0.6;
+    stroke-width: 2.5;
+  }
+  50% {
+    stroke-opacity: 1;
+    stroke-width: 3;
+  }
+}
+
+/* Recommended glow rect */
+.recommended-glow-rect {
+  animation: recommended-pulse 2s ease-in-out infinite;
+}
+
+@keyframes recommended-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+/* Importance bar animation */
+.importance-bar {
+  transition: width 0.3s ease;
+}
+
+/* Node label */
+.node-label {
+  text-shadow: 0 1px 2px color-mix(in oklch, black, transparent 70%);
+}
+
+/* Depth guide lines */
+.depth-guide {
+  pointer-events: none;
+}
+
+/* Inferred link dash animation */
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -4;
   }
 }
 

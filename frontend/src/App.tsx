@@ -592,6 +592,7 @@ function App() {
                         key={ranking.checkpoint_id}
                         type="button"
                         className={`checkpoint-card ${selectedCheckpointId === checkpoint.id ? 'active' : ''}`}
+                        data-tier={ranking.retention_tier.replace('tier-', '')}
                         onClick={() => setSelectedCheckpointId(checkpoint.id)}
                       >
                         <span>Sequence {checkpoint.sequence}</span>
@@ -637,15 +638,23 @@ function App() {
               </section>
 
               <section className="panel alerts-panel">
-                <p className="eyebrow">Behavior Alerts</p>
-                <h2>Live heuristics</h2>
+                <div className="panel-head">
+                  <p className="eyebrow">Behavior Alerts</p>
+                  <h2>
+                    Live heuristics
+                    {bundle?.analysis?.behavior_alerts && bundle.analysis.behavior_alerts.length > 0 && (
+                      <span className="alert-badge">{bundle.analysis.behavior_alerts.length}</span>
+                    )}
+                  </h2>
+                </div>
                 <div className="alert-list">
-                  {bundle?.analysis.behavior_alerts.length ? (
+                  {bundle?.analysis?.behavior_alerts?.length ? (
                     bundle.analysis.behavior_alerts.map((alert) => (
                       <button
                         key={`${alert.alert_type}-${alert.event_id}`}
                         type="button"
                         className="alert-row"
+                        data-severity={alert.severity.toLowerCase()}
                         onClick={() => handleInspectEvent(alert.event_id)}
                       >
                         <span>{alert.alert_type}</span>

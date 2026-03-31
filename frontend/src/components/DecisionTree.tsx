@@ -44,12 +44,33 @@ const NODE_COLORS: Record<string, string> = {
   behavior_alert: 'var(--node-decision)',
 }
 
-const NODE_SIZE = 12
+const NODE_WIDTH = 50  // Pill-shaped node width
+const NODE_HEIGHT = 24  // Pill-shaped node height
 const NODE_SPACING_X_BASE = 180
 const NODE_SPACING_Y_BASE = 60
 const TOOLTIP_OFFSET = 10
 const TOOLTIP_MAX_WIDTH = 200
 const TOOLTIP_MAX_HEIGHT = 100
+
+// Node type labels for display inside nodes
+const NODE_LABELS: Record<string, string> = {
+  trace_root: 'Root',
+  agent_start: 'Sess',
+  agent_end: 'Sess',
+  llm_request: 'LLM',
+  llm_response: 'LLM',
+  tool_call: 'Tool',
+  tool_result: 'Tool',
+  decision: 'Dec',
+  error: 'Err',
+  checkpoint: 'Chk',
+  safety_check: 'Dec',
+  refusal: 'Err',
+  policy_violation: 'Err',
+  prompt_policy: 'LLM',
+  agent_turn: 'Sess',
+  behavior_alert: 'Dec',
+}
 
 /**
  * Computes branch priority for guided exploration based on:
@@ -204,11 +225,24 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
     (event: MouseEvent, d: d3.HierarchyNode<D3TreeNode>) => {
       const node = d.data
       const timestamp = new Date(node.event.timestamp).toLocaleTimeString()
-      const content = `${node.event.event_type}\n${timestamp}\nID: ${node.id.slice(0, 8)}`
+      const eventType = node.event.event_type
+      const nodeColor = NODE_COLORS[eventType] || 'var(--node-default)'
+      const name = (node.event.name as string | undefined) || (node.event.data?.summary as string | undefined) || ''
+      const displayName = name.length > 60 ? name.slice(0, 60) + '...' : name
+      const importance = node.event.importance ?? 1
 
-      // Calculate tooltip position with viewport boundary detection
-      const tooltipX = Math.min(event.clientX + TOOLTIP_OFFSET, window.innerWidth - TOOLTIP_MAX_WIDTH - TOOLTIP_OFFSET)
-      const tooltipY = Math.min(event.clientY + TOOLTIP_OFFSET, window.innerHeight - TOOLTIP_MAX_HEIGHT - TOOLTIP_OFFSET)
+      // Build rich tooltip content
+      const content = JSON.stringify({
+        eventType,
+        timestamp,
+        name: displayName,
+        importance,
+        color: nodeColor,
+      })
+
+      // Calculate tooltip position - place below and to the right of the node
+      const tooltipX = Math.min(event.clientX + TOOLTIP_OFFSET + 15, window.innerWidth - TOOLTIP_MAX_WIDTH - TOOLTIP_OFFSET)
+      const tooltipY = Math.min(event.clientY + TOOLTIP_OFFSET + 15, window.innerHeight - TOOLTIP_MAX_HEIGHT - TOOLTIP_OFFSET)
 
       setTooltip({
         visible: true,
@@ -248,6 +282,61 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
     const offsetX = -minX + nodeSpacingX
     const offsetY = nodeSpacingY
 
+    // Add SVG definitions for arrow markers and drop shadow filter
+    const defs = svg.append('defs')
+
+    // Drop shadow filter for nodes
+    defs.append('filter')
+      .attr('id', 'node-shadow')
+      .attr('x', '-50%')
+      .attr('y', '-50%')
+      .attr('width', '200%')
+      .attr('height', '200%')
+      .append('feDropShadow')
+      .attr('dx', 0)
+      .attr('dy', 2)
+      .attr('stdDeviation', 2)
+      .attr('flood-opacity', 0.2)
+
+    // Arrow marker for parent-child links
+    defs.append('marker')
+      .attr('id', 'arrow-solid')
+      .attr('viewBox', '0 0 10 10')
+      .attr('refX', 8)
+      .attr('refY', 5)
+      .attr('markerWidth', 6)
+      .attr('markerHeight', 6)
+      .attr('orient', 'auto')
+      .append('path')
+      .attr('d', 'M 0 0 L 10 5 L 0 10 z')
+      .attr('fill', EDGE_STYLES.solid.stroke)
+
+    // Arrow marker for evidence links
+    defs.append('marker')
+      .attr('id', 'arrow-evidence')
+      .attr('viewBox', '0 0 10 10')
+      .attr('refX', 8)
+      .attr('refY', 5)
+      .attr('markerWidth', 6)
+      .attr('markerHeight', 6)
+      .attr('orient', 'auto')
+      .append('path')
+      .attr('d', 'M 0 0 L 10 5 L 0 10 z')
+      .attr('fill', EDGE_STYLES.evidence.stroke)
+
+    // Arrow marker for inferred links
+    defs.append('marker')
+      .attr('id', 'arrow-inferred')
+      .attr('viewBox', '0 0 10 10')
+      .attr('refX', 8)
+      .attr('refY', 5)
+      .attr('markerWidth', 6)
+      .attr('markerHeight', 6)
+      .attr('orient', 'auto')
+      .append('path')
+      .attr('d', 'M 0 0 L 10 5 L 0 10 z')
+      .attr('fill', EDGE_STYLES.inferred.stroke)
+
     const g = svg
       .append('g')
       .attr('transform', `translate(${pan.x + offsetX}, ${pan.y + offsetY}) scale(${zoom})`)
@@ -275,7 +364,23 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
       : null
     setRecommendedNodeId(recommendedNodeId)
 
-    // Render parent-child links (solid lines)
+    // Render depth guide lines (every 2 levels)
+    const maxDepth = Math.max(...root.descendants().map(d => d.depth))
+    for (let depth = 0; depth <= maxDepth; depth += 2) {
+      const y = depth * nodeSpacingY
+      g.append('line')
+        .attr('class', 'depth-guide')
+        .attr('x1', minX - 50)
+        .attr('y1', y)
+        .attr('x2', maxX + 50)
+        .attr('y2', y)
+        .attr('stroke', 'var(--muted)')
+        .attr('stroke-width', 1)
+        .attr('opacity', 0.1)
+        .attr('stroke-dasharray', '4,4')
+    }
+
+    // Render parent-child links (solid lines with arrowheads)
     g.selectAll('.link')
       .data(root.links())
       .enter()
@@ -287,14 +392,18 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         const targetX = d.target.x ?? 0
         const targetY = d.target.y ?? 0
         const midY = (sourceY + targetY) / 2
-        return `M${sourceX},${sourceY}C${sourceX},${midY} ${targetX},${midY} ${targetX},${targetY}`
+        // Shorten the path to stop before the node edge (account for pill height)
+        const nodeHalfHeight = NODE_HEIGHT / 2
+        return `M${sourceX},${sourceY + nodeHalfHeight}C${sourceX},${midY} ${targetX},${midY} ${targetX},${targetY - nodeHalfHeight}`
       })
       .attr('fill', 'none')
       .attr('stroke', EDGE_STYLES.solid.stroke)
       .attr('stroke-width', EDGE_STYLES.solid.strokeWidth)
       .attr('stroke-dasharray', EDGE_STYLES.solid.strokeDasharray)
+      .attr('opacity', 0.7)
+      .attr('marker-end', 'url(#arrow-solid)')
 
-    // Render evidence links (dotted blue lines)
+    // Render evidence links (dotted blue lines, thicker)
     const evidenceLinks: Array<{ source: d3.HierarchyNode<D3TreeNode>; target: d3.HierarchyNode<D3TreeNode> }> = []
     root.descendants().forEach((d) => {
       const evidenceEventIds = d.data.event.evidence_event_ids ?? []
@@ -317,15 +426,17 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         const targetX = d.target.x ?? 0
         const targetY = d.target.y ?? 0
         const midY = (sourceY + targetY) / 2
-        return `M${sourceX},${sourceY}C${sourceX},${midY} ${targetX},${midY} ${targetX},${targetY}`
+        const nodeHalfHeight = NODE_HEIGHT / 2
+        return `M${sourceX},${sourceY + nodeHalfHeight}C${sourceX},${midY} ${targetX},${midY} ${targetX},${targetY - nodeHalfHeight}`
       })
       .attr('fill', 'none')
       .attr('stroke', EDGE_STYLES.evidence.stroke)
-      .attr('stroke-width', EDGE_STYLES.evidence.strokeWidth)
+      .attr('stroke-width', 2)  // Thicker for better visibility
       .attr('stroke-dasharray', EDGE_STYLES.evidence.strokeDasharray)
-      .attr('opacity', 0.6)
+      .attr('opacity', 0.7)
+      .attr('marker-end', 'url(#arrow-evidence)')
 
-    // Render inferred causal links (dotted orange lines)
+    // Render inferred causal links (dotted orange lines with animation)
     const inferredLinks: Array<{ source: d3.HierarchyNode<D3TreeNode>; target: d3.HierarchyNode<D3TreeNode>; confidence: number }> = []
     root.descendants().forEach((d) => {
       const upstreamEventIds = d.data.event.upstream_event_ids ?? []
@@ -352,20 +463,32 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         const targetX = d.target.x ?? 0
         const targetY = d.target.y ?? 0
         const midY = (sourceY + targetY) / 2
-        return `M${sourceX},${sourceY}C${sourceX},${midY} ${targetX},${midY} ${targetX},${targetY}`
+        const nodeHalfHeight = NODE_HEIGHT / 2
+        return `M${sourceX},${sourceY + nodeHalfHeight}C${sourceX},${midY} ${targetX},${midY} ${targetX},${targetY - nodeHalfHeight}`
       })
       .attr('fill', 'none')
       .attr('stroke', EDGE_STYLES.inferred.stroke)
       .attr('stroke-width', (d) => EDGE_STYLES.inferred.strokeWidth * d.confidence)
       .attr('stroke-dasharray', EDGE_STYLES.inferred.strokeDasharray)
       .attr('opacity', 0.5)
+      .style('animation', 'dash-flow 1s linear infinite')
+      .attr('marker-end', 'url(#arrow-inferred)')
 
     const nodes = g
       .selectAll('.node')
       .data(root.descendants())
       .enter()
       .append('g')
-      .attr('class', (d) => `node ${(d.data._priority?.score ?? 0) > 0 && d.data.id === recommendedNodeId ? 'recommended' : ''}`)
+      .attr('class', (d) => {
+        const classes = ['node']
+        if ((d.data._priority?.score ?? 0) > 0 && d.data.id === recommendedNodeId) {
+          classes.push('recommended')
+        }
+        if (d.data.id === selectedEventId) {
+          classes.push('selected')
+        }
+        return classes.join(' ')
+      })
       .attr('data-id', (d) => d.data.id)
       .attr('transform', (d) => `translate(${d.x ?? 0}, ${d.y ?? 0})`)
       .on('click', handleNodeClick)
@@ -373,60 +496,81 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
       .on('mousemove', handleMouseMove)
       .on('mouseleave', handleMouseLeave)
 
-    // Add glow effect for recommended nodes
+    // Add pulsing glow effect for recommended nodes
     nodes
       .filter((d) => d.data.id === recommendedNodeId)
-      .append('circle')
-      .attr('class', 'recommended-glow')
-      .attr('r', (d) => {
-        const importance = d.data.event.importance ?? 1
-        return NODE_SIZE * Math.sqrt(importance) + 8
-      })
+      .append('rect')
+      .attr('class', 'recommended-glow-rect')
+      .attr('x', -NODE_WIDTH / 2 - 6)
+      .attr('y', -NODE_HEIGHT / 2 - 6)
+      .attr('width', NODE_WIDTH + 12)
+      .attr('height', NODE_HEIGHT + 12)
+      .attr('rx', 8)
       .attr('fill', 'none')
       .attr('stroke', '#22c55e')
-      .attr('stroke-width', 3)
+      .attr('stroke-width', 2)
       .attr('opacity', 0.6)
       .attr('pointer-events', 'none')
+      .style('animation', 'pulse-border 2s ease-in-out infinite')
 
+    // Main pill-shaped node
     nodes
-      .append('circle')
-      .attr('r', (d) => {
-        const importance = d.data.event.importance ?? 1
-        return NODE_SIZE * Math.sqrt(importance)
-      })
+      .append('rect')
+      .attr('class', 'node-rect')
+      .attr('x', -NODE_WIDTH / 2)
+      .attr('y', -NODE_HEIGHT / 2)
+      .attr('width', NODE_WIDTH)
+      .attr('height', NODE_HEIGHT)
+      .attr('rx', 6)  // Rounded corners for pill shape
       .attr('fill', (d) => NODE_COLORS[d.data.event.event_type] || 'var(--node-default)')
       .attr('stroke', (d) => {
         if (d.data.id === recommendedNodeId) return '#22c55e'
         return d.data.id === selectedEventId ? 'var(--node-selected)' : 'var(--node-stroke)'
       })
       .attr('stroke-width', (d) => {
-        if (d.data.id === recommendedNodeId) return 3
-        return d.data.id === selectedEventId ? 3 : 2
+        if (d.data.id === recommendedNodeId) return 2.5
+        return d.data.id === selectedEventId ? 2.5 : 1.5
       })
+      .attr('filter', 'url(#node-shadow)')
       .attr('cursor', 'pointer')
-      .attr('transition', 'all 0.2s ease')
+      .style('transition', 'all 0.2s ease')
 
+    // Node type label inside the pill
     nodes
       .append('text')
-      .attr('dy', 4)
+      .attr('class', 'node-label')
+      .attr('dy', 1)
       .attr('text-anchor', 'middle')
       .attr('fill', 'white')
-      .attr('font-size', '10px')
-      .attr('font-weight', 'bold')
+      .attr('font-size', '11px')
+      .attr('font-weight', '600')
       .attr('pointer-events', 'none')
-      .text((d) => {
-        const type = d.data.event.event_type
-        return type.charAt(0).toUpperCase()
+      .text((d) => NODE_LABELS[d.data.event.event_type] || d.data.event.event_type.charAt(0).toUpperCase())
+
+    // Importance bar below the node
+    nodes
+      .append('rect')
+      .attr('class', 'importance-bar')
+      .attr('x', -NODE_WIDTH / 2)
+      .attr('y', NODE_HEIGHT / 2 + 3)
+      .attr('height', 2)
+      .attr('rx', 1)
+      .attr('fill', (d) => NODE_COLORS[d.data.event.event_type] || 'var(--node-default)')
+      .attr('opacity', 0.6)
+      .attr('width', (d) => {
+        const importance = d.data.event.importance ?? 1
+        return Math.max(4, NODE_WIDTH * Math.min(importance, 1))
       })
+      .attr('pointer-events', 'none')
 
     // Add "Recommended" badge for the top priority node
     nodes
       .filter((d) => d.data.id === recommendedNodeId)
       .append('text')
-      .attr('x', 20)
-      .attr('dy', -10)
+      .attr('x', NODE_WIDTH / 2 + 8)
+      .attr('dy', -NODE_HEIGHT / 2 - 4)
       .attr('fill', '#22c55e')
-      .attr('font-size', '10px')
+      .attr('font-size', '9px')
       .attr('font-weight', 'bold')
       .attr('pointer-events', 'none')
       .text('⭐ Recommended')
@@ -437,8 +581,8 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
           const collapsedNode = g.select(`.node[data-id="${child.data.id}"]`)
           collapsedNode
             .append('text')
-            .attr('x', 20)
-            .attr('dy', 4)
+            .attr('x', NODE_WIDTH / 2 + 8)
+            .attr('dy', 5)
             .attr('fill', 'var(--muted)')
             .attr('font-size', '11px')
             .text(`+${child.data.children.length}`)
@@ -544,7 +688,7 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
             ⭐ Jump to Recommended
           </button>
         )}
-        <span className="zoom-level">{Math.round(zoom * 100)}%</span>
+        <span className="zoom-badge">{Math.round(zoom * 100)}%</span>
       </div>
       <div className="tree-legend" role="legend" aria-label="Decision tree legend">
         <span className="legend-item" aria-label="Session nodes: agent start and end events">
@@ -567,14 +711,13 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
           <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.error }} />
           Risk
         </span>
-      </div>
-      <div className="tree-edge-legend" role="legend" aria-label="Edge type legend">
+        <span className="legend-divider" />
         <span className="legend-item" aria-label="Parent-child links: direct causal relationships">
           <span className="legend-line" style={{ borderTop: `2px solid ${EDGE_STYLES.solid.stroke}` }} />
           Parent-Child
         </span>
         <span className="legend-item" aria-label="Evidence links: events referenced as evidence">
-          <span className="legend-line" style={{ borderTop: `1.5px dotted ${EDGE_STYLES.evidence.stroke}` }} />
+          <span className="legend-line" style={{ borderTop: `2px dotted ${EDGE_STYLES.evidence.stroke}` }} />
           Evidence
         </span>
         <span className="legend-item" aria-label="Inferred links: upstream causal relationships">
@@ -589,19 +732,43 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
       />
-      {tooltip.visible && (
-        <div
-          className="tree-tooltip"
-          style={{
-            left: tooltip.x,
-            top: tooltip.y,
-          }}
-        >
-          {tooltip.content.split('\n').map((line, i) => (
-            <div key={i}>{line}</div>
-          ))}
-        </div>
-      )}
+      {tooltip.visible && (() => {
+        try {
+          const data = JSON.parse(tooltip.content)
+          return (
+            <div
+              className="tree-tooltip"
+              style={{
+                left: tooltip.x,
+                top: tooltip.y,
+                borderLeftColor: data.color,
+              }}
+            >
+              <div className="tooltip-header">
+                <span className="tooltip-dot" style={{ backgroundColor: data.color }} />
+                <span className="tooltip-type">{data.eventType}</span>
+              </div>
+              <div className="tooltip-time">{data.timestamp}</div>
+              {data.name && <div className="tooltip-name">{data.name}</div>}
+              <div className="tooltip-importance">Importance: {data.importance.toFixed(1)}</div>
+            </div>
+          )
+        } catch {
+          return (
+            <div
+              className="tree-tooltip"
+              style={{
+                left: tooltip.x,
+                top: tooltip.y,
+              }}
+            >
+              {tooltip.content.split('\n').map((line, i) => (
+                <div key={i}>{line}</div>
+              ))}
+            </div>
+          )
+        }
+      })()}
     </div>
   )
 }
