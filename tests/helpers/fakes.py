@@ -71,6 +71,7 @@ class FakeTraceIntelligence:
         self,
         events: list[TraceEvent],
         checkpoints: list[Checkpoint],
+        **kwargs: Any,
     ) -> dict[str, Any]:
         self.analyze_session_calls.append((events, checkpoints))
         return {

@@ -25,6 +25,7 @@ __all__ = [
     "OscillationAlert",
     "CheckpointDelta",
     "detect_oscillation",
+    "auto_checkpoint_on_alert",
 ]
 
 
@@ -270,3 +271,85 @@ class LiveMonitor:
             "oscillation_alert": oscillation_dict,
             "latest_checkpoints": latest_checkpoint_deltas,
         }
+
+
+def auto_checkpoint_on_alert(
+    alert_event: TraceEvent,
+    session_id: str,
+    events: list[TraceEvent],
+) -> Checkpoint | None:
+    """Create an automatic checkpoint when a behavior alert fires.
+
+    This function captures the current session state at the point where
+    a behavior alert is triggered, enabling time-travel debugging to the
+    exact moment of problematic behavior.
+
+    Args:
+        alert_event: The behavior_alert event that triggered this checkpoint
+        session_id: ID of the session to create a checkpoint for
+        events: List of trace events up to this point in the session
+
+    Returns:
+        A Checkpoint object if the alert warrants a checkpoint, None otherwise.
+        Only high-severity alerts or derived alerts create checkpoints.
+    """
+    from agent_debugger_sdk.core.events import Checkpoint as CheckpointClass
+
+    # Only checkpoint on significant alerts
+    severity = _event_value(alert_event, "severity", "medium")
+    alert_type = _event_value(alert_event, "alert_type", "unknown")
+
+    # Skip low-severity or unknown alert types
+    if severity == "low" or alert_type == "unknown":
+        return None
+
+    # Find the most recent stateful events to capture context
+    recent_turn = next(
+        (event for event in reversed(events) if event.event_type == EventType.AGENT_TURN),
+        None,
+    )
+    recent_decision = next(
+        (event for event in reversed(events) if event.event_type == EventType.DECISION),
+        None,
+    )
+
+    # Build a minimal state snapshot from recent events
+    state: dict[str, Any] = {
+        "checkpoint_reason": f"behavior_alert:{alert_type}",
+        "alert_severity": severity,
+        "alert_signal": _event_value(alert_event, "signal", ""),
+        "alert_timestamp": alert_event.timestamp.isoformat() if alert_event.timestamp else None,
+    }
+
+    # Add context from recent turn if available
+    if recent_turn:
+        state["recent_turn_goal"] = _event_value(recent_turn, "goal", "")
+        state["recent_turn_speaker"] = _event_value(recent_turn, "speaker", "")
+        state["recent_turn_summary"] = _event_value(recent_turn, "state_summary", "")
+
+    # Add context from recent decision if available
+    if recent_decision:
+        state["recent_decision_action"] = _event_value(recent_decision, "chosen_action", "")
+        state["recent_decision_confidence"] = _event_value(recent_decision, "confidence", 0.0)
+
+    # Build memory snapshot from event metadata
+    memory: dict[str, Any] = {
+        "triggered_by_event_id": alert_event.id,
+        "triggered_by_event_type": alert_event.event_type.value,
+        "total_events_at_checkpoint": len(events),
+    }
+
+    # Calculate importance based on severity
+    importance = 0.8 if severity == "high" else 0.6
+
+    # Create the checkpoint
+    checkpoint = CheckpointClass(
+        session_id=session_id,
+        event_id=alert_event.id,
+        sequence=len(events),  # Use current event count as sequence
+        state=state,
+        memory=memory,
+        importance=importance,
+    )
+
+    return checkpoint

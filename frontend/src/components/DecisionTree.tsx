@@ -9,6 +9,12 @@ interface DecisionTreeProps {
   onSelectEvent: (eventId: string) => void
 }
 
+interface BranchPriority {
+  nodeId: string
+  score: number
+  reasons: string[]
+}
+
 interface D3TreeNode {
   id: string
   event: TraceEvent
@@ -16,6 +22,7 @@ interface D3TreeNode {
   x?: number
   y?: number
   _collapsed?: boolean
+  _priority?: BranchPriority
 }
 
 const NODE_COLORS: Record<string, string> = {
@@ -43,6 +50,61 @@ const NODE_SPACING_Y_BASE = 60
 const TOOLTIP_OFFSET = 10
 const TOOLTIP_MAX_WIDTH = 200
 const TOOLTIP_MAX_HEIGHT = 100
+
+/**
+ * Computes branch priority for guided exploration based on:
+ * - Failure proximity (+0.4): subtree contains error events
+ * - Evidence weakness (+0.3): decision with empty evidence array
+ * - Novelty (+0.2): branch not yet inspected
+ * - Low confidence (+0.1): decision with confidence below 0.5
+ */
+function computeBranchPriority(
+  node: d3.HierarchyNode<D3TreeNode>,
+  inspectedNodes: Set<string>
+): BranchPriority {
+  let score = 0
+  const reasons: string[] = []
+
+  // Check for failure proximity - does subtree contain error events?
+  let hasErrorInSubtree = false
+  node.descendants().forEach((d) => {
+    if (d.data.event.event_type === 'error' || d.data.event.event_type === 'policy_violation') {
+      hasErrorInSubtree = true
+    }
+  })
+  if (hasErrorInSubtree) {
+    score += 0.4
+    reasons.push('Contains error in subtree')
+  }
+
+  // Check for evidence weakness - decision with empty evidence
+  const event = node.data.event
+  if (event.event_type === 'decision') {
+    const evidenceCount = event.evidence?.length ?? 0
+    if (evidenceCount === 0) {
+      score += 0.3
+      reasons.push('Decision with no evidence')
+    }
+  }
+
+  // Check for novelty - not yet inspected
+  if (!inspectedNodes.has(node.data.id)) {
+    score += 0.2
+    reasons.push('Uninspected branch')
+  }
+
+  // Check for low confidence
+  if (event.event_type === 'decision' && (event.confidence ?? 1) < 0.5) {
+    score += 0.1
+    reasons.push('Low confidence decision')
+  }
+
+  return {
+    nodeId: node.data.id,
+    score,
+    reasons,
+  }
+}
 
 // Edge types for causal visualization
 const EDGE_STYLES = {
@@ -80,6 +142,10 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
     content: '',
   })
 
+  // Track inspected nodes for guided exploration
+  const [inspectedNodes, setInspectedNodes] = useState<Set<string>>(new Set())
+  const [recommendedNodeId, setRecommendedNodeId] = useState<string | null>(null)
+
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
@@ -107,6 +173,8 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
     (event: MouseEvent, d: d3.HierarchyNode<D3TreeNode>) => {
       event.stopPropagation()
       onSelectEvent(d.data.id)
+      // Track this node as inspected
+      setInspectedNodes((prev) => new Set(prev).add(d.data.id))
     },
     [onSelectEvent]
   )
@@ -174,11 +242,28 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
       .append('g')
       .attr('transform', `translate(${pan.x + offsetX}, ${pan.y + offsetY}) scale(${zoom})`)
 
-    // Create a map of all events by ID for edge lookup
+    // Create a map of all events by ID for edge lookup and priority computation
     const eventMap = new Map<string, d3.HierarchyNode<D3TreeNode>>()
+
     root.descendants().forEach((d) => {
       eventMap.set(d.data.id, d)
     })
+
+    // Compute priorities for all decision nodes and find recommendation
+    const priorities: Array<{ nodeId: string; score: number }> = []
+    root.descendants().forEach((d) => {
+      if (d.data.event.event_type === 'decision' || d.depth > 0) {
+        const priority = computeBranchPriority(d, inspectedNodes)
+        d.data._priority = priority
+        if (priority.score > 0) {
+          priorities.push({ nodeId: priority.nodeId, score: priority.score })
+        }
+      }
+    })
+    const recommendedNodeId: string | null = priorities.length > 0
+      ? priorities.reduce((max, p) => (p.score > max.score ? p : max)).nodeId
+      : null
+    setRecommendedNodeId(recommendedNodeId)
 
     // Render parent-child links (solid lines)
     g.selectAll('.link')
@@ -270,12 +355,28 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
       .data(root.descendants())
       .enter()
       .append('g')
-      .attr('class', 'node')
+      .attr('class', (d) => `node ${(d.data._priority?.score ?? 0) > 0 && d.data.id === recommendedNodeId ? 'recommended' : ''}`)
+      .attr('data-id', (d) => d.data.id)
       .attr('transform', (d) => `translate(${d.x ?? 0}, ${d.y ?? 0})`)
       .on('click', handleNodeClick)
       .on('dblclick', handleNodeDoubleClick)
       .on('mousemove', handleMouseMove)
       .on('mouseleave', handleMouseLeave)
+
+    // Add glow effect for recommended nodes
+    nodes
+      .filter((d) => d.data.id === recommendedNodeId)
+      .append('circle')
+      .attr('class', 'recommended-glow')
+      .attr('r', (d) => {
+        const importance = d.data.event.importance ?? 1
+        return NODE_SIZE * Math.sqrt(importance) + 8
+      })
+      .attr('fill', 'none')
+      .attr('stroke', '#22c55e')
+      .attr('stroke-width', 3)
+      .attr('opacity', 0.6)
+      .attr('pointer-events', 'none')
 
     nodes
       .append('circle')
@@ -284,8 +385,14 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         return NODE_SIZE * Math.sqrt(importance)
       })
       .attr('fill', (d) => NODE_COLORS[d.data.event.event_type] || 'var(--node-default)')
-      .attr('stroke', (d) => (d.data.id === selectedEventId ? 'var(--node-selected)' : 'var(--node-stroke)'))
-      .attr('stroke-width', (d) => (d.data.id === selectedEventId ? 3 : 2))
+      .attr('stroke', (d) => {
+        if (d.data.id === recommendedNodeId) return '#22c55e'
+        return d.data.id === selectedEventId ? 'var(--node-selected)' : 'var(--node-stroke)'
+      })
+      .attr('stroke-width', (d) => {
+        if (d.data.id === recommendedNodeId) return 3
+        return d.data.id === selectedEventId ? 3 : 2
+      })
       .attr('cursor', 'pointer')
       .attr('transition', 'all 0.2s ease')
 
@@ -302,6 +409,18 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         return type.charAt(0).toUpperCase()
       })
 
+    // Add "Recommended" badge for the top priority node
+    nodes
+      .filter((d) => d.data.id === recommendedNodeId)
+      .append('text')
+      .attr('x', 20)
+      .attr('dy', -10)
+      .attr('fill', '#22c55e')
+      .attr('font-size', '10px')
+      .attr('font-weight', 'bold')
+      .attr('pointer-events', 'none')
+      .text('⭐ Recommended')
+
     if (root.children) {
       root.children.forEach((child) => {
         if (child.data._collapsed) {
@@ -316,7 +435,7 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         }
       })
     }
-  }, [tree, selectedEventId, zoom, pan, convertToD3Tree, handleNodeClick, handleNodeDoubleClick, handleMouseMove, handleMouseLeave])
+  }, [tree, selectedEventId, zoom, pan, convertToD3Tree, handleNodeClick, handleNodeDoubleClick, handleMouseMove, handleMouseLeave, inspectedNodes, recommendedNodeId, nodeSpacingX, nodeSpacingY])
 
   useEffect(() => {
     renderTree()
@@ -327,6 +446,29 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
   const handleResetView = () => {
     setZoom(1)
     setPan({ x: 0, y: 0 })
+  }
+
+  const handleJumpToRecommended = () => {
+    if (!recommendedNodeId) return
+    onSelectEvent(recommendedNodeId)
+    setInspectedNodes((prev) => new Set(prev).add(recommendedNodeId))
+    // Center the view on the recommended node
+    if (svgRef.current) {
+      const svg = d3.select(svgRef.current)
+      const node = svg.select(`.node[data-id="${recommendedNodeId}"]`)
+      if (!node.empty()) {
+        const transform = node.attr('transform')
+        const match = /translate\(([^,]+),\s*([^)]+)\)/.exec(transform ?? '')
+        if (match) {
+          const nodeX = parseFloat(match[1])
+          const nodeY = parseFloat(match[2])
+          setPan({
+            x: -nodeX + dimensions.width / 2,
+            y: -nodeY + dimensions.height / 2,
+          })
+        }
+      }
+    }
   }
 
   const handleWheel = (e: ReactWheelEvent) => {
@@ -387,6 +529,11 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         <button onClick={handleResetView} title="Reset View">
           Reset
         </button>
+        {recommendedNodeId && (
+          <button onClick={handleJumpToRecommended} title="Jump to Recommended Branch" className="jump-recommended-btn">
+            ⭐ Jump to Recommended
+          </button>
+        )}
         <span className="zoom-level">{Math.round(zoom * 100)}%</span>
       </div>
       <div className="tree-legend" role="legend" aria-label="Decision tree legend">

@@ -16,6 +16,7 @@ class CheckpointRankingService:
         event_rankings: list[dict[str, Any]],
         retention_tier_fn: Callable[..., str],
         representative_failure_ids: list[str],
+        session_replay_value: float = 0.0,
     ) -> list[dict[str, Any]]:
         """Compute restore values for checkpoints.
 
@@ -24,6 +25,7 @@ class CheckpointRankingService:
             event_rankings: List of event ranking dicts (from EventRankingService).
             retention_tier_fn: Function to compute retention tier.
             representative_failure_ids: List of event IDs representing failures.
+            session_replay_value: Composite session replay value with time-decay factors.
 
         Returns:
             List of dicts with:
@@ -42,8 +44,15 @@ class CheckpointRankingService:
             event_replay = float(event_ranking["replay_value"]) if event_ranking else 0.0
             event_composite = float(event_ranking["composite"]) if event_ranking else 0.0
             sequence_weight = checkpoint.sequence / max(max_sequence, 1)
+
+            # Incorporate session-level time-decay replay value
             restore_value = min(
-                1.0, event_replay * 0.45 + event_composite * 0.2 + checkpoint.importance * 0.2 + sequence_weight * 0.15
+                1.0,
+                event_replay * 0.40  # Reduced from 0.45 to make room for session replay
+                + event_composite * 0.20
+                + checkpoint.importance * 0.20
+                + sequence_weight * 0.10  # Reduced from 0.15
+                + session_replay_value * 0.10,  # New: session-level time-decay factor
             )
             checkpoint_rankings.append(
                 {

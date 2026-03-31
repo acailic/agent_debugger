@@ -14,7 +14,12 @@ from ..failure_diagnostics import FailureDiagnostics
 from ..highlights import generate_highlights
 from ..live_monitor import LiveMonitor
 from ..ranking import CheckpointRankingService, EventRankingService
-from .compute import compute_checkpoint_rankings, compute_event_ranking, detect_tool_loop
+from .compute import (
+    compute_checkpoint_rankings,
+    compute_event_ranking,
+    compute_session_replay_value,
+    detect_tool_loop,
+)
 from .event_utils import event_headline, retention_tier
 from .event_utils import fingerprint as fingerprint_fn
 from .helpers import event_value, mean
@@ -112,8 +117,16 @@ class TraceIntelligence:
         """Build a live monitoring summary from the current persisted session state."""
         return self._monitor.build_live_summary(events, checkpoints)
 
-    def analyze_session(self, events: list[TraceEvent], checkpoints: list[Checkpoint]) -> dict[str, Any]:
-        """Analyze session events for replay, clustering, and anomaly signals."""
+    def analyze_session(
+        self, events: list[TraceEvent], checkpoints: list[Checkpoint], session: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Analyze session events for replay, clustering, and anomaly signals.
+
+        Args:
+            events: List of trace events
+            checkpoints: List of checkpoints
+            session: Optional session dict with started_at, ended_at for time-decay
+        """
         if not events:
             return {
                 "event_rankings": [],
@@ -188,26 +201,34 @@ class TraceIntelligence:
             events, ranking_by_event_id, self.event_headline
         )
 
-        # Compute checkpoint rankings
+        # Compute checkpoint rankings with session-level time-decay
+        # First compute base session replay value with time-decay
+        base_session_replay = 0.0
+        if session:
+            base_session_replay = compute_session_replay_value(session, events, event_rankings)
+
         checkpoint_rankings, checkpoint_values = compute_checkpoint_rankings(
             checkpoints=checkpoints,
             ranking_by_event_id=ranking_by_event_id,
             representative_failure_ids=representative_failure_ids,
+            session_replay_value=base_session_replay,
         )
 
-        # Compute session-level metrics
+        # Compute session-level metrics with time-decay integration
         top_composites = [
             ranking["composite"]
             for ranking in sorted(event_rankings, key=lambda item: item["composite"], reverse=True)[:5]
         ]
-        session_replay_value = min(
+        base_composite = min(
             1.0,
-            mean(top_composites) * 0.55
-            + min(len(representative_failure_ids) / 4, 1.0) * 0.2
-            + min(len(behavior_alerts) / 3, 1.0) * 0.1
-            + mean(checkpoint_values) * 0.1
-            + min(total_cost / 0.25, 1.0) * 0.05,
+            mean(top_composites) * 0.50
+            + min(len(representative_failure_ids) / 4, 1.0) * 0.20
+            + min(len(behavior_alerts) / 3, 1.0) * 0.10
+            + mean(checkpoint_values) * 0.10
+            + min(total_cost / 0.25, 1.0) * 0.05
+            + base_session_replay * 0.05,  # Add time-decay factor
         )
+        session_replay_value = min(1.0, base_composite + base_session_replay * 0.15)
         retention_tier_result = self.retention_tier(
             replay_value=session_replay_value,
             high_severity_count=high_severity_count,

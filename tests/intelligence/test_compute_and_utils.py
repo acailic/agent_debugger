@@ -348,12 +348,13 @@ class TestComputeCheckpointRankings:
         )
 
         # Sorted by (-restore_value, -importance, -sequence)
-        # e1: 0.8*0.45 + 0.7*0.2 + 0.3*0.2 + (1/3)*0.15 = 0.36 + 0.14 + 0.06 + 0.05 = 0.61
-        # e2: 0.4*0.45 + 0.3*0.2 + 0.9*0.2 + (2/3)*0.15 = 0.18 + 0.06 + 0.18 + 0.1 = 0.52
-        # e3: 0.6*0.45 + 0.5*0.2 + 0.5*0.2 + (3/3)*0.15 = 0.27 + 0.1 + 0.1 + 0.15 = 0.62
-        # So order should be e3, e1, e2
-        assert rankings[0]["event_id"] == "e3"
-        assert rankings[1]["event_id"] == "e1"
+        # Weights: event_replay*0.40 + event_composite*0.20 + importance*0.20 + sequence_weight*0.10 + session_replay*0.10
+        # e1: 0.8*0.40 + 0.7*0.20 + 0.3*0.20 + (1/3)*0.10 = 0.32 + 0.14 + 0.06 + 0.033 = 0.553
+        # e2: 0.4*0.40 + 0.3*0.20 + 0.9*0.20 + (2/3)*0.10 = 0.16 + 0.06 + 0.18 + 0.067 = 0.467
+        # e3: 0.6*0.40 + 0.5*0.20 + 0.5*0.20 + (3/3)*0.10 = 0.24 + 0.10 + 0.10 + 0.10 = 0.540
+        # So order should be e1, e3, e2
+        assert rankings[0]["event_id"] == "e1"
+        assert rankings[1]["event_id"] == "e3"
         assert rankings[2]["event_id"] == "e2"
 
     def test_representative_failure_indicator(self):
@@ -375,11 +376,11 @@ class TestComputeCheckpointRankings:
         )
 
         # e1 has failure_cluster_indicator=1
-        # restore_value: 0.5*0.45 + 0.5*0.2 + 0.1*0.2 + (1/2)*0.15 = 0.225 + 0.1 + 0.02 + 0.075 = 0.42
-        # retention_tier: 0.42 >= 0.42 and failure_cluster_count=1 -> "summarized"
+        # restore_value: 0.5*0.40 + 0.5*0.2 + 0.1*0.2 + (1/2)*0.10 + 0*0.10 = 0.20 + 0.10 + 0.02 + 0.05 = 0.37
+        # retention_tier: 0.37 >= 0.42? No. failure_cluster_count=1 -> "summarized"
         # e2 has very low replay_value and no failure cluster
-        # restore_value: 0.1*0.45 + 0.1*0.2 + 0.1*0.2 + (2/2)*0.15 = 0.045 + 0.02 + 0.02 + 0.15 = 0.235
-        # retention_tier: 0.235 < 0.42 and failure_cluster_count=0 -> "downsampled"
+        # restore_value: 0.1*0.40 + 0.1*0.2 + 0.1*0.2 + (2/2)*0.10 + 0*0.10 = 0.04 + 0.02 + 0.02 + 0.10 = 0.18
+        # retention_tier: 0.18 < 0.42 and failure_cluster_count=0 -> "downsampled"
         tier_e1 = next(r["retention_tier"] for r in rankings if r["event_id"] == "e1")
         tier_e2 = next(r["retention_tier"] for r in rankings if r["event_id"] == "e2")
         assert tier_e1 == "summarized"
@@ -407,8 +408,8 @@ class TestComputeCheckpointRankings:
         tier_e1 = next(r["retention_tier"] for r in rankings if r["event_id"] == "e1")
         tier_e2 = next(r["retention_tier"] for r in rankings if r["event_id"] == "e2")
         assert tier_e1 == "full"
-        # e2 has low severity (0.5 < 0.92) and low restore_value (0.235 < 0.42)
-        # retention_tier: 0.235 < 0.42 -> "downsampled"
+        # e2 has low severity (0.5 < 0.92) and low restore_value (0.18 < 0.42)
+        # retention_tier: 0.18 < 0.42 -> "downsampled"
         assert tier_e2 == "downsampled"
 
     def test_sequence_weight_in_restore_value(self):
@@ -474,11 +475,11 @@ class TestComputeCheckpointRankings:
             representative_failure_ids=[],
         )
 
-        # restore_value = event_replay * 0.45 + event_composite * 0.2 + importance * 0.2 + sequence_weight * 0.15
-        # With max_sequence=5, sequence_weight = 5/5 = 1.0
-        # = 0.7*0.45 + 0.6*0.2 + 0.8*0.2 + 1.0*0.15
-        # = 0.315 + 0.12 + 0.16 + 0.15 = 0.745
-        expected = 0.7 * 0.45 + 0.6 * 0.2 + 0.8 * 0.2 + 1.0 * 0.15
+        # restore_value = event_replay * 0.40 + event_composite * 0.2 + importance * 0.2 + sequence_weight * 0.10 + session_replay * 0.10
+        # With max_sequence=5, sequence_weight = 5/5 = 1.0, session_replay_value defaults to 0.0
+        # = 0.7*0.40 + 0.6*0.2 + 0.8*0.2 + 1.0*0.10 + 0.0*0.10
+        # = 0.28 + 0.12 + 0.16 + 0.10 = 0.66
+        expected = 0.7 * 0.40 + 0.6 * 0.2 + 0.8 * 0.2 + 1.0 * 0.10
         assert abs(values[0] - expected) < 0.001
 
     def test_returns_all_expected_fields(self):

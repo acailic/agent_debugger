@@ -9,7 +9,7 @@ import { DecisionTree } from './components/DecisionTree'
 import { DriftAlertsPanel } from './components/DriftAlertsPanel'
 import { FailureClusterPanel } from './components/FailureClusterPanel'
 import { LLMViewer } from './components/LLMViewer'
-import { LiveSummaryPanel } from './components/LiveSummaryPanel'
+import { LiveDashboard } from './components/LiveDashboard'
 import { PolicyDiffView } from './components/PolicyDiffView'
 import { SearchPanel } from './components/SearchPanel'
 import { SessionComparisonPanel } from './components/SessionComparisonPanel'
@@ -553,7 +553,7 @@ function App() {
               </section>
 
               <section className="panel panel--secondary">
-                <LiveSummaryPanel
+                <LiveDashboard
                   session={currentSession}
                   events={mergedSessionEvents}
                   checkpoints={bundle?.checkpoints ?? []}

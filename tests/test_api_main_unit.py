@@ -237,7 +237,7 @@ async def test_list_sessions_can_sort_by_replay_value(api_repo_factory):
         with patch.object(
             api_main.trace_intelligence,
             "analyze_session",
-            side_effect=lambda events, checkpoints: analyses[events[0].session_id]
+            side_effect=lambda events, checkpoints, **kwargs: analyses[events[0].session_id]
             if events
             else analyses["replay-low"],
         ):

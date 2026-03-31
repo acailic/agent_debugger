@@ -88,8 +88,18 @@ async def analyze_session(
         Tuple of (events, checkpoints, analysis, replay_value)
     """
     events, checkpoints = await load_session_artifacts(repo, session_id)
+    session = await repo.get_session(session_id)
+
+    # Build session dict for time-decay analysis
+    session_dict = None
+    if session:
+        session_dict = {
+            "started_at": session.started_at.isoformat() if session.started_at else None,
+            "ended_at": session.ended_at.isoformat() if session.ended_at else None,
+        }
+
     intel = intelligence or app_context.require_trace_intelligence()
-    analysis = intel.analyze_session(events, checkpoints)
+    analysis = intel.analyze_session(events, checkpoints, session=session_dict)
     replay_value = analysis.get("session_replay_value", 0.0)
 
     if persist_replay_value:
