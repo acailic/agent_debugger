@@ -8,29 +8,31 @@ from agent_debugger_sdk.core.events import EventType, TraceEvent
 
 from .intelligence.helpers import event_value as _event_value
 
+DEFAULT_SEVERITY_WEIGHTS: dict[EventType, float] = {
+    EventType.ERROR: 1.0,
+    EventType.POLICY_VIOLATION: 0.96,
+    EventType.REFUSAL: 0.92,
+    EventType.BEHAVIOR_ALERT: 0.88,
+    EventType.SAFETY_CHECK: 0.8,
+    EventType.DECISION: 0.72,
+    EventType.CHECKPOINT: 0.65,
+    EventType.TOOL_RESULT: 0.58,
+    EventType.LLM_RESPONSE: 0.52,
+    EventType.PROMPT_POLICY: 0.48,
+    EventType.AGENT_TURN: 0.44,
+    EventType.TOOL_CALL: 0.4,
+    EventType.LLM_REQUEST: 0.35,
+    EventType.AGENT_START: 0.2,
+    EventType.AGENT_END: 0.2,
+}
+
 
 class CausalAnalyzer:
     """Walk the event graph to surface the most likely upstream causes of failures."""
 
     def __init__(self, severity_weights: dict[EventType, float] | None = None) -> None:
         if severity_weights is None:
-            severity_weights = {
-                EventType.ERROR: 1.0,
-                EventType.POLICY_VIOLATION: 0.96,
-                EventType.REFUSAL: 0.92,
-                EventType.BEHAVIOR_ALERT: 0.88,
-                EventType.SAFETY_CHECK: 0.8,
-                EventType.DECISION: 0.72,
-                EventType.CHECKPOINT: 0.65,
-                EventType.TOOL_RESULT: 0.58,
-                EventType.LLM_RESPONSE: 0.52,
-                EventType.PROMPT_POLICY: 0.48,
-                EventType.AGENT_TURN: 0.44,
-                EventType.TOOL_CALL: 0.4,
-                EventType.LLM_REQUEST: 0.35,
-                EventType.AGENT_START: 0.2,
-                EventType.AGENT_END: 0.2,
-            }
+            severity_weights = DEFAULT_SEVERITY_WEIGHTS
         self.severity_weights = severity_weights
 
     # ------------------------------------------------------------------

@@ -8,12 +8,11 @@ from typing import Any
 
 from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
 
-from ..causal_analysis import CausalAnalyzer
+from ..causal_analysis import DEFAULT_SEVERITY_WEIGHTS, CausalAnalyzer
 from ..clustering import FailureClusterAnalyzer
 from ..failure_diagnostics import FailureDiagnostics
 from ..highlights import generate_highlights
 from ..live_monitor import LiveMonitor
-from ..ranking import CheckpointRankingService, EventRankingService
 from .compute import (
     compute_checkpoint_rankings,
     compute_event_ranking,
@@ -34,8 +33,6 @@ class TraceIntelligence:
     - :class:`~collector.clustering.failure_clusters.FailureClusterAnalyzer`
     - :class:`~collector.failure_diagnostics.FailureDiagnostics`
     - :class:`~collector.live_monitor.LiveMonitor`
-    - :class:`~collector.ranking.event_ranker.EventRankingService`
-    - :class:`~collector.ranking.checkpoint_ranker.CheckpointRankingService`
 
     The public API is unchanged so all callers continue to work without
     modification.
@@ -45,33 +42,11 @@ class TraceIntelligence:
 
     def __post_init__(self) -> None:
         if self.severity_weights is None:
-            self.severity_weights = {
-                EventType.ERROR: 1.0,
-                EventType.POLICY_VIOLATION: 0.96,
-                EventType.REFUSAL: 0.92,
-                EventType.BEHAVIOR_ALERT: 0.88,
-                EventType.SAFETY_CHECK: 0.8,
-                EventType.DECISION: 0.72,
-                EventType.CHECKPOINT: 0.65,
-                EventType.TOOL_RESULT: 0.58,
-                EventType.LLM_RESPONSE: 0.52,
-                EventType.PROMPT_POLICY: 0.48,
-                EventType.AGENT_TURN: 0.44,
-                EventType.TOOL_CALL: 0.4,
-                EventType.LLM_REQUEST: 0.35,
-                EventType.AGENT_START: 0.2,
-                EventType.AGENT_END: 0.2,
-            }
+            self.severity_weights = DEFAULT_SEVERITY_WEIGHTS
         self._causal = CausalAnalyzer(self.severity_weights)
         self._clusterer = FailureClusterAnalyzer()
         self._diagnostics = FailureDiagnostics(self._causal)
         self._monitor = LiveMonitor()
-        self._event_ranker = EventRankingService(
-            causal_analyzer=self._causal,
-            fingerprint_fn=self.fingerprint,
-            severity_fn=self.severity,
-        )
-        self._checkpoint_ranker = CheckpointRankingService()
 
     # ------------------------------------------------------------------
     # Public API methods (delegate to submodules or provide utilities)
