@@ -4,6 +4,8 @@ This module provides trace collection, scoring, buffering, and persistence
 for agent execution events.
 """
 
+# Ensure submodules are accessible for patch() on Python 3.10
+from . import causal_analysis, persistence  # noqa: F401
 from .buffer import EventBuffer, get_event_buffer
 from .buffer_base import BufferBase
 from .intelligence import TraceIntelligence
