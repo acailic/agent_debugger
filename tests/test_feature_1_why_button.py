@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import collector.causal_analysis  # noqa: F401 — ensure submodule accessible for patch() on Python 3.10
+import collector.causal_analysis as _causal_analysis  # noqa: F401
 
 # =============================================================================
 # Custom Exceptions (module-level as specified)
@@ -482,7 +482,7 @@ class TestWhyButtonErrorHandling:
 class TestFailureExplainerIntegration:
     """Tests that verify FailureExplainer behavior with mocked dependencies."""
 
-    @patch("collector.causal_analysis.CausalAnalyzer")
+    @patch.object(_causal_analysis, "CausalAnalyzer")
     def test_explainer_uses_causal_analyzer_for_chain_traversal(
         self,
         mock_analyzer_class,
