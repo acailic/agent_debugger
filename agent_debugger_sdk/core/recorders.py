@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from .events import (
@@ -22,6 +23,43 @@ from .events import (
     ToolResultEvent,
     TraceEvent,
 )
+
+
+def _enhance_error_message(error_message: str) -> str:
+    """Append helpful suggestions to error messages based on common patterns.
+
+    Args:
+        error_message: The original error message.
+
+    Returns:
+        The enhanced error message with suggestions appended.
+    """
+    suggestions = []
+
+    # Check for common error patterns and provide specific suggestions
+    patterns = [
+        (r"connection refused", "The server may be down. Check that the agent_debugger server is running."),  # noqa: E501
+        (r"connection.*reset", "The connection was unexpectedly closed. This may indicate a network issue or server restart."),  # noqa: E501
+        (r"timeout", "The request took too long. Consider increasing timeout settings or checking network connectivity."),  # noqa: E501
+        (r"401|unauthorized|authentication", "Check your API key configuration in agent_debugger_sdk.config.init()."),  # noqa: E501
+        (r"403|forbidden|access denied", "Your API key may not have permission for this operation. Verify your credentials."),  # noqa: E501
+        (r"404|not found", "The API endpoint was not found. Check that the server URL is correct."),
+        (r"429|rate limit", "You are sending requests too quickly. Implement exponential backoff and retry."),
+        (r"5\d{2}|server error", "The server encountered an error. This is typically a temporary issue. Please retry."),
+        (r"no route to host", "Network connectivity issue. Check your internet connection and firewall settings."),  # noqa: E501
+        (r"certificate|tls|ssl", "SSL/TLS certificate issue. Ensure the server certificate is valid or check system clock."),  # noqa: E501
+        (r"dns.*not.*resolved|nxdomain", "DNS resolution failed. Verify the server hostname and DNS configuration."),  # noqa: E501
+    ]
+
+    message_lower = error_message.lower()
+    for pattern, suggestion in patterns:
+        if re.search(pattern, message_lower):
+            suggestions.append(f" Suggestion: {suggestion}")
+
+    if suggestions:
+        # Deduplicate and join suggestions
+        return error_message + "\n" + "\n".join(set(suggestions))
+    return error_message
 
 
 class RecordingMixin:
@@ -195,13 +233,16 @@ class RecordingMixin:
     ) -> str:
         self._check_entered()
 
+        # Append helpful suggestions for common error patterns
+        enhanced_message = _enhance_error_message(error_message)
+
         event = ErrorEvent(
             session_id=self.session_id,
             parent_id=self.get_current_parent(),
             event_type=EventType.ERROR,
             name=name or f"error_{error_type}",
             error_type=error_type,
-            error_message=error_message,
+            error_message=enhanced_message,
             stack_trace=stack_trace,
             importance=0.9,
         )

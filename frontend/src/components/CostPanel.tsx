@@ -46,7 +46,12 @@ export default function CostPanel({ sessionId }: CostPanelProps) {
     return (
       <div className="cost-panel">
         <h4>Session Cost</h4>
-        <p className="cost-loading">Loading...</p>
+        <div className="cost-loading-skeleton">
+          <div className="skeleton-line" />
+          <div className="skeleton-line" style={{ width: '60%' }} />
+          <div className="skeleton-line" style={{ width: '40%' }} />
+          <div className="skeleton-line" style={{ width: '80%' }} />
+        </div>
       </div>
     )
   }
@@ -69,6 +74,10 @@ export default function CostPanel({ sessionId }: CostPanelProps) {
     )
   }
 
+  // Calculate cost efficiency hint
+  const costPerToken = data.total_tokens > 0 ? data.total_cost_usd / data.total_tokens : 0
+  const showEfficiencyHint = costPerToken > 0.00002 // Higher than typical efficient models
+
   return (
     <div className="cost-panel">
       <h4>Session Cost</h4>
@@ -90,6 +99,11 @@ export default function CostPanel({ sessionId }: CostPanelProps) {
           <span>{data.tool_calls.toLocaleString()}</span>
         </div>
       </div>
+      {showEfficiencyHint && (
+        <p className="cost-efficiency-hint">
+          <small>Consider using a smaller model for this task type</small>
+        </p>
+      )}
     </div>
   )
 }

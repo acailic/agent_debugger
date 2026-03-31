@@ -36,6 +36,17 @@ class PermanentError(TransportError):
 DeliveryFailureCallback = Callable[[TransportError], None]
 
 
+def _get_error_message(status_code: int) -> str:
+    """Get a specific, actionable error message for a given HTTP status code."""
+    messages = {
+        401: "Authentication failed. Check your API key configuration.",
+        403: "Access denied. Your API key may not have permission for this operation.",
+        404: "API endpoint not found. Check that the server URL is correct.",
+        429: "Rate limited. Please retry after a brief pause.",
+    }
+    return messages.get(status_code, f"Client error (status={status_code})")
+
+
 MAX_RETRIES = 3
 INITIAL_BACKOFF_SECONDS = 0.5
 BACKOFF_MULTIPLIER = 2.0
@@ -130,8 +141,10 @@ class HttpTransport:
                 status_code=response.status_code,
             )
         elif response.status_code >= 400:
+            # Provide specific, actionable error messages for common status codes
+            message = _get_error_message(response.status_code)
             raise PermanentError(
-                f"Client error (status={response.status_code})",
+                message,
                 status_code=response.status_code,
             )
 

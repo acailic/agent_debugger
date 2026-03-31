@@ -245,178 +245,6 @@ button {
   background: color-mix(in oklch, var(--danger), black 15%);
 }
 
-/* Failure Modal Styles */
-.failure-modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: oklch(0.24 0.03 52 / 0.65);
-  backdrop-filter: blur(4px);
-}
-
-.failure-modal {
-  width: min(42rem, 90vw);
-  max-height: 85vh;
-  overflow-y: auto;
-  border-radius: 1.6rem;
-  border: 1px solid var(--panel-border);
-  background: var(--panel);
-  box-shadow: var(--shadow);
-}
-
-.failure-modal-header {
-  padding: 1.4rem 1.6rem;
-  border-bottom: 1px solid var(--panel-border);
-  background: color-mix(in oklch, var(--panel), var(--danger) 6%);
-}
-
-.failure-modal-header h2 {
-  margin: 0.35rem 0;
-  font-family: 'Fraunces', serif;
-  font-size: 1.6rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.failure-mode-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.3rem 0.65rem;
-  border-radius: 999px;
-  background: color-mix(in oklch, var(--danger), white 82%);
-  color: var(--danger);
-  font-size: 0.74rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.failure-content {
-  padding: 1.4rem 1.6rem;
-}
-
-.failure-section {
-  margin-bottom: 1.2rem;
-}
-
-.failure-section:last-child {
-  margin-bottom: 0;
-}
-
-.failure-section h3 {
-  margin: 0 0 0.5rem;
-  font-size: 0.82rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-}
-
-.failure-symptom {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 600;
-  line-height: 1.5;
-  color: var(--text);
-}
-
-.failure-cause {
-  margin: 0 0 0.75rem;
-  color: var(--text);
-  line-height: 1.5;
-}
-
-.failure-confidence {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.failure-confidence-bar-container {
-  height: 0.5rem;
-  border-radius: 999px;
-  background: color-mix(in oklch, var(--bg-strong), var(--muted) 20%);
-  overflow: hidden;
-}
-
-.failure-confidence-bar {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--danger);
-  transition: width 200ms ease;
-}
-
-.failure-confidence-value {
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: var(--danger);
-}
-
-.failure-narrative p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.6;
-}
-
-.failure-modal-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  padding: 1.2rem 1.6rem;
-  border-top: 1px solid var(--panel-border);
-  background: color-mix(in oklch, var(--panel), var(--bg-strong) 25%);
-}
-
-.failure-action-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.85rem 1.2rem;
-  border-radius: 999px;
-  background: var(--danger);
-  color: white;
-  font-weight: 600;
-  min-height: 44px;
-}
-
-.failure-action-primary:hover {
-  background: color-mix(in oklch, var(--danger), white 88%);
-  color: var(--danger);
-}
-
-.failure-action-icon {
-  font-size: 1.1rem;
-}
-
-.failure-action-secondary {
-  padding: 0.85rem 1.2rem;
-  border-radius: 999px;
-  background: color-mix(in oklch, var(--panel), var(--warning) 18%);
-  border: 1px solid color-mix(in oklch, var(--warning), white 45%);
-  color: var(--text);
-  min-height: 44px;
-}
-
-.failure-action-secondary:hover {
-  background: color-mix(in oklch, var(--panel), var(--warning) 28%);
-}
-
-.failure-action-close {
-  margin-left: auto;
-  padding: 0.85rem 1.2rem;
-  border-radius: 999px;
-  background: color-mix(in oklch, var(--panel), var(--bg-strong) 38%);
-  color: var(--muted);
-  min-height: 44px;
-}
-
-.failure-action-close:hover {
-  background: color-mix(in oklch, var(--panel), var(--bg-strong) 55%);
-  color: var(--text);
-}
-
 /* Why Button on Session Cards */
 .session-card {
   position: relative;
@@ -2947,130 +2775,6 @@ pre {
   color: var(--accent);
 }
 
-/* Policy Diff View */
-.policy-diff-panel {
-  margin-top: 1rem;
-}
-
-.policy-shift-list {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
-}
-
-.policy-shift-card {
-  display: grid;
-  gap: 0.6rem;
-  padding: 1rem;
-  border-radius: 1rem;
-  border: 1px solid var(--panel-border);
-  background: var(--panel);
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.15s ease;
-}
-
-.policy-shift-card:hover {
-  border-color: var(--accent);
-}
-
-.shift-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.shift-turn {
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-
-.shift-magnitude {
-  font-size: 0.7rem;
-  padding: 2px 8px;
-  border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.shift-magnitude.magnitude-major {
-  background: var(--danger);
-  color: white;
-}
-
-.shift-magnitude.magnitude-moderate {
-  background: var(--warning);
-  color: var(--text);
-}
-
-.shift-magnitude.magnitude-minor {
-  background: var(--olive);
-  color: white;
-}
-
-.shift-magnitude.magnitude-subtle {
-  background: var(--bg-strong);
-  color: var(--muted);
-}
-
-.shift-templates {
-  font-size: 0.88rem;
-}
-
-.template-change {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.template-previous {
-  color: var(--muted);
-  text-decoration: line-through;
-}
-
-.template-arrow {
-  color: var(--muted);
-}
-
-.template-new {
-  font-weight: 500;
-  color: var(--text);
-}
-
-.template-initial {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.template-badge {
-  font-size: 0.68rem;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--bg-strong);
-  color: var(--muted);
-}
-
-.shift-score {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.magnitude-bar-container {
-  flex: 1;
-  height: 4px;
-  background: var(--bg-strong);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.magnitude-bar-fill {
-  height: 100%;
-  background: var(--accent);
-  transition: width 0.3s ease;
-}
-
 /* Rolling Summary Enhancements */
 .rolling-metrics {
   margin-top: 1rem;
@@ -3901,6 +3605,33 @@ pre {
   font-family: 'Fraunces', serif;
   font-weight: 600;
   color: var(--accent-deep);
+}
+
+/* Cost panel skeleton loading */
+.cost-loading-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.skeleton-line {
+  height: 14px;
+  background: linear-gradient(90deg, var(--bg-strong) 25%, var(--muted) 50%, var(--bg-strong) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.cost-efficiency-hint {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--panel-border);
+  color: var(--warning);
 }
 
 /* ============================================

@@ -85,11 +85,11 @@ export function EventDetail({
 
       {ranking && (
         <div className="analysis-strip">
-          <span>Severity {ranking.severity.toFixed(2)}</span>
-          <span>Novelty {ranking.novelty.toFixed(2)}</span>
-          <span>Recurrence {ranking.recurrence.toFixed(2)}</span>
-          <span>Replay {ranking.replay_value.toFixed(2)}</span>
-          <span>Composite {ranking.composite.toFixed(2)}</span>
+          <span title="How severe or impactful this event is">Severity {ranking.severity.toFixed(2)}</span>
+          <span title="How unusual or new this behavior is">Novelty {ranking.novelty.toFixed(2)}</span>
+          <span title="How frequently this pattern occurs">Recurrence {ranking.recurrence.toFixed(2)}</span>
+          <span title="A metric measuring how closely this trace matches expected behavior patterns">Replay {ranking.replay_value.toFixed(2)}</span>
+          <span title="Combined ranking score (severity × novelty × recurrence × replay)">Composite {ranking.composite.toFixed(2)} <small>(severity + novelty + recurrence + replay)</small></span>
         </div>
       )}
 

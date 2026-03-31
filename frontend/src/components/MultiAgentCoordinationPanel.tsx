@@ -1,6 +1,7 @@
 import type { TraceBundle } from '../types'
 import { containsEscalationSignal } from '../utils/formatting'
 import { memo } from 'react'
+import { EmptyState } from './EmptyState'
 
 interface CoordinationSummary {
   turnCount: number
@@ -146,7 +147,7 @@ function TurnTimelineStrip({ turns }: { turns: CoordinationSummary['turns'] }) {
               key={idx}
               className={`turn-cell ${turn.isEscalation ? 'escalation' : ''} ${turn.hasPolicyShift ? 'policy-shift' : ''}`}
               style={{ backgroundColor }}
-              title={`${turn.speaker} - turn ${turn.turnIndex}${turn.isEscalation ? ' (escalation)' : ''}${turn.hasPolicyShift ? ' (policy shift)' : ''}`}
+              title={`${turn.speaker} - turn ${turn.turnIndex}${turn.isEscalation ? ' (escalation)' : ''}${turn.hasPolicyShift ? ' (policy shift: change in the agent\'s decision-making strategy)' : ''}`}
             >
               {hasIndicator && (
                 <span className="turn-indicator">
@@ -232,7 +233,7 @@ function CoordinationMetrics({ summary }: { summary: CoordinationSummary }) {
         <strong>{summary.policyCount}</strong>
       </div>
       <div className="coordination-metric">
-        <span className="metric-label">Stance shifts</span>
+        <span className="metric-label" title="Changes in the agent's decision-making strategy compared to previous sessions">Stance shifts</span>
         <strong>{summary.stanceShiftCount}</strong>
       </div>
       <div className="coordination-metric">
@@ -264,7 +265,11 @@ export function MultiAgentCoordinationPanel({ bundle }: MultiAgentCoordinationPa
           <p className="eyebrow">Multi-Agent Coordination</p>
           <h2>Speaker patterns</h2>
         </div>
-        <p className="empty-message">No session data available.</p>
+        <EmptyState
+          icon="👥"
+          title="No session data available"
+          description="Select a session with multiple agents or speakers to view coordination patterns."
+        />
       </section>
     )
   }
@@ -276,7 +281,11 @@ export function MultiAgentCoordinationPanel({ bundle }: MultiAgentCoordinationPa
           <p className="eyebrow">Multi-Agent Coordination</p>
           <h2>Speaker patterns</h2>
         </div>
-        <p className="empty-message">No coordination data available for this session.</p>
+        <EmptyState
+          icon="🔗"
+          title="No coordination data available"
+          description="This session has no agent turns, policy templates, or coordination events to analyze."
+        />
       </section>
     )
   }

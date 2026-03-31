@@ -43,7 +43,7 @@ export function DriftAlertsPanel({ agentName, driftData, loading }: DriftAlertsP
   return (
     <section className="panel drift-panel">
       <div className="panel-head">
-        <p className="eyebrow">Behavior Drift</p>
+        <p className="eyebrow" title="Detected deviation from established execution patterns over recent sessions">Behavior Drift</p>
         <h2>{agentName}</h2>
       </div>
 
@@ -76,6 +76,9 @@ export function DriftAlertsPanel({ agentName, driftData, loading }: DriftAlertsP
                 </span>
               </div>
               <p className="alert-description">{alert.description}</p>
+              <p className="alert-guidance">
+                <small>Drift direction: {alert.change_percent > 0 ? 'Increased' : 'Decreased'}</small>
+              </p>
               <div className="alert-values">
                 <span>Baseline: {formatMetricValue(alert.baseline_value)}</span>
                 <span>Current: {formatMetricValue(alert.current_value)}</span>
@@ -84,6 +87,9 @@ export function DriftAlertsPanel({ agentName, driftData, loading }: DriftAlertsP
               {alert.likely_cause && (
                 <p className="alert-cause">Likely cause: {alert.likely_cause}</p>
               )}
+              <p className="alert-suggested-action">
+                <small>Consider anchoring your prompt or reviewing recent prompt changes</small>
+              </p>
             </div>
           ))}
         </div>

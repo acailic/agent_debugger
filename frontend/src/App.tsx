@@ -27,6 +27,13 @@ import { useSessionStore } from './stores/sessionStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { AppTab, Highlight, TraceEvent } from './types'
 
+// Keyboard shortcuts
+const TAB_SHORTCUTS: Record<string, AppTab> = {
+  '1': 'trace',
+  '2': 'inspect',
+  '3': 'analytics',
+}
+
 function App() {
   // Session state - minimal subscription for session list and selection
   const { sessions, selectedSessionId, secondarySessionId, sessionSortMode } = useSessionStore(
@@ -498,6 +505,37 @@ function App() {
 
   const selectedHighlight = getHighlightForEvent(selectedEventId)
 
+  // Keyboard shortcuts for tab switching and search focus
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      // Ctrl+1, Ctrl+2, Ctrl+3 for tab switching
+      if (event.ctrlKey || event.metaKey) {
+        const key = event.key
+        if (key in TAB_SHORTCUTS) {
+          event.preventDefault()
+          setActiveTab(TAB_SHORTCUTS[key])
+        }
+        // Ctrl+K or / to focus search
+        else if (key === 'k' || key === 'K') {
+          event.preventDefault()
+          const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
+          searchInput?.focus()
+        }
+      }
+      // / to focus search (without Ctrl)
+      else if (event.key === '/' && !event.metaKey && !event.ctrlKey) {
+        const activeTag = document.activeElement?.tagName.toLowerCase()
+        if (activeTag !== 'input' && activeTag !== 'textarea') {
+          event.preventDefault()
+          const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
+          searchInput?.focus()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [setActiveTab])
 
 
   useEffect(() => {
@@ -539,7 +577,7 @@ function App() {
             <strong>{formatNumber(bundle?.analysis.failure_clusters.length ?? 0)}</strong>
           </div>
           <div>
-            <span className="metric-label">Replay value</span>
+            <span className="metric-label" title="A metric measuring how closely this trace matches expected behavior patterns">Replay value</span>
             <strong>{(bundle?.analysis.session_replay_value ?? currentSession?.replay_value ?? 0).toFixed(2)}</strong>
           </div>
         </div>

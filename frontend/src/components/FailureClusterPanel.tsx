@@ -33,6 +33,27 @@ function getSeverityLabel(severity: number): string {
   return 'Low'
 }
 
+function getSuggestedAction(errorText: string | null): string {
+  if (!errorText) return 'Review the error details and stack trace above'
+
+  const lower = errorText.toLowerCase()
+
+  if (lower.includes('timeout') || lower.includes('timed out')) {
+    return 'Check network latency and timeout configuration'
+  }
+  if (lower.includes('401') || lower.includes('403') || lower.includes('auth') || lower.includes('unauthorized') || lower.includes('forbidden')) {
+    return 'Verify API keys and token expiration'
+  }
+  if (lower.includes('429') || lower.includes('rate limit') || lower.includes('ratelimit') || lower.includes('too many requests')) {
+    return 'Consider adding retry logic or request throttling'
+  }
+  if (lower.includes('validation') || lower.includes('invalid') || lower.includes('schema') || lower.includes('malformed')) {
+    return 'Review input sanitization and schema validation'
+  }
+
+  return 'Review the error details and stack trace above'
+}
+
 function deriveClustersFromAnalysis(
   analysisClusters: TraceAnalysisCluster[],
   events: TraceEvent[]
@@ -175,6 +196,10 @@ export function FailureClusterPanel({
                   <small>{cluster.representative_event.event_type.replaceAll('_', ' ')}</small>
                 </div>
               )}
+
+              <p className="cluster-suggested-action">
+                <small>Suggested action: {getSuggestedAction(cluster.sample_symptom)}</small>
+              </p>
 
               <span className="cluster-link">View representative session</span>
             </button>

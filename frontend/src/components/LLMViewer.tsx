@@ -5,9 +5,17 @@ interface LLMViewerProps {
   response: TraceEvent | null
 }
 
+import { EmptyState } from './EmptyState'
+
 export function LLMViewer({ request, response }: LLMViewerProps) {
   if (!request) {
-    return <div className="llm-viewer empty">Select an LLM interaction to view</div>
+    return (
+      <EmptyState
+        icon="💬"
+        title="No LLM interaction selected"
+        description="Select an LLM request or response event from the trace to view the conversation details."
+      />
+    )
   }
 
   return (
