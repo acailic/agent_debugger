@@ -150,6 +150,7 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
+  const [controlsCollapsed, setControlsCollapsed] = useState(false)
 
   // Scale node spacing based on container width for responsiveness
   const nodeSpacingX = Math.max(100, Math.min(NODE_SPACING_X_BASE, dimensions.width * 0.22))
@@ -240,14 +241,21 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         color: nodeColor,
       })
 
-      // Calculate tooltip position - place below and to the right of the node
-      const tooltipX = Math.min(event.clientX + TOOLTIP_OFFSET + 15, window.innerWidth - TOOLTIP_MAX_WIDTH - TOOLTIP_OFFSET)
-      const tooltipY = Math.min(event.clientY + TOOLTIP_OFFSET + 15, window.innerHeight - TOOLTIP_MAX_HEIGHT - TOOLTIP_OFFSET)
+      // Calculate tooltip position relative to container to avoid clipping
+      const containerRect = containerRef.current?.getBoundingClientRect()
+      const containerLeft = containerRect?.left ?? 0
+      const containerTop = containerRect?.top ?? 0
+      const containerRight = containerRect?.right ?? window.innerWidth
+      const containerBottom = containerRect?.bottom ?? window.innerHeight
+
+      // Position tooltip below and to the right of the node, within container bounds
+      const tooltipX = Math.min(event.clientX + TOOLTIP_OFFSET + 15, containerRight - TOOLTIP_MAX_WIDTH - TOOLTIP_OFFSET)
+      const tooltipY = Math.min(event.clientY + TOOLTIP_OFFSET + 15, containerBottom - TOOLTIP_MAX_HEIGHT - TOOLTIP_OFFSET)
 
       setTooltip({
         visible: true,
-        x: Math.max(TOOLTIP_OFFSET, tooltipX),
-        y: Math.max(TOOLTIP_OFFSET, tooltipY),
+        x: Math.max(containerLeft + TOOLTIP_OFFSET, tooltipX - containerLeft),
+        y: Math.max(containerTop + TOOLTIP_OFFSET, tooltipY - containerTop),
         content,
       })
     },
@@ -673,58 +681,70 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
 
   return (
     <div className="decision-tree" ref={containerRef}>
-      <div className="tree-controls">
-        <button onClick={handleZoomIn} title="Zoom In">
-          +
-        </button>
-        <button onClick={handleZoomOut} title="Zoom Out">
-          -
-        </button>
-        <button onClick={handleResetView} title="Reset View">
-          Reset
-        </button>
-        {recommendedNodeId && (
-          <button onClick={handleJumpToRecommended} title="Jump to Recommended Branch" className="jump-recommended-btn">
-            ⭐ Jump to Recommended
-          </button>
-        )}
-        <span className="zoom-badge">{Math.round(zoom * 100)}%</span>
-      </div>
-      <div className="tree-legend" role="legend" aria-label="Decision tree legend">
-        <span className="legend-item" aria-label="Session nodes: agent start and end events">
-          <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.agent_start }} />
-          Session
-        </span>
-        <span className="legend-item" aria-label="LLM nodes: large language model requests and responses">
-          <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.llm_request }} />
-          LLM
-        </span>
-        <span className="legend-item" aria-label="Tool nodes: tool calls and results">
-          <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.tool_call }} />
-          Tool
-        </span>
-        <span className="legend-item" aria-label="Decision nodes: agent decision points">
-          <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.decision }} />
-          Decision
-        </span>
-        <span className="legend-item" aria-label="Risk nodes: errors and policy violations">
-          <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.error }} />
-          Risk
-        </span>
-        <span className="legend-divider" />
-        <span className="legend-item" aria-label="Parent-child links: direct causal relationships">
-          <span className="legend-line" style={{ borderTop: `2px solid ${EDGE_STYLES.solid.stroke}` }} />
-          Parent-Child
-        </span>
-        <span className="legend-item" aria-label="Evidence links: events referenced as evidence">
-          <span className="legend-line" style={{ borderTop: `2px dotted ${EDGE_STYLES.evidence.stroke}` }} />
-          Evidence
-        </span>
-        <span className="legend-item" aria-label="Inferred links: upstream causal relationships">
-          <span className="legend-line" style={{ borderTop: `1.5px dashed ${EDGE_STYLES.inferred.stroke}` }} />
-          Inferred
-        </span>
-      </div>
+      {!controlsCollapsed && (
+        <>
+          <div className="tree-controls">
+            <button onClick={handleZoomIn} title="Zoom In">
+              +
+            </button>
+            <button onClick={handleZoomOut} title="Zoom Out">
+              -
+            </button>
+            <button onClick={handleResetView} title="Reset View">
+              Reset
+            </button>
+            {recommendedNodeId && (
+              <button onClick={handleJumpToRecommended} title="Jump to Recommended Branch" className="jump-recommended-btn">
+                ⭐ Jump to Recommended
+              </button>
+            )}
+            <span className="zoom-badge">{Math.round(zoom * 100)}%</span>
+          </div>
+          <div className="tree-legend" role="legend" aria-label="Decision tree legend">
+            <span className="legend-item" aria-label="Session nodes: agent start and end events">
+              <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.agent_start }} />
+              Session
+            </span>
+            <span className="legend-item" aria-label="LLM nodes: large language model requests and responses">
+              <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.llm_request }} />
+              LLM
+            </span>
+            <span className="legend-item" aria-label="Tool nodes: tool calls and results">
+              <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.tool_call }} />
+              Tool
+            </span>
+            <span className="legend-item" aria-label="Decision nodes: agent decision points">
+              <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.decision }} />
+              Decision
+            </span>
+            <span className="legend-item" aria-label="Risk nodes: errors and policy violations">
+              <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.error }} />
+              Risk
+            </span>
+            <span className="legend-divider" />
+            <span className="legend-item" aria-label="Parent-child links: direct causal relationships">
+              <span className="legend-line" style={{ borderTop: `2px solid ${EDGE_STYLES.solid.stroke}` }} />
+              Parent-Child
+            </span>
+            <span className="legend-item" aria-label="Evidence links: events referenced as evidence">
+              <span className="legend-line" style={{ borderTop: `2px dotted ${EDGE_STYLES.evidence.stroke}` }} />
+              Evidence
+            </span>
+            <span className="legend-item" aria-label="Inferred links: upstream causal relationships">
+              <span className="legend-line" style={{ borderTop: `1.5px dashed ${EDGE_STYLES.inferred.stroke}` }} />
+              Inferred
+            </span>
+          </div>
+        </>
+      )}
+      <button
+        className="tree-collapse-toggle"
+        onClick={() => setControlsCollapsed(!controlsCollapsed)}
+        title={controlsCollapsed ? 'Show controls' : 'Hide controls'}
+        aria-label={controlsCollapsed ? 'Show controls' : 'Hide controls'}
+      >
+        {controlsCollapsed ? '▲' : '▼'}
+      </button>
       <svg
         ref={svgRef}
         width={dimensions.width}

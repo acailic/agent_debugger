@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { createEventSource, getAgentDrift, getLiveSummary, getReplay, getSessions, getTraceBundle } from './api/client'
 import { AnalyticsTab } from './components/AnalyticsTab'
@@ -82,6 +82,7 @@ function App() {
   } = useSessionStore()
 
   // Local state for items not yet moved to the store
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     let ignore = false
@@ -523,11 +524,15 @@ function App() {
 
             <div className="inspect-grid">
               {/* Analysis Group: Inspectors + Conversation + Comparison */}
-              <div className="inspect-section-divider">
+              <div
+                className={`inspect-section-divider ${collapsedSections['analysis'] ? 'collapsed' : ''}`}
+                onClick={() => setCollapsedSections((prev: Record<string, boolean>) => ({ ...prev, analysis: !prev.analysis }))}
+              >
                 <span className="inspect-section-label">Analysis</span>
               </div>
 
-              <section className="panel panel--primary">
+              <div data-section="analysis" data-section-hidden={collapsedSections['analysis'] ? 'true' : 'false'}>
+                <section className="panel panel--primary">
                 <div className="inspectors-grid">
                   <div className="inspector-wrapper">
                     <span className="inspector-label">Tool Inspector</span>
@@ -560,13 +565,18 @@ function App() {
                   onSelectSecondarySession={setSecondarySessionId}
                 />
               </section>
+              </div>
 
               {/* Monitoring Group: Live Dashboard + Checkpoints + Alerts */}
-              <div className="inspect-section-divider">
+              <div
+                className={`inspect-section-divider ${collapsedSections['monitoring'] ? 'collapsed' : ''}`}
+                onClick={() => setCollapsedSections((prev: Record<string, boolean>) => ({ ...prev, monitoring: !prev.monitoring }))}
+              >
                 <span className="inspect-section-label">Monitoring</span>
               </div>
 
-              <section className="panel panel--secondary">
+              <div data-section="monitoring" data-section-hidden={collapsedSections['monitoring'] ? 'true' : 'false'}>
+                <section className="panel panel--secondary">
                 <LiveDashboard
                   session={currentSession}
                   events={mergedSessionEvents}
@@ -678,13 +688,18 @@ function App() {
                 driftData={driftData}
                 loading={driftLoading}
               />
+              </div>
 
               {/* Intelligence Group: Drift + Policy + Failure Clusters + Coordination */}
-              <div className="inspect-section-divider">
+              <div
+                className={`inspect-section-divider ${collapsedSections['intelligence'] ? 'collapsed' : ''}`}
+                onClick={() => setCollapsedSections((prev: Record<string, boolean>) => ({ ...prev, intelligence: !prev.intelligence }))}
+              >
                 <span className="inspect-section-label">Intelligence</span>
               </div>
 
-              <section className="panel panel--accent failure-cluster-panel">
+              <div data-section="intelligence" data-section-hidden={collapsedSections['intelligence'] ? 'true' : 'false'}>
+                <section className="panel panel--accent failure-cluster-panel">
                 <FailureClusterPanel
                   clusters={[]}
                   onSelectSession={setSelectedSessionId}
@@ -697,6 +712,7 @@ function App() {
               <section className="panel panel--accent coordination-panel">
                 <MultiAgentCoordinationPanel bundle={bundle} />
               </section>
+              </div>
             </div>
           </section>
         </main>

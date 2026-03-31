@@ -527,6 +527,8 @@ button {
 /* Secondary panels flow naturally */
 .workspace--inspect .inspect-grid > .panel--secondary {
   min-width: 0;
+  max-height: 420px;
+  overflow-y: auto;
 }
 
 /* Inspect tab: DecisionTree spans full width and auto-sizes */
@@ -537,6 +539,7 @@ button {
 .workspace--inspect .timeline-panel {
   max-height: none;
   overflow: visible;
+  min-height: min(500px, 55vh);
 }
 
 /* Panel hierarchy: subtle (default) < secondary < primary */
@@ -715,6 +718,29 @@ button {
   border-radius: 1px;
 }
 
+/* Collapsible section behavior */
+.inspect-section-divider {
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.2s;
+}
+
+.inspect-section-divider:hover {
+  opacity: 0.8;
+}
+
+.inspect-section-label::after {
+  content: ' ▾';
+}
+
+.inspect-section-divider.collapsed .inspect-section-label::after {
+  content: ' ▸';
+}
+
+[data-section-hidden="true"] {
+  display: none;
+}
+
 /* Inspectors grid with labels */
 .inspectors-grid {
   display: grid;
@@ -727,6 +753,8 @@ button {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  max-height: 350px;
+  overflow-y: auto;
 }
 
 .inspector-label {
@@ -1304,6 +1332,11 @@ button {
   min-height: 0;
 }
 
+.replay-panel {
+  border-bottom: 1px solid var(--border-subtle, oklch(0.90 0.02 260));
+  padding-bottom: 0.75rem;
+}
+
 .trace-timeline,
 .decision-tree,
 .tool-inspector,
@@ -1315,6 +1348,12 @@ button {
   background: transparent;
   border: 0;
   box-shadow: none;
+}
+
+.decision-tree {
+  background: var(--bg-canvas, oklch(0.97 0.005 260 / 0.5));
+  border-radius: 8px;
+  position: relative;
 }
 
 .timeline-header,
@@ -1867,7 +1906,7 @@ button {
 .timeline-markers {
   position: absolute;
   inset: 0.2rem 0 0 0;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .timeline-marker {
@@ -1883,9 +1922,14 @@ button {
   box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent), white 75%);
 }
 
+.timeline-marker.checkpoint {
+  cursor: pointer;
+}
+
 .timeline-marker.breakpoint {
   background: var(--danger);
   box-shadow: 0 0 0 4px color-mix(in oklch, var(--danger), white 78%);
+  cursor: pointer;
 }
 
 .replay-summary,
@@ -3089,6 +3133,47 @@ pre {
 
 .delta-negative {
   color: var(--danger);
+}
+
+/* Breakpoint Panel */
+.breakpoint-panel {
+  background: var(--bg-elevated, oklch(0.98 0.005 260));
+  border: 1px solid var(--border-subtle, oklch(0.90 0.02 260));
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.breakpoint-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.breakpoint-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border-subtle, oklch(0.90 0.02 260));
+  font-size: 0.85rem;
+}
+
+.breakpoint-item:last-child {
+  border-bottom: none;
+}
+
+.breakpoint-reached-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent, oklch(0.70 0.15 200));
+  flex-shrink: 0;
+}
+
+.current-breakpoint {
+  font-weight: 600;
+  color: var(--accent, oklch(0.70 0.15 200));
 }
 
 /* Breakpoint Stop Indicator */
@@ -4687,6 +4772,11 @@ pre {
   padding: 0.5rem;
   border-radius: 1rem;
   border: 1px solid color-mix(in oklch, var(--panel-border), transparent 50%);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.tree-controls.collapsed {
+  display: none;
 }
 
 .tree-controls button {
@@ -4710,6 +4800,35 @@ pre {
   border: 1px solid color-mix(in oklch, var(--panel-border), transparent 50%);
   font-size: 0.75rem;
   gap: 0.7rem;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.tree-legend.collapsed {
+  display: none;
+}
+
+/* Collapse toggle button */
+.tree-collapse-toggle {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 10;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: color-mix(in oklch, var(--panel), transparent 30%);
+  border: 1px solid color-mix(in oklch, var(--panel-border), transparent 50%);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 160ms ease;
+  backdrop-filter: blur(8px);
+}
+
+.tree-collapse-toggle:hover {
+  background: color-mix(in oklch, var(--panel), var(--accent) 12%);
+  color: var(--accent);
+  transform: translateY(-1px);
 }
 
 .legend-item {
@@ -4737,6 +4856,7 @@ pre {
   border: 1px solid var(--panel-border);
   border-left: 3px solid var(--accent);
   background: color-mix(in oklch, var(--panel), white 30%);
+  position: absolute;
   box-shadow: 0 4px 20px color-mix(in oklch, var(--shadow), transparent 30%);
   pointer-events: none;
   min-width: 180px;

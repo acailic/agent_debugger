@@ -249,6 +249,7 @@ export function SessionReplay({
                   className={`timeline-marker ${event.event_type} ${isHighImportance ? 'high-importance' : ''} ${isBreakpointMarker ? 'breakpoint' : ''} ${isCurrentBreakpoint ? 'current-breakpoint' : ''}`}
                   style={{ left: `${markerPercent}%` }}
                   title={formatEventHeadline(event)}
+                  onClick={() => onSeek(index)}
                 />
               )
             })}
