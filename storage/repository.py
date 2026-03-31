@@ -198,11 +198,22 @@ class TraceRepository:
     async def _increment_session_error_count(self, session_id: str, count: int = 1) -> None:
         """Increment the errors counter on a session.
 
+        Uses SQL-level atomic increment to avoid read-modify-write races.
         Silently skips if the session does not exist.
         """
-        session = await self._session_repo.get_session(session_id)
-        if session is not None:
-            await self._session_repo.update_session(session_id, errors=session.errors + count)
+        from sqlalchemy import update
+
+        from storage.models import SessionModel
+
+        stmt = (
+            update(SessionModel)
+            .where(
+                SessionModel.id == session_id,
+                SessionModel.tenant_id == self.tenant_id,
+            )
+            .values(errors=SessionModel.errors + count)
+        )
+        await self.session.execute(stmt)
 
     async def get_event(self, event_id: str) -> TraceEvent | None:
         """Retrieve an event by ID with tenant isolation.

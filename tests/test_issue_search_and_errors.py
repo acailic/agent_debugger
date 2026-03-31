@@ -268,7 +268,7 @@ async def test_issue_2_session_with_actual_errors_shows_correct_count(db_session
         framework="pytest",
         started_at=datetime(2026, 3, 30, 13, 0, tzinfo=timezone.utc),
         status=SessionStatus.ERROR,
-        errors=3,  # Set to 3 because we have 3 ERROR events
+        # errors starts at 0; auto-counting in repository.add_event increments for each ERROR event
     )
     await repo.create_session(session)
 
@@ -345,7 +345,7 @@ async def test_issue_2_session_with_mixed_events_errors_count_only_errors(db_ses
         framework="pytest",
         started_at=datetime(2026, 3, 30, 14, 0, tzinfo=timezone.utc),
         status=SessionStatus.ERROR,
-        errors=3,  # 3 ERROR events, not 5 total events
+        # errors starts at 0; auto-counting increments only for ERROR events, not policy_violation
     )
     await repo.create_session(session)
 
