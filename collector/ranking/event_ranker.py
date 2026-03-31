@@ -7,14 +7,7 @@ from typing import Any, Callable
 
 from agent_debugger_sdk.core.events import EventType, TraceEvent
 
-
-def _event_value(event: TraceEvent | None, key: str, default: Any = None) -> Any:
-    """Extract a value from an event's attributes or data dict."""
-    if event is None:
-        return default
-    if hasattr(event, key):
-        return getattr(event, key)
-    return event.data.get(key, default)
+from ..intelligence.helpers import event_value as _event_value
 
 
 class EventRankingService:
