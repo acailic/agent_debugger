@@ -164,12 +164,6 @@ Time-travel through agent execution with checkpoint-aware playback. Play, pause,
 
 Find specific events across all sessions. Search by keyword, filter by event type, and jump directly to results.
 
-### Safety Audit Trail
-
-![Safety audit trail](./docs/screenshots/18-behavior-alerts.png)
-
-Full safety trail from policy → tool guard → block → policy violation → refusal. Filter by safety checks, policy violations, or refusals.
-
 ### Failure Clustering & Multi-Agent Coordination
 
 ![Failure clustering](./docs/screenshots/05-failure-mode.png)
