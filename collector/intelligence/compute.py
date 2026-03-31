@@ -75,8 +75,13 @@ def compute_session_replay_value(
                 return ts.replace(tzinfo=timezone.utc)
             return ts
 
+        def _parse_ts(e):
+            if isinstance(e.timestamp, datetime):
+                return _ensure_aware(e.timestamp)
+            return datetime.fromisoformat(e.timestamp.replace("Z", "+00:00"))
+
         most_recent_failure_ts = max(
-            (_ensure_aware(e.timestamp) if isinstance(e.timestamp, datetime) else datetime.fromisoformat(e.timestamp.replace("Z", "+00:00")) for e in failure_events if e.timestamp),
+            (_parse_ts(e) for e in failure_events if e.timestamp),
             default=started_at
         )
         days_since_failure = (now - most_recent_failure_ts).total_seconds() / 86400
