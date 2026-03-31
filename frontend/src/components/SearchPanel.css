@@ -1,0 +1,135 @@
+.search-panel {
+  padding: 1.2rem;
+}
+
+.search-panel h2 {
+  font-size: 1.45rem;
+}
+
+.search-head {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: start;
+}
+
+.search-submit {
+  padding: 0.85rem 1.15rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--accent), white 22%);
+  color: white;
+  min-height: 44px;
+}
+
+.search-submit:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.search-controls {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.search-controls label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.search-controls input,
+.search-controls select {
+  padding: 0.8rem 0.95rem;
+  border-radius: 0.95rem;
+  border: 1px solid var(--panel-border);
+  background: color-mix(in oklch, var(--panel), white 55%);
+  color: var(--text);
+}
+
+.search-controls input:focus,
+.search-controls select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent), transparent 85%);
+}
+
+.search-scope-switches {
+  margin-top: 1rem;
+}
+
+.search-status,
+.search-empty {
+  margin: 0.9rem 0 0;
+  color: var(--muted);
+}
+
+.search-status.error {
+  color: var(--danger);
+}
+
+.search-results {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+}
+
+.search-result {
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--panel-border);
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 34%);
+  border-left: 3px solid transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+
+.search-result:hover {
+  transform: translateY(-1px);
+}
+
+.search-result p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.search-result-topline {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.search-result[data-event-type="decision"] {
+  border-left-color: var(--node-decision);
+}
+
+.search-result[data-event-type="tool_call"],
+.search-result[data-event-type="tool_result"] {
+  border-left-color: var(--node-tool);
+}
+
+.search-result[data-event-type="llm_request"],
+.search-result[data-event-type="llm_response"] {
+  border-left-color: var(--node-llm);
+}
+
+.search-result[data-event-type="safety_check"],
+.search-result[data-event-type="refusal"],
+.search-result[data-event-type="policy_violation"] {
+  border-left-color: var(--node-risk);
+}
+
+.search-result[data-event-type="checkpoint"] {
+  border-left-color: var(--node-checkpoint);
+}
+
+.search-result[data-event-type="agent_turn"] {
+  border-left-color: var(--node-session);
+}

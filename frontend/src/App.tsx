@@ -1,30 +1,29 @@
 import { useEffect, useMemo } from 'react'
 import './App.css'
-import { createEventSource, getAgentDrift, getLiveSummary, getReplay, getSessions, getTraceBundle, searchTraces } from './api/client'
-import { AnalyticsPanel } from './components/AnalyticsPanel'
+import { createEventSource, getAgentDrift, getLiveSummary, getReplay, getSessions, getTraceBundle } from './api/client'
+import { AnalyticsTab } from './components/AnalyticsTab'
 import { EmptyState } from './components/EmptyState'
 import { Logo } from './components/Logo'
 import { ConversationPanel } from './components/ConversationPanel'
-import CostPanel from './components/CostPanel'
-import CostSummary from './components/CostSummary'
 import { DecisionTree } from './components/DecisionTree'
 import { DriftAlertsPanel } from './components/DriftAlertsPanel'
 import { FailureClusterPanel } from './components/FailureClusterPanel'
-import FixAnnotation from './components/FixAnnotation'
 import { LLMViewer } from './components/LLMViewer'
 import { LiveSummaryPanel } from './components/LiveSummaryPanel'
 import { PolicyDiffView } from './components/PolicyDiffView'
+import { SearchPanel } from './components/SearchPanel'
 import { SessionComparisonPanel } from './components/SessionComparisonPanel'
 import { SessionReplay } from './components/SessionReplay'
+import { SessionRail } from './components/SessionRail'
 import { ToolInspector } from './components/ToolInspector'
 import { TraceTimeline } from './components/TraceTimeline'
 import WhyButton from './components/WhyButton'
 import HighlightChip from './components/HighlightChip'
 import { CheckpointSnapshot } from './components/CheckpointSnapshot'
 import { EventDetail } from './components/EventDetail'
-import { formatEventHeadline, formatNumber, SEARCHABLE_EVENT_TYPES } from './utils/formatting'
+import { formatEventHeadline, formatNumber } from './utils/formatting'
 import { useSessionStore } from './stores/sessionStore'
-import type { AppTab, FailureCluster, Highlight, PolicyShift, ReplayMode, RollingSummary, SearchScope, SessionSortMode, TraceEvent } from './types'
+import type { AppTab, FailureCluster, Highlight, PolicyShift, RollingSummary, TraceEvent } from './types'
 
 function App() {
   // Get all state and actions from the store
@@ -41,12 +40,6 @@ function App() {
     speed,
     collapseThreshold,
     expandedSegments,
-    searchQuery,
-    searchEventType,
-    searchScope,
-    searchResponse,
-    searchLoading,
-    searchError,
     liveEvents,
     liveSummary,
     streamConnected,
@@ -56,12 +49,6 @@ function App() {
     focusEventId,
     selectedCheckpointId,
     currentHighlightIndex,
-    breakpointEventTypes,
-    breakpointToolNames,
-    breakpointConfidenceBelow,
-    breakpointSafetyOutcomes,
-    stopAtBreakpoint,
-    loading,
     compareLoading,
     error,
     driftData,
@@ -77,29 +64,16 @@ function App() {
     setCurrentIndex,
     setIsPlaying,
     setSpeed,
-    setCollapseThreshold,
     toggleExpandedSegment,
-    setSearchQuery,
-    setSearchEventType,
-    setSearchScope,
-    setSearchResponse,
-    setSearchLoading,
-    setSearchError,
     addLiveEvent,
     setLiveSummary,
     setStreamConnected,
     clearLiveEvents,
     setActiveTab,
-    setSessionSortMode,
     setSelectedEventId,
     setFocusEventId,
     setSelectedCheckpointId,
     setCurrentHighlightIndex,
-    setBreakpointEventTypes,
-    setBreakpointToolNames,
-    setBreakpointConfidenceBelow,
-    setBreakpointSafetyOutcomes,
-    setStopAtBreakpoint,
     setLoading,
     setCompareLoading,
     setError,
@@ -263,15 +237,17 @@ function App() {
     const sessionId = selectedSessionId
     let ignore = false
     async function loadReplay() {
+      // Get breakpoint config from store directly
+      const breakpointConfig = useSessionStore.getState()
       try {
         const response = await getReplay(sessionId, {
           mode: replayMode,
           focusEventId: replayMode === 'focus' ? (focusEventId ?? selectedEventId) : null,
-          breakpointEventTypes: breakpointEventTypes.split(',').map((item) => item.trim()).filter(Boolean),
-          breakpointToolNames: breakpointToolNames.split(',').map((item) => item.trim()).filter(Boolean),
-          breakpointConfidenceBelow: breakpointConfidenceBelow ? Number(breakpointConfidenceBelow) : null,
-          breakpointSafetyOutcomes: breakpointSafetyOutcomes.split(',').map((item) => item.trim()).filter(Boolean),
-          stopAtBreakpoint,
+          breakpointEventTypes: breakpointConfig.breakpointEventTypes.split(',').map((item) => item.trim()).filter(Boolean),
+          breakpointToolNames: breakpointConfig.breakpointToolNames.split(',').map((item) => item.trim()).filter(Boolean),
+          breakpointConfidenceBelow: breakpointConfig.breakpointConfidenceBelow ? Number(breakpointConfig.breakpointConfidenceBelow) : null,
+          breakpointSafetyOutcomes: breakpointConfig.breakpointSafetyOutcomes.split(',').map((item) => item.trim()).filter(Boolean),
+          stopAtBreakpoint: breakpointConfig.stopAtBreakpoint,
           collapseThreshold: replayMode === 'highlights' ? collapseThreshold : undefined,
         })
         if (ignore) return
@@ -298,11 +274,6 @@ function App() {
     replayMode,
     selectedEventId,
     focusEventId,
-    breakpointEventTypes,
-    breakpointToolNames,
-    breakpointConfidenceBelow,
-    breakpointSafetyOutcomes,
-    stopAtBreakpoint,
     collapseThreshold,
     setReplay,
     setCurrentIndex,
@@ -412,11 +383,6 @@ function App() {
     ?? null
   )
   const selectedCheckpointRanking = selectedCheckpoint ? checkpointRankingLookup.get(selectedCheckpoint.id) : null
-  const searchSessionLookup = useMemo(
-    () => new Map(sessions.map((session) => [session.id, session])),
-    [sessions],
-  )
-
   useEffect(() => {
     const agentName = currentSession?.agent_name
     if (!agentName) {
@@ -478,40 +444,7 @@ function App() {
 
   const selectedHighlight = getHighlightForEvent(selectedEventId)
 
-  async function runTraceSearch() {
-    const trimmedQuery = searchQuery.trim()
-    if (!trimmedQuery) {
-      setSearchResponse(null)
-      setSearchError(null)
-      return
-    }
 
-    setSearchLoading(true)
-    setSearchError(null)
-    try {
-      const response = await searchTraces({
-        query: trimmedQuery,
-        sessionId: searchScope === 'current' ? selectedSessionId : null,
-        eventType: searchEventType || null,
-        limit: 18,
-      })
-      setSearchResponse(response)
-    } catch (err) {
-      setSearchError(err instanceof Error ? err.message : 'Failed to search traces')
-    } finally {
-      setSearchLoading(false)
-    }
-  }
-
-  function jumpToSearchResult(result: TraceEvent) {
-    setReplayMode('full')
-    if (result.session_id !== selectedSessionId) {
-      setSelectedSessionId(result.session_id)
-      setSelectedEventId(result.id)
-      return
-    }
-    handleInspectEvent(result.id)
-  }
 
   useEffect(() => {
     if (!isPlaying || !currentReplayEvent || currentIndex === 0) return
@@ -573,12 +506,7 @@ function App() {
         ))}
       </nav>
 
-      {activeTab === 'analytics' && (
-        <div className="analytics-view">
-          <CostSummary />
-          <AnalyticsPanel />
-        </div>
-      )}
+      {activeTab === 'analytics' && <AnalyticsTab />}
 
       {activeTab === 'inspect' && (
         <main className="workspace">
@@ -739,95 +667,7 @@ function App() {
 
       {activeTab === 'trace' && (
       <main className="workspace">
-        <aside className="session-rail panel panel--secondary">
-          <div className="rail-head">
-            <p className="eyebrow">Sessions</p>
-            <h2>Captured Runs</h2>
-          </div>
-          <div className="mode-switches session-sort-switches">
-            {(['replay_value', 'started_at'] as SessionSortMode[]).map((mode) => (
-              <button key={mode} type="button" className={sessionSortMode === mode ? 'active' : ''} onClick={() => setSessionSortMode(mode)}>
-                {mode === 'replay_value' ? 'Top replay' : 'Recent'}
-              </button>
-            ))}
-          </div>
-          {loading && !sessions.length ? (
-            <div className="session-skeleton" aria-label="Loading sessions">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-          ) : null}
-          {!loading && !sessions.length ? (
-            <EmptyState
-              icon="&#128269;"
-              title="No sessions yet"
-              description="Capture your first agent run to start debugging."
-              steps={[
-                { label: 'Install the SDK', detail: 'pip install peaky-peek' },
-                { label: 'Add @trace decorator', detail: 'Wrap your agent function' },
-                { label: 'Run your agent', detail: 'Traces appear here automatically' },
-              ]}
-            />
-          ) : null}
-          <div className="session-list">
-            {sessions.map((session) => (
-              <button
-                key={session.id}
-                type="button"
-                className={`session-card ${selectedSessionId === session.id ? 'active' : ''}`}
-                onClick={() => {
-                  setSelectedSessionId(session.id)
-                  const currentSecondaryId = useSessionStore.getState().secondarySessionId
-                  setSecondarySessionId(currentSecondaryId === session.id ? null : currentSecondaryId)
-                  setReplayMode('full')
-                  setSelectedEventId(null)
-                }}
-              >
-                <span className="session-name">{session.agent_name}</span>
-                <span className="session-framework">{session.framework}</span>
-                <span className="session-status">{session.status}</span>
-                <div className="session-card-metrics">
-                  <span>Replay {(session.replay_value ?? 0).toFixed(2)}</span>
-                  <span className={`retention-pill ${session.retention_tier ?? 'downsampled'}`}>{session.retention_tier ?? 'downsampled'}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {currentSession && (
-            <>
-              <div className="session-stats">
-                <div>
-                  <span className="metric-label">LLM calls</span>
-                  <strong>{formatNumber(currentSession.llm_calls)}</strong>
-                </div>
-                <div>
-                  <span className="metric-label">Tool calls</span>
-                  <strong>{formatNumber(currentSession.tool_calls)}</strong>
-                </div>
-                <div>
-                  <span className="metric-label">Errors</span>
-                  <strong>{formatNumber(currentSession.errors)}</strong>
-                </div>
-                <div>
-                  <span className="metric-label">Cost</span>
-                  <strong>${(currentSession.total_cost_usd ?? 0).toFixed(4)}</strong>
-                </div>
-                <div>
-                  <span className="metric-label">Retention</span>
-                  <strong>{bundle?.analysis.retention_tier ?? currentSession.retention_tier ?? 'downsampled'}</strong>
-                </div>
-                <div>
-                  <span className="metric-label">Replay value</span>
-                  <strong>{(bundle?.analysis.session_replay_value ?? currentSession.replay_value ?? 0).toFixed(2)}</strong>
-                </div>
-              </div>
-              <CostPanel sessionId={currentSession.id} />
-              <FixAnnotation sessionId={currentSession.id} existingNote={currentSession.fix_note ?? null} />
-            </>
-          )}
-        </aside>
+        <SessionRail />
 
         <section className="main-stage">
           {!selectedSessionId ? (
@@ -837,81 +677,6 @@ function App() {
               description="Choose a captured run from the sidebar to replay its trace, inspect decisions, and search events."
             />
           ) : null}
-          <div className="replay-bar" style={selectedSessionId ? undefined : { opacity: 0.3, pointerEvents: 'none' as const }}>
-            <div className="mode-switches">
-              {(['full', 'focus', 'failure', 'highlights'] as ReplayMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  className={replayMode === mode ? 'active' : ''}
-                  onClick={() => setReplayMode(mode)}
-                >
-                  {mode}
-                </button>
-              ))}
-              {replayMode === 'highlights' && (
-                <div className="threshold-presets">
-                  {([
-                    { label: 'Critical', value: 0.7 },
-                    { label: 'Standard', value: 0.35 },
-                    { label: 'Show most', value: 0.1 },
-                  ] as const).map(({ label, value }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      className={`threshold-preset${collapseThreshold === value ? ' active' : ''}`}
-                      onClick={() => setCollapseThreshold(value)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="breakpoint-bar">
-              <label htmlFor="breakpoint-events">
-                Event breakpoints
-                <input
-                  id="breakpoint-events"
-                  value={breakpointEventTypes}
-                  onChange={(event) => setBreakpointEventTypes(event.target.value)}
-                />
-              </label>
-              <label htmlFor="breakpoint-tools">
-                Tool breakpoints
-                <input
-                  id="breakpoint-tools"
-                  value={breakpointToolNames}
-                  onChange={(event) => setBreakpointToolNames(event.target.value)}
-                />
-              </label>
-              <label htmlFor="breakpoint-confidence">
-                Confidence floor
-                <input
-                  id="breakpoint-confidence"
-                  value={breakpointConfidenceBelow}
-                  onChange={(event) => setBreakpointConfidenceBelow(event.target.value)}
-                />
-              </label>
-              <label htmlFor="breakpoint-safety">
-                Safety outcomes
-                <input
-                  id="breakpoint-safety"
-                  value={breakpointSafetyOutcomes}
-                  onChange={(event) => setBreakpointSafetyOutcomes(event.target.value)}
-                />
-              </label>
-              <label className="checkbox-label" htmlFor="stop-at-breakpoint">
-                <input
-                  id="stop-at-breakpoint"
-                  type="checkbox"
-                  checked={stopAtBreakpoint}
-                  onChange={(event) => setStopAtBreakpoint(event.target.checked)}
-                />
-                Stop at breakpoint
-              </label>
-            </div>
-          </div>
 
           <section className="panel panel--primary replay-panel">
             <SessionReplay
@@ -1005,77 +770,7 @@ function App() {
         </section>
 
         <aside className="detail-rail">
-          <section className="panel panel--secondary search-panel">
-            <div className="search-head">
-              <div>
-                <p className="eyebrow">Trace Search</p>
-                <h2>Find the exact moment</h2>
-              </div>
-              <button type="button" className="search-submit" onClick={() => void runTraceSearch()} disabled={searchLoading}>
-                {searchLoading ? 'Searching...' : 'Search'}
-              </button>
-            </div>
-            <div className="search-controls">
-              <label>
-                Query
-                <input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault()
-                      void runTraceSearch()
-                    }
-                  }}
-                  placeholder="Belgrade, missing token, critic turn..."
-                />
-              </label>
-              <label>
-                Event type
-                <select value={searchEventType} onChange={(event) => setSearchEventType(event.target.value as '' | import('./types').EventType)}>
-                  {SEARCHABLE_EVENT_TYPES.map((option: { value: '' | import('./types').EventType; label: string }) => (
-                    <option key={option.label} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="mode-switches search-scope-switches">
-              {(['current', 'all'] as SearchScope[]).map((scope) => (
-                <button key={scope} type="button" className={searchScope === scope ? 'active' : ''} onClick={() => setSearchScope(scope)}>
-                  {scope === 'current' ? 'Current session' : 'All sessions'}
-                </button>
-              ))}
-            </div>
-            {searchError ? <p className="search-status error">{searchError}</p> : null}
-            {!searchError && searchResponse ? (
-              <p className="search-status">
-                {searchResponse.total} result{searchResponse.total === 1 ? '' : 's'} for "{searchResponse.query}"
-              </p>
-            ) : null}
-            <div className="search-results">
-              {searchResponse?.results.length ? (
-                searchResponse.results.map((result) => {
-                  const resultSession = searchSessionLookup.get(result.session_id)
-                  return (
-                    <button key={result.id} type="button" className="search-result" onClick={() => jumpToSearchResult(result)}>
-                      <div className="search-result-topline">
-                        <span className={`event-chip ${result.event_type}`}>{result.event_type.replaceAll('_', ' ')}</span>
-                        <span>{new Date(result.timestamp).toLocaleTimeString()}</span>
-                      </div>
-                      <strong>{formatEventHeadline(result)}</strong>
-                      <p>{resultSession?.agent_name ?? result.session_id}</p>
-                    </button>
-                  )
-                })
-              ) : (
-                <p className="search-empty">
-                  {searchResponse ? 'No matching trace events yet.' : 'Search across names, payloads, and metadata.'}
-                </p>
-              )}
-            </div>
-          </section>
+          <SearchPanel />
           <EventDetail
             event={activeEventForInspectors}
             ranking={selectedRanking}

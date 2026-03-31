@@ -1,0 +1,55 @@
+.replay-bar {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 0.5rem;
+  padding: 0.85rem;
+  border-radius: 1.1rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 15%);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(12px);
+}
+
+.replay-bar .mode-switches {
+  gap: 0.5rem;
+}
+
+.breakpoint-bar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  gap: 0.75rem;
+  align-items: end;
+  padding: 0.85rem;
+  border-radius: 1rem;
+  border: 1px solid var(--panel-border);
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 25%);
+}
+
+.breakpoint-bar label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.breakpoint-bar input {
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  color: var(--text);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.breakpoint-bar input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent), transparent 75%);
+}
+
+.breakpoint-bar .checkbox-label {
+  align-self: end;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}

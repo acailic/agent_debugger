@@ -1,0 +1,186 @@
+/* SessionRail Component Styles */
+
+.session-rail {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  overflow: hidden;
+  padding: 1.2rem;
+}
+
+.rail-head h2 {
+  font-size: 1.45rem;
+}
+
+.session-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.session-skeleton {
+  display: flex;
+  gap: 0.7rem;
+  padding: 0.5rem 0;
+}
+
+.session-skeleton span {
+  flex: 1;
+  height: 3.5rem;
+  border-radius: 1.1rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 38%);
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+.session-skeleton span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.session-skeleton span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.session-card {
+  display: grid;
+  justify-items: start;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 1rem;
+  padding-left: calc(1rem - 3px);
+  border-radius: 1.1rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 38%);
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  text-align: left;
+  min-width: 0;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease;
+  transition: box-shadow 180ms ease, background-color 180ms ease, border-color 180ms ease, transform 160ms ease;
+}
+
+.session-card:hover {
+  transform: translateY(-1px);
+}
+
+.session-card.active {
+  border-left-color: var(--node-session);
+  border-color: color-mix(in oklch, var(--node-session), white 50%);
+  background: color-mix(in oklch, var(--panel), var(--node-session) 12%);
+  box-shadow: 0 4px 16px color-mix(in oklch, var(--node-session), transparent 60%);
+}
+
+.session-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-framework,
+.session-status {
+  font-size: 0.85rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-card-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.session-stats {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.session-stats > div {
+  padding: 1.1rem;
+  border-radius: 1.2rem;
+  background: color-mix(in oklch, var(--panel), var(--accent) 4%);
+  border: 1px solid color-mix(in oklch, var(--panel-border), var(--accent) 22%);
+  min-width: 0;
+  overflow: hidden;
+  transition: box-shadow 200ms ease, background-color 200ms ease;
+}
+
+.session-stats strong {
+  font-size: 1.2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.session-sort-switches {
+  margin-bottom: 0.2rem;
+}
+
+.retention-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.68rem;
+  color: white;
+  background: var(--muted);
+  text-shadow: 0 1px 2px color-mix(in oklch, black, transparent 65%);
+  transition: all 180ms ease;
+}
+
+.retention-pill.full {
+  background: var(--danger);
+}
+
+.retention-pill.summarized {
+  background: var(--warning);
+  color: var(--text);
+}
+
+.retention-pill.downsampled {
+  background: var(--olive);
+}
+
+/* Responsive styles */
+@media (max-width: 1024px) {
+  .session-rail {
+    width: 100%;
+  }
+
+  .session-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .session-card {
+    padding: 0.85rem;
+    border-radius: 0.9rem;
+  }
+
+  .session-stats > div {
+    padding: 0.85rem;
+    border-radius: 1rem;
+  }
+
+  .session-stats strong {
+    font-size: 1.1rem;
+  }
+}

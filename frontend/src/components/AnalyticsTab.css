@@ -1,0 +1,317 @@
+/* ============================================
+   Analytics Tab Styles
+   ============================================ */
+
+.analytics-view {
+  padding: 0 1rem;
+}
+
+.analytics-view .analytics-panel {
+  max-width: 60rem;
+}
+
+.analytics-panel {
+  padding: 1.4rem;
+}
+
+.analytics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.analytics-header h2 {
+  margin: 0;
+  font-size: 1.45rem;
+}
+
+.time-range-selector {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.time-range-btn {
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 35%);
+  border: 1px solid transparent;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease;
+  min-height: 38px;
+}
+
+.time-range-btn:hover {
+  transform: translateY(-1px);
+  background: color-mix(in oklch, var(--panel), var(--accent) 12%);
+}
+
+.time-range-btn.active {
+  border-color: color-mix(in oklch, var(--accent), white 50%);
+  background: color-mix(in oklch, var(--panel), var(--accent) 16%);
+}
+
+.analytics-period {
+  margin-bottom: 1.25rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.analytics-loading,
+.analytics-error {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.analytics-error {
+  color: var(--danger);
+}
+
+.analytics-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.25rem;
+  border-radius: 1.2rem;
+  background: color-mix(in oklch, var(--panel), var(--accent) 4%);
+  border: 1px solid color-mix(in oklch, var(--panel-border), var(--accent) 22%);
+  text-align: center;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px oklch(0.52 0.04 60 / 0.1);
+}
+
+.stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-card .stat-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.analytics-section {
+  margin-bottom: 1.5rem;
+}
+
+.analytics-section:last-child {
+  margin-bottom: 0;
+}
+
+.analytics-section h3 {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.adoption-bars {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.adoption-bar-row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) auto auto;
+  gap: 0.75rem;
+  align-items: center;
+  transition: background-color 180ms ease;
+}
+
+.adoption-bar-row:hover {
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 8%);
+  border-radius: 8px;
+}
+
+.adoption-bar-track {
+  height: 0.75rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--bg-strong), var(--muted) 15%);
+  overflow: hidden;
+}
+
+.adoption-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--olive) 100%);
+  transition: width 300ms ease;
+}
+
+.adoption-bar-label {
+  font-size: 0.85rem;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.adoption-bar-percent {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 3rem;
+  text-align: right;
+}
+
+.sparkline {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 4rem;
+  padding: 0.5rem 0;
+}
+
+.sparkline-bar {
+  flex: 1;
+  min-width: 4px;
+  max-width: 12px;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(180deg, var(--accent) 0%, color-mix(in oklch, var(--accent), var(--bg) 30%) 100%);
+  transition: height 200ms ease;
+}
+
+.sparkline-bar:hover {
+  background: var(--olive);
+}
+
+.sparkline-empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* Cost Summary Styles */
+.cost-summary {
+  margin-bottom: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 1.5rem;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.cost-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.cost-stat {
+  padding: 1rem;
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 40%);
+}
+
+.cost-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.cost-value {
+  display: block;
+  font-family: 'Fraunces', serif;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-summary .cost-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-by-framework {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--panel-border);
+}
+
+.cost-by-framework h3 {
+  margin: 0 0 1rem;
+  font-size: 1.2rem;
+  color: var(--text);
+}
+
+.cost-by-framework table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cost-by-framework th,
+.cost-by-framework td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.cost-by-framework th {
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.cost-by-framework td {
+  font-size: 0.95rem;
+}
+
+/* Rolling Summary Card Styles */
+.rolling-summary-card {
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--panel-border);
+  background: color-mix(in oklch, var(--panel), white 28%);
+}
+
+.rolling-summary-text {
+  margin: 0 0 0.75rem;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.rolling-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border-radius: 0.75rem;
+  background: var(--bg-strong);
+}
+
+.rolling-metrics h3 {
+  margin: 0 0 0.6rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Analytics panel specific overrides */
+.analytics-panel .stat-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.analytics-panel .cost-value {
+  font-variant-numeric: tabular-nums;
+}
