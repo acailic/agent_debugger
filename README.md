@@ -166,7 +166,7 @@ Find specific events across all sessions. Search by keyword, filter by event typ
 
 ### Safety Audit Trail
 
-![Refusal detail](./docs/screenshots/09-event-detail-llm.png)
+![Safety audit trail](./docs/screenshots/18-behavior-alerts.png)
 
 Full safety trail from policy → tool guard → block → policy violation → refusal. Filter by safety checks, policy violations, or refusals.
 
@@ -258,6 +258,21 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for full module breakdown.
 - **Tests** — 365+ passing, CI on Python 3.10/3.11/3.12
 
 ---
+
+## Scientific Foundations
+
+Peaky Peek is informed by research on agent debugging, causal tracing, failure analysis, and adaptive replay. See [paper notes](./docs/papers/README.md) for design takeaways from each.
+
+- [AgentTrace: Causal Graph Tracing for Root Cause Analysis](./docs/papers/agenttrace-causal-graph-tracing-for-root-cause-analysis.md)
+- [XAI for Coding Agent Failures](./docs/papers/xai-for-coding-agent-failures.md)
+- [FailureMem: Failure-Aware Autonomous Software Repair](./docs/papers/failuremem-failure-aware-autonomous-software-repair.md)
+- [MSSR: Memory-Aware Adaptive Replay](./docs/papers/mssr-memory-aware-adaptive-replay.md)
+- [Learning When to Act or Refuse](./docs/papers/learning-when-to-act-or-refuse.md)
+- [Policy-Parameterized Prompts](./docs/papers/policy-parameterized-prompts.md)
+- [CXReasonAgent: Evidence-Grounded Diagnostic Reasoning](./docs/papers/cxreasonagent-evidence-grounded-diagnostic-reasoning.md)
+- [NeuroSkill: Proactive Real-Time Agentic System](./docs/papers/neuroskill-proactive-real-time-agentic-system.md)
+- [REST: Receding Horizon Explorative Steiner Tree](./docs/papers/rest-receding-horizon-explorative-steiner-tree.md)
+- [Towards a Neural Debugger for Python](./docs/papers/towards-a-neural-debugger-for-python.md)
 
 ## Documentation
 
