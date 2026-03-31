@@ -25,6 +25,10 @@
 
 ![Agent Debugger UI](./docs/screenshots/01-hero-session-list.png)
 
+<p align="center">
+  <img src="./peek-v3-demo.gif" alt="Peaky Peek demo walkthrough" width="720" />
+</p>
+
 ## Why Peaky Peek?
 
 Traditional observability tools weren't built for agent-native debugging:
