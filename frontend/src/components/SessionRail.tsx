@@ -70,11 +70,14 @@ export function SessionRail() {
               setSelectedEventId(null)
             }}
           >
-            <span className="session-name">{session.agent_name}</span>
+            <div className="session-card-header">
+              <span className="session-name">{session.agent_name}</span>
+              <span className={`session-status-dot ${session.status === 'error' ? 'error' : session.status === 'completed' ? 'success' : 'pending'}`} />
+            </div>
             <span className="session-framework">{session.framework}</span>
             <span className="session-status">{session.status}</span>
             <div className="session-card-metrics">
-              <span>Replay {(session.replay_value ?? 0).toFixed(2)}</span>
+              <span className="replay-value-badge">Replay {(session.replay_value ?? 0).toFixed(2)}</span>
               <span className={`retention-pill ${session.retention_tier ?? 'downsampled'}`}>
                 {session.retention_tier ?? 'downsampled'}
               </span>

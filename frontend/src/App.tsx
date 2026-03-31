@@ -83,9 +83,6 @@ function App() {
   } = useSessionStore()
 
   // Local state for items not yet moved to the store
-  const rollingSummaryData: RollingSummary | null = null
-  const policyShifts: PolicyShift[] = []
-  const failureClusters: FailureCluster[] = []
 
   useEffect(() => {
     let ignore = false
@@ -470,8 +467,8 @@ function App() {
   return (
     <div className="app-shell">
       <header className="hero">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Logo size={32} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Logo size={24} />
           <div>
             <h1>Peaky Peek</h1>
           </div>
@@ -526,10 +523,22 @@ function App() {
             </div>
 
             <div className="inspect-grid">
+              {/* Analysis Group: Inspectors + Conversation + Comparison */}
+              <div className="inspect-section-divider">
+                <span className="inspect-section-label">Analysis</span>
+              </div>
+
               <section className="panel panel--primary">
                 <div className="inspectors-grid">
-                  <ToolInspector event={toolEvent} />
-                  <LLMViewer request={llmRequest} response={llmResponse} />
+                  <div className="inspector-wrapper">
+                    <span className="inspector-label">Tool Inspector</span>
+                    <ToolInspector event={toolEvent} />
+                  </div>
+                  <div className="inspector-separator" />
+                  <div className="inspector-wrapper">
+                    <span className="inspector-label">LLM Viewer</span>
+                    <LLMViewer request={llmRequest} response={llmResponse} />
+                  </div>
                 </div>
               </section>
 
@@ -553,13 +562,17 @@ function App() {
                 />
               </section>
 
+              {/* Monitoring Group: Live Dashboard + Checkpoints + Alerts */}
+              <div className="inspect-section-divider">
+                <span className="inspect-section-label">Monitoring</span>
+              </div>
+
               <section className="panel panel--secondary">
                 <LiveDashboard
                   session={currentSession}
                   events={mergedSessionEvents}
                   checkpoints={bundle?.checkpoints ?? []}
                   liveSummary={liveSummary}
-                  rollingSummaryData={rollingSummaryData}
                   isConnected={streamConnected}
                   liveEventCount={liveEvents.length}
                   onSelectEvent={handleInspectEvent}
@@ -653,17 +666,28 @@ function App() {
                 loading={driftLoading}
               />
               <PolicyDiffView
-                policyShifts={policyShifts}
+                policyShifts={[]}
                 onSelectEvent={handleInspectEvent}
               />
-              <FailureClusterPanel
-                clusters={failureClusters}
-                onSelectSession={setSelectedSessionId}
-                selectedSessionId={selectedSessionId}
-                analysisClusters={bundle?.analysis.failure_clusters ?? []}
-                events={mergedSessionEvents}
-              />
-              <MultiAgentCoordinationPanel bundle={bundle} />
+
+              {/* Intelligence Group: Drift + Policy + Failure Clusters + Coordination */}
+              <div className="inspect-section-divider">
+                <span className="inspect-section-label">Intelligence</span>
+              </div>
+
+              <section className="panel panel--accent failure-cluster-panel">
+                <FailureClusterPanel
+                  clusters={[]}
+                  onSelectSession={setSelectedSessionId}
+                  selectedSessionId={selectedSessionId}
+                  analysisClusters={bundle?.analysis.failure_clusters ?? []}
+                  events={mergedSessionEvents}
+                />
+              </section>
+
+              <section className="panel panel--accent coordination-panel">
+                <MultiAgentCoordinationPanel bundle={bundle} />
+              </section>
             </div>
           </section>
         </main>

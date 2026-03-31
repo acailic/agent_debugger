@@ -1,5 +1,5 @@
 import type { Checkpoint, LiveSummary, RollingSummary, Session, TraceEvent } from '../types'
-import { formatEventHeadline } from '../utils/formatting'
+import { computeCheckpointDelta, formatEventHeadline, formatMetricLabel, latestOf } from '../utils/formatting'
 
 interface LiveSummaryPanelProps {
   session: Session | null
@@ -10,20 +10,6 @@ interface LiveSummaryPanelProps {
   isConnected: boolean
   liveEventCount: number
   onSelectEvent: (eventId: string) => void
-}
-
-function latestOf(events: TraceEvent[], eventTypes: string[]): TraceEvent | null {
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index]
-    if (eventTypes.includes(event.event_type)) {
-      return event
-    }
-  }
-  return null
-}
-
-function formatMetricLabel(key: string): string {
-  return key.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 export function LiveSummaryPanel({
@@ -55,14 +41,7 @@ export function LiveSummaryPanel({
   const metrics = rollingSummaryData?.metrics ?? {}
   const metricEntries = Object.entries(metrics)
 
-  function computeCheckpointDelta(): { stateDelta: number; memoryDelta: number } | null {
-    if (!latestCheckpoint || !previousCheckpoint) return null
-    const stateDelta = Object.keys(latestCheckpoint.state).length - Object.keys(previousCheckpoint.state).length
-    const memoryDelta = Object.keys(latestCheckpoint.memory).length - Object.keys(previousCheckpoint.memory).length
-    return { stateDelta, memoryDelta }
-  }
-
-  const checkpointDelta = computeCheckpointDelta()
+  const checkpointDelta = computeCheckpointDelta(latestCheckpoint, previousCheckpoint)
 
   return (
     <div className="live-summary-panel">

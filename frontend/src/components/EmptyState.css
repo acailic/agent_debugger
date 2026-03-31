@@ -4,17 +4,17 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 3rem 2rem;
-  gap: 0.75rem;
+  padding: 4rem 2rem;
+  gap: 1rem;
   max-width: 420px;
   margin: 0 auto;
   background: linear-gradient(135deg, color-mix(in oklch, var(--panel), var(--accent) 3%), color-mix(in oklch, var(--panel), var(--bg-strong) 6%));
-  border-radius: 1.2rem;
+  border-radius: 1.4rem;
 }
 
 .empty-state-icon {
-  font-size: 2.5rem;
-  opacity: 0.5;
+  font-size: 3rem;
+  opacity: 0.6;
   line-height: 1;
   animation: float 3s ease-in-out infinite;
 }
@@ -29,17 +29,17 @@
 }
 
 .empty-state-title {
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   font-weight: 600;
   margin: 0;
-  color: var(--text-primary, #e0e0e0);
+  color: var(--text);
 }
 
 .empty-state-description {
-  font-size: 0.85rem;
-  color: var(--text-secondary, #888);
+  font-size: 0.9rem;
+  color: var(--muted);
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .empty-state-steps {

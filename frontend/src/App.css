@@ -27,6 +27,12 @@
   --node-selected: oklch(0.78 0.14 85);
   --link-stroke: oklch(0.5 0.03 260 / 0.6);
   --shadow: 0 24px 80px oklch(0.52 0.04 60 / 0.12);
+  /* Spacing scale */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
 }
 
 * {
@@ -102,9 +108,9 @@ button {
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(18rem, 0.7fr);
-  gap: 1.5rem;
+  gap: var(--space-lg);
   align-items: center;
-  padding: clamp(0.75rem, 1.5vw, 1.25rem);
+  padding: 0.75rem 1.5rem;
   border: 1px solid var(--panel-border);
   border-radius: 1.4rem;
   background: var(--panel);
@@ -129,7 +135,7 @@ button {
 }
 
 .hero h1 {
-  font-size: clamp(1.4rem, 2.5vw, 2rem);
+  font-size: clamp(1.25rem, 2vw, 1.6rem);
   line-height: 1;
 }
 
@@ -144,19 +150,19 @@ button {
 .hero-metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.9rem;
+  gap: var(--space-sm);
 }
 
 .hero-metrics > div,
 .session-stats > div,
 .detail-grid > div {
-  padding: 1.1rem;
-  border-radius: 1.2rem;
+  padding: 0.75rem var(--space-sm);
+  border-radius: 1rem;
   background: color-mix(in oklch, var(--panel), var(--accent) 4%);
   border: 1px solid color-mix(in oklch, var(--panel-border), var(--accent) 22%);
   min-width: 0;
   overflow: hidden;
-  transition: box-shadow 200ms ease, background-color 200ms ease;
+  transition: box-shadow 150ms ease, background-color 150ms ease;
 }
 
 .hero-metrics > div:hover {
@@ -166,17 +172,17 @@ button {
 
 .metric-label {
   display: block;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.25rem;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
 }
 
 .hero-metrics strong,
 .session-stats strong,
 .detail-grid strong {
-  font-size: 1.2rem;
+  font-size: 1rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -528,7 +534,13 @@ button {
 .panel {
   border-radius: 1.4rem;
   background: var(--panel);
-  transition: opacity 200ms ease, transform 200ms ease;
+  padding: var(--space-md);
+  border: 1px solid var(--panel-border);
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.panel:hover {
+  box-shadow: 0 4px 12px oklch(0.52 0.04 60 / 0.08);
 }
 
 .panel--primary {
@@ -545,6 +557,256 @@ button {
   box-shadow: 0 8px 24px oklch(0.52 0.04 60 / 0.06);
 }
 
+/* Panel accent modifier for important panels */
+.panel--accent {
+  position: relative;
+  border-left: 3px solid var(--accent);
+}
+
+.panel--accent.coordination-panel {
+  border-left-color: var(--node-llm);
+}
+
+.panel--accent.failure-cluster-panel {
+  border-left-color: var(--danger);
+}
+
+/* Enhanced panel head with better separation */
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 1.1rem 1.3rem 0.9rem;
+  border-bottom: 1px solid color-mix(in oklch, var(--panel-border), transparent 50%);
+  margin-bottom: 0.8rem;
+}
+
+.panel-head .eyebrow {
+  margin: 0 0 0.25rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Panel head with colored indicator dot */
+.panel-head--with-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.panel-head-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.panel-head-indicator--llm {
+  background: var(--node-llm);
+}
+
+.panel-head-indicator--danger {
+  background: var(--danger);
+}
+
+.panel-head-indicator--olive {
+  background: var(--olive);
+}
+
+/* Section dividers for inspect grid groups */
+.inspect-section-divider {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.2rem 0.5rem 0.5rem;
+  margin: 0.5rem 0 0;
+}
+
+.inspect-section-divider::before {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: color-mix(in oklch, var(--panel-border), transparent 60%);
+  border-radius: 1px;
+}
+
+.inspect-section-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 0.5rem;
+  white-space: nowrap;
+}
+
+.inspect-section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: color-mix(in oklch, var(--panel-border), transparent 60%);
+  border-radius: 1px;
+}
+
+/* Inspectors grid with labels */
+.inspectors-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1.2rem;
+}
+
+.inspector-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inspector-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 0.25rem;
+}
+
+.inspector-separator {
+  grid-column: 1 / -1;
+  height: 1px;
+  background: color-mix(in oklch, var(--panel-border), transparent 40%);
+  margin: 0.3rem 0;
+}
+
+/* DecisionTree panel polish */
+.workspace--inspect .timeline-panel.panel {
+  position: relative;
+  padding-bottom: 0.5rem;
+}
+
+.workspace--inspect .timeline-panel.panel::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 1.2rem;
+  right: 1.2rem;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklch, var(--panel-border), transparent 40%) 15%,
+    color-mix(in oklch, var(--panel-border), transparent 40%) 85%,
+    transparent 100%
+  );
+}
+
+.workspace--inspect .timeline-panel .panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 1rem 1.2rem 0.8rem;
+}
+
+.workspace--inspect .timeline-panel .panel-head .eyebrow {
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.workspace--inspect .timeline-panel .panel-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.workspace--inspect .timeline-panel .panel-head .session-context {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Enhanced coordination panel styles */
+.coordination-panel.panel--accent .panel-head {
+  padding-left: 1rem;
+}
+
+.coordination-panel .turn-timeline {
+  padding: 1rem 1.2rem;
+  background: color-mix(in oklch, var(--panel), var(--node-llm) 3%);
+  border-radius: 0.8rem;
+  margin: 0.8rem 0;
+}
+
+.coordination-panel .speaker-topology {
+  padding: 1rem 1.2rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 25%);
+  border-radius: 0.8rem;
+  margin: 0.8rem 0;
+}
+
+.coordination-panel .coordination-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.8rem;
+  padding: 0.8rem 1.2rem;
+  background: color-mix(in oklch, var(--panel), var(--node-llm) 2%);
+  border-radius: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+/* Enhanced failure cluster panel styles */
+.failure-cluster-panel.panel--accent .panel-head {
+  padding-left: 1rem;
+}
+
+.failure-cluster-panel .cluster-bar-chart {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  padding: 0.8rem 1.2rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 30%);
+  border-radius: 0.8rem;
+  overflow: hidden;
+  margin-bottom: 0.8rem;
+}
+
+.failure-cluster-panel .cluster-list-detailed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0 0.2rem;
+}
+
+.failure-cluster-panel .cluster-card {
+  padding: 1rem;
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 35%);
+  border: 1px solid transparent;
+  transition: all 180ms ease;
+}
+
+.failure-cluster-panel .cluster-card:hover {
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 45%);
+  border-color: color-mix(in oklch, var(--panel-border), transparent 30%);
+  transform: translateY(-1px);
+}
+
+.failure-cluster-panel .cluster-card.active {
+  border-color: var(--danger);
+  background: color-mix(in oklch, var(--panel), var(--danger) 5%);
+}
 .session-rail,
 .detail-rail,
 .main-stage {
@@ -575,7 +837,7 @@ button {
 .alert-list,
 .cluster-list {
   display: grid;
-  gap: 0.7rem;
+  gap: 0.5rem;
 }
 
 .session-skeleton {
@@ -626,18 +888,22 @@ button {
   gap: 0.25rem;
   width: 100%;
   padding: 1rem;
-  padding-left: calc(1rem - 3px);
+  padding-left: calc(1rem - 4px);
   border-radius: 1.1rem;
   background: color-mix(in oklch, var(--panel), var(--bg-strong) 38%);
   border: 1px solid transparent;
-  border-left: 3px solid transparent;
+  border-left: 4px solid transparent;
   text-align: left;
   min-width: 0;
   overflow: hidden;
   transition: box-shadow 180ms ease, background-color 180ms ease, border-color 180ms ease, transform 160ms ease;
 }
 
-.session-card:hover,
+.session-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px color-mix(in oklch, var(--muted), transparent 70%);
+}
+
 .cluster-pill:hover,
 .alert-row:hover,
 .search-result:hover,
@@ -648,10 +914,49 @@ button {
 }
 
 .session-card.active {
-  border-left-color: var(--node-session);
-  border-color: color-mix(in oklch, var(--node-session), white 50%);
-  background: color-mix(in oklch, var(--panel), var(--node-session) 12%);
-  box-shadow: 0 4px 16px color-mix(in oklch, var(--node-session), transparent 60%);
+  border-left-color: var(--accent);
+  border-color: color-mix(in oklch, var(--accent), white 45%);
+  background: color-mix(in oklch, var(--panel), var(--accent) 10%);
+  box-shadow: 0 4px 16px color-mix(in oklch, var(--accent), transparent 55%);
+}
+
+.session-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.session-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--muted);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--muted), white 70%);
+}
+
+.session-status-dot.success {
+  background: var(--node-tool);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--node-tool), white 70%);
+}
+
+.session-status-dot.error {
+  background: var(--danger);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--danger), white 70%);
+}
+
+.replay-value-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: var(--highlight-bg);
+  color: var(--highlight-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
 }
 
 .mode-switches button.active {
@@ -1411,14 +1716,25 @@ button {
   grid-template-columns: repeat(5, auto) minmax(0, 1fr) auto auto;
   gap: 0.6rem;
   align-items: center;
+  padding: 1rem;
+  border-radius: 1.2rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 25%);
+  border: 1px solid color-mix(in oklch, var(--panel-border), transparent 30%);
 }
 
 .replay-controls button,
 .speed-select {
   padding: 0.85rem 1rem;
   border-radius: 1rem;
-  background: color-mix(in oklch, var(--panel), var(--bg-strong) 42%);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
   min-height: 44px;
+  transition: all 160ms ease;
+}
+
+.replay-controls button:hover {
+  background: color-mix(in oklch, var(--panel), var(--accent) 8%);
+  border-color: color-mix(in oklch, var(--accent), white 45%);
 }
 
 .timeline-container {
@@ -1465,8 +1781,22 @@ button {
 .analysis-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.8rem;
+  gap: 0.6rem;
   margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 20%);
+}
+
+.replay-summary span {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 45%);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
 }
 
 .checkpoint-list,
@@ -1746,6 +2076,49 @@ pre {
 
 .detail-sections {
   margin-top: 1rem;
+}
+
+.detail-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  margin-top: 1rem;
+  border-top: 1px solid color-mix(in oklch, var(--panel-border), transparent 40%);
+}
+
+.detail-section-header:first-child {
+  margin-top: 0;
+  border-top: none;
+}
+
+.detail-section-header .eyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.detail-section-header::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+/* Search panel improvements */
+.search-panel input:focus,
+.search-panel select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent), transparent 80%);
+}
+
+.search-result:hover {
+  border-color: color-mix(in oklch, var(--accent), white 45%);
+  background: color-mix(in oklch, var(--panel), var(--accent) 8%);
 }
 
 .detail-sections p,
@@ -2513,8 +2886,29 @@ pre {
 
 /* Breakpoint Stop Indicator */
 .breakpoint-stop-indicator {
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--warning), white 85%);
+  border: 1px solid color-mix(in oklch, var(--warning), white 50%);
   color: var(--warning);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  box-shadow: 0 2px 8px color-mix(in oklch, var(--warning), transparent 60%);
+  animation: pulse-breakpoint 2s ease-in-out infinite;
+}
+
+@keyframes pulse-breakpoint {
+  0%, 100% {
+    box-shadow: 0 2px 8px color-mix(in oklch, var(--warning), transparent 60%);
+  }
+  50% {
+    box-shadow: 0 2px 16px color-mix(in oklch, var(--warning), transparent 40%);
+  }
 }
 
 /* Checkbox Label */
@@ -3002,6 +3396,7 @@ pre {
   border-radius: 999px;
   background: transparent;
   border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
@@ -3014,15 +3409,16 @@ pre {
 .tab-btn:hover {
   transform: translateY(-1px);
   color: var(--text);
-  background: color-mix(in oklch, var(--panel), var(--accent) 8%);
+  background: color-mix(in oklch, var(--panel), var(--accent) 6%);
 }
 
 .tab-btn.active {
-  border-color: color-mix(in oklch, var(--accent), white 50%);
+  border-color: transparent;
+  border-bottom-color: var(--accent);
   background: var(--panel);
   font-weight: 600;
   color: var(--text);
-  box-shadow: 0 2px 8px color-mix(in oklch, var(--accent), transparent 65%);
+  box-shadow: 0 2px 8px color-mix(in oklch, var(--accent), transparent 55%);
 }
 
 /* Analytics full-page layout */
