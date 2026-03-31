@@ -1,5 +1,5 @@
 import * as d3 from 'd3'
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, memo } from 'react'
 import type { MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from 'react'
 import type { TraceEvent, TreeNode } from '../types'
 
@@ -792,3 +792,17 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
     </div>
   )
 }
+
+// Custom comparison for DecisionTree to avoid unnecessary re-renders
+// Compare tree structure and selectedEventId, but not the entire object
+function arePropsEqual(
+  prevProps: Readonly<DecisionTreeProps>,
+  nextProps: Readonly<DecisionTreeProps>
+): boolean {
+  return (
+    prevProps.selectedEventId === nextProps.selectedEventId &&
+    prevProps.tree === nextProps.tree
+  )
+}
+
+export const DecisionTreeMemo = memo(DecisionTree, arePropsEqual)

@@ -94,12 +94,10 @@ async def replay_session(
     stopped_at_index: int | None = None
     if stop_at_breakpoint and replay_data["breakpoints"]:
         stopped_at_breakpoint = True
-        # Find the index of the first breakpoint event
+        # Build O(1) event_id -> index map for efficient breakpoint lookup
+        event_id_to_index = {event.get("id"): i for i, event in enumerate(replay_data["events"])}
         first_breakpoint_id = replay_data["breakpoints"][0].get("id")
-        for i, event in enumerate(replay_data["events"]):
-            if event.get("id") == first_breakpoint_id:
-                stopped_at_index = i
-                break
+        stopped_at_index = event_id_to_index.get(first_breakpoint_id)
 
     return ReplayResponse(
         session_id=session_id,

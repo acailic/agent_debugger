@@ -17,6 +17,27 @@ import { validateResponse, logValidationFailure, validators } from './validation
 
 const API_BASE = '/api'
 
+// Request deduplication: track in-flight requests to avoid duplicate fetches
+const pendingRequests = new Map<string, Promise<Response>>()
+
+async function fetchWithDeduplication(url: string): Promise<Response> {
+  // Check if there's already a pending request for this URL
+  if (pendingRequests.has(url)) {
+    return pendingRequests.get(url)!
+  }
+
+  // Create new request and store the promise
+  const requestPromise = fetch(url)
+  pendingRequests.set(url, requestPromise)
+
+  // Clean up after request completes (whether success or failure)
+  requestPromise.finally(() => {
+    pendingRequests.delete(url)
+  })
+
+  return requestPromise
+}
+
 interface ValidationConfig {
   validator?: (value: unknown) => boolean
   endpoint: string
@@ -24,7 +45,7 @@ interface ValidationConfig {
 }
 
 async function fetchJSON<T>(url: string, config?: ValidationConfig): Promise<T> {
-  const response = await fetch(url)
+  const response = await fetchWithDeduplication(url)
   if (!response.ok) {
     throw new Error(`API error: ${response.status} ${response.statusText}`)
   }

@@ -100,11 +100,14 @@ class EventBuffer(BufferBase):
     async def get_events(self, session_id: str) -> list[TraceEvent]:
         """Get all stored events for a session.
 
+        Returns a copy to prevent external modification. Consider making
+        this return a read-only view if performance is critical.
+
         Args:
             session_id: Session ID to get events for
 
         Returns:
-            List of TraceEvent objects
+            List of TraceEvent objects (copy)
         """
         async with self._get_lock():
             return list(self._events.get(session_id, []))
@@ -112,8 +115,11 @@ class EventBuffer(BufferBase):
     async def get_session_ids(self) -> list[str]:
         """Get all session IDs with buffered events.
 
+        Returns a copy to prevent external modification of the internal keys.
+        Consider making this return a read-only view if performance is critical.
+
         Returns:
-            List of session IDs
+            List of session IDs (copy)
         """
         async with self._get_lock():
             return list(self._events.keys())

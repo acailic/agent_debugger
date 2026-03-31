@@ -22,6 +22,9 @@ from agent_debugger_sdk.core.events import EventType, LLMRequestEvent, LLMRespon
 
 logger = logging.getLogger("agent_debugger")
 
+# Use perf_counter for more accurate duration tracking
+_perf_counter = time.perf_counter
+
 try:
     from langchain_core.callbacks import AsyncCallbackHandler
     from langchain_core.outputs import LLMResult
@@ -148,7 +151,7 @@ class LangChainTracingHandler(AsyncCallbackHandler):
                 return
 
             run_id_str = str(run_id)
-            self._start_times[run_id_str] = time.time()
+            self._start_times[run_id_str] = _perf_counter()
 
             invocation_params = kwargs.get("invocation_params", {})
             model = invocation_params.get("model", invocation_params.get("model_name", "unknown"))
@@ -194,8 +197,8 @@ class LangChainTracingHandler(AsyncCallbackHandler):
                 return
 
             run_id_str = str(run_id)
-            start_time = self._start_times.pop(run_id_str, time.time())
-            duration_ms = (time.time() - start_time) * 1000
+            start_time = self._start_times.pop(run_id_str, _perf_counter())
+            duration_ms = (_perf_counter() - start_time) * 1000
 
             parent_id = self._run_map.get(run_id_str)
 
@@ -291,7 +294,7 @@ class LangChainTracingHandler(AsyncCallbackHandler):
                 return
 
             run_id_str = str(run_id)
-            self._start_times[run_id_str] = time.time()
+            self._start_times[run_id_str] = _perf_counter()
 
             tool_name = serialized.get("name", kwargs.get("name", "unknown"))
 
@@ -378,8 +381,8 @@ class LangChainTracingHandler(AsyncCallbackHandler):
                 return
 
             run_id_str = str(run_id)
-            start_time = self._start_times.pop(run_id_str, time.time())
-            duration_ms = (time.time() - start_time) * 1000
+            start_time = self._start_times.pop(run_id_str, _perf_counter())
+            duration_ms = (_perf_counter() - start_time) * 1000
 
             tool_name = kwargs.get("name", "unknown")
 
@@ -420,7 +423,7 @@ class LangChainTracingHandler(AsyncCallbackHandler):
                 return
 
             run_id_str = str(run_id)
-            self._start_times[run_id_str] = time.time()
+            self._start_times[run_id_str] = _perf_counter()
 
             chain_name = serialized.get("name", kwargs.get("name", "chain"))
 
@@ -461,8 +464,8 @@ class LangChainTracingHandler(AsyncCallbackHandler):
                 return
 
             run_id_str = str(run_id)
-            start_time = self._start_times.pop(run_id_str, time.time())
-            duration_ms = (time.time() - start_time) * 1000
+            start_time = self._start_times.pop(run_id_str, _perf_counter())
+            duration_ms = (_perf_counter() - start_time) * 1000
 
             parent_id = self._run_map.pop(run_id_str, None)
 

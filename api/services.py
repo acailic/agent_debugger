@@ -220,6 +220,8 @@ async def enrich_sessions_for_listing(
         )
 
     # Parallelize session analysis for better performance
+    # Note: We still analyze sessions to get enrichment data like representative_event_id,
+    # but the replay_value itself may be cached from a previous analysis
     analyses = await asyncio.gather(*[analyze_session(repo, session.id) for session in capped_sessions])
 
     enriched: list[dict[str, Any]] = [

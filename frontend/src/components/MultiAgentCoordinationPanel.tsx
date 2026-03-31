@@ -1,5 +1,6 @@
 import type { TraceBundle } from '../types'
 import { containsEscalationSignal } from '../utils/formatting'
+import { memo } from 'react'
 
 interface CoordinationSummary {
   turnCount: number
@@ -308,3 +309,13 @@ export function MultiAgentCoordinationPanel({ bundle }: MultiAgentCoordinationPa
     </section>
   )
 }
+
+// Custom comparison for MultiAgentCoordinationPanel
+function arePropsEqual(
+  prevProps: Readonly<MultiAgentCoordinationPanelProps>,
+  nextProps: Readonly<MultiAgentCoordinationPanelProps>
+): boolean {
+  return prevProps.bundle === nextProps.bundle
+}
+
+export const MultiAgentCoordinationPanelMemo = memo(MultiAgentCoordinationPanel, arePropsEqual)

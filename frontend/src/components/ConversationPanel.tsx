@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback, memo } from 'react'
 import type { TraceEvent } from '../types'
 
 interface ConversationPanelProps {
@@ -298,6 +298,19 @@ export function ConversationPanel({ events, selectedEventId, onSelectEvent }: Co
     </div>
   )
 }
+
+// Custom comparison for ConversationPanel
+function arePropsEqual(
+  prevProps: Readonly<ConversationPanelProps>,
+  nextProps: Readonly<ConversationPanelProps>
+): boolean {
+  return (
+    prevProps.selectedEventId === nextProps.selectedEventId &&
+    prevProps.events === nextProps.events
+  )
+}
+
+export const ConversationPanelMemo = memo(ConversationPanel, arePropsEqual)
 
 /**
  * Calculate the magnitude of a policy shift by comparing parameter differences.

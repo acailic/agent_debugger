@@ -1,4 +1,5 @@
 import type { FailureCluster, TraceAnalysisCluster, TraceEvent } from '../types'
+import { memo } from 'react'
 
 interface FailureClusterPanelProps {
   clusters: FailureCluster[]
@@ -183,3 +184,18 @@ export function FailureClusterPanel({
     </section>
   )
 }
+
+// Custom comparison for FailureClusterPanel
+function arePropsEqual(
+  prevProps: Readonly<FailureClusterPanelProps>,
+  nextProps: Readonly<FailureClusterPanelProps>
+): boolean {
+  return (
+    prevProps.clusters === nextProps.clusters &&
+    prevProps.selectedSessionId === nextProps.selectedSessionId &&
+    prevProps.analysisClusters === nextProps.analysisClusters &&
+    prevProps.events === nextProps.events
+  )
+}
+
+export const FailureClusterPanelMemo = memo(FailureClusterPanel, arePropsEqual)

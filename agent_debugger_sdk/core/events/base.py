@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sys
 import uuid
-from dataclasses import dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
@@ -131,7 +131,10 @@ class TraceEvent:
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to a JSON-serializable dictionary."""
-        return {field_info.name: _serialize_field_value(getattr(self, field_info.name)) for field_info in fields(self)}
+        # Use asdict (C-implemented) for better performance
+        raw_dict = asdict(self)
+        # Post-process for datetime/Enum serialization
+        return {k: _serialize_field_value(v) for k, v in raw_dict.items()}
 
     @classmethod
     def _typed_field_names(cls) -> set[str]:

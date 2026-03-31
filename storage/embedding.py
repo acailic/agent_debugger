@@ -3,6 +3,9 @@
 import re
 from typing import Any
 
+# Pre-compile regex for tokenization (performance optimization)
+_WORD_RE = re.compile(r"\w+")
+
 # Common English stopwords to filter
 STOPWORDS = {
     "the",
@@ -121,9 +124,8 @@ def tokenize(text: str) -> list[str]:
     if not text:
         return []
 
-    # Split on whitespace and punctuation-like characters
-    # Simple approach: split on non-alphanumeric boundaries
-    words = re.findall(r"\w+", text.lower())
+    # Use pre-compiled regex for better performance
+    words = _WORD_RE.findall(text.lower())
 
     # Filter stopwords and deduplicate
     seen = set()
@@ -146,23 +148,23 @@ def text_to_vector(text: str) -> dict[str, float]:
     Returns:
         Dictionary mapping terms to their term frequency (normalized by total token count)
     """
-    tokens = tokenize(text)
-
-    if not tokens:
+    if not text:
         return {}
 
-    # Count token occurrences (even though tokenize deduplicates, we need counts)
-    # So we tokenize again without deduplication for counting
-    words = re.findall(r"\w+", text.lower())
-    words = [w for w in words if w not in STOPWORDS]
+    # Use pre-compiled regex for better performance
+    words = _WORD_RE.findall(text.lower())
 
-    if not words:
+    # Filter stopwords in a single pass, counting occurrences
+    # This avoids duplicate tokenization
+    filtered_words = [w for w in words if w not in STOPWORDS]
+
+    if not filtered_words:
         return {}
 
     # Calculate term frequencies
-    total = len(words)
+    total = len(filtered_words)
     vector = {}
-    for word in words:
+    for word in filtered_words:
         if word not in vector:
             vector[word] = 1.0 / total
         else:

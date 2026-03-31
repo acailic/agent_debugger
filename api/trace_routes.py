@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -45,10 +46,11 @@ async def _load_agent_sessions_with_events(
     """Load sessions and their events for a specific agent."""
     sessions = await repo.list_sessions(limit=MAX_EVENTS_FOR_ANALYSIS)
     agent_sessions = [s for s in sessions if s.agent_name == agent_name]
-    events_by_session = {}
-    for session in agent_sessions:
-        events, _ = await repo.get_events(session.id)
-        events_by_session[session.id] = events
+
+    # Parallelize event loading with asyncio.gather
+    events_results = await asyncio.gather(*[repo.get_events(s.id) for s in agent_sessions])
+    events_by_session = {s.id: events for s, (events, _) in zip(agent_sessions, events_results)}
+
     return agent_sessions, events_by_session
 
 

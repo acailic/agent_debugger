@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import type { TraceEvent, Highlight } from '../types'
 import { formatEventHeadline } from '../utils/formatting'
 
@@ -82,3 +82,18 @@ export function TraceTimeline({ events, selectedEventId, onSelectEvent, highligh
     </div>
   )
 }
+
+// Custom comparison to avoid re-renders when events array reference changes but content is same
+function arePropsEqual(
+  prevProps: Readonly<TraceTimelineProps>,
+  nextProps: Readonly<TraceTimelineProps>
+): boolean {
+  return (
+    prevProps.selectedEventId === nextProps.selectedEventId &&
+    prevProps.events === nextProps.events &&
+    prevProps.highlightEventIds === nextProps.highlightEventIds &&
+    prevProps.highlightsMap === nextProps.highlightsMap
+  )
+}
+
+export const TraceTimelineMemo = memo(TraceTimeline, arePropsEqual)

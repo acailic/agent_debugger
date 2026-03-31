@@ -172,7 +172,8 @@ async def export_session(
 ) -> JSONResponse:
     session = await require_session(repo, session_id)
     events = await repo.list_events(session_id, limit=MAX_TRACES_PER_REQUEST)
-    checkpoints = await repo.list_checkpoints(session_id)
+    # Add limit to checkpoint loading to prevent unbounded queries
+    checkpoints = await repo.list_checkpoints(session_id, limit=1000)
 
     export_data = {
         "export_version": "1.0",

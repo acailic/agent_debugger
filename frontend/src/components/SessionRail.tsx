@@ -3,6 +3,7 @@ import { EmptyState } from './EmptyState'
 import CostPanel from './CostPanel'
 import FixAnnotation from './FixAnnotation'
 import { formatNumber } from '../utils/formatting'
+import { memo } from 'react'
 import './SessionRail.css'
 
 export function SessionRail() {
@@ -121,3 +122,7 @@ export function SessionRail() {
     </aside>
   )
 }
+
+// SessionRail already uses granular store selectors internally
+// No custom comparison needed - component handles its own subscriptions
+export const SessionRailMemo = memo(SessionRail)

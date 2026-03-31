@@ -72,6 +72,7 @@ class AutoInstrumentor:
 
 
 _global_instrumentor = AutoInstrumentor()
+_defaults_registered = False
 
 
 def get_instrumentor() -> AutoInstrumentor:
@@ -86,9 +87,13 @@ def get_instrumentor() -> AutoInstrumentor:
 def _register_defaults() -> None:
     """Register auto-instrumentation hooks for known frameworks.
 
-    This function is called at module import time to register hooks for
-    frameworks that are available in the current environment.
+    This function is called lazily on first use of get_instrumentor()
+    to avoid import-time overhead.
     """
+    global _defaults_registered
+    if _defaults_registered:
+        return
+
     try:
         import langchain  # noqa: F401
 
@@ -98,5 +103,17 @@ def _register_defaults() -> None:
     except ImportError:
         pass
 
+    _defaults_registered = True
 
-_register_defaults()
+
+def ensure_registered() -> None:
+    """Ensure default framework hooks are registered.
+
+    Call this explicitly if you need to guarantee registration before
+    calling get_instrumentor().available().
+    """
+    _register_defaults()
+
+
+# Lazy registration: register defaults on first access to get_instrumentor()
+# rather than at module import time. This reduces import overhead.

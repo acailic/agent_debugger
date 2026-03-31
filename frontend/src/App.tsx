@@ -1,85 +1,138 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import './App.css'
 import { createEventSource, getAgentDrift, getLiveSummary, getReplay, getSessions, getTraceBundle } from './api/client'
-import { AnalyticsTab } from './components/AnalyticsTab'
+// Lazy load heavy tab components
+const AnalyticsTab = lazy(() => import('./components/AnalyticsTab').then(m => ({ default: m.AnalyticsTab })))
+const SessionComparisonPanel = lazy(() => import('./components/SessionComparisonPanel').then(m => ({ default: m.SessionComparisonPanel })))
 import { EmptyState } from './components/EmptyState'
 import { Logo } from './components/Logo'
-import { ConversationPanel } from './components/ConversationPanel'
-import { DecisionTree } from './components/DecisionTree'
+import { ConversationPanelMemo } from './components/ConversationPanel'
+import { DecisionTreeMemo } from './components/DecisionTree'
 import { DriftAlertsPanel } from './components/DriftAlertsPanel'
-import { FailureClusterPanel } from './components/FailureClusterPanel'
+import { FailureClusterPanelMemo } from './components/FailureClusterPanel'
 import { LLMViewer } from './components/LLMViewer'
 import { LiveDashboard } from './components/LiveDashboard'
-import { MultiAgentCoordinationPanel } from './components/MultiAgentCoordinationPanel'
+import { MultiAgentCoordinationPanelMemo } from './components/MultiAgentCoordinationPanel'
 import { SearchPanel } from './components/SearchPanel'
-import { SessionComparisonPanel } from './components/SessionComparisonPanel'
 import { SessionReplay } from './components/SessionReplay'
-import { SessionRail } from './components/SessionRail'
+import { SessionRailMemo } from './components/SessionRail'
 import { ToolInspector } from './components/ToolInspector'
-import { TraceTimeline } from './components/TraceTimeline'
+import { TraceTimelineMemo } from './components/TraceTimeline'
 import WhyButton from './components/WhyButton'
 import HighlightChip from './components/HighlightChip'
 import { CheckpointSnapshot } from './components/CheckpointSnapshot'
-import { EventDetail } from './components/EventDetail'
+import { EventDetailMemo } from './components/EventDetail'
 import { formatEventHeadline, formatNumber } from './utils/formatting'
 import { useSessionStore } from './stores/sessionStore'
+import { useShallow } from 'zustand/react/shallow'
 import type { AppTab, Highlight, TraceEvent } from './types'
 
 function App() {
-  // Get all state and actions from the store
-  const {
-    sessions,
-    selectedSessionId,
-    secondarySessionId,
-    bundle,
-    secondaryBundle,
-    replay,
-    replayMode,
-    currentIndex,
-    isPlaying,
-    speed,
-    collapseThreshold,
-    expandedSegments,
-    liveEvents,
-    liveSummary,
-    streamConnected,
-    activeTab,
-    sessionSortMode,
-    selectedEventId,
-    focusEventId,
-    selectedCheckpointId,
-    currentHighlightIndex,
-    compareLoading,
-    error,
-    driftData,
-    driftLoading,
-    // Actions
-    setSessions,
-    setSelectedSessionId,
-    setSecondarySessionId,
-    setBundle,
-    setSecondaryBundle,
-    setReplay,
-    setReplayMode,
-    setCurrentIndex,
-    setIsPlaying,
-    setSpeed,
-    toggleExpandedSegment,
-    addLiveEvent,
-    setLiveSummary,
-    setStreamConnected,
-    clearLiveEvents,
-    setActiveTab,
-    setSelectedEventId,
-    setFocusEventId,
-    setSelectedCheckpointId,
-    setCurrentHighlightIndex,
-    setLoading,
-    setCompareLoading,
-    setError,
-    setDriftData,
-    setDriftLoading,
-  } = useSessionStore()
+  // Session state - minimal subscription for session list and selection
+  const { sessions, selectedSessionId, secondarySessionId, sessionSortMode } = useSessionStore(
+    useShallow((state) => ({
+      sessions: state.sessions,
+      selectedSessionId: state.selectedSessionId,
+      secondarySessionId: state.secondarySessionId,
+      sessionSortMode: state.sessionSortMode,
+    }))
+  )
+
+  // Bundle state - trace data and analysis
+  const { bundle, secondaryBundle, replay } = useSessionStore(
+    useShallow((state) => ({
+      bundle: state.bundle,
+      secondaryBundle: state.secondaryBundle,
+      replay: state.replay,
+    }))
+  )
+
+  // Replay controls
+  const { replayMode, currentIndex, isPlaying, speed, collapseThreshold, expandedSegments } = useSessionStore(
+    useShallow((state) => ({
+      replayMode: state.replayMode,
+      currentIndex: state.currentIndex,
+      isPlaying: state.isPlaying,
+      speed: state.speed,
+      collapseThreshold: state.collapseThreshold,
+      expandedSegments: state.expandedSegments,
+    }))
+  )
+
+  // Live session state
+  const { liveEvents, liveSummary, streamConnected } = useSessionStore(
+    useShallow((state) => ({
+      liveEvents: state.liveEvents,
+      liveSummary: state.liveSummary,
+      streamConnected: state.streamConnected,
+    }))
+  )
+
+  // UI state
+  const { activeTab, selectedEventId, focusEventId, selectedCheckpointId, currentHighlightIndex, compareLoading, error, driftData, driftLoading } = useSessionStore(
+    useShallow((state) => ({
+      activeTab: state.activeTab,
+      selectedEventId: state.selectedEventId,
+      focusEventId: state.focusEventId,
+      selectedCheckpointId: state.selectedCheckpointId,
+      currentHighlightIndex: state.currentHighlightIndex,
+      compareLoading: state.compareLoading,
+      error: state.error,
+      driftData: state.driftData,
+      driftLoading: state.driftLoading,
+    }))
+  )
+
+  // Actions - grouped separately to avoid re-render issues
+  const { setSessions, setSelectedSessionId, setSecondarySessionId, setBundle, setSecondaryBundle } = useSessionStore(
+    useShallow((state) => ({
+      setSessions: state.setSessions,
+      setSelectedSessionId: state.setSelectedSessionId,
+      setSecondarySessionId: state.setSecondarySessionId,
+      setBundle: state.setBundle,
+      setSecondaryBundle: state.setSecondaryBundle,
+    }))
+  )
+
+  const { setReplay, setReplayMode, setCurrentIndex, setIsPlaying, setSpeed, toggleExpandedSegment } = useSessionStore(
+    useShallow((state) => ({
+      setReplay: state.setReplay,
+      setReplayMode: state.setReplayMode,
+      setCurrentIndex: state.setCurrentIndex,
+      setIsPlaying: state.setIsPlaying,
+      setSpeed: state.setSpeed,
+      toggleExpandedSegment: state.toggleExpandedSegment,
+    }))
+  )
+
+  const { addLiveEvent, setLiveSummary, setStreamConnected, clearLiveEvents } = useSessionStore(
+    useShallow((state) => ({
+      addLiveEvent: state.addLiveEvent,
+      setLiveSummary: state.setLiveSummary,
+      setStreamConnected: state.setStreamConnected,
+      clearLiveEvents: state.clearLiveEvents,
+    }))
+  )
+
+  const { setActiveTab, setSelectedEventId, setFocusEventId, setSelectedCheckpointId, setCurrentHighlightIndex } = useSessionStore(
+    useShallow((state) => ({
+      setActiveTab: state.setActiveTab,
+      setSelectedEventId: state.setSelectedEventId,
+      setFocusEventId: state.setFocusEventId,
+      setSelectedCheckpointId: state.setSelectedCheckpointId,
+      setCurrentHighlightIndex: state.setCurrentHighlightIndex,
+    }))
+  )
+
+  const { setLoading, setCompareLoading, setError, setDriftData, setDriftLoading } = useSessionStore(
+    useShallow((state) => ({
+      setLoading: state.setLoading,
+      setCompareLoading: state.setCompareLoading,
+      setError: state.setError,
+      setDriftData: state.setDriftData,
+      setDriftLoading: state.setDriftLoading,
+    }))
+  )
 
   // Local state for items not yet moved to the store
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
@@ -281,10 +334,13 @@ function App() {
 
   // Derived state (useMemo calculations) - kept in component
   const mergedSessionEvents = useMemo(() => {
+    const seen = new Set<string>()
     const merged = [...(bundle?.events ?? [])]
+    for (const item of merged) seen.add(item.id)
     for (const event of liveEvents) {
-      if (!merged.some((item) => item.id === event.id)) {
+      if (!seen.has(event.id)) {
         merged.push(event)
+        seen.add(event.id)
       }
     }
     merged.sort((left, right) => left.timestamp.localeCompare(right.timestamp))
@@ -504,7 +560,11 @@ function App() {
         ))}
       </nav>
 
-      {activeTab === 'analytics' && <AnalyticsTab />}
+      {activeTab === 'analytics' && (
+        <Suspense fallback={<div className="loading-placeholder">Loading analytics...</div>}>
+          <AnalyticsTab />
+        </Suspense>
+      )}
 
       {activeTab === 'inspect' && (
         <main className="workspace workspace--inspect">
@@ -518,7 +578,7 @@ function App() {
             ) : null}
             <div className="trace-layout" style={selectedSessionId ? undefined : { opacity: 0.3, pointerEvents: 'none' as const }}>
               <div className="panel panel--primary timeline-panel">
-                <DecisionTree tree={bundle?.tree ?? null} selectedEventId={selectedEventId} onSelectEvent={setSelectedEventId} />
+                <DecisionTreeMemo tree={bundle?.tree ?? null} selectedEventId={selectedEventId} onSelectEvent={setSelectedEventId} />
               </div>
             </div>
 
@@ -547,7 +607,7 @@ function App() {
               </section>
 
               <section className="panel panel--secondary">
-                <ConversationPanel
+                <ConversationPanelMemo
                   events={mergedSessionEvents}
                   selectedEventId={selectedEventId}
                   onSelectEvent={handleInspectEvent}
@@ -555,15 +615,17 @@ function App() {
               </section>
 
               <section className="panel panel--secondary">
-                <SessionComparisonPanel
-                  primaryBundle={bundle}
-                  secondaryBundle={secondaryBundle}
-                  sessions={sessions}
-                  selectedSessionId={selectedSessionId}
-                  secondarySessionId={secondarySessionId}
-                  compareLoading={compareLoading}
-                  onSelectSecondarySession={setSecondarySessionId}
-                />
+                <Suspense fallback={<div className="loading-placeholder">Loading comparison...</div>}>
+                  <SessionComparisonPanel
+                    primaryBundle={bundle}
+                    secondaryBundle={secondaryBundle}
+                    sessions={sessions}
+                    selectedSessionId={selectedSessionId}
+                    secondarySessionId={secondarySessionId}
+                    compareLoading={compareLoading}
+                    onSelectSecondarySession={setSecondarySessionId}
+                  />
+                </Suspense>
               </section>
               </div>
 
@@ -700,7 +762,7 @@ function App() {
 
               <div data-section="intelligence" data-section-hidden={collapsedSections['intelligence'] ? 'true' : 'false'}>
                 <section className="panel panel--accent failure-cluster-panel">
-                <FailureClusterPanel
+                <FailureClusterPanelMemo
                   clusters={[]}
                   onSelectSession={setSelectedSessionId}
                   selectedSessionId={selectedSessionId}
@@ -710,7 +772,7 @@ function App() {
               </section>
 
               <section className="panel panel--accent coordination-panel">
-                <MultiAgentCoordinationPanel bundle={bundle} />
+                <MultiAgentCoordinationPanelMemo bundle={bundle} />
               </section>
               </div>
             </div>
@@ -720,7 +782,7 @@ function App() {
 
       {activeTab === 'trace' && (
       <main className="workspace">
-        <SessionRail />
+        <SessionRailMemo />
 
         <section className="main-stage">
           {!selectedSessionId ? (
@@ -776,7 +838,7 @@ function App() {
                 </button>
               </div>
             )}
-            <TraceTimeline
+            <TraceTimelineMemo
               events={displayEvents}
               selectedEventId={selectedEventId}
               onSelectEvent={handleInspectEvent}
@@ -824,7 +886,7 @@ function App() {
 
         <aside className="detail-rail">
           <SearchPanel />
-          <EventDetail
+          <EventDetailMemo
             event={activeEventForInspectors}
             ranking={selectedRanking}
             diagnosis={selectedDiagnosis}

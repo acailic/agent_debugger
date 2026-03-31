@@ -7,10 +7,15 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+import httpx
+
 if TYPE_CHECKING:
     from agent_debugger_sdk.checkpoints import BaseCheckpointState
 
 from agent_debugger_sdk.core.events import Session, SessionStatus
+
+# Shared AsyncClient for checkpoint restoration to avoid creating new clients
+_shared_async_client: httpx.AsyncClient | None = None
 
 
 class SessionManager:
@@ -64,7 +69,7 @@ class SessionManager:
         Returns:
             Tuple of (Session, restored_state)
         """
-        import httpx
+        global _shared_async_client
 
         from agent_debugger_sdk.checkpoints import validate_checkpoint_state
         from agent_debugger_sdk.config import get_config
@@ -73,10 +78,13 @@ class SessionManager:
             config = get_config()
             server_url = config.endpoint or "http://localhost:8000"
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{server_url}/api/checkpoints/{checkpoint_id}")
-            response.raise_for_status()
-            checkpoint_data = response.json()
+        # Use shared client for better performance
+        if _shared_async_client is None:
+            _shared_async_client = httpx.AsyncClient()
+
+        response = await _shared_async_client.get(f"{server_url}/api/checkpoints/{checkpoint_id}")
+        response.raise_for_status()
+        checkpoint_data = response.json()
 
         state_dict = checkpoint_data.get("state", {})
         original_session_id = checkpoint_data.get("session_id", "")
@@ -93,3 +101,11 @@ class SessionManager:
 
         restored_state = validate_checkpoint_state(state_dict)
         return session, restored_state
+
+    @classmethod
+    async def close_shared_client(cls) -> None:
+        """Close the shared AsyncClient. Call when shutting down the application."""
+        global _shared_async_client
+        if _shared_async_client is not None:
+            await _shared_async_client.aclose()
+            _shared_async_client = None

@@ -36,6 +36,7 @@ class EventEmitter:
         event_buffer: EventBufferLike | None,
         event_persister: Callable[[TraceEvent], Awaitable[None]] | None,
         session_update_hook: Callable[[Session], Awaitable[None]] | None,
+        score_on_emit: bool = True,
     ) -> None:
         self._session_id = session_id
         self._session = session
@@ -45,6 +46,16 @@ class EventEmitter:
         self._event_buffer = event_buffer
         self._event_persister = event_persister
         self._session_update_hook = session_update_hook
+        self._score_on_emit = score_on_emit
+
+        # Cache config.enabled at initialization to avoid global lookup on every emit
+        from agent_debugger_sdk.config import get_config as _get_config
+        self._config_enabled = _get_config().enabled
+
+    def update_config_cache(self) -> None:
+        """Update cached config.enabled if config has changed."""
+        from agent_debugger_sdk.config import get_config as _get_config
+        self._config_enabled = _get_config().enabled
 
     @staticmethod
     async def _safe_call(
@@ -71,17 +82,15 @@ class EventEmitter:
 
     async def emit(self, event: TraceEvent) -> None:
         """Emit an event to storage, hooks, and live consumers."""
-        from agent_debugger_sdk.config import get_config as _get_config
-
-        config = _get_config()
-        if not config.enabled:
+        if not self._config_enabled:
             return
 
         current_seq = self._event_sequence.get()
         self._event_sequence.set(current_seq + 1)
 
         event.metadata["sequence"] = current_seq + 1
-        event.importance = get_importance_scorer().score(event)
+        if self._score_on_emit:
+            event.importance = get_importance_scorer().score(event)
 
         async with self._event_lock:
             self._event_store.append(event)
@@ -92,19 +101,27 @@ class EventEmitter:
             self._session.total_cost_usd += event.cost_usd
             self._session.llm_calls += 1
 
-        await self._safe_call(
-            self._event_persister, event,
-            label="persist event",
-            context=event.id,
-        )
-        await self._safe_call(
-            self._session_update_hook, self._session,
-            label="update session",
-            context=self._session_id,
-        )
-        await self._safe_call(
-            self._event_buffer, (self._session_id, event),
-            label="publish event to buffer",
-            context=event.id,
-            is_method=True,
-        )
+        # Collect callbacks to run in parallel
+        callbacks = []
+        if self._event_persister is not None:
+            callbacks.append(self._safe_call(
+                self._event_persister, event,
+                label="persist event",
+                context=event.id,
+            ))
+        if self._session_update_hook is not None:
+            callbacks.append(self._safe_call(
+                self._session_update_hook, self._session,
+                label="update session",
+                context=self._session_id,
+            ))
+        if self._event_buffer is not None:
+            callbacks.append(self._safe_call(
+                self._event_buffer, (self._session_id, event),
+                label="publish event to buffer",
+                context=event.id,
+                is_method=True,
+            ))
+
+        if callbacks:
+            await asyncio.gather(*callbacks, return_exceptions=True)

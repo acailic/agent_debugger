@@ -2,6 +2,7 @@ import type { TraceBundle, TraceEvent, Highlight } from '../types'
 import { formatEventHeadline } from '../utils/formatting'
 import { EventReferenceList } from './EventReferenceList'
 import { DecisionProvenancePanel } from './DecisionProvenancePanel'
+import { memo } from 'react'
 
 interface EventDetailProps {
   event: TraceEvent | null
@@ -208,3 +209,19 @@ export function EventDetail({
     </section>
   )
 }
+
+// Custom comparison for EventDetail - memoize on event identity
+function arePropsEqual(
+  prevProps: Readonly<EventDetailProps>,
+  nextProps: Readonly<EventDetailProps>
+): boolean {
+  return (
+    prevProps.event === nextProps.event &&
+    prevProps.ranking === nextProps.ranking &&
+    prevProps.diagnosis === nextProps.diagnosis &&
+    prevProps.highlight === nextProps.highlight &&
+    prevProps.eventLookup === nextProps.eventLookup
+  )
+}
+
+export const EventDetailMemo = memo(EventDetail, arePropsEqual)

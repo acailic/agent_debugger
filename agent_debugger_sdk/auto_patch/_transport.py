@@ -45,7 +45,8 @@ class SyncTransport:
     def __init__(self, server_url: str) -> None:
         self._server_url = server_url.rstrip("/")
         self._queue: queue.Queue[dict[str, Any] | None] = queue.Queue()
-        self._client = httpx.Client(base_url=self._server_url, timeout=5.0)
+        limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
+        self._client = httpx.Client(base_url=self._server_url, timeout=5.0, limits=limits)
 
         # Warn once if the server is not reachable, then proceed silently.
         try:

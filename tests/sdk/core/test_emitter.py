@@ -396,6 +396,8 @@ class TestEventEmission:
         mock_config = SimpleNamespace(enabled=False)
 
         with patch("agent_debugger_sdk.config.get_config", return_value=mock_config):
+            # Update the emitter's cached config after patching
+            emitter.update_config_cache()
             event = _make_event()
             await emitter.emit(event)
 

@@ -13,6 +13,9 @@ from typing import Any
 from agent_debugger_sdk.core.context import TraceContext
 from agent_debugger_sdk.core.events import LLMRequestEvent, LLMResponseEvent, ToolCallEvent
 
+# Use perf_counter for more accurate duration tracking
+_perf_counter = time.perf_counter
+
 
 class PydanticAIInstrumentor:
     """Low-level instrumentor for PydanticAI using OpenTelemetry hooks.
@@ -58,7 +61,7 @@ class PydanticAIInstrumentor:
             return
 
         request_id = data.get("request_id", str(uuid.uuid4()))
-        self._start_times[request_id] = time.time()
+        self._start_times[request_id] = _perf_counter()
 
         event = LLMRequestEvent(
             session_id=self.session_id,
@@ -83,8 +86,8 @@ class PydanticAIInstrumentor:
             return
 
         request_id = data.get("request_id", "")
-        start_time = self._start_times.pop(request_id, time.time())
-        duration_ms = (time.time() - start_time) * 1000
+        start_time = self._start_times.pop(request_id, _perf_counter())
+        duration_ms = (_perf_counter() - start_time) * 1000
 
         event = LLMResponseEvent(
             session_id=self.session_id,
