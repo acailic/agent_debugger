@@ -10,6 +10,7 @@ import { DriftAlertsPanel } from './components/DriftAlertsPanel'
 import { FailureClusterPanel } from './components/FailureClusterPanel'
 import { LLMViewer } from './components/LLMViewer'
 import { LiveDashboard } from './components/LiveDashboard'
+import { MultiAgentCoordinationPanel } from './components/MultiAgentCoordinationPanel'
 import { PolicyDiffView } from './components/PolicyDiffView'
 import { SearchPanel } from './components/SearchPanel'
 import { SessionComparisonPanel } from './components/SessionComparisonPanel'
@@ -509,7 +510,7 @@ function App() {
       {activeTab === 'analytics' && <AnalyticsTab />}
 
       {activeTab === 'inspect' && (
-        <main className="workspace">
+        <main className="workspace workspace--inspect">
           <section className="main-stage">
             {!selectedSessionId ? (
               <EmptyState
@@ -659,7 +660,10 @@ function App() {
                 clusters={failureClusters}
                 onSelectSession={setSelectedSessionId}
                 selectedSessionId={selectedSessionId}
+                analysisClusters={bundle?.analysis.failure_clusters ?? []}
+                events={mergedSessionEvents}
               />
+              <MultiAgentCoordinationPanel bundle={bundle} />
             </div>
           </section>
         </main>
