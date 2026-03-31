@@ -23,8 +23,6 @@
 
 ---
 
-![Agent Debugger UI](./docs/screenshots/01-hero-session-list.png)
-
 <p align="center">
   <img src="./peek-v4-demo.gif" alt="Peaky Peek demo walkthrough" width="720" />
 </p>
@@ -168,8 +166,6 @@ Time-travel through agent execution with checkpoint-aware playback. Play, pause,
 
 ### Trace Search
 
-![Trace search](./docs/screenshots/07-trace-search.png)
-
 Find specific events across all sessions. Search by keyword, filter by event type, and jump directly to results.
 
 ### Failure Clustering & Multi-Agent Coordination
@@ -184,8 +180,6 @@ Find specific events across all sessions. Search by keyword, filter by event typ
 Adaptive analysis groups similar failures. Inspect planner/critic debates, speaker topology, and prompt policy parameters across multi-agent systems.
 
 ### Session Comparison
-
-![Session comparison](./docs/assets/screenshot-session-comparison.png)
 
 Compare two agent runs side-by-side. See diffs in turn count, speaker topology, policies, stance shifts, and grounded decisions.
 
@@ -230,25 +224,46 @@ cd frontend && npm install && npm run build
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────┐
-│                  VISUALIZATION LAYER                  │
-│   DecisionTree  │  ToolInspector  │  SessionReplay   │
-│          React + TypeScript (Vite)                    │
-└────────────────────────┬────────────────────────────┘
-                         │ REST + SSE
-                         ▼
-┌─────────────────────────────────────────────────────┐
-│                     API LAYER                         │
-│            FastAPI Server (Python 3.10+)              │
-│   Sessions  │   Traces   │  Real-time Events (SSE)   │
-└────────────────────────┬────────────────────────────┘
-                         │ SQLite / PostgreSQL
-                         ▼
-┌─────────────────────────────────────────────────────┐
-│                   STORAGE LAYER                       │
-│   Sessions  │   Events   │  Checkpoints (Snapshots)  │
-└─────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph SDK["SDK Layer"]
+        direction LR
+        DEC["@trace decorator"]
+        CTX["trace_session()"]
+        AP["Auto-Patch"]
+        AD["Framework Adapters"]
+    end
+
+    subgraph API["API Layer — FastAPI"]
+        direction LR
+        R1["Sessions"]
+        R2["Traces"]
+        R3["Replay"]
+        R4["Search"]
+        R5["Analytics"]
+        SSE["SSE Stream"]
+    end
+
+    subgraph STORE["Storage Layer"]
+        direction LR
+        S1["Sessions"]
+        S2["Events"]
+        S3["Checkpoints"]
+        S4["Snapshots"]
+    end
+
+    subgraph UI["Frontend — React + TypeScript"]
+        direction LR
+        DT["Decision Tree"]
+        TI["Tool Inspector"]
+        SR["Session Replay"]
+        FC["Failure Clustering"]
+        MA["Multi-Agent View"]
+    end
+
+    SDK -- "HTTP / WebSocket" --> API
+    API -- "SQLite / PostgreSQL" --> STORE
+    UI -- "REST + SSE" --> API
 ```
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for full module breakdown.

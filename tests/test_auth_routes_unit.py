@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from api.auth_routes import CreateKeyRequest, create_key, list_keys, revoke_key
+from api.auth_routes import CreateKeyRequest, create_key, list_keys, revoke_key_endpoint
 
 
 @pytest.mark.asyncio
@@ -16,8 +16,8 @@ async def test_create_key_persists_model_and_returns_raw_key():
     db = SimpleNamespace(add=MagicMock(), commit=AsyncMock())
 
     with (
-        patch("api.auth_routes.generate_api_key", return_value="ad_test_example_secret"),
-        patch("api.auth_routes.hash_key", return_value="hashed-secret"),
+        patch("auth.service.generate_api_key", return_value="ad_test_example_secret"),
+        patch("auth.service.hash_key", return_value="hashed-secret"),
     ):
         response = await create_key(
             CreateKeyRequest(name="dev", environment="test"),
@@ -67,7 +67,7 @@ async def test_revoke_key_marks_key_inactive_and_commits():
     result.scalar_one_or_none.return_value = key
     db.execute.return_value = result
 
-    response = await revoke_key("key-1", db=db, tenant_id="tenant-a")
+    response = await revoke_key_endpoint("key-1", db=db, tenant_id="tenant-a")
 
     assert response is None
     assert key.is_active is False
@@ -82,7 +82,7 @@ async def test_revoke_key_raises_not_found_for_missing_key():
     db.execute.return_value = result
 
     with pytest.raises(HTTPException) as exc:
-        await revoke_key("missing", db=db, tenant_id="tenant-a")
+        await revoke_key_endpoint("missing", db=db, tenant_id="tenant-a")
 
     assert exc.value.status_code == 404
     assert exc.value.detail == "Key not found"

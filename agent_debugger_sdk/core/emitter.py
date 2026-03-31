@@ -46,21 +46,6 @@ class EventEmitter:
         self._event_persister = event_persister
         self._session_update_hook = session_update_hook
 
-    def set_event_buffer(self, event_buffer: EventBufferLike | None) -> None:
-        """Update the event buffer target."""
-        self._event_buffer = event_buffer
-
-    def set_event_persister(self, event_persister: Callable[[TraceEvent], Awaitable[None]] | None) -> None:
-        """Update the event persister target."""
-        self._event_persister = event_persister
-
-    def set_session_update_hook(
-        self,
-        session_update_hook: Callable[[Session], Awaitable[None]] | None,
-    ) -> None:
-        """Update the session update hook target."""
-        self._session_update_hook = session_update_hook
-
     @staticmethod
     async def _safe_call(
         target: object | None,

@@ -1,4 +1,5 @@
 import type { Session, TraceBundle } from '../types'
+import { containsEscalationSignal } from '../utils/formatting'
 
 interface CoordinationSummary {
   turnCount: number
@@ -19,11 +20,6 @@ interface SessionComparisonPanelProps {
   secondarySessionId: string | null
   compareLoading: boolean
   onSelectSecondarySession: (sessionId: string | null) => void
-}
-
-function containsEscalationSignal(value: string): boolean {
-  const normalized = value.toLowerCase()
-  return ['escalate', 'handoff', 'review', 'supervisor', 'critic'].some((token) => normalized.includes(token))
 }
 
 function summarizeCoordination(bundle: TraceBundle): CoordinationSummary {

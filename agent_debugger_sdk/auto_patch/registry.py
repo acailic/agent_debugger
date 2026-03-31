@@ -195,6 +195,44 @@ class BaseAdapter(ABC):
         """Restore the original library behaviour (undo patching)."""
 
     # ------------------------------------------------------------------
+    # Shared helper methods
+    # ------------------------------------------------------------------
+
+    def _check_double_patch(self, method) -> bool:
+        """Check if a method has already been patched.
+
+        Args:
+            method: The method to check (e.g., Agent.run, Crew.kickoff).
+
+        Returns:
+            True if already patched, False otherwise.
+        """
+        if getattr(method, "_peaky_peek_patched", False):
+            logger.debug("%s: %s already patched — skipping", self.__class__.__name__, method.__name__)
+            return True
+        return False
+
+    def _shutdown_transport(self) -> None:
+        """Shutdown and cleanup the transport connection.
+
+        This method safely shuts down the transport if it exists,
+        sets it to None, and clears the session_id. It handles
+        errors gracefully with appropriate logging.
+
+        Subclasses should call this in their unpatch() method's
+        finally block to ensure cleanup happens even if restoration
+        fails.
+        """
+        if self._transport is not None:
+            try:
+                self._transport.shutdown()
+            except Exception as e:
+                logger.warning("%s: failed to shutdown transport: %s", self.__class__.__name__, e)
+            finally:
+                self._transport = None
+        self._session_id = ""
+
+    # ------------------------------------------------------------------
     # Wrapper factories (shared implementation)
     # ------------------------------------------------------------------
 

@@ -149,16 +149,26 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
-        setDimensions({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
-        })
+        const width = Math.max(400, containerRef.current.clientWidth)
+        const height = Math.max(300, containerRef.current.clientHeight)
+        setDimensions({ width, height })
       }
     }
 
     updateDimensions()
-    window.addEventListener('resize', updateDimensions)
-    return () => window.removeEventListener('resize', updateDimensions)
+
+    // Use ResizeObserver for container-aware sizing
+    const resizeObserver = new ResizeObserver(() => {
+      updateDimensions()
+    })
+
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current)
+    }
+
+    return () => {
+      resizeObserver.disconnect()
+    }
   }, [])
 
   const convertToD3Tree = useCallback((node: TreeNode): D3TreeNode => {

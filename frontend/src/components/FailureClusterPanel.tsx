@@ -100,7 +100,12 @@ export function FailureClusterPanel({
           <p className="eyebrow">Failure Clusters</p>
           <h2>Cross-session patterns</h2>
         </div>
-        <p className="empty-message">No failure clusters detected across sessions.</p>
+        <div className="empty-state">
+          <div className="empty-state-icon">🔗</div>
+          <h3>No patterns detected</h3>
+          <p>Failure clusters group similar errors across sessions to help you spot systemic issues.</p>
+          <small>Clusters will appear here when related failures are detected</small>
+        </div>
       </section>
     )
   }

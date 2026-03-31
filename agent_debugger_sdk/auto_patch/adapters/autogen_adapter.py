@@ -94,8 +94,8 @@ class AutoGenAdapter(BaseAdapter, AgentAdapterMixin):
         target_cls = autogen.ConversableAgent
         method_name = "initiate_chat"
 
-        if getattr(getattr(target_cls, method_name, None), "_peaky_peek_patched", False):
-            logger.debug("AutoGenAdapter: ConversableAgent.initiate_chat already patched — skipping")
+        method = getattr(target_cls, method_name, None)
+        if method and self._check_double_patch(method):
             return False
 
         original = getattr(target_cls, method_name)
@@ -133,8 +133,8 @@ class AutoGenAdapter(BaseAdapter, AgentAdapterMixin):
         target_cls = autogen_agentchat.agents.AssistantAgent
         method_name = "run"
 
-        if getattr(getattr(target_cls, method_name, None), "_peaky_peek_patched", False):
-            logger.debug("AutoGenAdapter: AssistantAgent.run already patched — skipping")
+        method = getattr(target_cls, method_name, None)
+        if method and self._check_double_patch(method):
             return False
 
         original = getattr(target_cls, method_name)
@@ -178,7 +178,4 @@ class AutoGenAdapter(BaseAdapter, AgentAdapterMixin):
         except Exception:
             logger.warning("AutoGenAdapter: failed to restore original method", exc_info=True)
         finally:
-            if self._transport is not None:
-                self._transport.shutdown()
-                self._transport = None
-            self._session_id = None
+            self._shutdown_transport()

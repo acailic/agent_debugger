@@ -55,9 +55,7 @@ class LlamaIndexAdapter(BaseAdapter, AgentAdapterMixin):
 
         BaseQueryEngine = llama_index.core.query_engine.BaseQueryEngine
 
-        # Guard against double-patching
-        if getattr(BaseQueryEngine.query, "_peaky_peek_patched", False):
-            logger.debug("LlamaIndexAdapter: BaseQueryEngine.query already patched — skipping")
+        if self._check_double_patch(BaseQueryEngine.query):
             return
 
         self._config = config
@@ -111,7 +109,4 @@ class LlamaIndexAdapter(BaseAdapter, AgentAdapterMixin):
         except Exception:
             logger.warning("LlamaIndexAdapter: failed to restore BaseQueryEngine methods", exc_info=True)
         finally:
-            if self._transport is not None:
-                self._transport.shutdown()
-                self._transport = None
-            self._session_id = None
+            self._shutdown_transport()

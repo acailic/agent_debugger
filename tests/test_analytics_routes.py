@@ -10,7 +10,7 @@ def isolated_analytics_db(tmp_path, monkeypatch):
     import api.analytics_routes
 
     db_path = tmp_path / "analytics.db"
-    monkeypatch.setattr(api.analytics_db, "get_analytics_db_path", lambda: db_path)
+    api.analytics_db._set_test_db_path(db_path)
     # Also reset the imported function in routes module
     monkeypatch.setattr(api.analytics_routes, "get_aggregates", api.analytics_db.get_aggregates)
     monkeypatch.setattr(api.analytics_routes, "get_daily_breakdown", api.analytics_db.get_daily_breakdown)
@@ -19,6 +19,7 @@ def isolated_analytics_db(tmp_path, monkeypatch):
     # Initialize the database
     api.analytics_db.init_analytics_db()
     yield db_path
+    api.analytics_db._set_test_db_path(None)  # Reset
 
 
 @pytest.mark.asyncio

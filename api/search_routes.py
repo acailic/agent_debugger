@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
-from api.app_context import require_session_maker
 from api.config import MAX_SESSION_SEARCH_RESULTS
+from api.dependencies import get_repository
 from storage import TraceRepository
 
 router = APIRouter(tags=["search"])
@@ -36,11 +36,10 @@ async def search_sessions(
     q: str = Query(..., min_length=2),
     status: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=MAX_SESSION_SEARCH_RESULTS),
+    repo: TraceRepository = Depends(get_repository),
 ) -> SearchResponse:
     """Search sessions by semantic similarity to a text query."""
-    async with require_session_maker()() as db_session:
-        repo = TraceRepository(db_session)
-        sessions = await repo.search_sessions(q, status=status, limit=limit)
+    sessions = await repo.search_sessions(q, status=status, limit=limit)
     results = [
         SearchResult(
             session_id=s.id,

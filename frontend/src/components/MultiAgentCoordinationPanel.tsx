@@ -1,4 +1,5 @@
 import type { TraceBundle } from '../types'
+import { containsEscalationSignal } from '../utils/formatting'
 
 interface CoordinationSummary {
   turnCount: number
@@ -21,13 +22,6 @@ interface CoordinationSummary {
 
 interface MultiAgentCoordinationPanelProps {
   bundle: TraceBundle | null
-}
-
-function containsEscalationSignal(value: string): boolean {
-  const normalized = value.toLowerCase()
-  return ['escalate', 'handoff', 'review', 'supervisor', 'critic'].some((token) =>
-    normalized.includes(token)
-  )
 }
 
 function summarizeCoordination(bundle: TraceBundle): CoordinationSummary | null {

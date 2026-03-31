@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import uuid
-
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_db_session, get_tenant_id
 from api.schemas import CreateKeyRequest, CreateKeyResponse, KeyListItem
-from auth.api_keys import generate_api_key, hash_key
-from auth.models import APIKeyModel
+from auth.service import create_api_key, list_active_keys, revoke_key
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -23,16 +19,12 @@ async def create_key(
     tenant_id: str = Depends(get_tenant_id),
 ):
     """Create a new API key for the current tenant."""
-    raw_key = generate_api_key(environment=request.environment)
-    key_model = APIKeyModel(
-        id=str(uuid.uuid4()),
+    key_model, raw_key = await create_api_key(
+        db=db,
         tenant_id=tenant_id,
-        key_hash=hash_key(raw_key),
-        key_prefix=raw_key[:12] + "...",
-        environment=request.environment,
         name=request.name,
+        environment=request.environment,
     )
-    db.add(key_model)
     await db.commit()
     return CreateKeyResponse(
         id=key_model.id,
@@ -49,13 +41,7 @@ async def list_keys(
     tenant_id: str = Depends(get_tenant_id),
 ):
     """List all active API keys for the current tenant."""
-    result = await db.execute(
-        select(APIKeyModel).where(
-            APIKeyModel.tenant_id == tenant_id,
-            APIKeyModel.is_active.is_(True),
-        )
-    )
-    keys = result.scalars().all()
+    keys = await list_active_keys(db=db, tenant_id=tenant_id)
     return [
         KeyListItem(
             id=key.id,
@@ -70,20 +56,13 @@ async def list_keys(
 
 
 @router.delete("/keys/{key_id}", status_code=204)
-async def revoke_key(
+async def revoke_key_endpoint(
     key_id: str,
     db: AsyncSession = Depends(get_db_session),
     tenant_id: str = Depends(get_tenant_id),
 ):
     """Revoke an API key for the current tenant."""
-    result = await db.execute(
-        select(APIKeyModel).where(
-            APIKeyModel.id == key_id,
-            APIKeyModel.tenant_id == tenant_id,
-        )
-    )
-    key = result.scalar_one_or_none()
+    key = await revoke_key(db=db, key_id=key_id, tenant_id=tenant_id)
     if not key:
         raise HTTPException(status_code=404, detail="Key not found")
-    key.is_active = False
     await db.commit()

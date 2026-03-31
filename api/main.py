@@ -101,13 +101,4 @@ def create_app() -> FastAPI:
     return app
 
 
-def __getattr__(name: str):
-    """Provide compatibility access to app runtime state."""
-    if name in {"engine", "async_session_maker", "trace_intelligence"}:
-        return getattr(app_context, name)
-    if name == "_get_redaction_pipeline":
-        return app_context._get_redaction_pipeline
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
 app = create_app()

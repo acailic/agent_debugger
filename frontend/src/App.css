@@ -506,7 +506,7 @@ button {
 /* Inspect grid: responsive multi-column layout for panels */
 .workspace--inspect .inspect-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 28rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 34rem), 1fr));
   gap: 1rem;
 }
 
@@ -1192,6 +1192,9 @@ button {
 .replay-panel,
 .inspectors {
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .trace-timeline,
@@ -1495,8 +1498,9 @@ button {
 .timeline-events {
   display: grid;
   gap: 0.45rem;
-  max-height: 28rem;
-  overflow: auto;
+  flex: 1;
+  min-height: 20rem;
+  overflow-y: auto;
   min-width: 0;
 }
 
@@ -1807,7 +1811,7 @@ button {
 }
 
 .checkpoint-list {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
   margin-top: 1rem;
 }
 
@@ -2149,6 +2153,73 @@ pre {
 
 .alerts-panel p:last-child {
   color: var(--muted);
+}
+
+/* Empty state styling */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3rem 2rem;
+  gap: 0.75rem;
+  min-height: 200px;
+}
+
+.empty-state-icon {
+  font-size: 2.5rem;
+  opacity: 0.6;
+  margin-bottom: 0.5rem;
+}
+
+.empty-state h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  max-width: 280px;
+}
+
+.empty-state small {
+  color: color-mix(in oklch, var(--muted), transparent 30%);
+  font-size: 0.8rem;
+}
+
+/* Search suggestions */
+.search-suggestions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.suggestion-chips span {
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 50%);
+  color: var(--muted);
+  font-size: 0.75rem;
+  border: 1px solid var(--panel-border);
+}
+
+/* Conversation list responsive grid */
+.conversation-list--single {
+  grid-template-columns: 1fr;
 }
 
 @media (max-width: 1200px) {

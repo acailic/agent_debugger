@@ -68,9 +68,7 @@ async def update_session(
     update: SessionUpdateRequest,
     repo: TraceRepository = Depends(get_repository),
 ) -> SessionDetailResponse:
-    update_data = (
-        update.model_dump(exclude_none=True) if hasattr(update, "model_dump") else update.dict(exclude_none=True)
-    )
+    update_data = update.model_dump(exclude_none=True)
     session = await repo.update_session(session_id, **update_data)
     if session is None:
         session = await require_session(repo, session_id)

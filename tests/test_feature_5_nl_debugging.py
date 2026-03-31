@@ -38,62 +38,7 @@ class Context:
     session_summary: Optional[str] = None
 
 
-# Fixtures
-@pytest.fixture
-def make_error_event():
-    """Factory for creating error events."""
-
-    def _make(
-        event_id: str = "err-1",
-        message: str = "Connection timeout",
-        timestamp: str = "2024-01-15T10:30:00Z",
-    ):
-        return {
-            "id": event_id,
-            "type": "error",
-            "payload": {"message": message, "timestamp": timestamp},
-        }
-
-    return _make
-
-
-@pytest.fixture
-def make_decision_event():
-    """Factory for creating decision events."""
-
-    def _make(
-        event_id: str = "dec-1",
-        decision: str = "retry",
-        reason: str = "Transient failure detected",
-        timestamp: str = "2024-01-15T10:30:05Z",
-    ):
-        return {
-            "id": event_id,
-            "type": "decision",
-            "payload": {"decision": decision, "reason": reason, "timestamp": timestamp},
-        }
-
-    return _make
-
-
-@pytest.fixture
-def make_session(make_error_event, make_decision_event):
-    """Factory for creating test sessions."""
-
-    def _make(
-        session_id: str = "sess-1",
-        events: Optional[list] = None,
-        status: str = "failed",
-    ):
-        if events is None:
-            events = [make_error_event(), make_decision_event()]
-        return {
-            "id": session_id,
-            "status": status,
-            "events": events,
-        }
-
-    return _make
+# Fixtures (using conftest.py versions)
 
 
 @pytest.fixture

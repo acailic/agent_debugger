@@ -69,6 +69,21 @@
   color: var(--danger);
 }
 
+/* Search empty state overrides */
+.search-empty .empty-state {
+  padding: 2rem 1rem;
+  min-height: 160px;
+}
+
+.search-empty .empty-state-icon {
+  font-size: 2rem;
+}
+
+.search-empty .suggestion-chips span {
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 40%);
+  border-color: color-mix(in oklch, var(--panel-border), transparent 20%);
+}
+
 .search-results {
   display: grid;
   gap: 0.7rem;

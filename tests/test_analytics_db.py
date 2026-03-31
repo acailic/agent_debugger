@@ -23,8 +23,9 @@ def temp_db_path(tmp_path: Path) -> Path:
 @pytest.fixture
 def mock_db_path(temp_db_path: Path):
     """Mock get_analytics_db_path to use a temporary location."""
-    with patch.object(analytics_db, "get_analytics_db_path", return_value=temp_db_path):
-        yield temp_db_path
+    analytics_db._set_test_db_path(temp_db_path)
+    yield temp_db_path
+    analytics_db._set_test_db_path(None)  # Reset
 
 
 class TestAnalyticsMigrations:
@@ -243,11 +244,12 @@ class TestGetAggregates:
     def test_get_aggregates_returns_defaults_for_missing_db(self, tmp_path: Path):
         """Test that get_aggregates returns defaults when DB doesn't exist."""
         db_path = tmp_path / "nonexistent.db"
-        with patch.object(analytics_db, "get_analytics_db_path", return_value=db_path):
-            result = analytics_db.get_aggregates(days=7)
+        analytics_db._set_test_db_path(db_path)
+        result = analytics_db.get_aggregates(days=7)
+        analytics_db._set_test_db_path(None)
 
-            assert result["sessions_created"] == 0
-            assert result["why_button_clicks"] == 0
+        assert result["sessions_created"] == 0
+        assert result["why_button_clicks"] == 0
 
     def test_get_aggregates_sums_multiple_days(self, mock_db_path: Path):
         """Test that get_aggregates sums data across multiple days."""
@@ -323,12 +325,13 @@ class TestGetDailyBreakdown:
     def test_get_daily_breakdown_returns_empty_structure_for_missing_db(self, tmp_path: Path):
         """Test that get_daily_breakdown returns empty structure when DB missing."""
         db_path = tmp_path / "nonexistent.db"
-        with patch.object(analytics_db, "get_analytics_db_path", return_value=db_path):
-            result = analytics_db.get_daily_breakdown(days=7)
+        analytics_db._set_test_db_path(db_path)
+        result = analytics_db.get_daily_breakdown(days=7)
+        analytics_db._set_test_db_path(None)
 
-            assert len(result) == 7
-            assert all("date" in day for day in result)
-            assert all(day["sessions_created"] == 0 for day in result)
+        assert len(result) == 7
+        assert all("date" in day for day in result)
+        assert all(day["sessions_created"] == 0 for day in result)
 
     def test_get_daily_breakdown_returns_correct_number_of_days(self, mock_db_path: Path):
         """Test that get_daily_breakdown returns exactly N days."""

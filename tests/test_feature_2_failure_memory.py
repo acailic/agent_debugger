@@ -14,8 +14,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from agent_debugger_sdk.core.events import EventType, TraceEvent
-
 # Note: Feature 2 (failure_memory) not yet implemented
 pytestmark = pytest.mark.skip(reason="Feature 2 (failure_memory) not yet implemented")
 
@@ -69,90 +67,6 @@ class SimilarFailureMatch:
 # =============================================================================
 # Fixtures
 # =============================================================================
-
-
-@pytest.fixture
-def make_error_event():
-    """Factory fixture to create error events for failure memory tests."""
-
-    def _make_error_event(
-        session_id: str = "s1",
-        name: str = "test_error",
-        error_type: str = "ConnectionError",
-        error_message: str = "Failed to connect to database",
-        tool_name: str | None = None,
-        metadata: dict | None = None,
-    ) -> TraceEvent:
-        data: dict[str, Any] = {
-            "error_type": error_type,
-            "error_message": error_message,
-        }
-        if tool_name:
-            data["tool_name"] = tool_name
-        return TraceEvent(
-            session_id=session_id,
-            parent_id=None,
-            event_type=EventType.ERROR,
-            name=name,
-            data=data,
-            metadata=metadata or {},
-            importance=0.8,
-            upstream_event_ids=[],
-        )
-
-    return _make_error_event
-
-
-@pytest.fixture
-def make_decision_event():
-    """Factory fixture to create decision events for failure memory tests."""
-
-    def _make_decision_event(
-        session_id: str = "s1",
-        name: str = "test_decision",
-        reasoning: str = "Test reasoning",
-        confidence: float = 0.75,
-        chosen_action: str = "proceed",
-        metadata: dict | None = None,
-    ) -> TraceEvent:
-        return TraceEvent(
-            session_id=session_id,
-            parent_id=None,
-            event_type=EventType.DECISION,
-            name=name,
-            data={
-                "reasoning": reasoning,
-                "confidence": confidence,
-                "chosen_action": chosen_action,
-                "alternatives": [],
-                "evidence": [],
-            },
-            metadata=metadata or {},
-            importance=0.5,
-            upstream_event_ids=[],
-        )
-
-    return _make_decision_event
-
-
-@pytest.fixture
-def make_session():
-    """Factory fixture to create a session context for failure memory tests."""
-
-    def _make_session(
-        session_id: str = "s1",
-        agent_name: str = "test_agent",
-        framework: str = "test_framework",
-        events: list[TraceEvent] | None = None,
-    ) -> dict[str, Any]:
-        return {
-            "session_id": session_id,
-            "agent_name": agent_name,
-            "framework": framework,
-            "events": events or [],
-        }
-
-    return _make_session
 
 
 @pytest.fixture

@@ -54,9 +54,7 @@ class CrewAIAdapter(BaseAdapter, AgentAdapterMixin):
         """
         import crewai  # noqa: PLC0415
 
-        # Guard against double-patching
-        if getattr(crewai.Crew.kickoff, "_peaky_peek_patched", False):
-            logger.debug("CrewAIAdapter: Crew.kickoff already patched — skipping")
+        if self._check_double_patch(crewai.Crew.kickoff):
             return
 
         self._config = config
@@ -109,7 +107,4 @@ class CrewAIAdapter(BaseAdapter, AgentAdapterMixin):
         except Exception:
             logger.warning("CrewAIAdapter: failed to restore Crew methods", exc_info=True)
         finally:
-            if self._transport is not None:
-                self._transport.shutdown()
-                self._transport = None
-            self._session_id = None
+            self._shutdown_transport()

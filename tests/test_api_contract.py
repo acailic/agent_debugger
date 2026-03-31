@@ -48,8 +48,6 @@ def api_repo_factory(tmp_path, monkeypatch):
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}", echo=False)
     session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    monkeypatch.setattr(api_main, "engine", engine)
-    monkeypatch.setattr(api_main, "async_session_maker", session_maker)
     monkeypatch.setattr(app_context, "engine", engine)
     monkeypatch.setattr(app_context, "async_session_maker", session_maker)
 

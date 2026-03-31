@@ -218,7 +218,7 @@ export function ConversationPanel({ events, selectedEventId, onSelectEvent }: Co
         )}
       </div>
 
-      <div className="conversation-list">
+      <div className={`conversation-list ${filteredEntries.length <= 3 ? 'conversation-list--single' : ''}`}>
         {filteredEntries.length ? (
           filteredEntries.map(({ event, activePolicy, policyShift, crossAgentInfluences }) => {
             const isPromptPolicy = event.event_type === 'prompt_policy'

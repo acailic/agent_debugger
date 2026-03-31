@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from api.app_context import require_session_maker
+from api.dependencies import get_repository
 from storage import TraceRepository
 
 router = APIRouter(tags=["cost"])
@@ -27,20 +27,21 @@ class SessionCostResponse(BaseModel):
 
 
 @router.get("/api/cost/summary", response_model=CostSummaryResponse)
-async def get_cost_summary() -> CostSummaryResponse:
+async def get_cost_summary(
+    repo: TraceRepository = Depends(get_repository),
+) -> CostSummaryResponse:
     """Get aggregate cost statistics across all sessions."""
-    async with require_session_maker()() as db_session:
-        repo = TraceRepository(db_session)
-        summary = await repo.get_cost_summary()
+    summary = await repo.get_cost_summary()
     return CostSummaryResponse(**summary)
 
 
 @router.get("/api/cost/sessions/{session_id}", response_model=SessionCostResponse)
-async def get_session_cost(session_id: str) -> SessionCostResponse:
+async def get_session_cost(
+    session_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> SessionCostResponse:
     """Get cost breakdown for a specific session."""
-    async with require_session_maker()() as db_session:
-        repo = TraceRepository(db_session)
-        session = await repo.get_session(session_id)
+    session = await repo.get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
     return SessionCostResponse(

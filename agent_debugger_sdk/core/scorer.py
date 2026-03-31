@@ -10,12 +10,19 @@ from dataclasses import dataclass
 
 from agent_debugger_sdk.core.events import EventType, TraceEvent
 
-
-def _event_value(event: TraceEvent, key: str, default: object = None) -> object:
-    """Read structured event fields before falling back to event.data."""
-    if hasattr(event, key):
-        return getattr(event, key)
-    return event.data.get(key, default)
+# Import event_value from collector helpers to consolidate duplication
+# Note: This is safe because helpers.py only imports TraceEvent, not scorer
+try:
+    from collector.intelligence.helpers import event_value
+except ImportError:
+    # Fallback for environments where collector is not available
+    def event_value(event: TraceEvent | None, key: str, default: object = None) -> object:
+        """Read structured event fields before falling back to event.data."""
+        if event is None:
+            return default
+        if hasattr(event, key):
+            return getattr(event, key)
+        return event.data.get(key, default)
 
 
 @dataclass
@@ -60,21 +67,21 @@ class ImportanceScorer:
 
     def _score_tool_result(self, event: TraceEvent) -> float:
         """Add bonus for failed tool results."""
-        if event.event_type == EventType.TOOL_RESULT and _event_value(event, "error"):
+        if event.event_type == EventType.TOOL_RESULT and event_value(event, "error"):
             return self.error_weight
         return 0.0
 
     def _score_llm_response(self, event: TraceEvent) -> float:
         """Add bonus for costly LLM responses."""
         if event.event_type == EventType.LLM_RESPONSE:
-            cost = float(_event_value(event, "cost_usd", 0) or 0)
+            cost = float(event_value(event, "cost_usd", 0) or 0)
             if cost > 0.01:
                 return self.cost_weight * min(cost / 0.1, 1.0)
         return 0.0
 
     def _score_duration(self, event: TraceEvent) -> float:
         """Add bonus for long-running events."""
-        duration = float(_event_value(event, "duration_ms", 0) or 0)
+        duration = float(event_value(event, "duration_ms", 0) or 0)
         if duration > 1000:
             return self.duration_weight * min(duration / 10000, 1.0)
         return 0.0
@@ -85,12 +92,12 @@ class ImportanceScorer:
             return 0.0
 
         bonus = 0.0
-        confidence = float(_event_value(event, "confidence", 0.5) or 0.5)
+        confidence = float(event_value(event, "confidence", 0.5) or 0.5)
         bonus += self.decision_weight * abs(0.5 - confidence) * 2
 
-        if not _event_value(event, "evidence", []):
+        if not event_value(event, "evidence", []):
             bonus += 0.05
-        if _event_value(event, "evidence_event_ids", []):
+        if event_value(event, "evidence_event_ids", []):
             bonus += 0.05
 
         return bonus
@@ -98,7 +105,7 @@ class ImportanceScorer:
     def _score_safety_check(self, event: TraceEvent) -> float:
         """Add bonus for failed safety checks."""
         if event.event_type == EventType.SAFETY_CHECK:
-            outcome = str(_event_value(event, "outcome", "pass"))
+            outcome = str(event_value(event, "outcome", "pass"))
             if outcome != "pass":
                 return 0.1
         return 0.0
@@ -106,14 +113,14 @@ class ImportanceScorer:
     def _score_behavior_alert(self, event: TraceEvent) -> float:
         """Add bonus for high-severity behavior alerts."""
         if event.event_type == EventType.BEHAVIOR_ALERT:
-            severity = str(_event_value(event, "severity", "medium"))
+            severity = str(event_value(event, "severity", "medium"))
             if severity == "high":
                 return 0.05
         return 0.0
 
     def _score_upstream_links(self, event: TraceEvent) -> float:
         """Add bonus for events with causal links."""
-        if _event_value(event, "upstream_event_ids", getattr(event, "upstream_event_ids", [])):
+        if event_value(event, "upstream_event_ids", getattr(event, "upstream_event_ids", [])):
             return 0.03
         return 0.0
 

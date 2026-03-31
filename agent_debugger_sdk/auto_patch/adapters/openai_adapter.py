@@ -120,9 +120,7 @@ class OpenAIAdapter(BaseAdapter):
         except Exception:
             logger.warning("OpenAIAdapter: failed to restore original client methods", exc_info=True)
         finally:
-            if self._transport is not None:
-                self._transport.shutdown()
-                self._transport = None
+            self._shutdown_transport()
 
     # ------------------------------------------------------------------
     # Event emission helpers

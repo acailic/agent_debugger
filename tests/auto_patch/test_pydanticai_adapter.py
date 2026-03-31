@@ -26,10 +26,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import agent_debugger_sdk.auto_patch._transport as transport_module
+from agent_debugger_sdk.adapters.pydantic_ai.utils import resolve_model_name
 from agent_debugger_sdk.auto_patch.adapters.pydanticai_adapter import (
     PydanticAIAdapter,
     _extract_usage,
-    _get_model_name,
 )
 from agent_debugger_sdk.auto_patch.registry import PatchConfig
 
@@ -310,22 +310,22 @@ class TestPydanticAIAdapterEventEmission:
 class TestGetModelName:
     def test_string_model_attribute(self) -> None:
         obj = SimpleNamespace(model="gpt-4o")
-        assert _get_model_name(obj) == "gpt-4o"
+        assert resolve_model_name(obj, None) == "gpt-4o"
 
     def test_model_object_with_model_name(self) -> None:
         model_obj = SimpleNamespace(model_name="claude-3-5-sonnet")
         obj = SimpleNamespace(model=model_obj)
-        assert _get_model_name(obj) == "claude-3-5-sonnet"
+        assert resolve_model_name(obj, None) == "claude-3-5-sonnet"
 
     def test_fallback_when_no_model(self) -> None:
         obj = SimpleNamespace()
-        assert _get_model_name(obj) == "unknown"
+        assert resolve_model_name(obj, None) == "unknown"
 
     def test_model_attribute_from_model_object_with_name(self) -> None:
         """Test _get_model_name when agent has a model object with .name (not .model_name)."""
         model_obj = SimpleNamespace(name="claude-3-5-sonnet-20241022")
         obj = SimpleNamespace(model=model_obj)
-        assert _get_model_name(obj) == "claude-3-5-sonnet-20241022"
+        assert resolve_model_name(obj, None) == "claude-3-5-sonnet-20241022"
 
 
 class TestExtractUsage:

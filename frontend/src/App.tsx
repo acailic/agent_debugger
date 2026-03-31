@@ -11,7 +11,6 @@ import { FailureClusterPanel } from './components/FailureClusterPanel'
 import { LLMViewer } from './components/LLMViewer'
 import { LiveDashboard } from './components/LiveDashboard'
 import { MultiAgentCoordinationPanel } from './components/MultiAgentCoordinationPanel'
-import { PolicyDiffView } from './components/PolicyDiffView'
 import { SearchPanel } from './components/SearchPanel'
 import { SessionComparisonPanel } from './components/SessionComparisonPanel'
 import { SessionReplay } from './components/SessionReplay'
@@ -24,7 +23,7 @@ import { CheckpointSnapshot } from './components/CheckpointSnapshot'
 import { EventDetail } from './components/EventDetail'
 import { formatEventHeadline, formatNumber } from './utils/formatting'
 import { useSessionStore } from './stores/sessionStore'
-import type { AppTab, FailureCluster, Highlight, PolicyShift, RollingSummary, TraceEvent } from './types'
+import type { AppTab, Highlight, TraceEvent } from './types'
 
 function App() {
   // Get all state and actions from the store
@@ -655,7 +654,12 @@ function App() {
                       </button>
                     ))
                   ) : (
-                    <p>No oscillation or loop alerts detected.</p>
+                    <div className="empty-state">
+                      <div className="empty-state-icon">🔍</div>
+                      <h3>All clear</h3>
+                      <p>No oscillation, looping, or confidence drops detected.</p>
+                      <small>Alerts appear here when behavior patterns need attention</small>
+                    </div>
                   )}
                 </div>
               </section>
@@ -664,10 +668,6 @@ function App() {
                 agentName={currentSession?.agent_name ?? null}
                 driftData={driftData}
                 loading={driftLoading}
-              />
-              <PolicyDiffView
-                policyShifts={[]}
-                onSelectEvent={handleInspectEvent}
               />
 
               {/* Intelligence Group: Drift + Policy + Failure Clusters + Coordination */}

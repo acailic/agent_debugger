@@ -44,14 +44,6 @@ class SessionManager:
         if self._session_update_hook is not None:
             await self._session_update_hook(self.session)
 
-    def set_start_hook(self, hook: Callable[[Session], Awaitable[None]] | None) -> None:
-        """Set the session start hook."""
-        self._session_start_hook = hook
-
-    def set_update_hook(self, hook: Callable[[Session], Awaitable[None]] | None) -> None:
-        """Set the session update hook."""
-        self._session_update_hook = hook
-
     @classmethod
     async def restore_from_checkpoint(
         cls,

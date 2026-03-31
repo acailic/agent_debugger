@@ -213,11 +213,11 @@ class TraceContext(RecordingMixin):
             self._event_persister = self._transport.send_event
             self._session_start_hook = self._transport.send_session_start
             self._session_update_hook = self._transport.send_session_update
-            self._emitter.set_event_persister(self._event_persister)
-            self._emitter.set_session_update_hook(self._session_update_hook)
+            self._emitter._event_persister = self._event_persister
+            self._emitter._session_update_hook = self._session_update_hook
             # Update session manager hooks after transport setup
-            self._session_manager.set_start_hook(self._session_start_hook)
-            self._session_manager.set_update_hook(self._session_update_hook)
+            self._session_manager._session_start_hook = self._session_start_hook
+            self._session_manager._session_update_hook = self._session_update_hook
         else:
             # Hooks already configured (e.g., via configure_event_pipeline in tests)
             self._transport = None

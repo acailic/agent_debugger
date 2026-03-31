@@ -232,20 +232,20 @@ class TestEventEmitterCreation:
         """Test updating the event buffer after creation."""
         assert minimal_emitter._event_buffer is None
 
-        minimal_emitter.set_event_buffer(mock_event_buffer)
+        minimal_emitter._event_buffer = mock_event_buffer
         assert minimal_emitter._event_buffer is mock_event_buffer
 
-        minimal_emitter.set_event_buffer(None)
+        minimal_emitter._event_buffer = None
         assert minimal_emitter._event_buffer is None
 
     def test_set_event_persister(self, minimal_emitter: EventEmitter, mock_persister: AsyncMock):
         """Test updating the event persister after creation."""
         assert minimal_emitter._event_persister is None
 
-        minimal_emitter.set_event_persister(mock_persister)
+        minimal_emitter._event_persister = mock_persister
         assert minimal_emitter._event_persister is mock_persister
 
-        minimal_emitter.set_event_persister(None)
+        minimal_emitter._event_persister = None
         assert minimal_emitter._event_persister is None
 
     def test_set_session_update_hook(
@@ -254,10 +254,10 @@ class TestEventEmitterCreation:
         """Test updating the session update hook after creation."""
         assert minimal_emitter._session_update_hook is None
 
-        minimal_emitter.set_session_update_hook(mock_session_update_hook)
+        minimal_emitter._session_update_hook = mock_session_update_hook
         assert minimal_emitter._session_update_hook is mock_session_update_hook
 
-        minimal_emitter.set_session_update_hook(None)
+        minimal_emitter._session_update_hook = None
         assert minimal_emitter._session_update_hook is None
 
 

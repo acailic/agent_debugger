@@ -15,6 +15,7 @@ import logging
 import time
 from typing import Any
 
+from agent_debugger_sdk.adapters.pydantic_ai.utils import resolve_model_name
 from agent_debugger_sdk.auto_patch._transport import SyncTransport, get_or_create_session
 from agent_debugger_sdk.auto_patch.registry import BaseAdapter, PatchConfig
 from agent_debugger_sdk.core.events import LLMRequestEvent, LLMResponseEvent
@@ -64,9 +65,7 @@ class PydanticAIAdapter(BaseAdapter):
 
         Agent = pydantic_ai.Agent
 
-        # Guard against double-patching
-        if getattr(Agent.run, "_peaky_peek_patched", False):
-            logger.debug("PydanticAIAdapter: Agent.run already patched — skipping")
+        if self._check_double_patch(Agent.run):
             return
 
         self._original_run = Agent.run
@@ -81,7 +80,7 @@ class PydanticAIAdapter(BaseAdapter):
 
             try:
                 session_id = adapter._session_id or ""
-                model_name = _get_model_name(agent_self)
+                model_name = resolve_model_name(agent_self, None)
 
                 messages: list[dict[str, Any]] = []
                 if cfg.capture_content and user_prompt is not None:
@@ -111,7 +110,7 @@ class PydanticAIAdapter(BaseAdapter):
                     if cfg.capture_content and hasattr(result, "data"):
                         content = str(result.data)
 
-                    model_name = _get_model_name(agent_self)
+                    model_name = resolve_model_name(agent_self, None)
                     usage = _extract_usage(result)
 
                     response_event = LLMResponseEvent(
@@ -148,40 +147,12 @@ class PydanticAIAdapter(BaseAdapter):
         except Exception:
             logger.warning("PydanticAIAdapter: failed to restore Agent.run", exc_info=True)
         finally:
-            if self._transport is not None:
-                self._transport.shutdown()
-                self._transport = None
-            self._session_id = None
+            self._shutdown_transport()
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _get_model_name(agent: Any) -> str:
-    """Extract the model name from a PydanticAI Agent instance.
-
-    Probes common attribute names used by PydanticAI to store the model
-    identifier, falling back to ``"unknown"`` if none are found.
-
-    Args:
-        agent: A ``pydantic_ai.Agent`` instance.
-
-    Returns:
-        A model name string.
-    """
-    for attr in ("model", "_model", "model_name"):
-        val = getattr(agent, attr, None)
-        if val is None:
-            continue
-        if isinstance(val, str):
-            return val
-        # Some PydanticAI versions store a Model object
-        name = getattr(val, "model_name", None) or getattr(val, "name", None)
-        if name:
-            return str(name)
-    return "unknown"
 
 
 def _extract_usage(result: Any) -> dict[str, int]:

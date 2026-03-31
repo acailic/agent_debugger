@@ -40,8 +40,6 @@ def api_repo_factory(tmp_path, monkeypatch):
     trace_intelligence = TraceIntelligence()
     redaction_pipeline = RedactionPipeline.from_config()
 
-    monkeypatch.setattr(api_main, "engine", engine)
-    monkeypatch.setattr(api_main, "async_session_maker", session_maker)
     monkeypatch.setattr(app_context, "engine", engine)
     monkeypatch.setattr(app_context, "async_session_maker", session_maker)
     monkeypatch.setattr(app_context, "trace_intelligence", trace_intelligence)
@@ -148,8 +146,8 @@ async def test_lifespan_configures_pipeline_for_sqlite(monkeypatch):
             pass
 
     assert created_buffers == ["memory"]
-    prepare_database.assert_awaited_once_with(api_main.engine)
-    configure_storage.assert_called_once_with(api_main.async_session_maker)
+    prepare_database.assert_awaited_once_with(app_context.engine)
+    configure_storage.assert_called_once_with(app_context.async_session_maker)
     configure_event_pipeline.assert_called_once()
 
 
@@ -235,7 +233,7 @@ async def test_list_sessions_can_sort_by_replay_value(api_repo_factory):
         await repo.create_session(session_high)
 
         with patch.object(
-            api_main.trace_intelligence,
+            app_context.trace_intelligence,
             "analyze_session",
             side_effect=lambda events, checkpoints, **kwargs: analyses[events[0].session_id]
             if events
@@ -262,8 +260,8 @@ async def test_auth_routes_create_list_and_revoke_keys(api_repo_factory):
 
     async with api_repo_factory() as db_session:
         with (
-            patch("api.auth_routes.generate_api_key", return_value="ad_live_example_secret"),
-            patch("api.auth_routes.hash_key", return_value="hashed-secret"),
+            patch("auth.service.generate_api_key", return_value="ad_live_example_secret"),
+            patch("auth.service.hash_key", return_value="hashed-secret"),
         ):
             created = await create_key(
                 CreateKeyRequest(name="primary", environment="live"),
@@ -320,8 +318,8 @@ async def test_session_routes_return_persisted_data(api_repo_factory):
         await repo.create_checkpoint(checkpoint)
 
         with (
-            patch.object(api_main.trace_intelligence, "analyze_session", return_value=analysis_payload),
-            patch.object(api_main.trace_intelligence, "build_live_summary", return_value=live_payload),
+            patch.object(app_context.trace_intelligence, "analyze_session", return_value=analysis_payload),
+            patch.object(app_context.trace_intelligence, "build_live_summary", return_value=live_payload),
         ):
             sessions_response = await list_sessions(limit=10, offset=0, sort_by="started_at", repo=repo)
             updated_response = await update_session(
@@ -530,7 +528,6 @@ async def test_health_endpoint_reports_database_and_redis_status(monkeypatch):
     fake_asyncio_module = types.SimpleNamespace(Redis=FakeRedis)
     fake_redis_module = types.SimpleNamespace(asyncio=fake_asyncio_module)
 
-    monkeypatch.setattr(api_main, "async_session_maker", GoodSessionMaker())
     monkeypatch.setattr(app_context, "async_session_maker", GoodSessionMaker())
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
 
@@ -576,7 +573,6 @@ async def test_health_endpoint_degrades_on_database_and_redis_errors(monkeypatch
     fake_asyncio_module = types.SimpleNamespace(Redis=BrokenRedis)
     fake_redis_module = types.SimpleNamespace(asyncio=fake_asyncio_module)
 
-    monkeypatch.setattr(api_main, "async_session_maker", BrokenSessionMaker())
     monkeypatch.setattr(app_context, "async_session_maker", BrokenSessionMaker())
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
 

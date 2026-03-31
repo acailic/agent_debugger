@@ -132,9 +132,30 @@ export function SearchPanel() {
             )
           })
         ) : (
-          <p className="search-empty">
-            {searchResponse ? 'No matching trace events yet.' : 'Search across names, payloads, and metadata.'}
-          </p>
+          <div className="search-empty">
+            {searchResponse ? (
+              <div className="empty-state">
+                <div className="empty-state-icon">🔭</div>
+                <h3>No results found</h3>
+                <p>Try adjusting your search terms or filters</p>
+              </div>
+            ) : (
+              <div className="empty-state">
+                <div className="empty-state-icon">🔍</div>
+                <h3>Search your traces</h3>
+                <p>Find events by name, payload content, or metadata</p>
+                <div className="search-suggestions">
+                  <small>Try:</small>
+                  <div className="suggestion-chips">
+                    <span>error messages</span>
+                    <span>function names</span>
+                    <span>agent IDs</span>
+                    <span>tool calls</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </section>

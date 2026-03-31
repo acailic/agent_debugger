@@ -28,7 +28,7 @@ export function LiveSummaryPanel({
   const latestTurn = latestOf(events, ['agent_turn'])
   const latestPolicy = latestOf(events, ['prompt_policy'])
   const latestCheckpoint = checkpoints.at(-1) ?? null
-  const previousCheckpoint = checkpoints.length > 1 ? checkpoints.at(-2) : null
+  const previousCheckpoint = checkpoints.length > 1 ? (checkpoints.at(-2) ?? null) : null
   const alertTimeline = liveSummary?.recent_alerts ?? []
 
   const rollingSummary = rollingSummaryData?.text

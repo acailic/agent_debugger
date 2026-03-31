@@ -173,23 +173,35 @@ def make_decision_event():
         reasoning: str = "test reasoning",
         confidence: float = 0.85,
         chosen_action: str = "test_action",
+        id: str | None = None,
+        event_id: str | None = None,  # Alias for id for backward compatibility
         **overrides,
     ) -> TraceEvent:
-        return TraceEvent(
-            session_id=session_id,
-            parent_id=None,
-            event_type=EventType.DECISION,
-            name="decision",
-            importance=0.5,
-            upstream_event_ids=[],
-            data={
+        # Use event_id as fallback if id not provided
+        event_id_value = id or event_id
+        if event_id_value:
+            overrides["id"] = event_id_value
+
+        # Build kwargs with defaults that can be overridden
+        data_overrides = overrides.pop("data", {})
+        kwargs = {
+            "session_id": session_id,
+            "parent_id": overrides.pop("parent_id", None),
+            "event_type": EventType.DECISION,
+            "name": overrides.pop("name", "decision"),
+            "importance": overrides.pop("importance", 0.5),
+            "upstream_event_ids": overrides.pop("upstream_event_ids", []),
+            "data": {
                 "reasoning": reasoning,
                 "confidence": confidence,
                 "chosen_action": chosen_action,
                 "evidence": [],
+                **data_overrides,
             },
-            **overrides,
-        )
+        }
+        kwargs.update(overrides)
+
+        return TraceEvent(**kwargs)
 
     return _make
 
@@ -202,21 +214,43 @@ def make_error_event():
         session_id: str = "s1",
         error_message: str = "test error",
         error_type: str = "RuntimeError",
+        id: str | None = None,
+        event_id: str | None = None,  # Alias for id for backward compatibility
+        message: str | None = None,  # Alias for error_message for backward compatibility
         **overrides,
     ) -> TraceEvent:
-        return TraceEvent(
-            session_id=session_id,
-            parent_id=None,
-            event_type=EventType.ERROR,
-            name="error",
-            importance=0.8,
-            upstream_event_ids=[],
-            data={
+        # Use event_id as fallback if id not provided
+        event_id_value = id or event_id
+        if event_id_value:
+            overrides["id"] = event_id_value
+
+        # Use message as fallback for error_message
+        if message is not None:
+            error_message = message
+
+        # Build kwargs with defaults that can be overridden
+        # Move certain overrides into data dict
+        data_overrides = overrides.pop("data", {})
+        for key in ["message", "error_message", "error_type"]:
+            if key in overrides:
+                data_overrides[key] = overrides.pop(key)
+
+        kwargs = {
+            "session_id": session_id,
+            "parent_id": overrides.pop("parent_id", None),
+            "event_type": EventType.ERROR,
+            "name": overrides.pop("name", "error"),
+            "importance": overrides.pop("importance", 0.8),
+            "upstream_event_ids": overrides.pop("upstream_event_ids", []),
+            "data": {
                 "error_message": error_message,
                 "error_type": error_type,
+                **data_overrides,
             },
-            **overrides,
-        )
+        }
+        kwargs.update(overrides)
+
+        return TraceEvent(**kwargs)
 
     return _make
 

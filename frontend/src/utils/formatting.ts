@@ -1,4 +1,4 @@
-import type { EventType, TraceEvent } from '../types'
+import type { Checkpoint, EventType, TraceEvent } from '../types'
 
 export function formatTime(timestamp: string): string {
   const date = new Date(timestamp)
@@ -72,3 +72,49 @@ export const SEARCHABLE_EVENT_TYPES: Array<{ value: '' | EventType; label: strin
   { value: 'behavior_alert', label: 'Behavior alerts' },
   { value: 'error', label: 'Errors' },
 ]
+
+/**
+ * Check if a text contains escalation signals like "escalate", "handoff", etc.
+ */
+export function containsEscalationSignal(value: string): boolean {
+  const normalized = value.toLowerCase()
+  return ['escalate', 'handoff', 'review', 'supervisor', 'critic'].some((token) =>
+    normalized.includes(token)
+  )
+}
+
+/**
+ * Find the latest event of any of the given types from an events array.
+ * Returns null if no matching event is found.
+ */
+export function latestOf(events: TraceEvent[], eventTypes: string[]): TraceEvent | null {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index]
+    if (eventTypes.includes(event.event_type)) {
+      return event
+    }
+  }
+  return null
+}
+
+/**
+ * Format a metric key for display by replacing underscores with spaces
+ * and capitalizing the first letter of each word.
+ */
+export function formatMetricLabel(key: string): string {
+  return key.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+/**
+ * Compute the delta (difference) between two checkpoints.
+ * Returns null if either checkpoint is missing.
+ */
+export function computeCheckpointDelta(
+  latestCheckpoint: Checkpoint | null,
+  previousCheckpoint: Checkpoint | null
+): { stateDelta: number; memoryDelta: number } | null {
+  if (!latestCheckpoint || !previousCheckpoint) return null
+  const stateDelta = Object.keys(latestCheckpoint.state).length - Object.keys(previousCheckpoint.state).length
+  const memoryDelta = Object.keys(latestCheckpoint.memory).length - Object.keys(previousCheckpoint.memory).length
+  return { stateDelta, memoryDelta }
+}

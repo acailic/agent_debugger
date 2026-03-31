@@ -9,12 +9,9 @@ Tests the FailureExplainer from collector.causal_analysis for:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from agent_debugger_sdk.core.events import EventType, TraceEvent
 
 # =============================================================================
 # Custom Exceptions (module-level as specified)
@@ -66,90 +63,6 @@ class FailureExplanation:
     confidence: float
     evidence_links: list[Evidence]
     causal_chain: list[str]  # List of event IDs from error to root cause
-
-
-# =============================================================================
-# Test Fixtures (following conftest_no_brainery.py pattern)
-# =============================================================================
-
-
-@pytest.fixture
-def make_error_event():
-    """Factory fixture to create error events for tests."""
-
-    def _make_error_event(
-        event_id: str = "error-1",
-        session_id: str = "session-1",
-        error_type: str = "runtime_error",
-        message: str = "Something went wrong",
-        parent_id: str | None = None,
-        upstream_event_ids: list[str] | None = None,
-        importance: float = 0.8,
-    ) -> TraceEvent:
-        return TraceEvent(
-            id=event_id,
-            session_id=session_id,
-            parent_id=parent_id,
-            event_type=EventType.ERROR,
-            name=error_type,
-            data={
-                "error_type": error_type,
-                "message": message,
-            },
-            metadata={},
-            importance=importance,
-            upstream_event_ids=upstream_event_ids or [],
-        )
-
-    return _make_error_event
-
-
-@pytest.fixture
-def make_decision_event():
-    """Factory fixture to create decision events for tests."""
-
-    def _make_decision_event(
-        event_id: str = "decision-1",
-        session_id: str = "session-1",
-        confidence: float = 0.8,
-        reasoning: str = "Selected based on constraints",
-        parent_id: str | None = None,
-        evidence: list[str] | None = None,
-        importance: float = 0.6,
-    ) -> TraceEvent:
-        return TraceEvent(
-            id=event_id,
-            session_id=session_id,
-            parent_id=parent_id,
-            event_type=EventType.DECISION,
-            name="decision",
-            data={
-                "confidence": confidence,
-                "reasoning": reasoning,
-                "evidence": evidence or [],
-            },
-            metadata={},
-            importance=importance,
-            upstream_event_ids=[],
-        )
-
-    return _make_decision_event
-
-
-@pytest.fixture
-def make_session():
-    """Factory fixture to create session containers with events."""
-
-    def _make_session(
-        session_id: str = "session-1",
-        events: list[TraceEvent] | None = None,
-    ) -> dict[str, Any]:
-        return {
-            "session_id": session_id,
-            "events": events or [],
-        }
-
-    return _make_session
 
 
 # =============================================================================

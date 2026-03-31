@@ -230,89 +230,14 @@ def make_tool_call_event():
 @pytest.fixture
 def mock_smart_replay():
     """Create a mocked SmartReplay module for testing."""
+    from agent_debugger_sdk.core.scorer import get_importance_scorer
+
     mock_module = MagicMock()
-
-    # Event type sets for classification
-    ROUTINE_EVENT_TYPES = {
-        EventType.TOOL_CALL,
-        EventType.TOOL_RESULT,
-        EventType.LLM_REQUEST,
-        EventType.LLM_RESPONSE,
-        EventType.AGENT_START,
-        EventType.AGENT_END,
-    }
-
-    # -------------------------------------------------------------------------
-    # Scoring helpers - one per event type to reduce complexity
-    # -------------------------------------------------------------------------
-
-    def _score_error_event(event: TraceEvent) -> float | None:
-        """Error events have high importance (0.9)."""
-        if event.event_type == EventType.ERROR:
-            return 0.9
-        return None
-
-    def _score_refusal_event(event: TraceEvent) -> float | None:
-        """Refusal events have high importance (0.85)."""
-        if event.event_type == EventType.REFUSAL:
-            return 0.85
-        return None
-
-    def _score_behavior_alert_event(event: TraceEvent) -> float | None:
-        """Behavior alerts have high importance (0.88)."""
-        if event.event_type == EventType.BEHAVIOR_ALERT:
-            return 0.88
-        return None
-
-    def _score_safety_check_event(event: TraceEvent) -> float | None:
-        """Safety checks: 0.85 if failed, 0.45 if passed."""
-        if event.event_type == EventType.SAFETY_CHECK:
-            outcome = getattr(event, "outcome", SafetyOutcome.PASS)
-            return 0.85 if outcome != SafetyOutcome.PASS else 0.45
-        return None
-
-    def _score_decision_event(event: TraceEvent) -> float | None:
-        """Decisions: score based on confidence (0.3-0.8)."""
-        if event.event_type == EventType.DECISION:
-            confidence = getattr(event, "confidence", 0.5)
-            if confidence < 0.5:
-                return 0.5 + (0.5 - confidence) * 0.6
-            return 0.3
-        return None
-
-    def _score_routine_event(event: TraceEvent) -> float | None:
-        """Routine events have low importance (0.2)."""
-        if event.event_type in ROUTINE_EVENT_TYPES:
-            return 0.2
-        return None
-
-    # -------------------------------------------------------------------------
-    # Main scoring function - simplified by delegating to helpers
-    # -------------------------------------------------------------------------
+    scorer = get_importance_scorer()
 
     def default_score_importance(event: TraceEvent) -> float:
-        """Score event importance with handling for malformed events."""
-        try:
-            if not hasattr(event, "event_type"):
-                return 0.1
-
-            # Try each scoring helper in priority order
-            for scorer in (
-                _score_error_event,
-                _score_refusal_event,
-                _score_behavior_alert_event,
-                _score_safety_check_event,
-                _score_decision_event,
-                _score_routine_event,
-            ):
-                score = scorer(event)
-                if score is not None:
-                    return score
-
-            # Default for unknown event types
-            return 0.3
-        except Exception:
-            return 0.1
+        """Score event importance using the real ImportanceScorer."""
+        return scorer.score(event)
 
     # -------------------------------------------------------------------------
     # Helper functions for highlight type and reason
@@ -332,7 +257,7 @@ def mock_smart_replay():
             return "decision"
         return "state_change"
 
-    def _get_highlight_reason(event: TraceEvent, score: float) -> str:
+    def _get_highlight_reason(event: TraceEvent) -> str:
         if event.event_type == EventType.ERROR:
             return f"Error: {getattr(event, 'error_message', 'Unknown error')}"
         if event.event_type == EventType.REFUSAL:
@@ -374,7 +299,7 @@ def mock_smart_replay():
                         event_type=str(event.event_type),
                         highlight_type=_get_highlight_type(event),
                         importance=score,
-                        reason=_get_highlight_reason(event, score),
+                        reason=_get_highlight_reason(event),
                         timestamp=event.timestamp.isoformat(),
                     )
                 )
