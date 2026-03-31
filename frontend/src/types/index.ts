@@ -20,6 +20,7 @@ export type EventType =
   | 'prompt_policy'
   | 'agent_turn'
   | 'behavior_alert'
+  | 'repair_attempt'
 
 export interface TraceEvent {
   id: string
@@ -79,6 +80,11 @@ export interface TraceEvent {
   alert_type?: string
   signal?: string
   related_event_ids?: string[]
+  repair_sequence_id?: string
+  attempted_fix?: string
+  validation_result?: string
+  repair_outcome?: 'success' | 'failure' | 'partial'
+  repair_diff?: string
 }
 
 export interface ToolCall {

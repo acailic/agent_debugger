@@ -53,6 +53,7 @@ class EventType(StrEnum):
     PROMPT_POLICY = "prompt_policy"
     AGENT_TURN = "agent_turn"
     BEHAVIOR_ALERT = "behavior_alert"
+    REPAIR_ATTEMPT = "repair_attempt"
 
 
 class SessionStatus(StrEnum):
@@ -100,7 +101,7 @@ def _serialize_field_value(value: Any) -> Any:
     if isinstance(value, datetime):
         return value.isoformat()
     if isinstance(value, Enum):
-        return str(value)
+        return value.value
     if isinstance(value, list):
         return [_serialize_field_value(item) for item in value]
     if isinstance(value, tuple):

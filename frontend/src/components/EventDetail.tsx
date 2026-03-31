@@ -1,6 +1,7 @@
 import type { TraceBundle, TraceEvent, Highlight } from '../types'
 import { formatEventHeadline } from '../utils/formatting'
 import { EventReferenceList } from './EventReferenceList'
+import { DecisionProvenancePanel } from './DecisionProvenancePanel'
 
 interface EventDetailProps {
   event: TraceEvent | null
@@ -144,6 +145,13 @@ export function EventDetail({
             ) : null}
           </div>
         )}
+
+        <DecisionProvenancePanel
+          event={event}
+          eventLookup={eventLookup}
+          onSelectEvent={onSelectEvent}
+        />
+
         {event.reasoning && (
           <div>
             <h3>Reasoning</h3>

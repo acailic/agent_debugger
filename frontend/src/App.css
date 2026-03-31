@@ -3725,3 +3725,243 @@ pre {
 .checkpoint-preview.anchor .eyebrow {
   color: var(--muted);
 }
+
+/* Decision Provenance Panel Styles */
+.decision-provenance {
+  margin-bottom: 1rem;
+}
+
+.provenance-sections {
+  display: grid;
+  gap: 1rem;
+}
+
+.provenance-card {
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--panel-border);
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 34%);
+}
+
+.provenance-card h3 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.decision-action {
+  margin: 0;
+  padding: 0.85rem;
+  border-radius: 0.75rem;
+  background: color-mix(in oklch, var(--accent), transparent 90%);
+  border-left: 3px solid var(--accent);
+  font-weight: 500;
+}
+
+.reasoning-text {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--panel), var(--muted) 8%);
+}
+
+.reasoning-text .metric-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.reasoning-text p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.confidence-meter {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.confidence-meter .metric-label {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.confidence-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: color-mix(in oklch, var(--muted), transparent 70%);
+  overflow: hidden;
+}
+
+.confidence-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--warning), var(--accent));
+  transition: width 300ms ease;
+}
+
+.confidence-meter span:last-child {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.evidence-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.evidence-item {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--panel), var(--node-tool) 6%);
+  border-left: 2px solid var(--node-tool);
+}
+
+.evidence-item pre {
+  margin: 0;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.no-evidence-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--warning), white 88%);
+  color: var(--warning);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.warning-icon {
+  font-size: 1rem;
+}
+
+.alternatives-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.alternative-item {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--panel), var(--muted) 6%);
+  border-left: 2px solid var(--muted);
+}
+
+.alternative-item pre {
+  margin: 0;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--muted);
+}
+
+.no-data {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+/* Timeline header layout for blocked actions toggle */
+.timeline-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.timeline-header-right {
+  display: flex;
+  align-items: center;
+}
+
+.blocked-actions-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 38%);
+  border: 1px solid var(--panel-border);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.blocked-actions-toggle:hover {
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 50%);
+  border-color: color-mix(in oklch, var(--panel-border), var(--muted) 30%);
+}
+
+.toggle-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.toggle-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* Blocked action event styling */
+.timeline-event.blocked {
+  background: color-mix(in oklch, var(--panel), var(--muted) 25%);
+  border-left: 3px solid var(--muted);
+  opacity: 0.85;
+}
+
+.timeline-event.blocked:hover {
+  background: color-mix(in oklch, var(--panel), var(--muted) 35%);
+}
+
+.blocked-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background: color-mix(in oklch, var(--muted), white 70%);
+  color: var(--text);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.blocked-action {
+  display: block;
+  margin-top: 0.25rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  background: color-mix(in oklch, var(--muted), white 85%);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.blocked-reason {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-style: italic;
+}

@@ -21,6 +21,7 @@ from agent_debugger_sdk.core.events.decisions import DecisionEvent
 from agent_debugger_sdk.core.events.errors import ErrorEvent
 from agent_debugger_sdk.core.events.llm import LLMRequestEvent, LLMResponseEvent
 from agent_debugger_sdk.core.events.registry import EVENT_TYPE_REGISTRY
+from agent_debugger_sdk.core.events.repair import RepairAttemptEvent, RepairOutcome
 from agent_debugger_sdk.core.events.safety import (
     PolicyViolationEvent,
     PromptPolicyEvent,
@@ -49,6 +50,7 @@ EVENT_TYPE_REGISTRY.update(
         EventType.AGENT_TURN: AgentTurnEvent,
         EventType.BEHAVIOR_ALERT: BehaviorAlertEvent,
         EventType.ERROR: ErrorEvent,
+        EventType.REPAIR_ATTEMPT: RepairAttemptEvent,
     }
 )
 
@@ -74,6 +76,8 @@ __all__ = [
     "AgentTurnEvent",
     "BehaviorAlertEvent",
     "ErrorEvent",
+    "RepairAttemptEvent",
+    "RepairOutcome",
     "Session",
     "Checkpoint",
     "EVENT_TYPE_REGISTRY",

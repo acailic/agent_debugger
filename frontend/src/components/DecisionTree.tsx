@@ -44,6 +44,25 @@ const TOOLTIP_OFFSET = 10
 const TOOLTIP_MAX_WIDTH = 200
 const TOOLTIP_MAX_HEIGHT = 100
 
+// Edge types for causal visualization
+const EDGE_STYLES = {
+  solid: {
+    strokeDasharray: 'none',
+    stroke: 'var(--link-stroke)',
+    strokeWidth: 2,
+  },
+  evidence: {
+    strokeDasharray: '4,4',
+    stroke: '#3b82f6',
+    strokeWidth: 1.5,
+  },
+  inferred: {
+    strokeDasharray: '2,2',
+    stroke: '#f59e0b',
+    strokeWidth: 1.5,
+  },
+}
+
 export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionTreeProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -155,11 +174,18 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
       .append('g')
       .attr('transform', `translate(${pan.x + offsetX}, ${pan.y + offsetY}) scale(${zoom})`)
 
+    // Create a map of all events by ID for edge lookup
+    const eventMap = new Map<string, d3.HierarchyNode<D3TreeNode>>()
+    root.descendants().forEach((d) => {
+      eventMap.set(d.data.id, d)
+    })
+
+    // Render parent-child links (solid lines)
     g.selectAll('.link')
       .data(root.links())
       .enter()
       .append('path')
-      .attr('class', 'link')
+      .attr('class', 'link parent-child')
       .attr('d', (d) => {
         const sourceX = d.source.x ?? 0
         const sourceY = d.source.y ?? 0
@@ -169,8 +195,75 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         return `M${sourceX},${sourceY}C${sourceX},${midY} ${targetX},${midY} ${targetX},${targetY}`
       })
       .attr('fill', 'none')
-      .attr('stroke', 'var(--link-stroke)')
-      .attr('stroke-width', 2)
+      .attr('stroke', EDGE_STYLES.solid.stroke)
+      .attr('stroke-width', EDGE_STYLES.solid.strokeWidth)
+      .attr('stroke-dasharray', EDGE_STYLES.solid.strokeDasharray)
+
+    // Render evidence links (dotted blue lines)
+    const evidenceLinks: Array<{ source: d3.HierarchyNode<D3TreeNode>; target: d3.HierarchyNode<D3TreeNode> }> = []
+    root.descendants().forEach((d) => {
+      const evidenceEventIds = d.data.event.evidence_event_ids ?? []
+      evidenceEventIds.forEach((evidenceId) => {
+        const evidenceNode = eventMap.get(evidenceId)
+        if (evidenceNode && evidenceNode !== d.parent) {
+          evidenceLinks.push({ source: evidenceNode, target: d })
+        }
+      })
+    })
+
+    g.selectAll('.link-evidence')
+      .data(evidenceLinks)
+      .enter()
+      .append('path')
+      .attr('class', 'link-evidence')
+      .attr('d', (d) => {
+        const sourceX = d.source.x ?? 0
+        const sourceY = d.source.y ?? 0
+        const targetX = d.target.x ?? 0
+        const targetY = d.target.y ?? 0
+        const midY = (sourceY + targetY) / 2
+        return `M${sourceX},${sourceY}C${sourceX},${midY} ${targetX},${midY} ${targetX},${targetY}`
+      })
+      .attr('fill', 'none')
+      .attr('stroke', EDGE_STYLES.evidence.stroke)
+      .attr('stroke-width', EDGE_STYLES.evidence.strokeWidth)
+      .attr('stroke-dasharray', EDGE_STYLES.evidence.strokeDasharray)
+      .attr('opacity', 0.6)
+
+    // Render inferred causal links (dotted orange lines)
+    const inferredLinks: Array<{ source: d3.HierarchyNode<D3TreeNode>; target: d3.HierarchyNode<D3TreeNode>; confidence: number }> = []
+    root.descendants().forEach((d) => {
+      const upstreamEventIds = d.data.event.upstream_event_ids ?? []
+      upstreamEventIds.forEach((upstreamId) => {
+        const upstreamNode = eventMap.get(upstreamId)
+        if (upstreamNode && upstreamNode !== d.parent && !d.data.event.evidence_event_ids?.includes(upstreamId)) {
+          inferredLinks.push({
+            source: upstreamNode,
+            target: d,
+            confidence: d.data.event.confidence ?? 0.5
+          })
+        }
+      })
+    })
+
+    g.selectAll('.link-inferred')
+      .data(inferredLinks)
+      .enter()
+      .append('path')
+      .attr('class', 'link-inferred')
+      .attr('d', (d) => {
+        const sourceX = d.source.x ?? 0
+        const sourceY = d.source.y ?? 0
+        const targetX = d.target.x ?? 0
+        const targetY = d.target.y ?? 0
+        const midY = (sourceY + targetY) / 2
+        return `M${sourceX},${sourceY}C${sourceX},${midY} ${targetX},${midY} ${targetX},${targetY}`
+      })
+      .attr('fill', 'none')
+      .attr('stroke', EDGE_STYLES.inferred.stroke)
+      .attr('stroke-width', (d) => EDGE_STYLES.inferred.strokeWidth * d.confidence)
+      .attr('stroke-dasharray', EDGE_STYLES.inferred.strokeDasharray)
+      .attr('opacity', 0.5)
 
     const nodes = g
       .selectAll('.node')
@@ -316,6 +409,20 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         <span className="legend-item" aria-label="Risk nodes: errors and policy violations">
           <span className="legend-dot" style={{ backgroundColor: NODE_COLORS.error }} />
           Risk
+        </span>
+      </div>
+      <div className="tree-edge-legend" role="legend" aria-label="Edge type legend">
+        <span className="legend-item" aria-label="Parent-child links: direct causal relationships">
+          <span className="legend-line" style={{ borderTop: `2px solid ${EDGE_STYLES.solid.stroke}` }} />
+          Parent-Child
+        </span>
+        <span className="legend-item" aria-label="Evidence links: events referenced as evidence">
+          <span className="legend-line" style={{ borderTop: `1.5px dotted ${EDGE_STYLES.evidence.stroke}` }} />
+          Evidence
+        </span>
+        <span className="legend-item" aria-label="Inferred links: upstream causal relationships">
+          <span className="legend-line" style={{ borderTop: `1.5px dashed ${EDGE_STYLES.inferred.stroke}` }} />
+          Inferred
         </span>
       </div>
       <svg

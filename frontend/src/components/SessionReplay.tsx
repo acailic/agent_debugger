@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useRef, useState } from 'react'
 import type { ChangeEvent, CSSProperties } from 'react'
 import type { TraceEvent } from '../types'
 import { formatEventHeadline } from '../utils/formatting'
@@ -15,11 +15,15 @@ interface SessionReplayProps {
   onSeek: (index: number) => void
   speed: number
   onSpeedChange: (speed: number) => void
+  onToggleBreakpoint?: (eventId: string) => void
 }
 
 const SPEED_OPTIONS = [0.5, 1, 2, 5]
 
 const HIGH_IMPORTANCE_TYPES = ['decision', 'error', 'tool_call']
+
+// Event types that can have breakpoints set on them
+const BREAKPOINTABLE_TYPES = ['decision', 'error', 'tool_call', 'llm_request', 'llm_response', 'safety_check', 'refusal', 'policy_violation']
 
 function isCheckpoint(event: TraceEvent): boolean {
   return event.event_type === 'checkpoint'
@@ -37,10 +41,42 @@ export function SessionReplay({
   onSeek,
   speed,
   onSpeedChange,
+  onToggleBreakpoint,
 }: SessionReplayProps) {
   const sliderRef = useRef<HTMLInputElement>(null)
   const playIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const breakpointIdSet = new Set(breakpointEventIds)
+  const [localBreakpoints, setLocalBreakpoints] = useState<Set<string>>(new Set(breakpointEventIds))
+  const [showBreakpointPanel, setShowBreakpointPanel] = useState(false)
+
+  const breakpointIdSet = localBreakpoints
+
+  const handleToggleBreakpoint = useCallback((eventId: string) => {
+    setLocalBreakpoints((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(eventId)) {
+        newSet.delete(eventId)
+      } else {
+        newSet.add(eventId)
+      }
+      return newSet
+    })
+    // Notify parent if callback provided
+    if (onToggleBreakpoint) {
+      onToggleBreakpoint(eventId)
+    }
+  }, [onToggleBreakpoint])
+
+  const clearAllBreakpoints = useCallback(() => {
+    setLocalBreakpoints(new Set())
+  }, [])
+
+  const isBreakpointed = useCallback((eventId: string) => {
+    return breakpointIdSet.has(eventId)
+  }, [breakpointIdSet])
+
+  const canSetBreakpoint = useCallback((event: TraceEvent) => {
+    return BREAKPOINTABLE_TYPES.includes(event.event_type)
+  }, [])
 
   const totalEvents = events.length
   const canStepBack = currentIndex > 0
@@ -205,11 +241,12 @@ export function SessionReplay({
             {timelineMarkers.map(({ event, index }) => {
               const markerPercent = totalEvents > 1 ? (index / (totalEvents - 1)) * 100 : 0
               const isHighImportance = HIGH_IMPORTANCE_TYPES.includes(event.event_type)
-              const isBreakpointMarker = breakpointIdSet.has(event.id)
+              const isBreakpointMarker = isBreakpointed(event.id)
+              const isCurrentBreakpoint = index === currentIndex && isBreakpointMarker
               return (
                 <div
                   key={event.id}
-                  className={`timeline-marker ${event.event_type} ${isHighImportance ? 'high-importance' : ''} ${isBreakpointMarker ? 'breakpoint' : ''}`}
+                  className={`timeline-marker ${event.event_type} ${isHighImportance ? 'high-importance' : ''} ${isBreakpointMarker ? 'breakpoint' : ''} ${isCurrentBreakpoint ? 'current-breakpoint' : ''}`}
                   style={{ left: `${markerPercent}%` }}
                   title={formatEventHeadline(event)}
                 />
@@ -245,7 +282,82 @@ export function SessionReplay({
             </option>
           ))}
         </select>
+
+        <button
+          className={`replay-btn breakpoint-toggle ${localBreakpoints.size > 0 ? 'has-breakpoints' : ''}`}
+          onClick={() => setShowBreakpointPanel((prev) => !prev)}
+          title={`Breakpoints (${localBreakpoints.size})`}
+          aria-label="Toggle breakpoint panel"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <circle cx="8" cy="12" r="3" />
+            <circle cx="16" cy="12" r="3" />
+          </svg>
+          {localBreakpoints.size > 0 && (
+            <span className="breakpoint-count">{localBreakpoints.size}</span>
+          )}
+        </button>
       </div>
+
+      {/* Breakpoint Panel */}
+      {showBreakpointPanel && (
+        <div className="breakpoint-panel">
+          <div className="breakpoint-panel-header">
+            <h4>Breakpoints</h4>
+            <button
+              className="breakpoint-clear-btn"
+              onClick={clearAllBreakpoints}
+              disabled={localBreakpoints.size === 0}
+              title="Clear all breakpoints"
+              aria-label="Clear all breakpoints"
+            >
+              Clear All
+            </button>
+          </div>
+          <div className="breakpoint-list">
+            {events.length === 0 ? (
+              <div className="breakpoint-empty">No events available</div>
+            ) : (
+              events
+                .filter((event) => canSetBreakpoint(event))
+                .slice(0, 50) // Limit to first 50 breakpointable events for performance
+                .map((event) => (
+                  <div
+                    key={event.id}
+                    className={`breakpoint-item ${isBreakpointed(event.id) ? 'breakpoint-active' : ''}`}
+                    onClick={() => handleToggleBreakpoint(event.id)}
+                  >
+                    <div className="breakpoint-indicator">
+                      {isBreakpointed(event.id) && <div className="breakpoint-dot" />}
+                    </div>
+                    <div className="breakpoint-info">
+                      <span className="breakpoint-type">{event.event_type}</span>
+                      <span className="breakpoint-name">{formatEventHeadline(event)}</span>
+                    </div>
+                    <button
+                      className="breakpoint-toggle-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleToggleBreakpoint(event.id)
+                      }}
+                      aria-label={isBreakpointed(event.id) ? 'Remove breakpoint' : 'Add breakpoint'}
+                    >
+                      {isBreakpointed(event.id) ? '−' : '+'}
+                    </button>
+                  </div>
+                ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Current Event Breakpoint Indicator */}
+      {currentIndex >= 0 && currentIndex < events.length && isBreakpointed(events[currentIndex].id) && (
+        <div className="breakpoint-reached-indicator">
+          <div className="breakpoint-reached-dot" />
+          <span>Breakpoint: {formatEventHeadline(events[currentIndex])}</span>
+        </div>
+      )}
     </div>
   )
 }
