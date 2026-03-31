@@ -26,7 +26,7 @@
 ![Agent Debugger UI](./docs/screenshots/01-hero-session-list.png)
 
 <p align="center">
-  <img src="./peek-v3-demo.gif" alt="Peaky Peek demo walkthrough" width="720" />
+  <img src="./peek-v4-demo.gif" alt="Peaky Peek demo walkthrough" width="720" />
 </p>
 
 ## Why Peaky Peek?
@@ -152,13 +152,17 @@ import agent_debugger_sdk.auto_patch  # activates on import when PEAKY_PEEK_AUTO
 
 ### Decision Tree Visualization
 
-![Decision Tree view](./docs/screenshots/12-decision-tree.png)
+<p>
+  <img src="./docs/screenshots/gif-decision-tree.gif" alt="Decision Tree visualization demo" width="720" />
+</p>
 
 Navigate agent reasoning as an interactive tree. Click nodes to inspect events, zoom to explore complex flows, and trace the causal chain from policy to tool call to safety check.
 
 ### Checkpoint Replay
 
-![Checkpoint replay](./docs/screenshots/17-checkpoint-detail.png)
+<p>
+  <img src="./docs/screenshots/gif-checkpoint-replay.gif" alt="Checkpoint replay demo" width="720" />
+</p>
 
 Time-travel through agent execution with checkpoint-aware playback. Play, pause, step, and seek to any point in the trace. Checkpoints are ranked by restore value so you jump to the most useful state.
 
@@ -170,8 +174,12 @@ Find specific events across all sessions. Search by keyword, filter by event typ
 
 ### Failure Clustering & Multi-Agent Coordination
 
-![Failure clustering](./docs/screenshots/05-failure-mode.png)
-![Multi-agent coordination](./docs/screenshots/15-conversation-panel.png)
+<p>
+  <img src="./docs/screenshots/gif-failure-clustering.gif" alt="Failure clustering demo" width="720" />
+</p>
+<p>
+  <img src="./docs/screenshots/gif-multi-agent-coordination.gif" alt="Multi-agent coordination demo" width="720" />
+</p>
 
 Adaptive analysis groups similar failures. Inspect planner/critic debates, speaker topology, and prompt policy parameters across multi-agent systems.
 
