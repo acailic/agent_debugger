@@ -344,5 +344,7 @@ async def event_generator(
                 yield f"data: {event_data}\n\n"
             except TimeoutError:
                 yield ": keepalive\n\n"
+    except asyncio.CancelledError:
+        raise
     finally:
         await buf.unsubscribe(session_id, queue)

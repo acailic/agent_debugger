@@ -14,8 +14,11 @@ if TYPE_CHECKING:
 
 from agent_debugger_sdk.core.events import Session, SessionStatus
 
-# Shared AsyncClient for checkpoint restoration to avoid creating new clients
-_shared_async_client: httpx.AsyncClient | None = None
+
+class _CheckpointRestoreError(Exception):
+    """Raised when checkpoint restoration fails."""
+
+    pass
 
 
 class SessionManager:
@@ -68,9 +71,14 @@ class SessionManager:
 
         Returns:
             Tuple of (Session, restored_state)
-        """
-        global _shared_async_client
 
+        Raises:
+            _CheckpointRestoreError: If checkpoint restoration fails due to
+                network errors, invalid checkpoint ID, or server errors.
+
+        Example:
+            >>> session, state = await SessionManager.restore_from_checkpoint("ckpt_123")
+        """
         from agent_debugger_sdk.checkpoints import validate_checkpoint_state
         from agent_debugger_sdk.config import get_config
 
@@ -78,34 +86,41 @@ class SessionManager:
             config = get_config()
             server_url = config.endpoint or "http://localhost:8000"
 
-        # Use shared client for better performance
-        if _shared_async_client is None:
-            _shared_async_client = httpx.AsyncClient()
+        # Fetch checkpoint data using a temporary client (avoids connection leaks)
+        # All processing happens inside the context manager to ensure checkpoint_data is in scope
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(f"{server_url}/api/checkpoints/{checkpoint_id}")
+                response.raise_for_status()
+                checkpoint_data = response.json()
+            except httpx.HTTPStatusError as e:
+                raise _CheckpointRestoreError(
+                    f"Failed to restore checkpoint {checkpoint_id!r} from {server_url}: "
+                    f"{e.response.status_code} {e.response.reason_phrase}"
+                ) from e
+            except httpx.RequestError as e:
+                raise _CheckpointRestoreError(
+                    f"Network error while restoring checkpoint {checkpoint_id!r} from {server_url}: {e}"
+                ) from e
+            except Exception as e:
+                # Catch any other unexpected errors and wrap them
+                raise _CheckpointRestoreError(
+                    f"Unexpected error while restoring checkpoint {checkpoint_id!r} from {server_url}: {e}"
+                ) from e
 
-        response = await _shared_async_client.get(f"{server_url}/api/checkpoints/{checkpoint_id}")
-        response.raise_for_status()
-        checkpoint_data = response.json()
+            # Process the checkpoint data inside the context manager where checkpoint_data is in scope
+            state_dict = checkpoint_data.get("state", {})
+            original_session_id = checkpoint_data.get("session_id", "")
 
-        state_dict = checkpoint_data.get("state", {})
-        original_session_id = checkpoint_data.get("session_id", "")
+            session = Session(
+                id=session_id or str(uuid.uuid4()),
+                agent_name=label or f"restored from {checkpoint_id[:8]}",
+                framework=state_dict.get("framework", "custom"),
+                config={
+                    "restored_from_checkpoint": checkpoint_id,
+                    "original_session_id": original_session_id,
+                },
+            )
 
-        session = Session(
-            id=session_id or str(uuid.uuid4()),
-            agent_name=label or f"restored from {checkpoint_id[:8]}",
-            framework=state_dict.get("framework", "custom"),
-            config={
-                "restored_from_checkpoint": checkpoint_id,
-                "original_session_id": original_session_id,
-            },
-        )
-
-        restored_state = validate_checkpoint_state(state_dict)
-        return session, restored_state
-
-    @classmethod
-    async def close_shared_client(cls) -> None:
-        """Close the shared AsyncClient. Call when shutting down the application."""
-        global _shared_async_client
-        if _shared_async_client is not None:
-            await _shared_async_client.aclose()
-            _shared_async_client = None
+            restored_state = validate_checkpoint_state(state_dict)
+            return session, restored_state

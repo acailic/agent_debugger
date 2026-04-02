@@ -5,6 +5,15 @@ interface ToolInspectorProps {
   event: TraceEvent | null
 }
 
+/**
+ * Highlights JSON syntax for display.
+ *
+ * SECURITY: This function uses dangerouslySetInnerHTML, which is safe here because:
+ * 1. All data comes from SDK-generated trace events (tool arguments and results)
+ * 2. No user-controlled content is rendered without HTML escaping
+ * 3. The function escapes special characters (<, >, &) before adding syntax highlighting spans
+ * 4. Only trusted SDK trace data is processed, not arbitrary user input
+ */
 function highlightJSON(obj: unknown): string {
   const json = JSON.stringify(obj ?? null, null, 2) ?? 'null'
   return json

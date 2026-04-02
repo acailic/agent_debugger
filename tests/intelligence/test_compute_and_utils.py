@@ -15,7 +15,6 @@ from collector.intelligence.compute import (
 from collector.intelligence.event_utils import event_headline, fingerprint, retention_tier
 from collector.intelligence.helpers import event_value, mean
 
-
 # Helper functions for backward compatibility - these wrap fixtures from conftest.py
 # Note: These are module-level helpers for tests that don't use fixture injection
 

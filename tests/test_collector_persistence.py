@@ -21,7 +21,6 @@ from collector.persistence import (
     PersistenceManager,
 )
 
-
 # =============================================================================
 # Test Helpers
 # =============================================================================
@@ -358,7 +357,7 @@ async def test_flush_loop_runs_periodically(persistence_manager, sample_events):
     await wait_until_condition(
         condition=lambda: flush_count >= 2 or not persistence_manager._running,
         timeout=1.0,
-        error_message="Flush loop did not run expected number of times"
+        error_message="Flush loop did not run expected number of times",
     )
 
     assert flush_count >= 2
@@ -386,7 +385,7 @@ async def test_flush_loop_handles_exceptions_gracefully(persistence_manager, cap
     await wait_until_condition(
         condition=lambda: call_count >= 2 or not persistence_manager._running,
         timeout=1.0,
-        error_message="Flush loop did not retry after exception"
+        error_message="Flush loop did not retry after exception",
     )
 
     assert call_count >= 2
@@ -638,7 +637,7 @@ async def test_full_lifecycle_start_flush_stop(temp_storage_path, sample_events)
     await wait_until_condition(
         condition=lambda: (temp_storage_path / "s1.json").exists() and (temp_storage_path / "s2.json").exists(),
         timeout=1.0,
-        error_message="Flush did not create expected files"
+        error_message="Flush did not create expected files",
     )
 
     await manager.stop()

@@ -9,7 +9,6 @@ from __future__ import annotations
 from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
 from collector.intelligence.facade import TraceIntelligence
 
-
 # Helper functions for testing - consider using make_event and make_checkpoint fixtures from conftest.py instead
 
 

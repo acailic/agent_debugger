@@ -60,7 +60,7 @@ class Config:
         if self.api_key and not self._skip_validation:
             self.mode = "cloud"
             if self.endpoint == "http://localhost:8000":
-                object.__setattr__(self, 'endpoint', "https://api.agentdebugger.dev")
+                object.__setattr__(self, "endpoint", "https://api.agentdebugger.dev")
 
         # Validate unless explicitly skipped (for testing)
         if not self._skip_validation:
@@ -76,7 +76,7 @@ class Config:
         Returns:
             A Config instance with validation skipped
         """
-        kwargs['_skip_validation'] = True
+        kwargs["_skip_validation"] = True
         return cls(**kwargs)
 
 

@@ -48,6 +48,12 @@ jobs:
       - name: Test
         run: pytest -q -n auto --timeout=30 --maxfail=5
 
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
   dep-check:
     name: Dependency security
     runs-on: ubuntu-latest
