@@ -571,10 +571,7 @@ class TestRankFailureCandidates:
     def test_returns_top_three_candidates(self) -> None:
         """Should return at most 3 candidates sorted by score."""
         analyzer = CausalAnalyzer()
-        causes = [
-            _event(f"cause{i}", EventType.DECISION)
-            for i in range(5)
-        ]
+        causes = [_event(f"cause{i}", EventType.DECISION) for i in range(5)]
         failure = _event("fail", EventType.ERROR, parent_id="cause0")
 
         events = causes + [failure]

@@ -50,11 +50,13 @@ class EventEmitter:
 
         # Cache config.enabled at initialization to avoid global lookup on every emit
         from agent_debugger_sdk.config import get_config as _get_config
+
         self._config_enabled = _get_config().enabled
 
     def update_config_cache(self) -> None:
         """Update cached config.enabled if config has changed."""
         from agent_debugger_sdk.config import get_config as _get_config
+
         self._config_enabled = _get_config().enabled
 
     @staticmethod
@@ -74,10 +76,13 @@ class EventEmitter:
                 await getattr(target, "publish")(*args)
             else:
                 await target(args)
-        except Exception:
+        except Exception as e:
             logger.warning(
-                "Failed to %s %s: collector may be unavailable",
-                label, context, exc_info=True,
+                "Failed to %s %s: %s",
+                label,
+                context,
+                type(e).__name__,
+                exc_info=True,
             )
 
     async def emit(self, event: TraceEvent) -> None:
@@ -104,24 +109,33 @@ class EventEmitter:
         # Collect callbacks to run in parallel
         callbacks = []
         if self._event_persister is not None:
-            callbacks.append(self._safe_call(
-                self._event_persister, event,
-                label="persist event",
-                context=event.id,
-            ))
+            callbacks.append(
+                self._safe_call(
+                    self._event_persister,
+                    event,
+                    label="persist event",
+                    context=event.id,
+                )
+            )
         if self._session_update_hook is not None:
-            callbacks.append(self._safe_call(
-                self._session_update_hook, self._session,
-                label="update session",
-                context=self._session_id,
-            ))
+            callbacks.append(
+                self._safe_call(
+                    self._session_update_hook,
+                    self._session,
+                    label="update session",
+                    context=self._session_id,
+                )
+            )
         if self._event_buffer is not None:
-            callbacks.append(self._safe_call(
-                self._event_buffer, (self._session_id, event),
-                label="publish event to buffer",
-                context=event.id,
-                is_method=True,
-            ))
+            callbacks.append(
+                self._safe_call(
+                    self._event_buffer,
+                    (self._session_id, event),
+                    label="publish event to buffer",
+                    context=event.id,
+                    is_method=True,
+                )
+            )
 
         if callbacks:
             await asyncio.gather(*callbacks, return_exceptions=True)

@@ -84,8 +84,10 @@ class TestBUG002DuplicateEvents:
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(
-        not __import__("agent_debugger_sdk.adapters.pydantic_ai", fromlist=["PYDANTIC_AI_AVAILABLE"]).PYDANTIC_AI_AVAILABLE,
-        reason="pydantic_ai is not installed"
+        not __import__(
+            "agent_debugger_sdk.adapters.pydantic_ai", fromlist=["PYDANTIC_AI_AVAILABLE"]
+        ).PYDANTIC_AI_AVAILABLE,
+        reason="pydantic_ai is not installed",
     )
     async def test_pydantic_ai_no_duplicates(self):
         """Test that PydanticAI adapter doesn't publish duplicate events."""

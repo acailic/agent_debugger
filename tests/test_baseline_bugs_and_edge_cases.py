@@ -155,6 +155,7 @@ class TestDurationZeroBug:
 
     def test_process_tool_result_no_fallback_to_event_attribute(self):
         """If data explicitly has duration_ms=0, it should NOT fall through to event attr."""
+
         # Create a mock event with a different duration_ms attribute
         class MockEvent:
             duration_ms = 999
@@ -308,8 +309,12 @@ class TestProcessDecision:
 
     def test_confidence_from_data(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.DECISION,
-            timestamp=datetime.now(timezone.utc), name="d", data={"confidence": 0.8},
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.DECISION,
+            timestamp=datetime.now(timezone.utc),
+            name="d",
+            data={"confidence": 0.8},
         )
         conf, _, _ = _process_decision(event, event.data)
         assert conf == 0.8
@@ -317,38 +322,54 @@ class TestProcessDecision:
     def test_confidence_from_event_attribute(self):
         class MockEvent:
             confidence = 0.7
+
         event = MockEvent()
         conf, _, _ = _process_decision(event, {})
         assert conf == 0.7
 
     def test_confidence_default_when_missing(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.DECISION,
-            timestamp=datetime.now(timezone.utc), name="d", data={},
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.DECISION,
+            timestamp=datetime.now(timezone.utc),
+            name="d",
+            data={},
         )
         conf, _, _ = _process_decision(event, event.data)
         assert conf == 0.5  # default
 
     def test_low_confidence_flag_true(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.DECISION,
-            timestamp=datetime.now(timezone.utc), name="d", data={"confidence": 0.3},
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.DECISION,
+            timestamp=datetime.now(timezone.utc),
+            name="d",
+            data={"confidence": 0.3},
         )
         _, low_flag, _ = _process_decision(event, event.data)
         assert low_flag == 1
 
     def test_low_confidence_flag_false(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.DECISION,
-            timestamp=datetime.now(timezone.utc), name="d", data={"confidence": 0.8},
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.DECISION,
+            timestamp=datetime.now(timezone.utc),
+            name="d",
+            data={"confidence": 0.8},
         )
         _, low_flag, _ = _process_decision(event, event.data)
         assert low_flag == 0
 
     def test_grounded_flag_with_evidence(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.DECISION,
-            timestamp=datetime.now(timezone.utc), name="d",
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.DECISION,
+            timestamp=datetime.now(timezone.utc),
+            name="d",
             data={"confidence": 0.8, "evidence_event_ids": ["ev1"]},
         )
         _, _, grounded = _process_decision(event, event.data)
@@ -356,8 +377,11 @@ class TestProcessDecision:
 
     def test_grounded_flag_without_evidence(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.DECISION,
-            timestamp=datetime.now(timezone.utc), name="d",
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.DECISION,
+            timestamp=datetime.now(timezone.utc),
+            name="d",
             data={"confidence": 0.8},
         )
         _, _, grounded = _process_decision(event, event.data)
@@ -365,8 +389,11 @@ class TestProcessDecision:
 
     def test_grounded_flag_with_empty_list(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.DECISION,
-            timestamp=datetime.now(timezone.utc), name="d",
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.DECISION,
+            timestamp=datetime.now(timezone.utc),
+            name="d",
             data={"confidence": 0.8, "evidence_event_ids": []},
         )
         _, _, grounded = _process_decision(event, event.data)
@@ -379,8 +406,11 @@ class TestProcessToolResult:
 
     def test_duration_from_data(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.TOOL_RESULT,
-            timestamp=datetime.now(timezone.utc), name="t",
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.TOOL_RESULT,
+            timestamp=datetime.now(timezone.utc),
+            name="t",
             data={"duration_ms": 250},
         )
         duration, _ = _process_tool_result(event, event.data)
@@ -388,8 +418,11 @@ class TestProcessToolResult:
 
     def test_error_flag_true(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.TOOL_RESULT,
-            timestamp=datetime.now(timezone.utc), name="t",
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.TOOL_RESULT,
+            timestamp=datetime.now(timezone.utc),
+            name="t",
             data={"duration_ms": 100, "error": "timeout"},
         )
         _, error = _process_tool_result(event, event.data)
@@ -397,8 +430,11 @@ class TestProcessToolResult:
 
     def test_error_flag_false(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.TOOL_RESULT,
-            timestamp=datetime.now(timezone.utc), name="t",
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.TOOL_RESULT,
+            timestamp=datetime.now(timezone.utc),
+            name="t",
             data={"duration_ms": 100, "error": None},
         )
         _, error = _process_tool_result(event, event.data)
@@ -406,8 +442,11 @@ class TestProcessToolResult:
 
     def test_error_flag_false_when_missing(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.TOOL_RESULT,
-            timestamp=datetime.now(timezone.utc), name="t",
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.TOOL_RESULT,
+            timestamp=datetime.now(timezone.utc),
+            name="t",
             data={"duration_ms": 100},
         )
         _, error = _process_tool_result(event, event.data)
@@ -416,8 +455,11 @@ class TestProcessToolResult:
     def test_error_flag_with_empty_string(self):
         """Empty string error should be falsy (no error)."""
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.TOOL_RESULT,
-            timestamp=datetime.now(timezone.utc), name="t",
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.TOOL_RESULT,
+            timestamp=datetime.now(timezone.utc),
+            name="t",
             data={"duration_ms": 100, "error": ""},
         )
         _, error = _process_tool_result(event, event.data)
@@ -441,16 +483,24 @@ class TestCollectSessionEventMetrics:
 
     def test_refusal_event(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.REFUSAL,
-            timestamp=datetime.now(timezone.utc), name="refusal", data={},
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.REFUSAL,
+            timestamp=datetime.now(timezone.utc),
+            name="refusal",
+            data={},
         )
         result = _collect_session_event_metrics([event])
         assert result["has_refusal"] is True
 
     def test_policy_violation_triggers_refusal_and_escalation(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.POLICY_VIOLATION,
-            timestamp=datetime.now(timezone.utc), name="violation", data={},
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.POLICY_VIOLATION,
+            timestamp=datetime.now(timezone.utc),
+            name="violation",
+            data={},
         )
         result = _collect_session_event_metrics([event])
         assert result["has_refusal"] is True
@@ -458,16 +508,23 @@ class TestCollectSessionEventMetrics:
 
     def test_safety_check_triggers_escalation(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.SAFETY_CHECK,
-            timestamp=datetime.now(timezone.utc), name="safety", data={},
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.SAFETY_CHECK,
+            timestamp=datetime.now(timezone.utc),
+            name="safety",
+            data={},
         )
         result = _collect_session_event_metrics([event])
         assert result["has_escalation"] is True
 
     def test_tool_loop_behavior_alert(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.BEHAVIOR_ALERT,
-            timestamp=datetime.now(timezone.utc), name="alert",
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.BEHAVIOR_ALERT,
+            timestamp=datetime.now(timezone.utc),
+            name="alert",
             data={"alert_type": "tool_loop"},
         )
         result = _collect_session_event_metrics([event])
@@ -475,8 +532,11 @@ class TestCollectSessionEventMetrics:
 
     def test_non_tool_loop_alert_ignored(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.BEHAVIOR_ALERT,
-            timestamp=datetime.now(timezone.utc), name="alert",
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.BEHAVIOR_ALERT,
+            timestamp=datetime.now(timezone.utc),
+            name="alert",
             data={"alert_type": "something_else"},
         )
         result = _collect_session_event_metrics([event])
@@ -485,13 +545,19 @@ class TestCollectSessionEventMetrics:
     def test_agent_turn_tracks_speakers(self):
         events = [
             TraceEvent(
-                id="ev1", session_id="s1", event_type=EventType.AGENT_TURN,
-                timestamp=datetime.now(timezone.utc), name="turn",
+                id="ev1",
+                session_id="s1",
+                event_type=EventType.AGENT_TURN,
+                timestamp=datetime.now(timezone.utc),
+                name="turn",
                 data={"speaker": "agent-a"},
             ),
             TraceEvent(
-                id="ev2", session_id="s1", event_type=EventType.AGENT_TURN,
-                timestamp=datetime.now(timezone.utc), name="turn",
+                id="ev2",
+                session_id="s1",
+                event_type=EventType.AGENT_TURN,
+                timestamp=datetime.now(timezone.utc),
+                name="turn",
                 data={"speaker": "agent-b"},
             ),
         ]
@@ -501,8 +567,11 @@ class TestCollectSessionEventMetrics:
 
     def test_agent_turn_with_agent_id_fallback(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.AGENT_TURN,
-            timestamp=datetime.now(timezone.utc), name="turn",
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.AGENT_TURN,
+            timestamp=datetime.now(timezone.utc),
+            name="turn",
             data={"agent_id": "agent-x"},
         )
         result = _collect_session_event_metrics([event])
@@ -510,8 +579,11 @@ class TestCollectSessionEventMetrics:
 
     def test_none_speaker_excluded(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.AGENT_TURN,
-            timestamp=datetime.now(timezone.utc), name="turn",
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.AGENT_TURN,
+            timestamp=datetime.now(timezone.utc),
+            name="turn",
             data={"speaker": None},
         )
         result = _collect_session_event_metrics([event])
@@ -520,18 +592,27 @@ class TestCollectSessionEventMetrics:
     def test_policy_shifts_counted(self):
         events = [
             TraceEvent(
-                id="ev1", session_id="s1", event_type=EventType.PROMPT_POLICY,
-                timestamp=datetime.now(timezone.utc), name="policy",
+                id="ev1",
+                session_id="s1",
+                event_type=EventType.PROMPT_POLICY,
+                timestamp=datetime.now(timezone.utc),
+                name="policy",
                 data={"template_id": "template-a"},
             ),
             TraceEvent(
-                id="ev2", session_id="s1", event_type=EventType.PROMPT_POLICY,
-                timestamp=datetime.now(timezone.utc), name="policy",
+                id="ev2",
+                session_id="s1",
+                event_type=EventType.PROMPT_POLICY,
+                timestamp=datetime.now(timezone.utc),
+                name="policy",
                 data={"template_id": "template-b"},
             ),
             TraceEvent(
-                id="ev3", session_id="s1", event_type=EventType.PROMPT_POLICY,
-                timestamp=datetime.now(timezone.utc), name="policy",
+                id="ev3",
+                session_id="s1",
+                event_type=EventType.PROMPT_POLICY,
+                timestamp=datetime.now(timezone.utc),
+                name="policy",
                 data={"template_id": "template-a"},
             ),
         ]
@@ -542,13 +623,19 @@ class TestCollectSessionEventMetrics:
     def test_policy_shift_uses_name_fallback(self):
         events = [
             TraceEvent(
-                id="ev1", session_id="s1", event_type=EventType.PROMPT_POLICY,
-                timestamp=datetime.now(timezone.utc), name="policy",
+                id="ev1",
+                session_id="s1",
+                event_type=EventType.PROMPT_POLICY,
+                timestamp=datetime.now(timezone.utc),
+                name="policy",
                 data={"name": "policy-x"},
             ),
             TraceEvent(
-                id="ev2", session_id="s1", event_type=EventType.PROMPT_POLICY,
-                timestamp=datetime.now(timezone.utc), name="policy",
+                id="ev2",
+                session_id="s1",
+                event_type=EventType.PROMPT_POLICY,
+                timestamp=datetime.now(timezone.utc),
+                name="policy",
                 data={"name": "policy-y"},
             ),
         ]
@@ -557,8 +644,12 @@ class TestCollectSessionEventMetrics:
 
     def test_unknown_event_type_ignored(self):
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.LLM_RESPONSE,
-            timestamp=datetime.now(timezone.utc), name="llm", data={},
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.LLM_RESPONSE,
+            timestamp=datetime.now(timezone.utc),
+            name="llm",
+            data={},
         )
         result = _collect_session_event_metrics([event])
         assert result["decision_count"] == 0
@@ -570,9 +661,13 @@ class TestGetSessionScalars:
 
     def test_normal_session(self):
         session = Session(
-            id="s1", agent_name="test", framework="test",
+            id="s1",
+            agent_name="test",
+            framework="test",
             started_at=datetime.now(timezone.utc),
-            total_cost_usd=0.05, total_tokens=500, replay_value=0.8,
+            total_cost_usd=0.05,
+            total_tokens=500,
+            replay_value=0.8,
         )
         cost, tokens, replay = _get_session_scalars(session)
         assert cost == 0.05
@@ -582,7 +677,9 @@ class TestGetSessionScalars:
     def test_session_with_none_scalars(self):
         """Session with None scalar values should default to 0."""
         session = Session(
-            id="s1", agent_name="test", framework="test",
+            id="s1",
+            agent_name="test",
+            framework="test",
             started_at=datetime.now(timezone.utc),
         )
         cost, tokens, replay = _get_session_scalars(session)
@@ -637,6 +734,7 @@ class TestGetSpeaker:
     def test_event_attribute_fallback(self):
         class MockEvent:
             speaker = "agent-c"
+
         assert _get_speaker(MockEvent(), {}) == "agent-c"
 
     def test_none_when_missing(self):
@@ -645,6 +743,7 @@ class TestGetSpeaker:
     def test_data_speaker_takes_priority_over_attr(self):
         class MockEvent:
             speaker = "attr-agent"
+
         assert _get_speaker(MockEvent(), {"speaker": "data-agent"}) == "data-agent"
 
 
@@ -660,6 +759,7 @@ class TestGetPolicyTemplate:
     def test_event_attribute_fallback(self):
         class MockEvent:
             template_id = "attr-t"
+
         assert _get_policy_template(MockEvent(), {}) == "attr-t"
 
     def test_none_when_missing(self):
@@ -705,14 +805,19 @@ class TestEdgeCases:
     def test_events_for_unknown_session_ignored(self):
         """Events for session_ids not in the sessions list should be silently ignored."""
         session = Session(
-            id="s1", agent_name="test", framework="test",
+            id="s1",
+            agent_name="test",
+            framework="test",
             started_at=datetime.now(timezone.utc),
             total_cost_usd=0.01,
         )
         events = [
             TraceEvent(
-                id="ev1", session_id="s1", event_type=EventType.DECISION,
-                timestamp=datetime.now(timezone.utc), name="d",
+                id="ev1",
+                session_id="s1",
+                event_type=EventType.DECISION,
+                timestamp=datetime.now(timezone.utc),
+                name="d",
                 data={"confidence": 0.9},
             ),
         ]
@@ -721,12 +826,16 @@ class TestEdgeCases:
             sessions=[session],
             events_by_session={
                 "s1": events,
-                "unknown-session": [TraceEvent(
-                    id="ev-orphan", session_id="unknown-session",
-                    event_type=EventType.DECISION,
-                    timestamp=datetime.now(timezone.utc), name="d",
-                    data={"confidence": 0.1},
-                )],
+                "unknown-session": [
+                    TraceEvent(
+                        id="ev-orphan",
+                        session_id="unknown-session",
+                        event_type=EventType.DECISION,
+                        timestamp=datetime.now(timezone.utc),
+                        name="d",
+                        data={"confidence": 0.1},
+                    )
+                ],
             },
         )
         assert baseline.session_count == 1
@@ -735,7 +844,9 @@ class TestEdgeCases:
     def test_session_with_no_matching_events_in_map(self):
         """Session with no entry in events_by_session should use empty list."""
         session = Session(
-            id="s1", agent_name="test", framework="test",
+            id="s1",
+            agent_name="test",
+            framework="test",
             started_at=datetime.now(timezone.utc),
             total_cost_usd=0.01,
         )
@@ -749,10 +860,12 @@ class TestEdgeCases:
 
     def test_event_with_missing_data_dict(self):
         """Event without a data attribute should not crash."""
+
         class BareEvent:
             event_type = EventType.DECISION
             id = "ev1"
             session_id = "s1"
+
         result = _collect_session_event_metrics([BareEvent()])
         # Should not crash; decision_count may or may not be incremented
         # depending on how getattr(event, "data", {}) works
@@ -761,8 +874,11 @@ class TestEdgeCases:
     def test_event_with_none_data(self):
         """Event with data=None should not crash."""
         event = TraceEvent(
-            id="ev1", session_id="s1", event_type=EventType.DECISION,
-            timestamp=datetime.now(timezone.utc), name="d",
+            id="ev1",
+            session_id="s1",
+            event_type=EventType.DECISION,
+            timestamp=datetime.now(timezone.utc),
+            name="d",
             data=None,
         )
         # This might crash if code does data.get(...) on None
@@ -772,27 +888,42 @@ class TestEdgeCases:
     def test_mixed_event_types_in_session(self):
         """Session with mixed event types should aggregate correctly."""
         session = Session(
-            id="s1", agent_name="test", framework="test",
+            id="s1",
+            agent_name="test",
+            framework="test",
             started_at=datetime.now(timezone.utc),
         )
         events = [
             TraceEvent(
-                id="ev1", session_id="s1", event_type=EventType.DECISION,
-                timestamp=datetime.now(timezone.utc), name="d",
+                id="ev1",
+                session_id="s1",
+                event_type=EventType.DECISION,
+                timestamp=datetime.now(timezone.utc),
+                name="d",
                 data={"confidence": 0.8},
             ),
             TraceEvent(
-                id="ev2", session_id="s1", event_type=EventType.TOOL_RESULT,
-                timestamp=datetime.now(timezone.utc), name="t",
+                id="ev2",
+                session_id="s1",
+                event_type=EventType.TOOL_RESULT,
+                timestamp=datetime.now(timezone.utc),
+                name="t",
                 data={"duration_ms": 100, "error": None},
             ),
             TraceEvent(
-                id="ev3", session_id="s1", event_type=EventType.REFUSAL,
-                timestamp=datetime.now(timezone.utc), name="r", data={},
+                id="ev3",
+                session_id="s1",
+                event_type=EventType.REFUSAL,
+                timestamp=datetime.now(timezone.utc),
+                name="r",
+                data={},
             ),
             TraceEvent(
-                id="ev4", session_id="s1", event_type=EventType.AGENT_TURN,
-                timestamp=datetime.now(timezone.utc), name="turn",
+                id="ev4",
+                session_id="s1",
+                event_type=EventType.AGENT_TURN,
+                timestamp=datetime.now(timezone.utc),
+                name="turn",
                 data={"speaker": "agent-1"},
             ),
         ]
@@ -812,7 +943,9 @@ class TestEdgeCases:
         """Baseline across sessions where some have no events."""
         sessions = [
             Session(
-                id=f"s{i}", agent_name="test", framework="test",
+                id=f"s{i}",
+                agent_name="test",
+                framework="test",
                 started_at=datetime.now(timezone.utc),
                 total_cost_usd=0.01 * (i + 1),
             )
@@ -821,8 +954,11 @@ class TestEdgeCases:
         events_by_session = {
             "s0": [
                 TraceEvent(
-                    id="ev1", session_id="s0", event_type=EventType.DECISION,
-                    timestamp=datetime.now(timezone.utc), name="d",
+                    id="ev1",
+                    session_id="s0",
+                    event_type=EventType.DECISION,
+                    timestamp=datetime.now(timezone.utc),
+                    name="d",
                     data={"confidence": 0.9},
                 ),
             ],
@@ -851,7 +987,9 @@ class TestDeterministicComputedAt:
         """Passing computed_at should use that value instead of datetime.now()."""
         fixed_time = datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
         session = Session(
-            id="s1", agent_name="test", framework="test",
+            id="s1",
+            agent_name="test",
+            framework="test",
             started_at=fixed_time,
         )
         baseline = compute_baseline_from_sessions(
@@ -866,7 +1004,9 @@ class TestDeterministicComputedAt:
         """Without computed_at, should use current time."""
         before = datetime.now(timezone.utc)
         session = Session(
-            id="s1", agent_name="test", framework="test",
+            id="s1",
+            agent_name="test",
+            framework="test",
             started_at=before,
         )
         baseline = compute_baseline_from_sessions(
@@ -884,12 +1024,14 @@ class TestConfigurableThresholds:
     def test_custom_warning_threshold(self):
         """Custom warning_threshold should override the default 25%."""
         baseline = AgentBaseline(
-            agent_name="test", session_count=5,
+            agent_name="test",
+            session_count=5,
             computed_at=datetime.now(timezone.utc),
             avg_decision_confidence=0.8,
         )
         current = AgentBaseline(
-            agent_name="test", session_count=3,
+            agent_name="test",
+            session_count=3,
             computed_at=datetime.now(timezone.utc),
             avg_decision_confidence=0.7,  # 12.5% decrease — below 25% default
         )
@@ -899,7 +1041,8 @@ class TestConfigurableThresholds:
 
         # With 10% warning threshold: should alert
         alerts_custom = detect_drift(
-            baseline, current,
+            baseline,
+            current,
             warning_threshold=0.10,
         )
         assert len(alerts_custom) == 1
@@ -908,12 +1051,14 @@ class TestConfigurableThresholds:
     def test_custom_critical_threshold(self):
         """Custom critical_threshold should override the default 50%."""
         baseline = AgentBaseline(
-            agent_name="test", session_count=5,
+            agent_name="test",
+            session_count=5,
             computed_at=datetime.now(timezone.utc),
             error_rate=0.1,
         )
         current = AgentBaseline(
-            agent_name="test", session_count=3,
+            agent_name="test",
+            session_count=3,
             computed_at=datetime.now(timezone.utc),
             error_rate=0.14,  # 40% increase — warning at 25%, below 50% critical
         )
@@ -924,7 +1069,8 @@ class TestConfigurableThresholds:
 
         # With 30% critical threshold: should be critical
         alerts_custom = detect_drift(
-            baseline, current,
+            baseline,
+            current,
             critical_threshold=0.30,
         )
         assert len(alerts_custom) == 1
@@ -933,13 +1079,15 @@ class TestConfigurableThresholds:
     def test_thresholds_default_to_module_constants(self):
         """Without custom thresholds, should use WARNING_THRESHOLD and CRITICAL_THRESHOLD."""
         baseline = AgentBaseline(
-            agent_name="test", session_count=5,
+            agent_name="test",
+            session_count=5,
             computed_at=datetime.now(timezone.utc),
             avg_decision_confidence=0.8,
         )
         # Exactly at 25% decrease = warning boundary
         current = AgentBaseline(
-            agent_name="test", session_count=3,
+            agent_name="test",
+            session_count=3,
             computed_at=datetime.now(timezone.utc),
             avg_decision_confidence=0.6,  # exactly 25% decrease
         )

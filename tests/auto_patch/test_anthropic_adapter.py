@@ -490,9 +490,7 @@ class TestAnthropicAdapterAsyncPatch:
         assert result is fake_response
 
     def test_async_response_contains_model_and_usage(self, fake_anthropic, mock_httpx) -> None:
-        fake_response = _make_fake_response(
-            model="claude-3-5-haiku-20241022", input_tokens=99, output_tokens=88
-        )
+        fake_response = _make_fake_response(model="claude-3-5-haiku-20241022", input_tokens=99, output_tokens=88)
 
         async def async_original(self_client, *args, **kwargs):
             return fake_response

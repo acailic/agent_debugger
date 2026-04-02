@@ -190,9 +190,7 @@ class TestBuildOscillationSequence:
             name="Error",
             data={},
         )
-        sequence, event_map = _build_oscillation_sequence(
-            [error, sample_tool_call, sample_decision]
-        )
+        sequence, event_map = _build_oscillation_sequence([error, sample_tool_call, sample_decision])
 
         # Should only include tool_call and decision, not error
         assert len(sequence) == 2

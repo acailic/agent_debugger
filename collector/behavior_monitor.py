@@ -38,9 +38,7 @@ class BehaviorMonitor:
         self.min_baseline_days = 7
         self.min_baseline_sessions = 30
 
-    def detect_changes(
-        self, baseline_data: dict[str, Any], recent_data: dict[str, Any]
-    ) -> list[BehaviorChange]:
+    def detect_changes(self, baseline_data: dict[str, Any], recent_data: dict[str, Any]) -> list[BehaviorChange]:
         """Detect behavior changes between baseline and recent data."""
         changes: list[BehaviorChange] = []
 
@@ -188,9 +186,7 @@ class BehaviorMonitor:
 
         return changes
 
-    def _calculate_distribution_shift(
-        self, baseline: dict[str, float], recent: dict[str, float]
-    ) -> float:
+    def _calculate_distribution_shift(self, baseline: dict[str, float], recent: dict[str, float]) -> float:
         """Calculate the magnitude of distribution shift."""
         all_keys = set(baseline.keys()) | set(recent.keys())
         total_shift = 0.0

@@ -1,4 +1,5 @@
 """Tool loop detection alerter."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -28,9 +29,7 @@ class ToolLoopAlerter(AlertDeriver):
 
         if len(last_three_tool_calls) == 3:
             tool_name = _event_value(last_three_tool_calls[-1], "tool_name", "")
-            if tool_name and all(
-                _event_value(event, "tool_name", "") == tool_name for event in last_three_tool_calls
-            ):
+            if tool_name and all(_event_value(event, "tool_name", "") == tool_name for event in last_three_tool_calls):
                 alerts.append(
                     {
                         "alert_type": "tool_loop",

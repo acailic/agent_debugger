@@ -377,10 +377,7 @@ async def test_concurrent_publish_safety():
     session_id = "concurrent_session"
 
     # Publish concurrently
-    tasks = [
-        buf.publish(session_id, _make_event(session_id=session_id, name=f"event{i}"))
-        for i in range(10)
-    ]
+    tasks = [buf.publish(session_id, _make_event(session_id=session_id, name=f"event{i}")) for i in range(10)]
     await asyncio.gather(*tasks)
 
     events = await buf.get_events(session_id)

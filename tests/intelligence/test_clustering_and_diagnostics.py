@@ -845,10 +845,7 @@ class TestLiveMonitorBuildLiveSummary:
         """Should limit the number of recent alerts returned."""
         monitor = LiveMonitor()
 
-        events = [
-            _make_behavior_alert_event(f"alert{i}", "tool_loop", f"alert {i}")
-            for i in range(20)
-        ]
+        events = [_make_behavior_alert_event(f"alert{i}", "tool_loop", f"alert {i}") for i in range(20)]
 
         result = monitor.build_live_summary(events, [])
 

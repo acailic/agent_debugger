@@ -20,6 +20,7 @@ class TestTraceDecorator:
         # Reset to test idempotency
         import agent_debugger_sdk.simple as simple_mod
         from agent_debugger_sdk.config import get_config
+
         simple_mod._initialized = False
 
         _ensure_initialized()

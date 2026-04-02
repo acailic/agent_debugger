@@ -1,6 +1,5 @@
 """Tests for alert derivation system."""
 
-
 from agent_debugger_sdk.core.events import EventType, TraceEvent
 from collector.alerts.base import AlertDeriver
 from collector.alerts.guardrail import GuardrailPressureAlerter
@@ -220,10 +219,7 @@ class TestGuardrailPressureAlerter:
     def test_high_severity_with_many_guardrails(self) -> None:
         """Should alert with high severity when there are 5+ guardrails."""
         alerter = GuardrailPressureAlerter()
-        events = [
-            make_event(event_type=EventType.REFUSAL, data={"reason": f"blocked{i}"})
-            for i in range(5)
-        ]
+        events = [make_event(event_type=EventType.REFUSAL, data={"reason": f"blocked{i}"}) for i in range(5)]
         alerts = alerter.derive(events)
         assert len(alerts) == 1
         assert alerts[0]["severity"] == "high"
@@ -233,9 +229,7 @@ class TestGuardrailPressureAlerter:
         """SAFETY_CHECK events with outcome='pass' should NOT count as guardrails."""
         alerter = GuardrailPressureAlerter()
         events = [
-            make_event(
-                event_type=EventType.SAFETY_CHECK, data={"outcome": "pass", "check": "safe"}
-            ),
+            make_event(event_type=EventType.SAFETY_CHECK, data={"outcome": "pass", "check": "safe"}),
             make_event(event_type=EventType.REFUSAL, data={"reason": "blocked"}),
         ]
         alerts = alerter.derive(events)
@@ -246,9 +240,7 @@ class TestGuardrailPressureAlerter:
         """SAFETY_CHECK events with outcome != 'pass' should count as guardrails."""
         alerter = GuardrailPressureAlerter()
         events = [
-            make_event(
-                event_type=EventType.SAFETY_CHECK, data={"outcome": "fail", "check": "unsafe"}
-            ),
+            make_event(event_type=EventType.SAFETY_CHECK, data={"outcome": "fail", "check": "unsafe"}),
             make_event(event_type=EventType.REFUSAL, data={"reason": "blocked"}),
         ]
         alerts = alerter.derive(events)
@@ -272,9 +264,7 @@ class TestGuardrailPressureAlerter:
         events = [
             make_event(event_type=EventType.REFUSAL, data={"reason": "blocked"}),
             make_event(event_type=EventType.POLICY_VIOLATION, data={"policy": "violated"}),
-            make_event(
-                event_type=EventType.SAFETY_CHECK, data={"outcome": "fail", "check": "unsafe"}
-            ),
+            make_event(event_type=EventType.SAFETY_CHECK, data={"outcome": "fail", "check": "unsafe"}),
         ]
         alerts = alerter.derive(events)
         assert len(alerts) == 1
@@ -334,9 +324,7 @@ class TestPolicyShiftAlerter:
         """Should not alert when there is only 1 unique policy."""
         alerter = PolicyShiftAlerter()
         events = [
-            make_event(
-                event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}
-            ),
+            make_event(event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}),
         ]
         alerts = alerter.derive(events)
         assert alerts == []
@@ -345,12 +333,8 @@ class TestPolicyShiftAlerter:
         """Should alert when there are 2+ unique template_ids."""
         alerter = PolicyShiftAlerter()
         events = [
-            make_event(
-                event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}
-            ),
-            make_event(
-                event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_b"}
-            ),
+            make_event(event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}),
+            make_event(event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_b"}),
         ]
         alerts = alerter.derive(events)
         assert len(alerts) == 1
@@ -361,9 +345,7 @@ class TestPolicyShiftAlerter:
         """Should alert when there are 3+ unique template_ids."""
         alerter = PolicyShiftAlerter()
         events = [
-            make_event(
-                event_type=EventType.PROMPT_POLICY, data={"template_id": f"policy_{chr(65 + i)}"}
-            )
+            make_event(event_type=EventType.PROMPT_POLICY, data={"template_id": f"policy_{chr(65 + i)}"})
             for i in range(3)
         ]
         alerts = alerter.derive(events)
@@ -375,15 +357,9 @@ class TestPolicyShiftAlerter:
         """Should not alert when same template_id appears multiple times."""
         alerter = PolicyShiftAlerter()
         events = [
-            make_event(
-                event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}
-            ),
-            make_event(
-                event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}
-            ),
-            make_event(
-                event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}
-            ),
+            make_event(event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}),
+            make_event(event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}),
+            make_event(event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}),
         ]
         alerts = alerter.derive(events)
         assert alerts == []
@@ -392,12 +368,8 @@ class TestPolicyShiftAlerter:
         """Should use event name when template_id is missing."""
         alerter = PolicyShiftAlerter()
         events = [
-            make_event(
-                event_type=EventType.PROMPT_POLICY, name="policy_x", data={}
-            ),
-            make_event(
-                event_type=EventType.PROMPT_POLICY, name="policy_y", data={}
-            ),
+            make_event(event_type=EventType.PROMPT_POLICY, name="policy_x", data={}),
+            make_event(event_type=EventType.PROMPT_POLICY, name="policy_y", data={}),
         ]
         alerts = alerter.derive(events)
         assert len(alerts) == 1
@@ -407,12 +379,8 @@ class TestPolicyShiftAlerter:
         """Should ignore policies with empty/None template_id."""
         alerter = PolicyShiftAlerter()
         events = [
-            make_event(
-                event_type=EventType.PROMPT_POLICY, data={"template_id": ""}, name=""
-            ),
-            make_event(
-                event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}
-            ),
+            make_event(event_type=EventType.PROMPT_POLICY, data={"template_id": ""}, name=""),
+            make_event(event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}),
         ]
         alerts = alerter.derive(events)
         # Only 1 valid policy, so no alert
@@ -423,13 +391,9 @@ class TestPolicyShiftAlerter:
         alerter = PolicyShiftAlerter()
         events = [
             make_event(event_type=EventType.TOOL_CALL),
-            make_event(
-                event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}
-            ),
+            make_event(event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}),
             make_event(event_type=EventType.LLM_REQUEST),
-            make_event(
-                event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_b"}
-            ),
+            make_event(event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_b"}),
         ]
         alerts = alerter.derive(events)
         assert len(alerts) == 1
@@ -439,12 +403,8 @@ class TestPolicyShiftAlerter:
         """Alert should reference the last policy event's ID."""
         alerter = PolicyShiftAlerter()
         events = [
-            make_event(
-                event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}
-            ),
-            make_event(
-                event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_b"}
-            ),
+            make_event(event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_a"}),
+            make_event(event_type=EventType.PROMPT_POLICY, data={"template_id": "policy_b"}),
         ]
         alerts = alerter.derive(events)
         assert len(alerts) == 1

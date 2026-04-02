@@ -143,7 +143,7 @@ async def enrich_session(session_id: str, session_maker: async_sessionmaker[Asyn
                     alert_type="looping_behavior",
                     severity=0.7 + (i * 0.1),
                     signal=f"Detected repeated tool call pattern (iteration {i + 1})",
-                    event_ids=event_ids[i:i+1] if i < len(event_ids) else [],
+                    event_ids=event_ids[i : i + 1] if i < len(event_ids) else [],
                     detection_source="demo_seed",
                     detection_config={"threshold": 3, "window": 60},
                 )

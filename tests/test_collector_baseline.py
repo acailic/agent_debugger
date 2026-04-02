@@ -944,9 +944,7 @@ class TestDetectDriftEdgeCases:
         assert alerts_default[0].severity == "warning"
 
         # With custom thresholds (10% warning, 20% critical)
-        alerts_custom = detect_drift(
-            baseline, current, warning_threshold=0.10, critical_threshold=0.20
-        )
+        alerts_custom = detect_drift(baseline, current, warning_threshold=0.10, critical_threshold=0.20)
         assert len(alerts_custom) == 1
         assert alerts_custom[0].severity == "critical"
 
@@ -1153,8 +1151,17 @@ class TestIntegrationScenarios:
             "s2": [
                 AgentTurnEvent(id="ev7", session_id="s2", speaker="agent-1", turn_index=1),
                 DecisionEvent(id="ev8", session_id="s2", confidence=0.3),
-                SafetyCheckEvent(id="ev9", session_id="s2", policy_name="safety", outcome="warn", risk_level="medium", blocked_action="send"),
-                ToolResultEvent(id="ev10", session_id="s2", tool_name="browse", result=[], error="fail", duration_ms=200),
+                SafetyCheckEvent(
+                    id="ev9",
+                    session_id="s2",
+                    policy_name="safety",
+                    outcome="warn",
+                    risk_level="medium",
+                    blocked_action="send",
+                ),
+                ToolResultEvent(
+                    id="ev10", session_id="s2", tool_name="browse", result=[], error="fail", duration_ms=200
+                ),
             ],
         }
 

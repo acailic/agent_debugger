@@ -50,9 +50,7 @@ class FailureMemory:
         self.embedding_model = embedding_model
         self.vector_db = vector_db
 
-    def remember_failure(
-        self, error_event: Any, fix_applied: str | None = None
-    ) -> None:
+    def remember_failure(self, error_event: Any, fix_applied: str | None = None) -> None:
         """Store a failure in memory with optional fix information."""
         signature = self.extract_signature(error_event)
         text = signature.to_text()
@@ -77,10 +75,7 @@ class FailureMemory:
             n_results=1,
         )
 
-        if (
-            existing_results["ids"]
-            and existing_results["distances"][0] < 0.1
-        ):
+        if existing_results["ids"] and existing_results.get("distances") and existing_results["distances"][0] < 0.1:
             # Update existing failure
             existing_id = existing_results["ids"][0]
             existing_metadata = existing_results["metadatas"][0]
@@ -100,9 +95,7 @@ class FailureMemory:
                 metadatas=[metadata],
             )
 
-    def search_similar(
-        self, error_event: Any, threshold: float = 0.5
-    ) -> list[SimilarFailureMatch]:
+    def search_similar(self, error_event: Any, threshold: float = 0.5) -> list[SimilarFailureMatch]:
         """Search for similar failures in memory."""
         try:
             signature = self.extract_signature(error_event)
@@ -164,9 +157,7 @@ class FailureMemory:
     def remember_session_failures(self, session: dict[str, Any]) -> bool | list[Any]:
         """Store all failures from a session."""
         events = session.get("events", [])
-        error_events = [
-            e for e in events if hasattr(e, "event_type") and e.event_type.name == "ERROR"
-        ]
+        error_events = [e for e in events if hasattr(e, "event_type") and e.event_type.name == "ERROR"]
 
         if not error_events:
             return False

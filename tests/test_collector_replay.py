@@ -207,7 +207,12 @@ class TestMatchesBreakpoint:
             event_type=EventType.ERROR,
             name="error",
         )
-        assert matches_breakpoint(event, event_types={"error"}, tool_names=set(), confidence_below=None, safety_outcomes=set()) is True
+        assert (
+            matches_breakpoint(
+                event, event_types={"error"}, tool_names=set(), confidence_below=None, safety_outcomes=set()
+            )
+            is True
+        )
 
     def test_does_not_match_event_type(self) -> None:
         """Should not match when event type is not in breakpoint set."""
@@ -216,7 +221,12 @@ class TestMatchesBreakpoint:
             event_type=EventType.TOOL_CALL,
             name="tool",
         )
-        assert matches_breakpoint(event, event_types={"error"}, tool_names=set(), confidence_below=None, safety_outcomes=set()) is False
+        assert (
+            matches_breakpoint(
+                event, event_types={"error"}, tool_names=set(), confidence_below=None, safety_outcomes=set()
+            )
+            is False
+        )
 
     def test_matches_tool_name(self) -> None:
         """Should match when tool name is in breakpoint set."""
@@ -225,7 +235,12 @@ class TestMatchesBreakpoint:
             tool_name="search",
             arguments={"q": "test"},
         )
-        assert matches_breakpoint(event, event_types=set(), tool_names={"search"}, confidence_below=None, safety_outcomes=set()) is True
+        assert (
+            matches_breakpoint(
+                event, event_types=set(), tool_names={"search"}, confidence_below=None, safety_outcomes=set()
+            )
+            is True
+        )
 
     def test_matches_confidence_below_threshold(self) -> None:
         """Should match when confidence is below threshold."""
@@ -235,7 +250,10 @@ class TestMatchesBreakpoint:
             confidence=0.3,
             chosen_action="test_action",
         )
-        assert matches_breakpoint(event, event_types=set(), tool_names=set(), confidence_below=0.5, safety_outcomes=set()) is True
+        assert (
+            matches_breakpoint(event, event_types=set(), tool_names=set(), confidence_below=0.5, safety_outcomes=set())
+            is True
+        )
 
     def test_does_not_match_confidence_above_threshold(self) -> None:
         """Should not match when confidence is above threshold."""
@@ -245,7 +263,10 @@ class TestMatchesBreakpoint:
             confidence=0.8,
             chosen_action="test_action",
         )
-        assert matches_breakpoint(event, event_types=set(), tool_names=set(), confidence_below=0.5, safety_outcomes=set()) is False
+        assert (
+            matches_breakpoint(event, event_types=set(), tool_names=set(), confidence_below=0.5, safety_outcomes=set())
+            is False
+        )
 
     def test_matches_safety_outcome(self) -> None:
         """Should match when safety outcome is in breakpoint set."""
@@ -255,7 +276,12 @@ class TestMatchesBreakpoint:
             outcome="fail",
             rationale="test rationale",
         )
-        assert matches_breakpoint(event, event_types=set(), tool_names=set(), confidence_below=None, safety_outcomes={"fail"}) is True
+        assert (
+            matches_breakpoint(
+                event, event_types=set(), tool_names=set(), confidence_below=None, safety_outcomes={"fail"}
+            )
+            is True
+        )
 
     def test_matches_no_criteria_returns_false(self) -> None:
         """Should return False when no criteria match."""
@@ -264,7 +290,10 @@ class TestMatchesBreakpoint:
             event_type=EventType.TOOL_CALL,
             name="tool",
         )
-        assert matches_breakpoint(event, event_types=set(), tool_names=set(), confidence_below=None, safety_outcomes=set()) is False
+        assert (
+            matches_breakpoint(event, event_types=set(), tool_names=set(), confidence_below=None, safety_outcomes=set())
+            is False
+        )
 
 
 class TestBuildChildrenByParent:
@@ -300,9 +329,7 @@ class TestCollectScopedAncestorIds:
         event_index = {e.id: i for i, e in enumerate(events)}
         event_by_id = {e.id: e for e in events}
 
-        result = _collect_scoped_ancestor_ids(
-            event.id, event_index=event_index, event_by_id=event_by_id, start_index=0
-        )
+        result = _collect_scoped_ancestor_ids(event.id, event_index=event_index, event_by_id=event_by_id, start_index=0)
 
         assert event.id in result
 
@@ -316,9 +343,7 @@ class TestCollectScopedAncestorIds:
         event_index = {e.id: i for i, e in enumerate(events)}
         event_by_id = {e.id: e for e in events}
 
-        result = _collect_scoped_ancestor_ids(
-            child.id, event_index=event_index, event_by_id=event_by_id, start_index=0
-        )
+        result = _collect_scoped_ancestor_ids(child.id, event_index=event_index, event_by_id=event_by_id, start_index=0)
 
         assert child.id in result
         assert parent.id in result
@@ -338,9 +363,7 @@ class TestCollectScopedAncestorIds:
         event_index = {e.id: i for i, e in enumerate(events)}
         event_by_id = {e.id: e for e in events}
 
-        result = _collect_scoped_ancestor_ids(
-            focus.id, event_index=event_index, event_by_id=event_by_id, start_index=0
-        )
+        result = _collect_scoped_ancestor_ids(focus.id, event_index=event_index, event_by_id=event_by_id, start_index=0)
 
         assert focus.id in result
         assert upstream.id in result
@@ -449,9 +472,7 @@ class TestCollectFocusScopeIds:
 
     def test_invalid_focus_id_returns_all_from_start(self) -> None:
         """Should return all events from start_index when focus_id is invalid."""
-        events = [
-            TraceEvent(session_id="s1", event_type=EventType.TOOL_CALL, name=f"event{i}") for i in range(5)
-        ]
+        events = [TraceEvent(session_id="s1", event_type=EventType.TOOL_CALL, name=f"event{i}") for i in range(5)]
 
         result = _collect_focus_scope_ids(events, focus_event_id="invalid", start_index=2)
 
@@ -480,13 +501,8 @@ class TestBuildReplay:
 
     def test_full_mode_includes_all_events(self) -> None:
         """Full mode should include all events and checkpoints."""
-        events = [
-            TraceEvent(session_id="s1", event_type=EventType.TOOL_CALL, name=f"tool{i}")
-            for i in range(3)
-        ]
-        checkpoints = [
-            Checkpoint(session_id="s1", event_id=events[1].id, sequence=1)
-        ]
+        events = [TraceEvent(session_id="s1", event_type=EventType.TOOL_CALL, name=f"tool{i}") for i in range(3)]
+        checkpoints = [Checkpoint(session_id="s1", event_id=events[1].id, sequence=1)]
 
         result = build_replay(events, checkpoints, mode="full", focus_event_id=None)
 
@@ -524,10 +540,7 @@ class TestBuildReplay:
 
     def test_finds_nearest_checkpoint_before_focus(self) -> None:
         """Should find the nearest checkpoint at or before the focus index."""
-        events = [
-            TraceEvent(session_id="s1", event_type=EventType.TOOL_CALL, name=f"event{i}")
-            for i in range(5)
-        ]
+        events = [TraceEvent(session_id="s1", event_type=EventType.TOOL_CALL, name=f"event{i}") for i in range(5)]
         checkpoints = [
             Checkpoint(session_id="s1", event_id=events[1].id, sequence=1),
             Checkpoint(session_id="s1", event_id=events[3].id, sequence=2),
@@ -577,10 +590,7 @@ class TestBuildReplay:
 
     def test_respects_checkpoint_start_index(self) -> None:
         """Focus/failure modes should start from checkpoint index."""
-        events = [
-            TraceEvent(session_id="s1", event_type=EventType.TOOL_CALL, name=f"event{i}")
-            for i in range(5)
-        ]
+        events = [TraceEvent(session_id="s1", event_type=EventType.TOOL_CALL, name=f"event{i}") for i in range(5)]
         checkpoint = Checkpoint(session_id="s1", event_id=events[2].id, sequence=1)
 
         result = build_replay(events, [checkpoint], mode="focus", focus_event_id=events[4].id)

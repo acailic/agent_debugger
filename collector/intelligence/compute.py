@@ -80,10 +80,7 @@ def compute_session_replay_value(
                 return _ensure_aware(e.timestamp)
             return datetime.fromisoformat(e.timestamp.replace("Z", "+00:00"))
 
-        most_recent_failure_ts = max(
-            (_parse_ts(e) for e in failure_events if e.timestamp),
-            default=started_at
-        )
+        most_recent_failure_ts = max((_parse_ts(e) for e in failure_events if e.timestamp), default=started_at)
         days_since_failure = (now - most_recent_failure_ts).total_seconds() / 86400
         if days_since_failure <= RECENT_SESSION_DAYS:
             failure_recency_boost = 0.15
@@ -130,14 +127,10 @@ def compute_event_ranking(
     replay_value = severity * 0.55
     replay_value += 0.15 if event.id in checkpoint_event_ids else 0.0
     replay_value += (
-        0.1
-        if event.event_type in {EventType.DECISION, EventType.REFUSAL, EventType.POLICY_VIOLATION}
-        else 0.0
+        0.1 if event.event_type in {EventType.DECISION, EventType.REFUSAL, EventType.POLICY_VIOLATION} else 0.0
     )
     replay_value += (
-        0.1
-        if bool(event_value(event, "upstream_event_ids", getattr(event, "upstream_event_ids", [])))
-        else 0.0
+        0.1 if bool(event_value(event, "upstream_event_ids", getattr(event, "upstream_event_ids", []))) else 0.0
     )
     replay_value += 0.1 if bool(event_value(event, "evidence_event_ids", [])) else 0.0
 
@@ -258,7 +251,5 @@ def compute_checkpoint_rankings(
             }
         )
 
-    checkpoint_rankings.sort(
-        key=lambda item: (-item["restore_value"], -item["importance"], -item["sequence"])
-    )
+    checkpoint_rankings.sort(key=lambda item: (-item["restore_value"], -item["importance"], -item["sequence"]))
     return checkpoint_rankings, checkpoint_values

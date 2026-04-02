@@ -345,6 +345,7 @@ class TestIntegration:
         simple_mod._initialized = False
 
         with patch("agent_debugger_sdk.simple.init") as mock_init:
+
             @trace
             async def agent1() -> str:
                 return "1"
@@ -364,6 +365,7 @@ class TestIntegration:
         simple_mod._initialized = False
 
         with patch("agent_debugger_sdk.simple.init") as mock_init:
+
             @trace
             async def agent() -> str:
                 return "ok"

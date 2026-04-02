@@ -429,10 +429,7 @@ class TestGenerateHighlights:
             )
             for i in range(25)
         ]
-        rankings = [
-            {"event_id": f"error-{i}", "severity": 0.8, "composite": 0.7}
-            for i in range(25)
-        ]
+        rankings = [{"event_id": f"error-{i}", "severity": 0.8, "composite": 0.7} for i in range(25)]
         highlights = generate_highlights(events, rankings, mock_headline_fn)
         assert len(highlights) == 20
 
@@ -461,10 +458,7 @@ class TestGenerateHighlights:
             )
             for i in range(5)
         ]
-        rankings = [
-            {"event_id": f"error-{i}", "severity": 0.7, "composite": 0.6}
-            for i in range(5)
-        ]
+        rankings = [{"event_id": f"error-{i}", "severity": 0.7, "composite": 0.6} for i in range(5)]
         highlights = generate_highlights(events, rankings, mock_headline_fn)
         assert len(highlights) == 5
         for h in highlights:

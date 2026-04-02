@@ -89,7 +89,6 @@ class CheckpointModel(Base):
     event: Mapped[EventModel | None] = relationship()
 
 
-
 class AnomalyAlertModel(Base):
     """SQLAlchemy ORM model for anomaly alerts."""
 

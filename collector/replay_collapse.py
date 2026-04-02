@@ -37,9 +37,7 @@ def _get_high_value_indices(events: list["TraceEvent"], threshold: float) -> set
     return {i for i, event in enumerate(events) if (event.importance or 0) >= threshold}
 
 
-def _protect_context_around_high_value(
-    high_value_indices: set[int], num_events: int, context_window: int
-) -> set[int]:
+def _protect_context_around_high_value(high_value_indices: set[int], num_events: int, context_window: int) -> set[int]:
     """Expand protected indices to include context window around high-value events."""
     protected: set[int] = set(high_value_indices)
     for idx in high_value_indices:
@@ -77,9 +75,7 @@ def _find_contiguous_low_value_runs(
     return segments
 
 
-def _build_segment_from_events(
-    events: list["TraceEvent"], start: int, end: int
-) -> CollapsedSegment:
+def _build_segment_from_events(events: list["TraceEvent"], start: int, end: int) -> CollapsedSegment:
     """Build a CollapsedSegment from a slice of events."""
     segment_events = events[start : end + 1]
     event_types = list({str(e.event_type) for e in segment_events})
@@ -126,9 +122,7 @@ def identify_low_value_segments(
         return []
 
     high_value_indices = _get_high_value_indices(events, threshold)
-    protected = _protect_context_around_high_value(
-        high_value_indices, len(events), context_window
-    )
+    protected = _protect_context_around_high_value(high_value_indices, len(events), context_window)
     segments = _find_contiguous_low_value_runs(len(events), protected, min_segment_length)
 
     return [_build_segment_from_events(events, start, end) for start, end in segments]

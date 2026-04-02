@@ -34,6 +34,7 @@ class TestLangChainTracingHandler(
     TestLangChainTracingHandlerEdgeCases,
 ):
     """Combined test class for backward compatibility."""
+
     pass
 
 

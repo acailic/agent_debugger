@@ -49,6 +49,7 @@ __all__ = ["trace", "trace_session"]
 # @trace decorator
 # ---------------------------------------------------------------------------
 
+
 def trace(
     func: Callable[..., Awaitable[Any]] | None = None,
     *,
@@ -108,6 +109,7 @@ def trace(
 # ---------------------------------------------------------------------------
 # trace_session() context manager
 # ---------------------------------------------------------------------------
+
 
 @asynccontextmanager
 async def trace_session(

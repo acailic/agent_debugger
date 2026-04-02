@@ -385,7 +385,9 @@ async def test_flush_returns_early_with_no_sessions(persistence_manager, temp_st
 async def test_flush_writes_events_to_storage(persistence_manager, sample_events, temp_storage_path):
     """Test that flush writes events to the correct files."""
     persistence_manager.buffer.get_session_ids = AsyncMock(return_value=["s1", "s2"])
-    persistence_manager.buffer.flush = AsyncMock(side_effect=lambda sid: [e for e in sample_events if e.session_id == sid])
+    persistence_manager.buffer.flush = AsyncMock(
+        side_effect=lambda sid: [e for e in sample_events if e.session_id == sid]
+    )
 
     await persistence_manager._ensure_storage_path()
     await persistence_manager.flush()
@@ -432,9 +434,7 @@ async def test_flush_appends_to_existing_files(persistence_manager, sample_event
 async def test_flush_skips_empty_sessions(persistence_manager, sample_events, temp_storage_path):
     """Test that flush skips sessions with no events."""
     persistence_manager.buffer.get_session_ids = AsyncMock(return_value=["s1", "s2", "s3"])
-    persistence_manager.buffer.flush = AsyncMock(
-        side_effect=lambda sid: [] if sid == "s2" else sample_events[:1]
-    )
+    persistence_manager.buffer.flush = AsyncMock(side_effect=lambda sid: [] if sid == "s2" else sample_events[:1])
 
     await persistence_manager._ensure_storage_path()
     await persistence_manager.flush()
@@ -451,7 +451,9 @@ async def test_flush_skips_empty_sessions(persistence_manager, sample_events, te
 
 
 @pytest.mark.asyncio
-async def test_write_session_events_creates_file_with_correct_format(persistence_manager, sample_events, temp_storage_path):
+async def test_write_session_events_creates_file_with_correct_format(
+    persistence_manager, sample_events, temp_storage_path
+):
     """Test that events are written in the correct NDJSON format."""
     await persistence_manager._ensure_storage_path()
     await persistence_manager._write_session_events("s1", sample_events[:2])

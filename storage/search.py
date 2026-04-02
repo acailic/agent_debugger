@@ -170,11 +170,7 @@ class SessionSearchService:
             return {}
 
         searchable_fields = ("error_type", "error_message", "tool_name", "model")
-        return {
-            field_name: event_data[field_name]
-            for field_name in searchable_fields
-            if field_name in event_data
-        }
+        return {field_name: event_data[field_name] for field_name in searchable_fields if field_name in event_data}
 
     def _build_ranked_session_results(
         self,

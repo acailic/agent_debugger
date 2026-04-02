@@ -598,8 +598,6 @@ def test_activate_deactivate_reactivate_preserves_functionality(monkeypatch, moc
 
         # The key behavior: session was reset and is now available again
         # (With the mock, the ID is the same, but in production it would differ)
-        assert first_session_id == second_session_id, (
-            "Session IDs should match with mock (same response each time)"
-        )
+        assert first_session_id == second_session_id, "Session IDs should match with mock (same response each time)"
     finally:
         deactivate()

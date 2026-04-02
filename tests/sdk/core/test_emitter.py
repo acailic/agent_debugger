@@ -248,9 +248,7 @@ class TestEventEmitterCreation:
         minimal_emitter._event_persister = None
         assert minimal_emitter._event_persister is None
 
-    def test_set_session_update_hook(
-        self, minimal_emitter: EventEmitter, mock_session_update_hook: AsyncMock
-    ):
+    def test_set_session_update_hook(self, minimal_emitter: EventEmitter, mock_session_update_hook: AsyncMock):
         """Test updating the session update hook after creation."""
         assert minimal_emitter._session_update_hook is None
 
@@ -847,9 +845,10 @@ class TestHttpTransportSendEvent:
         event = _make_event()
         callback = MagicMock(spec=DeliveryFailureCallback, side_effect=RuntimeError("Callback error"))
 
-        with patch.object(transport._client, "post") as mock_post, patch(
-            "agent_debugger_sdk.transport.logger"
-        ) as mock_logger:
+        with (
+            patch.object(transport._client, "post") as mock_post,
+            patch("agent_debugger_sdk.transport.logger") as mock_logger,
+        ):
             mock_post.return_value = MagicMock(status_code=401)
 
             # Should not raise
@@ -978,9 +977,9 @@ class TestTransportUnsupportedMethods:
         await transport._send_with_retry(
             method="DELETE",
             path="/api/test",
-                payload={},
-                context="test",
-                on_delivery_failure=callback,
+            payload={},
+            context="test",
+            on_delivery_failure=callback,
         )
 
         # The callback should have been called with a PermanentError
@@ -1062,8 +1061,9 @@ class TestEmitterWithTransportIntegration:
 
         event = _make_event()
 
-        with patch.object(transport._client, "post") as mock_post, caplog.at_level(
-            logging.WARNING, logger="agent_debugger"
+        with (
+            patch.object(transport._client, "post") as mock_post,
+            caplog.at_level(logging.WARNING, logger="agent_debugger"),
         ):
             import httpx
 

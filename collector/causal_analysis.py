@@ -121,16 +121,13 @@ class CausalAnalyzer:
         refs.append((event.parent_id, "parent", True, 0.86))
         refs.extend(
             (upstream_id, "upstream", True, 0.98)
-            for upstream_id in _event_value(event, "upstream_event_ids", getattr(event, "upstream_event_ids", []))
-            or []
+            for upstream_id in _event_value(event, "upstream_event_ids", getattr(event, "upstream_event_ids", [])) or []
         )
         refs.extend(
-            (evidence_id, "evidence", True, 0.94)
-            for evidence_id in _event_value(event, "evidence_event_ids", []) or []
+            (evidence_id, "evidence", True, 0.94) for evidence_id in _event_value(event, "evidence_event_ids", []) or []
         )
         refs.extend(
-            (related_id, "related", True, 0.76)
-            for related_id in _event_value(event, "related_event_ids", []) or []
+            (related_id, "related", True, 0.76) for related_id in _event_value(event, "related_event_ids", []) or []
         )
         return refs
 

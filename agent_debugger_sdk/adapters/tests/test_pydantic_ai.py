@@ -16,10 +16,7 @@ from agent_debugger_sdk.core.events import EventType
 from collector.buffer import get_event_buffer
 
 # Skip all tests in this module if pydantic_ai is not installed
-pytestmark = pytest.mark.skipif(
-    not PYDANTIC_AI_AVAILABLE,
-    reason="pydantic_ai is not installed"
-)
+pytestmark = pytest.mark.skipif(not PYDANTIC_AI_AVAILABLE, reason="pydantic_ai is not installed")
 
 
 class MockAgent:
@@ -343,16 +340,28 @@ class TestPydanticAIAdapter:
 
         with (
             patch("agent_debugger_sdk.adapters.pydantic_ai.adapter.PYDANTIC_AI_AVAILABLE", True),
-            patch("agent_debugger_sdk.adapters.pydantic_ai.message_processing.ModelRequest", FakeModelRequest, create=True),
-            patch("agent_debugger_sdk.adapters.pydantic_ai.message_processing.ModelResponse", FakeModelResponse, create=True),
+            patch(
+                "agent_debugger_sdk.adapters.pydantic_ai.message_processing.ModelRequest", FakeModelRequest, create=True
+            ),
+            patch(
+                "agent_debugger_sdk.adapters.pydantic_ai.message_processing.ModelResponse",
+                FakeModelResponse,
+                create=True,
+            ),
             patch("agent_debugger_sdk.adapters.pydantic_ai.utils.UserPromptPart", FakeUserPromptPart, create=True),
             patch("agent_debugger_sdk.adapters.pydantic_ai.utils.ToolCallPart", FakeToolCallPart, create=True),
             patch("agent_debugger_sdk.adapters.pydantic_ai.utils.ToolReturnPart", FakeToolReturnPart, create=True),
             patch("agent_debugger_sdk.adapters.pydantic_ai.utils.TextPart", FakeTextPart, create=True),
             patch("agent_debugger_sdk.adapters.pydantic_ai.utils.SystemPromptPart", FakeSystemPromptPart, create=True),
             patch("agent_debugger_sdk.adapters.pydantic_ai.utils.RetryPromptPart", FakeRetryPromptPart, create=True),
-            patch("agent_debugger_sdk.adapters.pydantic_ai.message_processing.ToolCallPart", FakeToolCallPart, create=True),
-            patch("agent_debugger_sdk.adapters.pydantic_ai.message_processing.ToolReturnPart", FakeToolReturnPart, create=True),
+            patch(
+                "agent_debugger_sdk.adapters.pydantic_ai.message_processing.ToolCallPart", FakeToolCallPart, create=True
+            ),
+            patch(
+                "agent_debugger_sdk.adapters.pydantic_ai.message_processing.ToolReturnPart",
+                FakeToolReturnPart,
+                create=True,
+            ),
             patch("agent_debugger_sdk.adapters.pydantic_ai.message_processing.TextPart", FakeTextPart, create=True),
         ):
             adapter = PydanticAIAdapter(

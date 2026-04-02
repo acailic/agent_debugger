@@ -43,19 +43,13 @@ class Config:
             raise ValueError("endpoint_url must be non-empty")
 
         if not self.endpoint.startswith(("http://", "https://")):
-            raise ValueError(
-                f"endpoint_url must start with http:// or https://, got: {self.endpoint}"
-            )
+            raise ValueError(f"endpoint_url must start with http:// or https://, got: {self.endpoint}")
 
         if not isinstance(self.max_payload_kb, int) or self.max_payload_kb <= 0:
-            raise ValueError(
-                f"max_payload_kb must be a positive integer, got: {self.max_payload_kb}"
-            )
+            raise ValueError(f"max_payload_kb must be a positive integer, got: {self.max_payload_kb}")
 
         if self.max_payload_kb > 10000:
-            raise ValueError(
-                f"max_payload_kb must be at most 10000, got: {self.max_payload_kb}"
-            )
+            raise ValueError(f"max_payload_kb must be at most 10000, got: {self.max_payload_kb}")
 
         if not isinstance(self.enabled, bool):
             raise ValueError(f"enabled must be a boolean, got: {type(self.enabled).__name__}")

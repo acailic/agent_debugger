@@ -111,7 +111,6 @@ async def compare_sessions(
 def _analyze_session_policies(events: list[Any]) -> PolicyAnalysisResult:
     """Analyze policy sequence for a session."""
 
-
     policies = [e for e in events if getattr(e, "event_type", None) == EventType.PROMPT_POLICY]
     turns = [e for e in events if getattr(e, "event_type", None) == EventType.AGENT_TURN]
 
@@ -129,7 +128,6 @@ def _analyze_session_policies(events: list[Any]) -> PolicyAnalysisResult:
 
 def _analyze_session_escalation(events: list[Any]) -> EscalationAnalysisResult:
     """Analyze escalation signals for a session."""
-
 
     turns = [e for e in events if getattr(e, "event_type", None) == EventType.AGENT_TURN]
     decisions = [e for e in events if getattr(e, "event_type", None) == EventType.DECISION]
@@ -175,7 +173,6 @@ def _compute_comparison_deltas(
     secondary_escalation: EscalationAnalysisResult,
 ) -> dict[str, Any]:
     """Compute delta metrics between two sessions."""
-
 
     def count_by_type(events: list[Any], event_type: EventType) -> int:
         return sum(1 for e in events if getattr(e, "event_type", None) == event_type)
@@ -252,7 +249,6 @@ def _compute_comparison_deltas(
 def _count_unique_speakers(events: list[Any]) -> int:
     """Count unique speakers in session."""
 
-
     speakers: set[str] = set()
     for event in events:
         if getattr(event, "event_type", None) == EventType.AGENT_TURN:
@@ -268,7 +264,6 @@ def _count_unique_speakers(events: list[Any]) -> int:
 
 def _count_grounded_decisions(events: list[Any]) -> int:
     """Count decisions with evidence grounding."""
-
 
     count = 0
     for event in events:

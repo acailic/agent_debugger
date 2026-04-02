@@ -34,9 +34,7 @@ def event_headline(event: TraceEvent) -> str:
         case EventType.ERROR:
             return event_value(event, "error_type", event.name or "error")
         case EventType.AGENT_TURN:
-            return event_value(
-                event, "speaker", event_value(event, "agent_id", event.name or "turn")
-            )
+            return event_value(event, "speaker", event_value(event, "agent_id", event.name or "turn"))
         case _:
             return event.name or str(event.event_type)
 
@@ -52,16 +50,12 @@ def fingerprint(event: TraceEvent) -> str:
     """
     match event.event_type:
         case EventType.ERROR:
-            return (
-                f"error:{event_value(event, 'error_type', 'unknown')}:"
-                f"{event_value(event, 'error_message', '')}"
-            )
+            return f"error:{event_value(event, 'error_type', 'unknown')}:{event_value(event, 'error_message', '')}"
         case EventType.TOOL_RESULT:
             return f"tool:{event_value(event, 'tool_name', 'unknown')}:{bool(event_value(event, 'error'))}"
         case EventType.REFUSAL:
             return (
-                f"refusal:{event_value(event, 'policy_name', 'unknown')}:"
-                f"{event_value(event, 'risk_level', 'medium')}"
+                f"refusal:{event_value(event, 'policy_name', 'unknown')}:{event_value(event, 'risk_level', 'medium')}"
             )
         case EventType.POLICY_VIOLATION:
             return (
@@ -71,10 +65,7 @@ def fingerprint(event: TraceEvent) -> str:
         case EventType.BEHAVIOR_ALERT:
             return f"alert:{event_value(event, 'alert_type', 'unknown')}"
         case EventType.SAFETY_CHECK:
-            return (
-                f"safety:{event_value(event, 'policy_name', 'unknown')}:"
-                f"{event_value(event, 'outcome', 'pass')}"
-            )
+            return f"safety:{event_value(event, 'policy_name', 'unknown')}:{event_value(event, 'outcome', 'pass')}"
         case EventType.DECISION:
             return f"decision:{event_value(event, 'chosen_action', 'unknown')}"
         case _:

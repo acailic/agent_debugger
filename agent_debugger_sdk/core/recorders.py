@@ -39,15 +39,27 @@ def _enhance_error_message(error_message: str) -> str:
     # Check for common error patterns and provide specific suggestions
     patterns = [
         (r"connection refused", "The server may be down. Check that the agent_debugger server is running."),  # noqa: E501
-        (r"connection.*reset", "The connection was unexpectedly closed. This may indicate a network issue or server restart."),  # noqa: E501
-        (r"timeout", "The request took too long. Consider increasing timeout settings or checking network connectivity."),  # noqa: E501
+        (
+            r"connection.*reset",
+            "The connection was unexpectedly closed. This may indicate a network issue or server restart.",
+        ),  # noqa: E501
+        (
+            r"timeout",
+            "The request took too long. Consider increasing timeout settings or checking network connectivity.",
+        ),  # noqa: E501
         (r"401|unauthorized|authentication", "Check your API key configuration in agent_debugger_sdk.config.init()."),  # noqa: E501
-        (r"403|forbidden|access denied", "Your API key may not have permission for this operation. Verify your credentials."),  # noqa: E501
+        (
+            r"403|forbidden|access denied",
+            "Your API key may not have permission for this operation. Verify your credentials.",
+        ),  # noqa: E501
         (r"404|not found", "The API endpoint was not found. Check that the server URL is correct."),
         (r"429|rate limit", "You are sending requests too quickly. Implement exponential backoff and retry."),
         (r"5\d{2}|server error", "The server encountered an error. This is typically a temporary issue. Please retry."),
         (r"no route to host", "Network connectivity issue. Check your internet connection and firewall settings."),  # noqa: E501
-        (r"certificate|tls|ssl", "SSL/TLS certificate issue. Ensure the server certificate is valid or check system clock."),  # noqa: E501
+        (
+            r"certificate|tls|ssl",
+            "SSL/TLS certificate issue. Ensure the server certificate is valid or check system clock.",
+        ),  # noqa: E501
         (r"dns.*not.*resolved|nxdomain", "DNS resolution failed. Verify the server hostname and DNS configuration."),  # noqa: E501
     ]
 

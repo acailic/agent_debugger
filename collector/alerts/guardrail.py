@@ -1,4 +1,5 @@
 """Guardrail pressure detection alerter."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -29,10 +30,7 @@ class GuardrailPressureAlerter(AlertDeriver):
             if (
                 event.event_type == EventType.REFUSAL
                 or event.event_type == EventType.POLICY_VIOLATION
-                or (
-                    event.event_type == EventType.SAFETY_CHECK
-                    and _event_value(event, "outcome", "pass") != "pass"
-                )
+                or (event.event_type == EventType.SAFETY_CHECK and _event_value(event, "outcome", "pass") != "pass")
             )
         ]
 

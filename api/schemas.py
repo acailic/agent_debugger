@@ -156,7 +156,6 @@ class CheckpointDeltasResponse(BaseModel):
     session_id: str
 
 
-
 class RestoreRequest(BaseModel):
     session_id: str | None = None
     label: str = ""

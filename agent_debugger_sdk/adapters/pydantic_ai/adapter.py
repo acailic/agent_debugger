@@ -317,5 +317,3 @@ class PydanticAIAdapter(Generic[T]):
             requested_model=requested_model,
             duration_ms=duration_ms,
         )
-
-

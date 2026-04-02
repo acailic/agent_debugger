@@ -292,9 +292,7 @@ class TestEscalationToDict:
 
     def test_empty_escalation_analysis(self):
         """Test with empty escalation analysis."""
-        analysis = EscalationAnalysisResult(
-            signals=[], score=0.0, dominant_signal_type=None
-        )
+        analysis = EscalationAnalysisResult(signals=[], score=0.0, dominant_signal_type=None)
         result = _escalation_to_dict(analysis)
         assert result == {
             "score": 0.0,
@@ -321,9 +319,7 @@ class TestEscalationToDict:
     def test_escalation_analysis_limits_signals(self, mock_escalation_signal):
         """Test that only first 10 signals are included."""
         signals = [mock_escalation_signal for _ in range(15)]
-        analysis = EscalationAnalysisResult(
-            signals=signals, score=0.7, dominant_signal_type="confidence_degradation"
-        )
+        analysis = EscalationAnalysisResult(signals=signals, score=0.7, dominant_signal_type="confidence_degradation")
         result = _escalation_to_dict(analysis)
         assert len(result["signals"]) == 10
         assert result["signal_count"] == 15
@@ -406,12 +402,8 @@ class TestComputeComparisonDeltas:
             secondary_checkpoints=[],
             primary_policy=PolicyAnalysisResult(shifts=[], shift_count=0, avg_shift_magnitude=0.0),
             secondary_policy=PolicyAnalysisResult(shifts=[], shift_count=0, avg_shift_magnitude=0.0),
-            primary_escalation=EscalationAnalysisResult(
-                signals=[], score=0.0, dominant_signal_type=None
-            ),
-            secondary_escalation=EscalationAnalysisResult(
-                signals=[], score=0.0, dominant_signal_type=None
-            ),
+            primary_escalation=EscalationAnalysisResult(signals=[], score=0.0, dominant_signal_type=None),
+            secondary_escalation=EscalationAnalysisResult(signals=[], score=0.0, dominant_signal_type=None),
         )
         assert result["turn_count"]["primary"] == 0
         assert result["turn_count"]["secondary"] == 0
@@ -429,9 +421,7 @@ class TestComputeComparisonDeltas:
             primary_escalation=EscalationAnalysisResult(
                 signals=[], score=0.7, dominant_signal_type="confidence_degradation"
             ),
-            secondary_escalation=EscalationAnalysisResult(
-                signals=[], score=0.2, dominant_signal_type=None
-            ),
+            secondary_escalation=EscalationAnalysisResult(signals=[], score=0.2, dominant_signal_type=None),
         )
         # Turn count deltas
         assert result["turn_count"]["primary"] == 2
@@ -474,12 +464,8 @@ class TestComputeComparisonDeltas:
             secondary_checkpoints=[],
             primary_policy=PolicyAnalysisResult(shifts=[], shift_count=0, avg_shift_magnitude=0.0),
             secondary_policy=PolicyAnalysisResult(shifts=[], shift_count=0, avg_shift_magnitude=0.0),
-            primary_escalation=EscalationAnalysisResult(
-                signals=[], score=0.0, dominant_signal_type=None
-            ),
-            secondary_escalation=EscalationAnalysisResult(
-                signals=[], score=0.0, dominant_signal_type=None
-            ),
+            primary_escalation=EscalationAnalysisResult(signals=[], score=0.0, dominant_signal_type=None),
+            secondary_escalation=EscalationAnalysisResult(signals=[], score=0.0, dominant_signal_type=None),
         )
         assert result["grounding_rate"]["primary"] == 0.0
         assert result["grounding_rate"]["secondary"] == 0.0
@@ -498,9 +484,7 @@ class TestAnalyzeSessionPolicies:
     @patch("api.comparison_routes.analyze_policy_sequence")
     def test_with_policy_events(self, mock_analyze):
         """Test with policy events."""
-        mock_analyze.return_value = [
-            MagicMock(shift_magnitude=0.5), MagicMock(shift_magnitude=0.7)
-        ]
+        mock_analyze.return_value = [MagicMock(shift_magnitude=0.5), MagicMock(shift_magnitude=0.7)]
 
         events = [
             TraceEvent(

@@ -147,6 +147,7 @@ async def _create_anomaly_alert(
 ) -> str:
     """Helper to create an anomaly alert."""
     import uuid
+
     async with session_maker() as db_session:
         alert = AnomalyAlertModel(
             id=f"alert-{alert_type}-{uuid.uuid4().hex[:8]}",

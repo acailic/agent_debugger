@@ -27,7 +27,9 @@ def _make_event(event_type: EventType = EventType.TOOL_CALL, session_id: str = "
     )
 
 
-def _make_checkpoint(session_id: str = "s1", event_id: str = "e1", sequence: int = 1, importance: float = 0.5) -> Checkpoint:
+def _make_checkpoint(
+    session_id: str = "s1", event_id: str = "e1", sequence: int = 1, importance: float = 0.5
+) -> Checkpoint:
     return Checkpoint(
         session_id=session_id,
         event_id=event_id,
@@ -235,8 +237,14 @@ class TestComputeEventRanking:
         )
 
         expected_keys = {
-            "event_id", "event_type", "fingerprint", "severity",
-            "novelty", "recurrence", "replay_value", "composite"
+            "event_id",
+            "event_type",
+            "fingerprint",
+            "severity",
+            "novelty",
+            "recurrence",
+            "replay_value",
+            "composite",
         }
         assert set(result.keys()) == expected_keys
 
@@ -499,8 +507,13 @@ class TestComputeCheckpointRankings:
         )
 
         expected_keys = {
-            "checkpoint_id", "event_id", "sequence", "importance",
-            "replay_value", "restore_value", "retention_tier"
+            "checkpoint_id",
+            "event_id",
+            "sequence",
+            "importance",
+            "replay_value",
+            "restore_value",
+            "retention_tier",
         }
         assert set(rankings[0].keys()) == expected_keys
 
@@ -558,10 +571,7 @@ class TestEventHeadline:
 
     def test_safety_check_shows_policy_and_outcome(self):
         """SAFETY_CHECK should show policy_name -> outcome."""
-        event = _make_event(
-            EventType.SAFETY_CHECK,
-            data={"policy_name": "harm_check", "outcome": "block"}
-        )
+        event = _make_event(EventType.SAFETY_CHECK, data={"policy_name": "harm_check", "outcome": "block"})
 
         headline = event_headline(event)
 
@@ -577,10 +587,7 @@ class TestEventHeadline:
 
     def test_policy_violation_shows_violation_type(self):
         """POLICY_VIOLATION should show violation_type."""
-        event = _make_event(
-            EventType.POLICY_VIOLATION,
-            data={"violation_type": "PII disclosure"}
-        )
+        event = _make_event(EventType.POLICY_VIOLATION, data={"violation_type": "PII disclosure"})
 
         headline = event_headline(event)
 
@@ -588,10 +595,7 @@ class TestEventHeadline:
 
     def test_behavior_alert_shows_alert_type(self):
         """BEHAVIOR_ALERT should show alert_type."""
-        event = _make_event(
-            EventType.BEHAVIOR_ALERT,
-            data={"alert_type": "tool_loop"}
-        )
+        event = _make_event(EventType.BEHAVIOR_ALERT, data={"alert_type": "tool_loop"})
 
         headline = event_headline(event)
 
@@ -635,10 +639,7 @@ class TestFingerprint:
 
     def test_error_fingerprint_includes_error_type_and_message(self):
         """ERROR fingerprint should include error_type and error_message."""
-        event = _make_event(
-            EventType.ERROR,
-            data={"error_type": "ValueError", "error_message": "invalid input"}
-        )
+        event = _make_event(EventType.ERROR, data={"error_type": "ValueError", "error_message": "invalid input"})
 
         fp = fingerprint(event)
 
@@ -654,10 +655,7 @@ class TestFingerprint:
 
     def test_tool_result_fingerprint_includes_tool_name_and_error_flag(self):
         """TOOL_RESULT fingerprint should include tool_name and error boolean."""
-        event = _make_event(
-            EventType.TOOL_RESULT,
-            data={"tool_name": "search", "error": "timeout"}
-        )
+        event = _make_event(EventType.TOOL_RESULT, data={"tool_name": "search", "error": "timeout"})
 
         fp = fingerprint(event)
 
@@ -665,10 +663,7 @@ class TestFingerprint:
 
     def test_tool_result_no_error(self):
         """TOOL_RESULT without error should have False flag."""
-        event = _make_event(
-            EventType.TOOL_RESULT,
-            data={"tool_name": "read_file"}
-        )
+        event = _make_event(EventType.TOOL_RESULT, data={"tool_name": "read_file"})
 
         fp = fingerprint(event)
 
@@ -676,10 +671,7 @@ class TestFingerprint:
 
     def test_refusal_fingerprint_includes_policy_and_risk(self):
         """REFUSAL fingerprint includes policy_name and risk_level."""
-        event = _make_event(
-            EventType.REFUSAL,
-            data={"policy_name": "safety", "risk_level": "high"}
-        )
+        event = _make_event(EventType.REFUSAL, data={"policy_name": "safety", "risk_level": "high"})
 
         fp = fingerprint(event)
 
@@ -687,10 +679,7 @@ class TestFingerprint:
 
     def test_policy_violation_fingerprint(self):
         """POLICY_VIOLATION fingerprint includes policy_name and violation_type."""
-        event = _make_event(
-            EventType.POLICY_VIOLATION,
-            data={"policy_name": "PII", "violation_type": "disclosure"}
-        )
+        event = _make_event(EventType.POLICY_VIOLATION, data={"policy_name": "PII", "violation_type": "disclosure"})
 
         fp = fingerprint(event)
 
@@ -698,10 +687,7 @@ class TestFingerprint:
 
     def test_behavior_alert_fingerprint(self):
         """BEHAVIOR_ALERT fingerprint includes alert_type."""
-        event = _make_event(
-            EventType.BEHAVIOR_ALERT,
-            data={"alert_type": "tool_loop"}
-        )
+        event = _make_event(EventType.BEHAVIOR_ALERT, data={"alert_type": "tool_loop"})
 
         fp = fingerprint(event)
 
@@ -709,10 +695,7 @@ class TestFingerprint:
 
     def test_safety_check_fingerprint(self):
         """SAFETY_CHECK fingerprint includes policy_name and outcome."""
-        event = _make_event(
-            EventType.SAFETY_CHECK,
-            data={"policy_name": "harm", "outcome": "pass"}
-        )
+        event = _make_event(EventType.SAFETY_CHECK, data={"policy_name": "harm", "outcome": "pass"})
 
         fp = fingerprint(event)
 
@@ -720,10 +703,7 @@ class TestFingerprint:
 
     def test_decision_fingerprint(self):
         """DECISION fingerprint includes chosen_action."""
-        event = _make_event(
-            EventType.DECISION,
-            data={"chosen_action": "stop"}
-        )
+        event = _make_event(EventType.DECISION, data={"chosen_action": "stop"})
 
         fp = fingerprint(event)
 
@@ -741,14 +721,8 @@ class TestFingerprint:
 
     def test_same_events_produce_same_fingerprints(self):
         """Identical events should produce identical fingerprints."""
-        event1 = _make_event(
-            EventType.ERROR,
-            data={"error_type": "ValueError", "error_message": "fail"}
-        )
-        event2 = _make_event(
-            EventType.ERROR,
-            data={"error_type": "ValueError", "error_message": "fail"}
-        )
+        event1 = _make_event(EventType.ERROR, data={"error_type": "ValueError", "error_message": "fail"})
+        event2 = _make_event(EventType.ERROR, data={"error_type": "ValueError", "error_message": "fail"})
 
         fp1 = fingerprint(event1)
         fp2 = fingerprint(event2)

@@ -343,8 +343,13 @@ def compute_baseline_from_sessions(
     multi_agent_metrics = None
     if include_multi_agent:
         multi_agent_metrics = _build_multi_agent_metrics(
-            total_policy_shifts, total_turns, total_speakers,
-            escalation_sessions, grounded_decisions, decision_count, session_count,
+            total_policy_shifts,
+            total_turns,
+            total_speakers,
+            escalation_sessions,
+            grounded_decisions,
+            decision_count,
+            session_count,
         )
 
     return AgentBaseline(

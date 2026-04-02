@@ -447,9 +447,7 @@ class TestIssue5BehaviorAlertsInsufficientBaseline:
         changes_2_5x = monitor.detect_changes(short_baseline, recent_2_5x)
 
         # EXPECTED: No alerts (2.5x < 3.0 threshold for insufficient baseline)
-        assert len(changes_2_5x) == 0, (
-            "BehaviorMonitor with insufficient baseline should not detect 2.5x failure spike"
-        )
+        assert len(changes_2_5x) == 0, "BehaviorMonitor with insufficient baseline should not detect 2.5x failure spike"
 
     def test_behavior_monitor_insufficient_baseline_3x_threshold(self):
         """Verify Issue #5: Insufficient baseline detects 3x+ failure spikes.
@@ -512,6 +510,7 @@ class TestIssue5BehaviorAlertsInsufficientBaseline:
         actual AnomalyAlertModel records. If count > 0 but no records exist, this
         indicates a data inconsistency issue.
         """
+
         async def run():
             now = datetime.now(timezone.utc)
 
@@ -570,6 +569,7 @@ class TestIssue5BehaviorAlertsInsufficientBaseline:
         should have AnomalyAlertModel records with alert_type="looping_behavior" or
         similar. The seed data includes "seed-looping-behavior" with behavior_alerts: 2.
         """
+
         async def run():
             now = datetime.now(timezone.utc)
 
@@ -631,9 +631,7 @@ class TestIssue5BehaviorAlertsInsufficientBaseline:
 
         # EXPECTED: Looping session should have behavior alerts
         assert len(alerts) >= 1, "Looping behavior session should have at least 1 alert"
-        assert any(a.alert_type == "looping_behavior" for a in alerts), (
-            "Should have looping_behavior alert type"
-        )
+        assert any(a.alert_type == "looping_behavior" for a in alerts), "Should have looping_behavior alert type"
 
     def test_behavior_monitor_latency_threshold_with_insufficient_baseline(self):
         """Reproduce Issue #5: Latency changes not detected with insufficient baseline.
@@ -659,9 +657,7 @@ class TestIssue5BehaviorAlertsInsufficientBaseline:
 
         # EXPECTED: No latency alerts with insufficient baseline
         latency_changes = [c for c in changes if c.type == "latency_increase"]
-        assert len(latency_changes) == 0, (
-            "BehaviorMonitor with insufficient baseline should not detect latency spikes"
-        )
+        assert len(latency_changes) == 0, "BehaviorMonitor with insufficient baseline should not detect latency spikes"
 
     def test_behavior_monitor_cost_threshold_with_insufficient_baseline(self):
         """Reproduce Issue #5: Cost changes not detected with insufficient baseline.
@@ -687,6 +683,4 @@ class TestIssue5BehaviorAlertsInsufficientBaseline:
 
         # EXPECTED: No cost alerts with insufficient baseline
         cost_changes = [c for c in changes if c.type == "cost_increase"]
-        assert len(cost_changes) == 0, (
-            "BehaviorMonitor with insufficient baseline should not detect cost spikes"
-        )
+        assert len(cost_changes) == 0, "BehaviorMonitor with insufficient baseline should not detect cost spikes"
