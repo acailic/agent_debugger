@@ -304,9 +304,7 @@ class TestSearchEvents:
         mock_session.execute = AsyncMock(return_value=mock_result)
 
         # Act
-        result = await service.search_events(
-            "test", session_id="session-123", event_type="llm_request"
-        )
+        result = await service.search_events("test", session_id="session-123", event_type="llm_request")
 
         # Assert
         assert isinstance(result, list)

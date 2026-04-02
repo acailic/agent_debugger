@@ -484,6 +484,7 @@ async def test_get_trace_bundle_rollback_on_analysis_error():
 
             # Make the request
             from api.trace_routes import get_trace_bundle
+
             with pytest.raises(RuntimeError, match="Analysis failed"):
                 await get_trace_bundle("rollback-trace-session", repo)
 
@@ -518,6 +519,7 @@ async def test_get_session_analysis_rollback_on_analysis_error():
 
             # Make the request
             from api.trace_routes import get_session_analysis
+
             with pytest.raises(ValueError, match="Analysis error"):
                 await get_session_analysis("rollback-analysis-session", repo)
 
@@ -548,6 +550,7 @@ async def test_get_trace_bundle_commits_on_success():
 
         # Make the request - should succeed
         from api.trace_routes import get_trace_bundle
+
         result = await get_trace_bundle("commit-trace-session", repo)
 
         # Verify commit was called
@@ -578,6 +581,7 @@ async def test_get_session_analysis_commits_on_success():
 
         # Make the request - should succeed
         from api.trace_routes import get_session_analysis
+
         result = await get_session_analysis("commit-analysis-session", repo)
 
         # Verify commit was called
