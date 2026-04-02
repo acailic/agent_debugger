@@ -170,10 +170,14 @@ def _track_policy_shift(
 
 def _get_session_scalars(session: Any) -> tuple[float, int, float]:
     """Return (cost_usd, total_tokens, replay_value) from a session object."""
-    cost = getattr(session, "total_cost_usd", 0) or 0
-    tokens = getattr(session, "total_tokens", 0) or 0
-    replay = getattr(session, "replay_value", 0) or 0
-    return float(cost), int(tokens), float(replay)
+    cost = getattr(session, "total_cost_usd", None)
+    tokens = getattr(session, "total_tokens", None)
+    replay = getattr(session, "replay_value", None)
+    return (
+        float(cost if cost is not None else 0),
+        int(tokens if tokens is not None else 0),
+        float(replay if replay is not None else 0),
+    )
 
 
 def _build_multi_agent_metrics(
@@ -214,7 +218,7 @@ def _collect_session_event_metrics(events: list[Any]) -> dict[str, Any]:
 
     for event in events:
         event_type = getattr(event, "event_type", None)
-        data = getattr(event, "data", None) or {}
+        data = getattr(event, "data", None) if getattr(event, "data", None) is not None else {}
 
         if event_type == EventType.DECISION:
             conf, lc, grnd = _process_decision(event, data)
