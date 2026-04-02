@@ -35,7 +35,7 @@ _default_session_update_hook: ContextVar[Callable[[Session], Awaitable[None]] | 
 )
 
 
-def get_current_context():  # noqa: ANN401
+def get_current_context() -> Any:
     """Get the currently active TraceContext.
 
     Returns:

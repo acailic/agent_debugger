@@ -43,23 +43,27 @@ class AutoInstrumentor:
         """
         return list(self._hooks.keys())
 
-    def instrument(self, framework: str) -> None:
+    def instrument(self, framework: str) -> bool:
         """Apply auto-instrumentation for a specific framework.
 
         Args:
             framework: Framework identifier to instrument.
 
-        Note:
-            Silently logs warnings if instrumentation fails or framework
-            is not registered. This ensures graceful degradation.
+        Returns:
+            True if instrumentation succeeded, False if it failed or the
+            framework is not registered.
         """
         hook = self._hooks.get(framework)
-        if hook:
-            try:
-                hook()
-                logger.info("Auto-instrumented %s", framework)
-            except Exception:
-                logger.warning("Failed to auto-instrument %s", framework, exc_info=True)
+        if not hook:
+            logger.warning("No auto-instrumentation hook registered for %s", framework)
+            return False
+        try:
+            hook()
+            logger.info("Auto-instrumented %s", framework)
+            return True
+        except Exception:
+            logger.warning("Failed to auto-instrument %s", framework, exc_info=True)
+            return False
 
     def instrument_all(self) -> None:
         """Apply auto-instrumentation for all registered frameworks.

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import time
+from collections import defaultdict
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +14,23 @@ from auth.service import create_api_key, list_active_keys, revoke_key
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
+# --- Simple in-memory rate limiter for key creation ---
+_RATE_WINDOW_SECONDS = 60
+_RATE_MAX_KEYS = 10
+_key_creation_attempts: dict[str, list[float]] = defaultdict(list)
+
+
+def _check_rate_limit(tenant_id: str) -> None:
+    """Raise HTTPException if tenant exceeded key creation rate limit."""
+    now = time.monotonic()
+    window = now - _RATE_WINDOW_SECONDS
+    _key_creation_attempts[tenant_id] = [t for t in _key_creation_attempts[tenant_id] if t > window]
+    if len(_key_creation_attempts[tenant_id]) >= _RATE_MAX_KEYS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded: max {_RATE_MAX_KEYS} key creations per {_RATE_WINDOW_SECONDS}s",
+        )
+
 
 @router.post("/keys", response_model=CreateKeyResponse, status_code=201)
 async def create_key(
@@ -19,6 +39,8 @@ async def create_key(
     tenant_id: str = Depends(get_tenant_id),
 ):
     """Create a new API key for the current tenant."""
+    _check_rate_limit(tenant_id)
+    _key_creation_attempts[tenant_id].append(time.monotonic())
     key_model, raw_key = await create_api_key(
         db=db,
         tenant_id=tenant_id,

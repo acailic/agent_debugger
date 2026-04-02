@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from sqlalchemy import String, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from agent_debugger_sdk.core.events import Session, TraceEvent
 from storage.converters import orm_to_event, orm_to_session
@@ -65,7 +64,7 @@ class SessionSearchService:
         if not db_sessions:
             return []
 
-        scored = self._score_sessions(db_sessions, query_vec)
+        scored = await self._score_sessions(db_sessions, query_vec)
         return self._build_ranked_session_results(scored, limit)
 
     async def search_events(
@@ -120,11 +119,14 @@ class SessionSearchService:
         return [orm_to_event(db) for db in result.scalars()]
 
     async def _load_candidate_sessions(self, *, status: str | None) -> list[SessionModel]:
-        """Fetch recent tenant-scoped sessions with events eagerly loaded."""
+        """Fetch recent tenant-scoped sessions without eager-loading all events.
+
+        Events are loaded lazily on demand in _score_session to avoid the
+        O(n*m) cost of eagerly loading every event for every candidate session.
+        """
         candidate_limit = 500
         stmt = (
             select(SessionModel)
-            .options(selectinload(SessionModel.events))
             .where(SessionModel.tenant_id == self.tenant_id)
             .order_by(SessionModel.started_at.desc())
             .limit(candidate_limit)
@@ -135,7 +137,7 @@ class SessionSearchService:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    def _score_sessions(
+    async def _score_sessions(
         self,
         db_sessions: list[SessionModel],
         query_vec: dict[str, float],
@@ -143,15 +145,23 @@ class SessionSearchService:
         """Return positive-scoring sessions paired with cosine similarity."""
         scored: list[tuple[float, SessionModel]] = []
         for db_session in db_sessions:
-            similarity = self._score_session(db_session, query_vec)
+            similarity = await self._score_session(db_session, query_vec)
             if similarity > 0.0:
                 scored.append((similarity, db_session))
         scored.sort(key=lambda item: item[0], reverse=True)
         return scored
 
-    def _score_session(self, db_session: SessionModel, query_vec: dict[str, float]) -> float:
-        """Compute semantic similarity between a query vector and a stored session."""
-        event_dicts = [self._embedding_event_dict(db_event) for db_event in db_session.events]
+    async def _score_session(self, db_session: SessionModel, query_vec: dict[str, float]) -> float:
+        """Compute semantic similarity between a query vector and a stored session.
+
+        Loads events lazily to avoid the O(n*m) cost of eager loading.
+        """
+        from sqlalchemy import select as sa_select
+
+        stmt = sa_select(EventModel).where(EventModel.session_id == db_session.id)
+        result = await self.session.execute(stmt)
+        events = list(result.scalars().all())
+        event_dicts = [self._embedding_event_dict(db_event) for db_event in events]
         session_vec = build_session_embedding(event_dicts)
         return cosine_similarity(query_vec, session_vec)
 

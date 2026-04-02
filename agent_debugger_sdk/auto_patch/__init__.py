@@ -128,8 +128,6 @@ def activate(config: PatchConfig | None = None) -> None:
     if registry.patched_names():
         patched = registry.patched_names()
         logger.info("Peaky Peek auto-patch active for: %s", patched)
-        # Also print to console for CLI users
-        print(f"agent_debugger: auto-instrumented {', '.join(patched)}")
     else:
         logger.debug("Peaky Peek auto-patch: no adapters were patched (none available or listed)")
 

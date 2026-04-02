@@ -145,29 +145,36 @@ class EventBuffer(BufferBase):
             self._lock_loop = loop
         return self._lock
 
-    def _enforce_bounds(self, session_id: str) -> None:
+    def _enforce_bounds(self, session_id: str) -> bool:
         """Enforce memory bounds for events and sessions.
 
         This is a synchronous method as it only modifies in-memory data.
 
         Args:
             session_id: Current session being accessed
+
+        Returns:
+            True if data was dropped due to bounds enforcement.
         """
+        dropped = False
+
         # Trim events if this session exceeds max
         if session_id in self._events and len(self._events[session_id]) >= self.max_events_per_session:
-            # Remove oldest events
             excess = len(self._events[session_id]) - self.max_events_per_session + 1
             self._events[session_id] = self._events[session_id][excess:]
             logger.warning(f"Trimmed {excess} oldest events from session {session_id}")
+            dropped = True
 
         # Evict oldest sessions if we exceed max_sessions
         if len(self._events) >= self.max_sessions and session_id not in self._events:
-            # Find least recently used session
             if self._session_activity:
                 lru_session = min(self._session_activity, key=self._session_activity.get)
                 self._events.pop(lru_session, None)
                 self._session_activity.pop(lru_session, None)
                 logger.warning(f"Evicted session {lru_session} due to memory bounds")
+                dropped = True
+
+        return dropped
 
 
 _event_buffer: EventBuffer | None = None

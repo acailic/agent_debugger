@@ -41,9 +41,10 @@ async def replay_session(
     await require_session(repo, session_id)
     events, checkpoints = await load_session_artifacts(repo, session_id)
 
-    # Unwrap Query default (FastAPI resolves this in HTTP calls but not in direct/unit-test calls)
+    # FastAPI resolves Query defaults in HTTP calls but not in direct/unit-test calls.
+    # Extract the default value when the raw Query object is passed through.
     if hasattr(collapse_threshold, "default"):
-        collapse_threshold = collapse_threshold.default
+        collapse_threshold = float(collapse_threshold.default)
 
     # Record analytics event (fire-and-forget)
     record_event("replay_started", session_id=session_id, properties={"mode": mode})
