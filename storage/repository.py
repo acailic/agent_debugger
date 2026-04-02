@@ -387,6 +387,10 @@ class TraceRepository:
         """Commit the current transaction."""
         await self.session.commit()
 
+    async def rollback(self) -> None:
+        """Roll back the current transaction."""
+        await self.session.rollback()
+
     # ------------------------------------------------------------------
     # Search Methods (exposed via search property)
     # ------------------------------------------------------------------

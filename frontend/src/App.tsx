@@ -488,7 +488,7 @@ function App() {
         // Ctrl+K or / to focus search
         else if (key === 'k' || key === 'K') {
           event.preventDefault()
-          const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
+          const searchInput = document.getElementById('search-input') as HTMLInputElement | null
           searchInput?.focus()
         }
       }
@@ -497,7 +497,7 @@ function App() {
         const activeTag = document.activeElement?.tagName.toLowerCase()
         if (activeTag !== 'input' && activeTag !== 'textarea') {
           event.preventDefault()
-          const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
+          const searchInput = document.getElementById('search-input') as HTMLInputElement | null
           searchInput?.focus()
         }
       }

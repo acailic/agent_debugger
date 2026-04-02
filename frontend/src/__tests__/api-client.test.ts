@@ -37,10 +37,17 @@ describe('API client', () => {
   })
 
   it('getSessions throws on non-ok response', async () => {
-    globalThis.fetch = vi.fn(() =>
-      Promise.resolve({ ok: false, status: 500, statusText: 'Internal Server Error' } as Response)
-    )
+    vi.useFakeTimers()
+    try {
+      globalThis.fetch = vi.fn(() =>
+        Promise.resolve({ ok: false, status: 500, statusText: 'Internal Server Error' } as Response)
+      )
 
-    await expect(getSessions()).rejects.toThrow('API error: 500 Internal Server Error')
+      const result = expect(getSessions()).rejects.toThrow('API error: 500 Internal Server Error')
+      await vi.runAllTimersAsync()
+      await result
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

@@ -11,7 +11,7 @@ Key design decisions
   after each test (no cross-test pollution).
 * ``httpx.Client`` is mocked so no network calls are made.
 * ``deactivate()`` is always called in a ``finally`` block to reset registry
-  state and ``_current_session_id``.
+  state and ``_session_state._id``.
 * The global ``PatchRegistry`` singleton is reset before each test via the
   ``clean_registry`` fixture.
 """
@@ -189,7 +189,7 @@ def clean_registry():
     registry._adapters.clear()
     registry._patched.clear()
     # Also reset the transport session ID.
-    transport_module._current_session_id = None
+    transport_module._session_state._id = None
     yield
     # Ensure deactivate is called in case a test failed without cleanup.
     try:
@@ -198,7 +198,7 @@ def clean_registry():
         pass
     registry._adapters.clear()
     registry._patched.clear()
-    transport_module._current_session_id = None
+    transport_module._session_state._id = None
 
 
 @pytest.fixture()
@@ -336,9 +336,7 @@ def test_deactivate_clears_patched_names_and_resets_session(monkeypatch, mock_ht
         assert get_registry().patched_names() == [], (
             f"Expected empty patched_names after deactivate, got {get_registry().patched_names()}"
         )
-        assert transport_module._current_session_id is None, (
-            "Expected _current_session_id to be None after deactivate()"
-        )
+        assert transport_module._session_state._id is None, "Expected session state to be None after deactivate()"
     finally:
         deactivate()  # safe no-op if already called
 
@@ -363,7 +361,7 @@ def test_activate_deactivate_cycle_is_idempotent(monkeypatch, mock_httpx):
 
         deactivate()
         assert get_registry().patched_names() == [], "Should be empty after first deactivate"
-        assert transport_module._current_session_id is None
+        assert transport_module._session_state._id is None
 
         # --- Second cycle ---
         # Re-inject (monkeypatch keeps the mock in place).
@@ -372,7 +370,7 @@ def test_activate_deactivate_cycle_is_idempotent(monkeypatch, mock_httpx):
 
         deactivate()
         assert get_registry().patched_names() == [], "Should be empty after second deactivate"
-        assert transport_module._current_session_id is None
+        assert transport_module._session_state._id is None
 
         # Thread count should not grow unboundedly (background transport threads are daemons).
         thread_count_after = threading.active_count()
@@ -447,13 +445,13 @@ def test_all_adapters_share_same_session_id(monkeypatch, mock_httpx):
     """When all 7 adapters are activated, they share a single global session ID.
 
     This verifies that ``get_or_create_session()`` returns the same session_id
-    across all adapters. The session ID is cached in ``_current_session_id``
+    across all adapters. The session ID is cached in ``_session_state._id``
     after the first call and reused for subsequent adapters.
 
     Note: OpenAI and Anthropic adapters do NOT create a session during patch().
     They create it lazily on the first LLM call. The other 5 adapters (langchain,
     autogen, crewai, pydanticai, llamaindex) create the session during patch(),
-    which sets the global _current_session_id.
+    which sets the global session state.
     """
     _inject_all_libs(monkeypatch)
     monkeypatch.delenv("PEAKY_PEEK_AUTO_PATCH", raising=False)
@@ -468,8 +466,8 @@ def test_all_adapters_share_same_session_id(monkeypatch, mock_httpx):
 
         # The global session ID should be set after activation
         # (set by the first adapter that calls get_or_create_session during patch)
-        global_session_id = transport_module._current_session_id
-        assert global_session_id is not None, "_current_session_id should be set after activation"
+        global_session_id = transport_module._session_state._id
+        assert global_session_id is not None, "session state should be set after activation"
 
         # Verify all adapters have their transport initialized
         for adapter in get_registry()._patched:
@@ -582,18 +580,18 @@ def test_activate_deactivate_reactivate_preserves_functionality(monkeypatch, moc
         # --- First activation ---
         activate(config)
         assert "crewai" in get_registry().patched_names()
-        first_session_id = transport_module._current_session_id
+        first_session_id = transport_module._session_state._id
         assert first_session_id is not None
 
         # --- Deactivate ---
         deactivate()
         assert get_registry().patched_names() == []
-        assert transport_module._current_session_id is None
+        assert transport_module._session_state._id is None
 
         # --- Reactivate ---
         activate(config)
         assert "crewai" in get_registry().patched_names()
-        second_session_id = transport_module._current_session_id
+        second_session_id = transport_module._session_state._id
         assert second_session_id is not None
 
         # The key behavior: session was reset and is now available again

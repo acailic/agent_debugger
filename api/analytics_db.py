@@ -6,6 +6,11 @@ operations are delegated to the proper repository class in storage/.
 
 All operations are synchronous since analytics is local-only and single-user.
 Errors are logged but don't propagate to avoid impacting the main application.
+
+NOTE: Analytics data is intentionally NOT tenant-isolated.  This module
+tracks local-only usage patterns (button clicks, search queries) for a
+single developer's own dashboard.  Tenant-scoped analytics should use a
+separate collection path when cloud multi-tenancy is implemented.
 """
 
 from __future__ import annotations

@@ -89,6 +89,7 @@ export function SearchPanel() {
                 void runTraceSearch()
               }
             }}
+            id="search-input"
             placeholder="Belgrade, missing token, critic turn..."
           />
         </label>

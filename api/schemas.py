@@ -114,7 +114,7 @@ class SessionDetailResponse(BaseModel):
 
 
 class SessionUpdateRequest(BaseModel):
-    model_config = ConfigDict(str_strip=True)
+    model_config = ConfigDict(str_strip_whitespace=True)
 
     agent_name: str | None = Field(default=None, min_length=1, max_length=200)
     framework: str | None = Field(default=None, min_length=1, max_length=50)
@@ -159,7 +159,7 @@ class CheckpointDeltasResponse(BaseModel):
 
 
 class RestoreRequest(BaseModel):
-    model_config = ConfigDict(str_strip=True)
+    model_config = ConfigDict(str_strip_whitespace=True)
 
     session_id: str | None = None
     label: str = Field(default="", max_length=200)
@@ -222,7 +222,7 @@ class TraceSearchResponse(BaseModel):
 
 
 class CreateKeyRequest(BaseModel):
-    model_config = ConfigDict(str_strip=True)
+    model_config = ConfigDict(str_strip_whitespace=True)
 
     name: str = Field(default="", min_length=0, max_length=100)
     environment: str = Field(default="live", max_length=50)

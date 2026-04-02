@@ -18,13 +18,48 @@ import httpx
 
 logger = logging.getLogger("agent_debugger.auto_patch")
 
-# ---------------------------------------------------------------------------
-# Module-level session state shared across all adapters in one process
-# ---------------------------------------------------------------------------
-_current_session_id: str | None = None
-_session_lock = threading.Lock()
-
 _SENTINEL = None  # value that signals the background thread to exit
+
+
+class _SessionState:
+    """Encapsulates the shared session state for all adapters in one process.
+
+    Using a class instead of bare module globals makes the state lifecycle
+    explicit and simplifies testing (replace the singleton instance).
+    """
+
+    def __init__(self) -> None:
+        self._id: str | None = None
+        self._lock = threading.Lock()
+
+    def get_or_create(
+        self,
+        transport: SyncTransport,
+        agent_name: str,
+        framework: str,
+    ) -> str:
+        if self._id is not None:
+            return self._id
+        with self._lock:
+            if self._id is not None:
+                return self._id
+            session_dict = {
+                "agent_name": agent_name,
+                "framework": framework,
+                "status": "running",
+                "config": {},
+                "tags": [],
+            }
+            self._id = transport.send_session(session_dict)
+        return self._id
+
+    def reset(self) -> None:
+        with self._lock:
+            self._id = None
+
+
+# Singleton shared by all adapters in one process
+_session_state = _SessionState()
 
 
 class SyncTransport:
@@ -129,7 +164,7 @@ class SyncTransport:
 def get_or_create_session(transport: SyncTransport, agent_name: str, framework: str) -> str:
     """Return the current session ID, creating one if necessary.
 
-    The session ID is stored in module-level state so that all adapters
+    The session ID is stored in shared state so that all adapters
     within the same process share a single session.
 
     Args:
@@ -140,28 +175,9 @@ def get_or_create_session(transport: SyncTransport, agent_name: str, framework: 
     Returns:
         The current (or newly created) session ID string.
     """
-    global _current_session_id  # noqa: PLW0603
-
-    if _current_session_id is not None:
-        return _current_session_id
-
-    with _session_lock:
-        if _current_session_id is not None:  # double-checked locking
-            return _current_session_id
-
-        session_dict = {
-            "agent_name": agent_name,
-            "framework": framework,
-            "status": "running",
-            "config": {},
-            "tags": [],
-        }
-        _current_session_id = transport.send_session(session_dict)
-    return _current_session_id
+    return _session_state.get_or_create(transport, agent_name, framework)
 
 
 def reset_session() -> None:
-    """Reset the module-level session ID (call on deactivate)."""
-    global _current_session_id
-    with _session_lock:
-        _current_session_id = None
+    """Reset the shared session ID (call on deactivate)."""
+    _session_state.reset()

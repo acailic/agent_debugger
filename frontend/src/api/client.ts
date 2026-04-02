@@ -20,10 +20,6 @@ const API_BASE = '/api'
 // Request deduplication: track in-flight requests to avoid duplicate fetches
 const pendingRequests = new Map<string, Promise<Response>>()
 
-// Simple in-memory cache for stale-while-revalidate
-const cache = new Map<string, { data: unknown; timestamp: number }>()
-const DEFAULT_CACHE_TTL = 30000 // 30 seconds
-
 /**
  * Sleep utility for retry backoff
  */
@@ -118,24 +114,6 @@ async function fetchWithDeduplication(url: string): Promise<Response> {
   return requestPromise
 }
 
-/**
- * Get cached data if available and fresh
- */
-function getCachedData<T>(url: string, ttl = DEFAULT_CACHE_TTL): T | null {
-  const cached = cache.get(url)
-  if (cached && Date.now() - cached.timestamp < ttl) {
-    return cached.data as T
-  }
-  return null
-}
-
-/**
- * Store data in cache
- */
-function setCachedData(url: string, data: unknown): void {
-  cache.set(url, { data, timestamp: Date.now() })
-}
-
 interface ValidationConfig {
   validator?: (value: unknown) => boolean
   endpoint: string
@@ -169,36 +147,7 @@ export async function getSessions(params: { sortBy?: 'started_at' | 'replay_valu
   const suffix = search.toString() ? `?${search.toString()}` : ''
   const url = `${API_BASE}/sessions${suffix}`
 
-  // Check cache first (stale-while-revalidate)
-  const cached = getCachedData<{ sessions: Session[]; total: number; limit: number; offset: number }>(url)
-  if (cached) {
-    // Return cached data immediately, refresh in background
-    fetchJSON<{ sessions: Session[]; total: number; limit: number; offset: number }>(url, {
-      validator: (value: unknown) => {
-        if (typeof value !== 'object' || value === null) return false
-        const v = value as Record<string, unknown>
-        return (
-          'sessions' in v &&
-          Array.isArray(v.sessions) &&
-          v.sessions.every((s: unknown) => validators.Session(s)) &&
-          'total' in v &&
-          typeof v.total === 'number' &&
-          'limit' in v &&
-          typeof v.limit === 'number' &&
-          'offset' in v &&
-          typeof v.offset === 'number'
-        )
-      },
-      endpoint: '/sessions',
-    }).then((freshData) => {
-      setCachedData(url, freshData)
-    }).catch(() => {
-      // Silent fail for background refresh
-    })
-    return cached
-  }
-
-  const data = await fetchJSON<{ sessions: Session[]; total: number; limit: number; offset: number }>(url, {
+  return fetchJSON<{ sessions: Session[]; total: number; limit: number; offset: number }>(url, {
     validator: (value: unknown) => {
       if (typeof value !== 'object' || value === null) return false
       const v = value as Record<string, unknown>
@@ -216,8 +165,6 @@ export async function getSessions(params: { sortBy?: 'started_at' | 'replay_valu
     },
     endpoint: '/sessions',
   })
-  setCachedData(url, data)
-  return data
 }
 
 export async function getTraceBundle(sessionId: string) {

@@ -26,7 +26,7 @@ TIME_SAVED_MINUTES = {
 class RecordEventRequest(BaseModel):
     """Request body for recording an analytics event."""
 
-    model_config = ConfigDict(str_strip=True)
+    model_config = ConfigDict(str_strip_whitespace=True)
 
     event_type: str = Field(..., min_length=1, max_length=100, description="Type of event to record")
     session_id: str | None = Field(None, max_length=100, description="Optional session ID associated with the event")

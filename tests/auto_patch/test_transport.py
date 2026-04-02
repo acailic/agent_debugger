@@ -13,9 +13,9 @@ from agent_debugger_sdk.auto_patch._transport import SyncTransport, get_or_creat
 @pytest.fixture(autouse=True)
 def reset_session_id():
     """Reset module-level session state between tests."""
-    original = transport_module._current_session_id
+    original = transport_module._session_state._id
     yield
-    transport_module._current_session_id = original
+    transport_module._session_state._id = original
 
 
 class TestSyncTransportSendEvent:
@@ -85,7 +85,7 @@ class TestSyncTransportSendSession:
 
 class TestGetOrCreateSession:
     def test_get_or_create_session_creates_session_when_none(self) -> None:
-        transport_module._current_session_id = None
+        transport_module._session_state._id = None
 
         with patch("httpx.Client") as mock_client_cls:
             mock_client = MagicMock()
@@ -100,10 +100,10 @@ class TestGetOrCreateSession:
             session_id = get_or_create_session(t, agent_name="my-agent", framework="openai")
 
         assert session_id == "new-session-999"
-        assert transport_module._current_session_id == "new-session-999"
+        assert transport_module._session_state._id == "new-session-999"
 
     def test_get_or_create_session_reuses_existing_session_id(self) -> None:
-        transport_module._current_session_id = "existing-session-42"
+        transport_module._session_state._id = "existing-session-42"
 
         with patch("httpx.Client") as mock_client_cls:
             mock_client = MagicMock()
@@ -116,10 +116,10 @@ class TestGetOrCreateSession:
         # post should NOT have been called for session creation
         mock_client.post.assert_not_called()
         assert session_id == "existing-session-42"
-        assert transport_module._current_session_id == "existing-session-42"
+        assert transport_module._session_state._id == "existing-session-42"
 
     def test_get_or_create_session_second_call_same_id(self) -> None:
-        transport_module._current_session_id = None
+        transport_module._session_state._id = None
 
         with patch("httpx.Client") as mock_client_cls:
             mock_client = MagicMock()

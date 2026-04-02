@@ -144,4 +144,5 @@ def deactivate() -> None:
 # ---------------------------------------------------------------------------
 _auto_patch_env = os.environ.get("PEAKY_PEEK_AUTO_PATCH", "")
 if _auto_patch_env:
+    logger.info("Auto-patch activating on import via PEAKY_PEEK_AUTO_PATCH=%s", _auto_patch_env)
     activate()

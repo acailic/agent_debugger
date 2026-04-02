@@ -21,6 +21,9 @@ def get_database_url() -> str:
 def create_db_engine(url: str | None = None, **kwargs) -> AsyncEngine:
     db_url = url or get_database_url()
     defaults = {"echo": False}
+    if "sqlite" not in db_url:
+        defaults["pool_timeout"] = 10
+        defaults["pool_recycle"] = 3600
     if "sqlite" in db_url:
         defaults["connect_args"] = {"check_same_thread": False}
     defaults.update(kwargs)
@@ -28,7 +31,11 @@ def create_db_engine(url: str | None = None, **kwargs) -> AsyncEngine:
 
 
 def create_session_maker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
-    return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    return async_sessionmaker(
+        engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
 
 
 def _project_root() -> Path:

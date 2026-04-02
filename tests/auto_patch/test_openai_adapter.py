@@ -120,9 +120,9 @@ def _get_trace_events(mock_httpx) -> list[dict]:
 @pytest.fixture(autouse=True)
 def reset_session():
     """Reset shared session state between tests."""
-    original = transport_module._current_session_id
+    original = transport_module._session_state._id
     yield
-    transport_module._current_session_id = original
+    transport_module._session_state._id = original
 
 
 @pytest.fixture()

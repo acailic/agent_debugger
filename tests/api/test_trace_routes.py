@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -215,21 +216,21 @@ async def test_search_traces_with_session_filter():
 
         async with app_context.require_session_maker()() as db_session:
             repo = TraceRepository(db_session)
-            await repo.create_session(_make_session("search-session-1"))
+            await repo.create_session(_make_session("trace-search-session-1"))
             await repo.add_event(
-                _make_event("search-session-1", EventType.TOOL_CALL, name="tool_1", data={"action": "search"})
+                _make_event("trace-search-session-1", EventType.TOOL_CALL, name="tool_1", data={"action": "search"})
             )
-            await repo.create_session(_make_session("search-session-2"))
+            await repo.create_session(_make_session("trace-search-session-2"))
             await repo.add_event(
-                _make_event("search-session-2", EventType.TOOL_CALL, name="tool_2", data={"action": "search"})
+                _make_event("trace-search-session-2", EventType.TOOL_CALL, name="tool_2", data={"action": "search"})
             )
             await db_session.commit()
 
-        resp = await client.get("/api/traces/search?query=search&session_id=search-session-1")
+        resp = await client.get("/api/traces/search?query=search&session_id=trace-search-session-1")
         assert resp.status_code == 200
         data = resp.json()
 
-        assert data["session_id"] == "search-session-1"
+        assert data["session_id"] == "trace-search-session-1"
         assert isinstance(data["results"], list)
 
 
@@ -454,3 +455,131 @@ async def test_search_response_schema():
         assert isinstance(data["query"], str)
         assert isinstance(data["total"], int)
         assert isinstance(data["results"], list)
+
+
+@pytest.mark.asyncio
+async def test_get_trace_bundle_rollback_on_analysis_error():
+    """Test that get_trace_bundle rolls back transaction when analyze_session raises an exception."""
+    from api import app_context
+
+    async with app_context.require_session_maker()() as db_session:
+        repo = TraceRepository(db_session)
+        await repo.create_session(_make_session("rollback-trace-session"))
+        await db_session.commit()
+
+        # Mock analyze_session to raise an exception and track rollback calls
+        rollback_called = False
+        original_rollback = repo.rollback
+
+        async def mock_rollback():
+            nonlocal rollback_called
+            rollback_called = True
+            await original_rollback()
+
+        repo.rollback = mock_rollback
+
+        # Mock analyze_session to raise an exception
+        with patch("api.trace_routes.analyze_session", new_callable=AsyncMock) as mock_analyze:
+            mock_analyze.side_effect = RuntimeError("Analysis failed")
+
+            # Make the request
+            from api.trace_routes import get_trace_bundle
+            with pytest.raises(RuntimeError, match="Analysis failed"):
+                await get_trace_bundle("rollback-trace-session", repo)
+
+            # Verify rollback was called
+            assert rollback_called, "rollback() should have been called when analyze_session failed"
+
+
+@pytest.mark.asyncio
+async def test_get_session_analysis_rollback_on_analysis_error():
+    """Test that get_session_analysis rolls back transaction when analyze_session raises an exception."""
+    from api import app_context
+
+    async with app_context.require_session_maker()() as db_session:
+        repo = TraceRepository(db_session)
+        await repo.create_session(_make_session("rollback-analysis-session"))
+        await db_session.commit()
+
+        # Track rollback calls
+        rollback_called = False
+        original_rollback = repo.rollback
+
+        async def mock_rollback():
+            nonlocal rollback_called
+            rollback_called = True
+            await original_rollback()
+
+        repo.rollback = mock_rollback
+
+        # Mock analyze_session to raise an exception
+        with patch("api.trace_routes.analyze_session", new_callable=AsyncMock) as mock_analyze:
+            mock_analyze.side_effect = ValueError("Analysis error")
+
+            # Make the request
+            from api.trace_routes import get_session_analysis
+            with pytest.raises(ValueError, match="Analysis error"):
+                await get_session_analysis("rollback-analysis-session", repo)
+
+            # Verify rollback was called
+            assert rollback_called, "rollback() should have been called when analyze_session failed"
+
+
+@pytest.mark.asyncio
+async def test_get_trace_bundle_commits_on_success():
+    """Test that get_trace_bundle commits transaction when analyze_session succeeds."""
+    from api import app_context
+
+    async with app_context.require_session_maker()() as db_session:
+        repo = TraceRepository(db_session)
+        await repo.create_session(_make_session("commit-trace-session"))
+        await db_session.commit()
+
+        # Track commit calls
+        commit_called = False
+        original_commit = repo.commit
+
+        async def mock_commit():
+            nonlocal commit_called
+            commit_called = True
+            await original_commit()
+
+        repo.commit = mock_commit
+
+        # Make the request - should succeed
+        from api.trace_routes import get_trace_bundle
+        result = await get_trace_bundle("commit-trace-session", repo)
+
+        # Verify commit was called
+        assert commit_called, "commit() should have been called when analyze_session succeeded"
+        assert result is not None
+
+
+@pytest.mark.asyncio
+async def test_get_session_analysis_commits_on_success():
+    """Test that get_session_analysis commits transaction when analyze_session succeeds."""
+    from api import app_context
+
+    async with app_context.require_session_maker()() as db_session:
+        repo = TraceRepository(db_session)
+        await repo.create_session(_make_session("commit-analysis-session"))
+        await db_session.commit()
+
+        # Track commit calls
+        commit_called = False
+        original_commit = repo.commit
+
+        async def mock_commit():
+            nonlocal commit_called
+            commit_called = True
+            await original_commit()
+
+        repo.commit = mock_commit
+
+        # Make the request - should succeed
+        from api.trace_routes import get_session_analysis
+        result = await get_session_analysis("commit-analysis-session", repo)
+
+        # Verify commit was called
+        assert commit_called, "commit() should have been called when analyze_session succeeded"
+        assert result is not None

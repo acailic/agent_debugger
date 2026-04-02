@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -106,3 +106,43 @@ async def test_prepare_database_migrates_existing_sqlite_file(tmp_path):
         conn.close()
 
     assert "replay_value" in columns
+
+
+def test_create_engine_with_postgresql_includes_pool_settings():
+    """Non-SQLite databases should get pool_timeout and pool_recycle settings."""
+    from storage.engine import create_db_engine
+
+    postgres_url = "postgresql+asyncpg://localhost/debugger"
+
+    with patch("storage.engine.create_async_engine") as mock_create_engine:
+        mock_engine = MagicMock()
+        mock_create_engine.return_value = mock_engine
+
+        create_db_engine(postgres_url)
+
+        # Verify create_async_engine was called with pool settings
+        call_kwargs = mock_create_engine.call_args[1]
+        assert "pool_timeout" in call_kwargs
+        assert call_kwargs["pool_timeout"] == 10
+        assert "pool_recycle" in call_kwargs
+        assert call_kwargs["pool_recycle"] == 3600
+
+
+def test_create_engine_with_sqlite_omits_pool_settings():
+    """SQLite databases should not get pool_timeout or pool_recycle settings."""
+    from storage.engine import create_db_engine
+
+    sqlite_url = "sqlite+aiosqlite:///:memory:"
+
+    with patch("storage.engine.create_async_engine") as mock_create_engine:
+        mock_engine = MagicMock()
+        mock_create_engine.return_value = mock_engine
+
+        create_db_engine(sqlite_url)
+
+        # Verify create_async_engine was called without pool settings
+        call_kwargs = mock_create_engine.call_args[1]
+        assert "pool_timeout" not in call_kwargs
+        assert "pool_recycle" not in call_kwargs
+        # But connect_args should be present for SQLite
+        assert "connect_args" in call_kwargs

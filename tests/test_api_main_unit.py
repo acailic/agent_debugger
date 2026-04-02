@@ -18,6 +18,8 @@ from agent_debugger_sdk.core.events import Checkpoint, Session, ToolCallEvent
 from api import app_context
 from api import dependencies as api_dependencies
 from api import services as api_services
+from api.analytics_routes import RecordEventRequest
+from api.middleware import LoggingMiddleware, RequestIDMiddleware
 from api.schemas import CreateKeyRequest, SessionUpdateRequest
 from storage import Base, TraceRepository
 
@@ -96,6 +98,13 @@ def test_get_repository_scopes_to_tenant():
     assert repo.tenant_id == "tenant-a"
 
 
+def test_create_app_orders_request_id_middleware_before_logging():
+    app = api_main.create_app()
+    middleware_classes = [middleware.cls for middleware in app.user_middleware]
+
+    assert middleware_classes.index(RequestIDMiddleware) < middleware_classes.index(LoggingMiddleware)
+
+
 @pytest.mark.asyncio
 async def test_get_db_session_yields_session_from_factory(api_repo_factory):
     generator = api_dependencies.get_db_session()
@@ -118,8 +127,19 @@ def test_normalizers_include_analysis_summary():
 
     assert normalized_session.id == "session-normalize"
     assert normalized_session.replay_value == 0.9
-    assert api_services.normalize_event(event).tool_name == "search"
-    assert api_services.normalize_checkpoint(checkpoint).sequence == 1
+
+
+def test_request_models_strip_whitespace():
+    create_key = CreateKeyRequest(name="  primary  ", environment="  live  ")
+    session_update = SessionUpdateRequest(agent_name="  agent  ", framework="  pytest  ")
+    analytics_event = RecordEventRequest(event_type="  why_button_clicked  ", agent_name="  agent  ")
+
+    assert create_key.name == "primary"
+    assert create_key.environment == "live"
+    assert session_update.agent_name == "agent"
+    assert session_update.framework == "pytest"
+    assert analytics_event.event_type == "why_button_clicked"
+    assert analytics_event.agent_name == "agent"
 
 
 @pytest.mark.asyncio

@@ -1,237 +1,94 @@
 # Contributing to Peaky Peek
 
-Thank you for your interest in contributing! This document will help you get started.
-
-## Architecture Overview
-
-Peaky Peek is organized as a modular pipeline for agent debugging:
-
-```
-SDK → Collector → API → Storage → Frontend
-```
-
-- **SDK** (`agent_debugger_sdk/`) — Lightweight tracing library for instrumenting agent code with framework adapters
-- **Collector** (`collector/`) — Event buffering and persistence pipeline that routes data to storage
-- **API** (`api/`) — FastAPI server providing REST endpoints and SSE for real-time event streaming
-- **Storage** (`storage/`) — SQLAlchemy-based persistence layer with SQLite/PostgreSQL support
-- **Frontend** (`frontend/`) — React + TypeScript UI for visualizing decision trees, tool calls, and replay
-
-The system captures a hierarchy: `Session → Trace → Event → Decision → Tool Call → Checkpoint`. See [ARCHITECTURE.md](./ARCHITECTURE.md) for full details.
-
-## Development Environment Setup
-
-### Prerequisites
-
-- Python 3.10 or later
-- Node.js 18+ (for frontend)
-- Git
-
-### Clone and Install
+## Quick Start
 
 ```bash
-# Clone the repository
-git clone https://github.com/acailic/agent_debugger
+# Clone and install
+git clone https://github.com/acailic/agent_debugger.git
 cd agent_debugger
+pip install -e ".[dev]"
 
-# Install the SDK in editable mode
-pip install -e .
+# Install frontend dependencies
+cd frontend && npm install && cd ..
 
-# Install backend/runtime dependencies used by the local server
-pip install fastapi "uvicorn[standard]" "sqlalchemy[asyncio]" aiosqlite alembic aiofiles bcrypt
+# Run tests
+python3 -m pytest -q
 
-# Verify installation
-python -m pytest -q
+# Lint
+ruff check .
+
+# Build frontend
+cd frontend && npm run build
 ```
 
-### Seed Demo Data
+## Project Structure
+
+- `agent_debugger_sdk/` — Python SDK for instrumenting AI agents
+- `api/` — FastAPI server (query, replay, streaming, auth)
+- `frontend/` — React + TypeScript + Vite UI
+- `collector/` — Event ingestion and pipeline
+- `storage/` — Database engine, migrations, repositories
+- `auth/` — API key authentication
+- `redaction/` — Security/privacy filters
+- `tests/` — Python test suite
+
+See `CLAUDE.md` for the full repo map and high-risk boundaries.
+
+## Development Workflow
+
+1. **Branch off `main`** for any non-trivial change
+2. **Make targeted changes** — read the smallest set of files needed first
+3. **Validate** after changes:
+   - `ruff check .` for Python changes
+   - `python3 -m pytest -q` for backend/SDK changes
+   - `cd frontend && npm run build` for frontend changes
+4. **Check boundaries** before changing shared shapes:
+   - API ↔ frontend: `api/schemas.py`, `frontend/src/types/index.ts`, `frontend/src/api/client.ts`
+   - SDK ↔ API: `agent_debugger_sdk/core/`, `api/schemas.py`
+   - Auto-instrumentation: `agent_debugger_sdk/auto_patch/`, `agent_debugger_sdk/adapters/`
+
+## Code Style
+
+- Python: Ruff with line length 120, rules E/F/I
+- TypeScript: Vite/ESLint defaults
+- Prefer targeted reads over broad scans
+- Use `python3`, not `python`
+
+## Running Locally
 
 ```bash
-# Populate local database with example sessions
-python scripts/seed_demo_sessions.py
+# Start the backend
+make server
+
+# Start the frontend dev server
+make frontend
+
+# Seed demo data
+make demo-seed
 ```
 
-This creates reusable benchmark sessions for testing and development.
+## Testing
 
-### Frontend Setup
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The dev server runs on `http://localhost:5173`.
-
-### Run the API Server
-
-```bash
-uvicorn api.main:app --reload --port 8000
-```
-
-The API is available at `http://localhost:8000` with docs at `http://localhost:8000/docs`.
-
-## Good First Issues
-
-We welcome contributions in these areas:
-
-### 1. Framework Adapters
-
-Add support for new agent frameworks by creating adapter classes in `agent_debugger_sdk/adapters/`. Current adapters:
-- PydanticAI
-- LangChain
-
-Example: Add an adapter for CrewAI, AutoGen, Semantic Kernel, or a custom framework.
-
-### 2. Seed Scenarios
-
-Add demo data scenarios in `benchmarks/` to showcase debugging capabilities. Scenarios should:
-- Represent realistic agent failure modes
-- Include decision trees, tool calls, and checkpoints
-- Be reusable for testing and demos
-
-### 3. API Endpoints
-
-Extend the FastAPI server in `api/` with new query or analysis endpoints:
-- Session search filters
-- Event aggregation APIs
-- Comparison views for multiple runs
-
-### 4. Frontend Components
-
-Improve the UI in `frontend/src/`:
-- Decision tree visualizations
-- Tool call inspectors
-- Session replay controls
-- Search and filtering interfaces
-
-Check [GitHub Issues](https://github.com/acailic/agent_debugger/issues) for tags like `good first issue` or `help wanted`.
-
-## PR Process
-
-### Branch Naming
-
-Use conventional prefixes:
-- `feature/` — New features or enhancements
-- `fix/` — Bug fixes
-- `docs/` — Documentation changes
-- `refactor/` — Code refactoring
-- `test/` — Test additions or updates
-
-Example: `feature/add-autogen-adapter`
-
-### Commit Messages
-
-Follow [conventional commits](https://www.conventionalcommits.org/):
-
-```
-type(scope): description
-
-[optional body]
-
-[optional footer]
-```
-
-Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
-
-Example:
-```
-feat(sdk): add AutoGen framework adapter
-
-Implements tracing for AutoGen multi-agent conversations.
-Includes decision capture and tool call instrumentation.
-
-Closes #123
-```
-
-### Test Expectations
-
-All tests must pass before merging:
-
-```bash
-# Run full test suite
-python -m pytest -v
-
-# Run specific test file
-python -m pytest tests/test_buffer_interface.py -v
-```
-
-### Code Review
-
-1. Fork the repository and create a feature branch
-2. Make your changes and add tests
-3. Ensure tests pass and linting is clean
-4. Submit a pull request with a clear description
-5. Address review feedback
-6. Once approved, maintainers will merge
-
-### Review Checklist
-
-- [ ] Tests pass locally
-- [ ] New features include tests
-- [ ] Documentation updated (if applicable)
-- [ ] Commit messages follow conventions
-- [ ] No unrelated changes included
-
-## Running Tests
-
-### Python Tests
+Tests use `pytest-asyncio` with `asyncio_mode = "auto"`. Integration tests are deselected by default (`-m 'not integration'`).
 
 ```bash
 # Run all tests
-pytest tests/ -v
+python3 -m pytest -q
 
-# Run with coverage
-pytest tests/ --cov=agent_debugger_sdk --cov=collector --cov=api --cov=storage
+# Run specific test file
+python3 -m pytest -q tests/test_api_contract.py
 
-# Run specific test module
-pytest tests/test_package.py -v
-
-# Run async tests only
-pytest tests/ -k "async" -v
+# Run with verbose output
+python3 -m pytest -v tests/sdk/core/test_session_manager.py
 ```
 
-### Frontend Build
+## Commit Messages
 
-```bash
-cd frontend
+Use conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`.
 
-# Install dependencies
-npm install
+## Reporting Issues
 
-# Run development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Run frontend lint checks
-npm run lint
-```
-
-### Type Checking
-
-```bash
-# Run mypy for static type checking if you have it installed locally
-mypy agent_debugger_sdk/ collector/ api/ storage/
-```
-
-### Database Reset
-
-```bash
-# Remove local database
-rm agent_debugger.db
-
-# Re-seed demo data
-python scripts/seed_demo_sessions.py
-```
-
-## Additional Resources
-
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — Full system design
-- [SDK_README.md](./SDK_README.md) — SDK usage guide
-- [docs/integration.md](./docs/integration.md) — Framework integration docs
-- [GitHub Issues](https://github.com/acailic/agent_debugger/issues) — Bug reports and feature requests
-
-## Questions?
-
-Feel free to open an issue or start a discussion. We're happy to help new contributors get started!
+Use [GitHub Issues](https://github.com/acailic/agent_debugger/issues) with:
+- Minimal reproduction steps
+- Expected vs actual behavior
+- Relevant logs or error messages

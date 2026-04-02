@@ -1,9 +1,18 @@
 # Agent Debugger & Visualizer - Architecture Design
 
+> **DEPRECATED**: This document contains aspirational design from the initial
+> planning phase and no longer reflects the actual codebase structure.  For
+> current implementation details, see:
+>
+> - [docs/architecture.md](./docs/architecture.md)
+> - [docs/how-it-works.md](./docs/how-it-works.md)
+> - [CLAUDE.md](./CLAUDE.md) (repo map section)
+>
+> The file maps and code examples below are retained for historical context
+> only and should not be used as a reference for the current codebase.
+
 **Version**: 1.1
 **Date**: 2026-03-23
-
-This file is a broader design document. For the current implementation shape, prefer [docs/architecture.md](./docs/architecture.md) and [docs/how-it-works.md](./docs/how-it-works.md).
 
 ## Reality Check
 

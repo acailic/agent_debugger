@@ -85,8 +85,8 @@ def create_app() -> FastAPI:
     )
 
     # Add request tracking middleware
-    app.add_middleware(RequestIDMiddleware)
     app.add_middleware(LoggingMiddleware)
+    app.add_middleware(RequestIDMiddleware)
 
     app.include_router(collector_router)
     app.include_router(auth_router)
