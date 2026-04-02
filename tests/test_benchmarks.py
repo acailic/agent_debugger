@@ -10,14 +10,30 @@ from __future__ import annotations
 
 import os
 
-import pytest
-
 os.environ["AGENT_DEBUGGER_ENABLED"] = "false"
 
-from agent_debugger_sdk.core.events import (
+import pytest
+
+from agent_debugger_sdk import init as sdk_init
+
+sdk_init()
+
+
+# Set a no-op event persister so TraceContext never creates HTTP transport,
+# even after conftest.py's reset_global_config fixture clears _global_config.
+async def _noop_persist(event):  # noqa: ARG001
+    """No-op persister to prevent HTTP transport creation in benchmark tests."""
+    pass
+
+
+from agent_debugger_sdk.core.context import configure_event_pipeline  # noqa: E402
+
+configure_event_pipeline(None, persist_event=_noop_persist)
+
+from agent_debugger_sdk.core.events import (  # noqa: E402
     EventType,
 )
-from benchmarks.seed_data import (
+from benchmarks.seed_data import (  # noqa: E402
     DEFAULT_SEED_SESSION_IDS,
     iter_seed_scenarios,
     run_evidence_grounding_session,
