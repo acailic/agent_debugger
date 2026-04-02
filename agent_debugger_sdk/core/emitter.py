@@ -13,6 +13,8 @@ from .scorer import get_importance_scorer
 
 logger = logging.getLogger("agent_debugger")
 
+__all__ = ["EventBufferLike", "EventEmitter"]
+
 
 class EventBufferLike(Protocol):
     """Protocol for publish-capable event buffers."""

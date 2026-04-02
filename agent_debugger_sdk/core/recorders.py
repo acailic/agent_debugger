@@ -24,6 +24,8 @@ from .events import (
     TraceEvent,
 )
 
+__all__ = ["RecordingMixin"]
+
 
 def _enhance_error_message(error_message: str) -> str:
     """Append helpful suggestions to error messages based on common patterns.

@@ -47,9 +47,40 @@ def _get_error_message(status_code: int) -> str:
     return messages.get(status_code, f"Client error (status={status_code})")
 
 
-MAX_RETRIES = 3
-INITIAL_BACKOFF_SECONDS = 0.5
-BACKOFF_MULTIPLIER = 2.0
+DEFAULT_MAX_RETRIES = 3
+DEFAULT_INITIAL_BACKOFF_SECONDS = 0.5
+DEFAULT_BACKOFF_MULTIPLIER = 2.0
+
+
+class RetryConfig:
+    """Configuration for HTTP request retry behavior."""
+
+    def __init__(
+        self,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        initial_backoff_seconds: float = DEFAULT_INITIAL_BACKOFF_SECONDS,
+        backoff_multiplier: float = DEFAULT_BACKOFF_MULTIPLIER,
+    ) -> None:
+        """Initialize retry configuration.
+
+        Args:
+            max_retries: Maximum number of retry attempts for transient errors
+            initial_backoff_seconds: Initial backoff delay before first retry
+            backoff_multiplier: Multiplier for exponential backoff
+
+        Raises:
+            ValueError: If configuration values are invalid
+        """
+        if max_retries < 0:
+            raise ValueError(f"max_retries must be non-negative, got: {max_retries}")
+        if initial_backoff_seconds < 0:
+            raise ValueError(f"initial_backoff_seconds must be non-negative, got: {initial_backoff_seconds}")
+        if backoff_multiplier < 1.0:
+            raise ValueError(f"backoff_multiplier must be >= 1.0, got: {backoff_multiplier}")
+
+        self.max_retries = max_retries
+        self.initial_backoff_seconds = initial_backoff_seconds
+        self.backoff_multiplier = backoff_multiplier
 
 
 class HttpTransport:
@@ -60,9 +91,17 @@ class HttpTransport:
         endpoint: str,
         api_key: str | None = None,
         *,
+        retry_config: RetryConfig | None = None,
         on_delivery_failure: DeliveryFailureCallback | None = None,
     ) -> None:
-        """Initialize the HTTP transport."""
+        """Initialize the HTTP transport.
+
+        Args:
+            endpoint: Base URL of the collector server
+            api_key: Optional API key for authentication
+            retry_config: Optional retry configuration (uses defaults if None)
+            on_delivery_failure: Optional callback for delivery failures
+        """
         self._endpoint = endpoint.rstrip("/")
         self._headers: dict[str, str] = {"Content-Type": "application/json"}
         if api_key:
@@ -72,6 +111,7 @@ class HttpTransport:
             headers=self._headers,
             timeout=5.0,
         )
+        self._retry_config = retry_config or RetryConfig()
         self._on_delivery_failure = on_delivery_failure
 
     async def send_event(
@@ -172,9 +212,9 @@ class HttpTransport:
     ) -> None:
         """Send a request with retry logic for transient errors."""
         last_error: TransportError | None = None
-        backoff = INITIAL_BACKOFF_SECONDS
+        backoff = self._retry_config.initial_backoff_seconds
 
-        for attempt in range(MAX_RETRIES + 1):
+        for attempt in range(self._retry_config.max_retries + 1):
             try:
                 await self._execute_request(method=method, path=path, payload=payload)
                 return
@@ -193,14 +233,14 @@ class HttpTransport:
                     "Transient error sending to collector (%s, attempt=%d/%d): %s",
                     context,
                     attempt + 1,
-                    MAX_RETRIES + 1,
+                    self._retry_config.max_retries + 1,
                     last_error,
                 )
 
                 # Wait and retry if not the last attempt
-                if attempt < MAX_RETRIES:
+                if attempt < self._retry_config.max_retries:
                     await asyncio.sleep(backoff)
-                    backoff *= BACKOFF_MULTIPLIER
+                    backoff *= self._retry_config.backoff_multiplier
 
         # All retries exhausted or permanent error - invoke callback if provided
         if last_error is not None:

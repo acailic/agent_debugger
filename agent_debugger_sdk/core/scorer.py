@@ -7,12 +7,29 @@ collector modules and creating package-level circular dependencies.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from agent_debugger_sdk.core.events import EventType, TraceEvent
 
-# Import event_value from collector helpers.
-# This is safe because helpers.py only imports TraceEvent, not scorer.
-from collector.intelligence.helpers import event_value
+__all__ = ["event_value", "ImportanceScorer", "get_importance_scorer"]
+
+
+def event_value(event: TraceEvent | None, key: str, default: Any = None) -> Any:
+    """Extract a value from an event, checking both attributes and data dict.
+
+    Args:
+        event: The event to extract from (can be None)
+        key: The key to look for
+        default: Default value if key not found
+
+    Returns:
+        The value or default
+    """
+    if event is None:
+        return default
+    if hasattr(event, key):
+        return getattr(event, key)
+    return event.data.get(key, default)
 
 
 @dataclass

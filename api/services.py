@@ -242,15 +242,19 @@ async def persist_session_start(
 ) -> None:
     sm = session_maker or app_context.require_session_maker()
     async with sm() as db_session:
-        repo = TraceRepository(db_session)
-        existing = await repo.get_session(session.id)
-        if existing is None:
-            await repo.create_session(session)
-            await repo.commit()
-            # Record analytics event (fire-and-forget)
-            from api.analytics_db import record_event
+        try:
+            repo = TraceRepository(db_session)
+            existing = await repo.get_session(session.id)
+            if existing is None:
+                await repo.create_session(session)
+                await repo.commit()
+                # Record analytics event (fire-and-forget)
+                from api.analytics_db import record_event
 
-            record_event("session_created", session_id=session.id, agent_name=session.agent_name)
+                record_event("session_created", session_id=session.id, agent_name=session.agent_name)
+        except Exception:
+            await db_session.rollback()
+            raise
 
 
 async def persist_session_update(
@@ -261,28 +265,32 @@ async def persist_session_update(
 ) -> None:
     sm = session_maker or app_context.require_session_maker()
     async with sm() as db_session:
-        repo = TraceRepository(db_session)
-        replay_value = session.replay_value
-        if should_refresh_replay_value(session):
-            _, _, _, replay_value = await analyze_session(repo, session.id, intelligence=intelligence)
-            session.replay_value = replay_value
+        try:
+            repo = TraceRepository(db_session)
+            replay_value = session.replay_value
+            if should_refresh_replay_value(session):
+                _, _, _, replay_value = await analyze_session(repo, session.id, intelligence=intelligence)
+                session.replay_value = replay_value
 
-        await repo.update_session(
-            session.id,
-            agent_name=session.agent_name,
-            framework=session.framework,
-            ended_at=session.ended_at,
-            status=session.status,
-            total_tokens=session.total_tokens,
-            total_cost_usd=session.total_cost_usd,
-            tool_calls=session.tool_calls,
-            llm_calls=session.llm_calls,
-            errors=session.errors,
-            replay_value=replay_value,
-            config=session.config,
-            tags=session.tags,
-        )
-        await repo.commit()
+            await repo.update_session(
+                session.id,
+                agent_name=session.agent_name,
+                framework=session.framework,
+                ended_at=session.ended_at,
+                status=session.status,
+                total_tokens=session.total_tokens,
+                total_cost_usd=session.total_cost_usd,
+                tool_calls=session.tool_calls,
+                llm_calls=session.llm_calls,
+                errors=session.errors,
+                replay_value=replay_value,
+                config=session.config,
+                tags=session.tags,
+            )
+            await repo.commit()
+        except Exception:
+            await db_session.rollback()
+            raise
 
 
 async def persist_event(
@@ -295,9 +303,13 @@ async def persist_event(
     event = pipeline.apply(event)
     sm = session_maker or app_context.require_session_maker()
     async with sm() as db_session:
-        repo = TraceRepository(db_session)
-        await repo.add_event(event)
-        await repo.commit()
+        try:
+            repo = TraceRepository(db_session)
+            await repo.add_event(event)
+            await repo.commit()
+        except Exception:
+            await db_session.rollback()
+            raise
 
 
 async def persist_checkpoint(
@@ -307,9 +319,13 @@ async def persist_checkpoint(
 ) -> None:
     sm = session_maker or app_context.require_session_maker()
     async with sm() as db_session:
-        repo = TraceRepository(db_session)
-        await repo.create_checkpoint(checkpoint)
-        await repo.commit()
+        try:
+            repo = TraceRepository(db_session)
+            await repo.create_checkpoint(checkpoint)
+            await repo.commit()
+        except Exception:
+            await db_session.rollback()
+            raise
 
 
 async def event_generator(

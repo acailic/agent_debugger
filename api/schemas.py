@@ -114,19 +114,21 @@ class SessionDetailResponse(BaseModel):
 
 
 class SessionUpdateRequest(BaseModel):
-    agent_name: str | None = None
-    framework: str | None = None
+    model_config = ConfigDict(str_strip=True)
+
+    agent_name: str | None = Field(default=None, min_length=1, max_length=200)
+    framework: str | None = Field(default=None, min_length=1, max_length=50)
     ended_at: datetime | None = None
     status: SessionStatus | None = None
-    total_tokens: int | None = None
-    total_cost_usd: float | None = None
-    tool_calls: int | None = None
-    llm_calls: int | None = None
-    errors: int | None = None
-    replay_value: float | None = None
+    total_tokens: int | None = Field(default=None, ge=0)
+    total_cost_usd: float | None = Field(default=None, ge=0.0)
+    tool_calls: int | None = Field(default=None, ge=0)
+    llm_calls: int | None = Field(default=None, ge=0)
+    errors: int | None = Field(default=None, ge=0)
+    replay_value: float | None = Field(default=None, ge=0.0, le=1.0)
     config: dict[str, Any] | None = None
     tags: list[str] | None = None
-    fix_note: str | None = None
+    fix_note: str | None = Field(default=None, max_length=2000)
 
 
 class TraceListResponse(BaseModel):
@@ -157,8 +159,10 @@ class CheckpointDeltasResponse(BaseModel):
 
 
 class RestoreRequest(BaseModel):
+    model_config = ConfigDict(str_strip=True)
+
     session_id: str | None = None
-    label: str = ""
+    label: str = Field(default="", max_length=200)
 
 
 class RestoreResponse(BaseModel):
@@ -218,8 +222,10 @@ class TraceSearchResponse(BaseModel):
 
 
 class CreateKeyRequest(BaseModel):
-    name: str = ""
-    environment: str = "live"
+    model_config = ConfigDict(str_strip=True)
+
+    name: str = Field(default="", min_length=0, max_length=100)
+    environment: str = Field(default="live", max_length=50)
 
 
 class CreateKeyResponse(BaseModel):

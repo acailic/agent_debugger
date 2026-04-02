@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -86,8 +86,8 @@ class AnalyticsRepository:
             # Ensure schema exists
             self.ensure_schema()
 
-            # Get today's date in YYYY-MM-DD format
-            today = datetime.now().strftime("%Y-%m-%d")
+            # Get today's date in YYYY-MM-DD format (UTC)
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
             # Serialize properties to JSON
             properties_json = json.dumps(properties) if properties else None
@@ -159,7 +159,7 @@ class AnalyticsRepository:
             if not self._db_path.exists():
                 return defaults
 
-            cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+            cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
 
             with sqlite3.connect(str(self._db_path)) as conn:
                 conn.row_factory = sqlite3.Row
@@ -225,7 +225,7 @@ class AnalyticsRepository:
 
         try:
             # Generate list of dates for the period
-            today = datetime.now()
+            today = datetime.now(timezone.utc)
             date_range = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days)]
 
             if not self._db_path.exists():
@@ -263,11 +263,11 @@ class AnalyticsRepository:
         except sqlite3.Error:
             logger.warning("Failed to get daily analytics breakdown", exc_info=True)
             # Return empty structure
-            today = datetime.now()
+            today = datetime.now(timezone.utc)
             date_range = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days)]
             return [{"date": d, **empty_day} for d in reversed(date_range)]
         except Exception:
             logger.warning("Unexpected error getting daily analytics breakdown", exc_info=True)
-            today = datetime.now()
+            today = datetime.now(timezone.utc)
             date_range = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days)]
             return [{"date": d, **empty_day} for d in reversed(date_range)]

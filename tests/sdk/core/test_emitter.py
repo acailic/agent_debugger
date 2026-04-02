@@ -19,9 +19,9 @@ from agent_debugger_sdk.core.events import (
     TraceEvent,
 )
 from agent_debugger_sdk.transport import (
-    BACKOFF_MULTIPLIER,
-    INITIAL_BACKOFF_SECONDS,
-    MAX_RETRIES,
+    DEFAULT_BACKOFF_MULTIPLIER,
+    DEFAULT_INITIAL_BACKOFF_SECONDS,
+    DEFAULT_MAX_RETRIES,
     DeliveryFailureCallback,
     HttpTransport,
     PermanentError,
@@ -820,7 +820,7 @@ class TestHttpTransportSendEvent:
 
             await transport.send_event(event)
 
-            assert mock_post.call_count == MAX_RETRIES + 1
+            assert mock_post.call_count == DEFAULT_MAX_RETRIES + 1
             callback.assert_called_once()
             assert isinstance(callback.call_args[0][0], TransientError)
 
@@ -947,15 +947,15 @@ class TestTransportRetryConfiguration:
 
     def test_max_retries_value(self):
         """Test MAX_RETRIES has expected value."""
-        assert MAX_RETRIES == 3
+        assert DEFAULT_MAX_RETRIES == 3
 
     def test_initial_backoff_value(self):
         """Test INITIAL_BACKOFF_SECONDS has expected value."""
-        assert INITIAL_BACKOFF_SECONDS == 0.5
+        assert DEFAULT_INITIAL_BACKOFF_SECONDS == 0.5
 
     def test_backoff_multiplier_value(self):
         """Test BACKOFF_MULTIPLIER has expected value."""
-        assert BACKOFF_MULTIPLIER == 2.0
+        assert DEFAULT_BACKOFF_MULTIPLIER == 2.0
 
 
 # =============================================================================

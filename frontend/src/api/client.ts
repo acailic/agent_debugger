@@ -20,14 +20,94 @@ const API_BASE = '/api'
 // Request deduplication: track in-flight requests to avoid duplicate fetches
 const pendingRequests = new Map<string, Promise<Response>>()
 
+// Simple in-memory cache for stale-while-revalidate
+const cache = new Map<string, { data: unknown; timestamp: number }>()
+const DEFAULT_CACHE_TTL = 30000 // 30 seconds
+
+/**
+ * Sleep utility for retry backoff
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Check if error is retryable (transient network errors or 5xx)
+ */
+function isRetryableError(response: Response, error: unknown): boolean {
+  // Retry on network errors
+  if (error instanceof TypeError && error.message.includes('fetch')) {
+    return true
+  }
+  // Retry on 5xx server errors
+  if (response.status >= 500 && response.status < 600) {
+    return true
+  }
+  // Retry on 429 Too Many Requests
+  if (response.status === 429) {
+    return true
+  }
+  return false
+}
+
+/**
+ * Fetch with exponential backoff retry
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit = {},
+  maxRetries = 3
+): Promise<Response> {
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options)
+
+      // If successful or non-retryable error, return immediately
+      if (response.ok || !isRetryableError(response, null)) {
+        return response
+      }
+
+      // For retryable errors, wait and retry
+      if (attempt < maxRetries) {
+        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 10000) // Max 10s
+        await sleep(backoffMs)
+        lastError = new Error(`HTTP ${response.status}: ${response.statusText}`)
+        continue
+      }
+
+      return response
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+
+      // Don't retry non-fetch errors
+      if (!(error instanceof TypeError) || !error.message.includes('fetch')) {
+        throw error
+      }
+
+      // Retry with backoff
+      if (attempt < maxRetries) {
+        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 10000)
+        await sleep(backoffMs)
+        continue
+      }
+
+      throw lastError
+    }
+  }
+
+  throw lastError ?? new Error('Max retries exceeded')
+}
+
 async function fetchWithDeduplication(url: string): Promise<Response> {
   // Check if there's already a pending request for this URL
   if (pendingRequests.has(url)) {
     return pendingRequests.get(url)!
   }
 
-  // Create new request and store the promise
-  const requestPromise = fetch(url)
+  // Create new request with retry logic and store the promise
+  const requestPromise = fetchWithRetry(url)
   pendingRequests.set(url, requestPromise)
 
   // Clean up after request completes (whether success or failure)
@@ -36,6 +116,24 @@ async function fetchWithDeduplication(url: string): Promise<Response> {
   })
 
   return requestPromise
+}
+
+/**
+ * Get cached data if available and fresh
+ */
+function getCachedData<T>(url: string, ttl = DEFAULT_CACHE_TTL): T | null {
+  const cached = cache.get(url)
+  if (cached && Date.now() - cached.timestamp < ttl) {
+    return cached.data as T
+  }
+  return null
+}
+
+/**
+ * Store data in cache
+ */
+function setCachedData(url: string, data: unknown): void {
+  cache.set(url, { data, timestamp: Date.now() })
 }
 
 interface ValidationConfig {
@@ -69,9 +167,13 @@ export async function getSessions(params: { sortBy?: 'started_at' | 'replay_valu
   const search = new URLSearchParams()
   if (params.sortBy) search.set('sort_by', params.sortBy)
   const suffix = search.toString() ? `?${search.toString()}` : ''
-  return fetchJSON<{ sessions: Session[]; total: number; limit: number; offset: number }>(
-    `${API_BASE}/sessions${suffix}`,
-    {
+  const url = `${API_BASE}/sessions${suffix}`
+
+  // Check cache first (stale-while-revalidate)
+  const cached = getCachedData<{ sessions: Session[]; total: number; limit: number; offset: number }>(url)
+  if (cached) {
+    // Return cached data immediately, refresh in background
+    fetchJSON<{ sessions: Session[]; total: number; limit: number; offset: number }>(url, {
       validator: (value: unknown) => {
         if (typeof value !== 'object' || value === null) return false
         const v = value as Record<string, unknown>
@@ -88,8 +190,34 @@ export async function getSessions(params: { sortBy?: 'started_at' | 'replay_valu
         )
       },
       endpoint: '/sessions',
-    }
-  )
+    }).then((freshData) => {
+      setCachedData(url, freshData)
+    }).catch(() => {
+      // Silent fail for background refresh
+    })
+    return cached
+  }
+
+  const data = await fetchJSON<{ sessions: Session[]; total: number; limit: number; offset: number }>(url, {
+    validator: (value: unknown) => {
+      if (typeof value !== 'object' || value === null) return false
+      const v = value as Record<string, unknown>
+      return (
+        'sessions' in v &&
+        Array.isArray(v.sessions) &&
+        v.sessions.every((s: unknown) => validators.Session(s)) &&
+        'total' in v &&
+        typeof v.total === 'number' &&
+        'limit' in v &&
+        typeof v.limit === 'number' &&
+        'offset' in v &&
+        typeof v.offset === 'number'
+      )
+    },
+    endpoint: '/sessions',
+  })
+  setCachedData(url, data)
+  return data
 }
 
 export async function getTraceBundle(sessionId: string) {

@@ -32,6 +32,7 @@ class Config:
     redact_prompts: bool = False
     max_payload_kb: int = 100
     mode: str = "local"  # "local" or "cloud"
+    _skip_validation: bool = False  # Private: skip validation for testing
 
     def validate(self) -> None:
         """Validate configuration values.
@@ -55,11 +56,28 @@ class Config:
             raise ValueError(f"enabled must be a boolean, got: {type(self.enabled).__name__}")
 
     def __post_init__(self):
-        self.validate()
-        if self.api_key:
+        # Apply cloud mode defaults if api_key is present
+        if self.api_key and not self._skip_validation:
             self.mode = "cloud"
             if self.endpoint == "http://localhost:8000":
-                self.endpoint = "https://api.agentdebugger.dev"
+                object.__setattr__(self, 'endpoint', "https://api.agentdebugger.dev")
+
+        # Validate unless explicitly skipped (for testing)
+        if not self._skip_validation:
+            self.validate()
+
+    @classmethod
+    def _create_unvalidated(cls, **kwargs: object) -> "Config":
+        """Create a Config instance without validation (for testing).
+
+        Args:
+            **kwargs: Config field values
+
+        Returns:
+            A Config instance with validation skipped
+        """
+        kwargs['_skip_validation'] = True
+        return cls(**kwargs)
 
 
 _global_config: Config | None = None

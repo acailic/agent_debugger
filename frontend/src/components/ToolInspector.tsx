@@ -31,7 +31,7 @@ export function ToolInspector({ event }: ToolInspectorProps) {
   const isToolResult = event.event_type === 'tool_result'
   const toolName = event.tool_name ?? 'Unknown'
   const toolId = event.id
-  const arguments_ = event.arguments ?? {}
+  const arguments_: Record<string, unknown> = (event.arguments as Record<string, unknown> | undefined) ?? {}
   const hasArguments = Object.keys(arguments_).length > 0
   const isError = !!event.error
   const duration = event.duration_ms ?? null

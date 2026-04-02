@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
 from fastapi import APIRouter, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from api.analytics_db import get_aggregates, get_daily_breakdown, record_event
 
@@ -26,9 +26,11 @@ TIME_SAVED_MINUTES = {
 class RecordEventRequest(BaseModel):
     """Request body for recording an analytics event."""
 
-    event_type: str = Field(..., description="Type of event to record")
-    session_id: str | None = Field(None, description="Optional session ID associated with the event")
-    agent_name: str | None = Field(None, description="Optional agent name associated with the event")
+    model_config = ConfigDict(str_strip=True)
+
+    event_type: str = Field(..., min_length=1, max_length=100, description="Type of event to record")
+    session_id: str | None = Field(None, max_length=100, description="Optional session ID associated with the event")
+    agent_name: str | None = Field(None, max_length=200, description="Optional agent name associated with the event")
     properties: dict[str, Any] | None = Field(None, description="Optional additional properties")
 
 
@@ -117,7 +119,7 @@ async def get_analytics(
     derived adoption rates, and estimated time saved.
     """
     days = RANGE_TO_DAYS[range]
-    today = datetime.now()
+    today = datetime.now(timezone.utc)
     period_end = today.strftime("%Y-%m-%d")
     period_start = (today - timedelta(days=days)).strftime("%Y-%m-%d")
 
