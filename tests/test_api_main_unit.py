@@ -120,8 +120,6 @@ def test_normalizers_include_analysis_summary():
         framework="pytest",
         started_at=datetime(2026, 3, 23, tzinfo=timezone.utc),
     )
-    event = ToolCallEvent(session_id=session.id, tool_name="search", arguments={"q": "Belgrade"})
-    checkpoint = Checkpoint(session_id=session.id, event_id=event.id, sequence=1)
 
     normalized_session = api_services.normalize_session(session, {"replay_value": 0.9})
 
