@@ -16,7 +16,12 @@ from collector.intelligence.event_utils import event_headline, fingerprint, rete
 from collector.intelligence.helpers import event_value, mean
 
 
+# Helper functions for backward compatibility - these wrap fixtures from conftest.py
+# Note: These are module-level helpers for tests that don't use fixture injection
+
+
 def _make_event(event_type: EventType = EventType.TOOL_CALL, session_id: str = "s1", **overrides) -> TraceEvent:
+    """Create a TraceEvent for testing. Consider using make_event fixture instead."""
     # Don't set name if it's in overrides
     if "name" not in overrides:
         overrides = {**overrides, "name": event_type.value}
@@ -30,6 +35,7 @@ def _make_event(event_type: EventType = EventType.TOOL_CALL, session_id: str = "
 def _make_checkpoint(
     session_id: str = "s1", event_id: str = "e1", sequence: int = 1, importance: float = 0.5
 ) -> Checkpoint:
+    """Create a Checkpoint for testing. Consider using make_checkpoint fixture instead."""
     return Checkpoint(
         session_id=session_id,
         event_id=event_id,

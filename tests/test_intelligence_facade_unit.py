@@ -10,7 +10,11 @@ from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
 from collector.intelligence.facade import TraceIntelligence
 
 
+# Helper functions for testing - consider using make_event and make_checkpoint fixtures from conftest.py instead
+
+
 def _make_event(event_type: EventType = EventType.TOOL_CALL, session_id: str = "s1", **overrides) -> TraceEvent:
+    """Create a TraceEvent for testing. Consider using make_event fixture instead."""
     return TraceEvent(
         session_id=session_id,
         event_type=event_type,
@@ -20,6 +24,7 @@ def _make_event(event_type: EventType = EventType.TOOL_CALL, session_id: str = "
 
 
 def _make_checkpoint(session_id: str = "s1", event_id: str = "e1", sequence: int = 1) -> Checkpoint:
+    """Create a Checkpoint for testing. Consider using make_checkpoint fixture instead."""
     return Checkpoint(
         session_id=session_id,
         event_id=event_id,

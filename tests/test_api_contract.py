@@ -17,6 +17,11 @@ from storage import Base, TraceRepository
 
 
 def _get_route_endpoint(path: str, method: str):
+    """Get route endpoint function by path and method.
+
+    NOTE: This tests implementation details (route endpoint function references).
+    Consider refactoring to test behavior (HTTP responses) instead if this becomes brittle.
+    """
     for route in api_main.app.routes:
         if isinstance(route, APIRoute) and route.path == path and method.upper() in route.methods:
             return route.endpoint

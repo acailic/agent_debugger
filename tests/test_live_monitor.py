@@ -14,6 +14,16 @@ def monitor():
     return LiveMonitor()
 
 
+@pytest.fixture
+def test_session_id():
+    """Provide a consistent session_id for testing.
+
+    Note: Many existing tests use hardcoded "s1". This fixture is available
+    for new tests to avoid ID collision issues and improve maintainability.
+    """
+    return "test-session-1"
+
+
 class TestComputeRollingWindow:
     """Tests for LiveMonitor.compute_rolling_window()."""
 

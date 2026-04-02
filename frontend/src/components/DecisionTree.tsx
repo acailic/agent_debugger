@@ -1,5 +1,5 @@
 import * as d3 from 'd3'
-import { useEffect, useRef, useState, useCallback, memo } from 'react'
+import { useEffect, useRef, useState, useCallback, memo, useMemo } from 'react'
 import type { MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from 'react'
 import type { TraceEvent, TreeNode } from '../types'
 
@@ -153,8 +153,14 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
   const [controlsCollapsed, setControlsCollapsed] = useState(false)
 
   // Scale node spacing based on container width for responsiveness
-  const nodeSpacingX = Math.max(100, Math.min(NODE_SPACING_X_BASE, dimensions.width * 0.22))
-  const nodeSpacingY = Math.max(40, Math.min(NODE_SPACING_Y_BASE, dimensions.height * 0.1))
+  const nodeSpacingX = useMemo(
+    () => Math.max(100, Math.min(NODE_SPACING_X_BASE, dimensions.width * 0.22)),
+    [dimensions.width]
+  )
+  const nodeSpacingY = useMemo(
+    () => Math.max(40, Math.min(NODE_SPACING_Y_BASE, dimensions.height * 0.1)),
+    [dimensions.height]
+  )
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number; content: string }>({
@@ -601,6 +607,15 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
 
   useEffect(() => {
     renderTree()
+
+    // Cleanup D3 selections and event listeners on unmount
+    return () => {
+      if (svgRef.current) {
+        const svg = d3.select(svgRef.current)
+        svg.selectAll('*').on('click', null).on('dblclick', null).on('mousemove', null).on('mouseleave', null)
+        svg.selectAll('*').remove()
+      }
+    }
   }, [renderTree])
 
   const handleZoomIn = () => setZoom((z) => Math.min(z * 1.2, 3))
@@ -805,4 +820,6 @@ function arePropsEqual(
   )
 }
 
+// Wrap component in memo for performance
 export const DecisionTreeMemo = memo(DecisionTree, arePropsEqual)
+export { DecisionTree as DecisionTreeInner } // Export unwrapped version for testing

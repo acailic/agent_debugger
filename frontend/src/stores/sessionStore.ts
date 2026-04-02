@@ -135,6 +135,159 @@ interface SessionStore {
   reset: () => void
 }
 
+// Derived state selectors for commonly accessed computed values
+export const sessionSelectors = {
+  getCurrentSession: (state: SessionStore): Session | null => {
+    return state.sessions.find((s) => s.id === state.selectedSessionId) ?? state.bundle?.session ?? null
+  },
+
+  getDisplayEvents: (state: SessionStore): TraceEvent[] => {
+    const bundle = state.replayMode === 'full' ? state.bundle : state.secondaryBundle
+    return bundle?.events ?? []
+  },
+
+  getFilteredSessions: (state: SessionStore): Session[] => {
+    const sessions = [...state.sessions]
+    if (state.sessionSortMode === 'replay_value') {
+      return sessions.sort((a, b) => (b.replay_value ?? 0) - (a.replay_value ?? 0))
+    }
+    return sessions.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
+  },
+
+  hasActiveSearch: (state: SessionStore): boolean => {
+    return !!(state.searchQuery || state.searchEventType)
+  },
+
+  getLiveEventsCount: (state: SessionStore): number => {
+    return state.liveEvents.length
+  },
+
+  isSessionLoaded: (state: SessionStore): boolean => {
+    return !!state.bundle || !!state.secondaryBundle
+  },
+}
+
+interface SessionStore {
+  // Sessions list and selection
+  sessions: Session[]
+  selectedSessionId: string | null
+  secondarySessionId: string | null
+
+  // Bundle state
+  bundle: TraceBundle | null
+  secondaryBundle: TraceBundle | null
+
+  // Replay state
+  replay: ReplayResponse | null
+  replayMode: ReplayMode
+  currentIndex: number
+  isPlaying: boolean
+  speed: number
+  collapseThreshold: number
+  expandedSegments: Set<number>
+
+  // Search state
+  searchQuery: string
+  searchEventType: '' | EventType
+  searchScope: SearchScope
+  searchResponse: TraceSearchResponse | null
+  searchLoading: boolean
+  searchError: string | null
+
+  // Live streaming state
+  liveEvents: TraceEvent[]
+  liveSummary: LiveSummary | null
+  streamConnected: boolean
+
+  // UI state
+  activeTab: AppTab
+  sessionSortMode: SessionSortMode
+  selectedEventId: string | null
+  focusEventId: string | null
+  selectedCheckpointId: string | null
+  currentHighlightIndex: number
+
+  // Breakpoint config
+  breakpointEventTypes: string
+  breakpointToolNames: string
+  breakpointConfidenceBelow: string
+  breakpointSafetyOutcomes: string
+  stopAtBreakpoint: boolean
+
+  // Loading/error states
+  loading: boolean
+  compareLoading: boolean
+  error: string | null
+
+  // Drift data
+  driftData: DriftResponse | null
+  driftLoading: boolean
+
+  // Session actions
+  setSessions: (sessions: Session[]) => void
+  setSelectedSessionId: (id: string | null) => void
+  setSecondarySessionId: (id: string | null) => void
+
+  // Bundle actions
+  setBundle: (bundle: TraceBundle | null) => void
+  setSecondaryBundle: (bundle: TraceBundle | null) => void
+
+  // Replay actions
+  setReplay: (replay: ReplayResponse | null) => void
+  setReplayMode: (mode: ReplayMode) => void
+  setCurrentIndex: (index: number) => void
+  setIsPlaying: (playing: boolean) => void
+  setSpeed: (speed: number) => void
+  setCollapseThreshold: (threshold: number) => void
+  setExpandedSegments: (segments: Set<number>) => void
+  toggleExpandedSegment: (index: number) => void
+
+  // Search actions
+  setSearchQuery: (query: string) => void
+  setSearchEventType: (type: '' | EventType) => void
+  setSearchScope: (scope: SearchScope) => void
+  setSearchResponse: (response: TraceSearchResponse | null) => void
+  setSearchLoading: (loading: boolean) => void
+  setSearchError: (error: string | null) => void
+
+  // Live streaming actions
+  setLiveEvents: (events: TraceEvent[]) => void
+  addLiveEvent: (event: TraceEvent) => void
+  setLiveSummary: (summary: LiveSummary | null) => void
+  setStreamConnected: (connected: boolean) => void
+  clearLiveEvents: () => void
+
+  // UI actions
+  setActiveTab: (tab: AppTab) => void
+  setSessionSortMode: (mode: SessionSortMode) => void
+  setSelectedEventId: (id: string | null) => void
+  setFocusEventId: (id: string | null) => void
+  setSelectedCheckpointId: (id: string | null) => void
+  setCurrentHighlightIndex: (index: number) => void
+
+  // Breakpoint config actions
+  setBreakpointEventTypes: (types: string) => void
+  setBreakpointToolNames: (names: string) => void
+  setBreakpointConfidenceBelow: (value: string) => void
+  setBreakpointSafetyOutcomes: (outcomes: string) => void
+  setStopAtBreakpoint: (stop: boolean) => void
+
+  // Loading/error actions
+  setLoading: (loading: boolean) => void
+  setCompareLoading: (loading: boolean) => void
+  setError: (error: string | null) => void
+
+  // Drift actions
+  setDriftData: (data: DriftResponse | null) => void
+  setDriftLoading: (loading: boolean) => void
+
+  // Composite actions
+  inspectEvent: (eventId: string, displayEvents: TraceEvent[]) => void
+  jumpToSearchResult: (result: TraceEvent) => void
+  resetSessionState: () => void
+  reset: () => void
+}
+
 const initialState = {
   // Sessions list and selection
   sessions: [],

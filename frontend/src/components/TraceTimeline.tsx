@@ -1,4 +1,4 @@
-import { useState, memo } from 'react'
+import { useState, memo, useCallback, useMemo } from 'react'
 import type { TraceEvent, Highlight, EventType } from '../types'
 import { formatEventHeadline } from '../utils/formatting'
 
@@ -26,7 +26,7 @@ export function TraceTimeline({ events, selectedEventId, onSelectEvent, highligh
   const [showBlockedActions, setShowBlockedActions] = useState(false)
   const [activeFilter, setActiveFilter] = useState<typeof EVENT_TYPE_FILTERS[number]>(EVENT_TYPE_FILTERS[0])
 
-  const filteredEvents = events.filter((event) => {
+  const filteredEvents = useMemo(() => events.filter((event) => {
     // Apply type filter
     if (activeFilter.types.length > 0 && !activeFilter.types.includes(event.event_type)) {
       return false
@@ -36,29 +36,43 @@ export function TraceTimeline({ events, selectedEventId, onSelectEvent, highligh
       return !BLOCKED_EVENT_TYPES.includes(event.event_type)
     }
     return true
-  })
+  }), [events, activeFilter.types, showBlockedActions])
 
   // Compute latency statistics for color-coding
-  const durations = filteredEvents.map(e => e.duration_ms).filter((d): d is number => d !== undefined)
-  const maxDuration = durations.length > 0 ? Math.max(...durations) : 0
-  const avgDuration = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0
+  const latencyStats = useMemo(() => {
+    const durations = filteredEvents.map(e => e.duration_ms).filter((d): d is number => d !== undefined)
+    const maxDuration = durations.length > 0 ? Math.max(...durations) : 0
+    const avgDuration = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0
+    return { maxDuration, avgDuration }
+  }, [filteredEvents])
 
-  const getLatencyColor = (durationMs: number | undefined): string => {
+  const getLatencyColor = useCallback((durationMs: number | undefined): string => {
     if (durationMs === undefined) return 'transparent'
-    if (durationMs > avgDuration * 2) return '#ef4444' // Red for very slow
-    if (durationMs > avgDuration * 1.5) return '#f59e0b' // Orange for slow
-    if (durationMs > avgDuration) return '#fbbf24' // Yellow for above average
+    if (durationMs > latencyStats.avgDuration * 2) return '#ef4444' // Red for very slow
+    if (durationMs > latencyStats.avgDuration * 1.5) return '#f59e0b' // Orange for slow
+    if (durationMs > latencyStats.avgDuration) return '#fbbf24' // Yellow for above average
     return '#10b981' // Green for fast
-  }
+  }, [latencyStats.avgDuration])
 
-  const getLatencyWidth = (durationMs: number | undefined): number => {
-    if (durationMs === undefined || maxDuration === 0) return 0
-    return Math.min(Math.max((durationMs / maxDuration) * 100, 5), 100)
-  }
+  const getLatencyWidth = useCallback((durationMs: number | undefined): number => {
+    if (durationMs === undefined || latencyStats.maxDuration === 0) return 0
+    return Math.min(Math.max((durationMs / latencyStats.maxDuration) * 100, 5), 100)
+  }, [latencyStats.maxDuration])
 
-  const isBlockedEvent = (event: TraceEvent): boolean => {
+  const isBlockedEvent = useCallback((event: TraceEvent): boolean => {
     return BLOCKED_EVENT_TYPES.includes(event.event_type)
-  }
+  }, [])
+
+  // Memoize filter counts to avoid recalculation on every render
+  const filterCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    EVENT_TYPE_FILTERS.forEach((filter) => {
+      if (filter.types.length > 0) {
+        counts[filter.label] = events.filter(e => filter.types.includes(e.event_type as EventType)).length
+      }
+    })
+    return counts
+  }, [events])
 
   return (
     <div className="trace-timeline">
@@ -94,7 +108,7 @@ export function TraceTimeline({ events, selectedEventId, onSelectEvent, highligh
             {filter.label}
             {filter.types.length > 0 && (
               <span className="filter-count">
-                {events.filter(e => filter.types.includes(e.event_type as EventType)).length}
+                {filterCounts[filter.label] ?? 0}
               </span>
             )}
           </button>
@@ -102,53 +116,65 @@ export function TraceTimeline({ events, selectedEventId, onSelectEvent, highligh
       </div>
 
       <div className="timeline-events">
-        {filteredEvents.map((event) => {
-          const isHighlight = highlightEventIds?.has(event.id) ?? false
-          const highlight = highlightsMap?.get(event.id)
-          const blocked = isBlockedEvent(event)
-          return (
-            <div
-              key={event.id}
-              className={`timeline-event ${event.event_type} ${event.id === selectedEventId ? 'selected' : ''} ${isHighlight ? 'highlight' : ''} ${blocked ? 'blocked' : ''}`}
-              onClick={() => onSelectEvent(event.id)}
-            >
-              <div className="event-marker" />
-              {isHighlight && <span className="highlight-marker" title="Highlighted event">*</span>}
-              {blocked && <span className="blocked-badge">BLOCKED</span>}
-              <div className="event-info">
-                <span className="event-type">{event.event_type.replaceAll('_', ' ')}</span>
-                <span className="event-summary">{formatEventHeadline(event)}</span>
-                <span className="event-time">
-                  {new Date(event.timestamp).toLocaleTimeString()}
-                </span>
-                {event.duration_ms !== undefined && (
-                  <span
-                    className="latency-bar"
-                    title={`Duration: ${event.duration_ms.toFixed(0)}ms`}
-                    style={{
-                      backgroundColor: getLatencyColor(event.duration_ms),
-                      width: `${getLatencyWidth(event.duration_ms)}%`
-                    }}
-                    role="meter"
-                    aria-label={`Duration: ${event.duration_ms.toFixed(0)}ms`}
-                    aria-valuemin={0}
-                    aria-valuemax={maxDuration}
-                    aria-valuenow={event.duration_ms}
-                  >
-                    <span className="latency-text" aria-hidden="true">{event.duration_ms.toFixed(0)}ms</span>
+        {filteredEvents.length === 0 ? (
+          <div className="timeline-empty">
+            <p>
+              {showBlockedActions && activeFilter.types.length === 0
+                ? 'No events captured in this trace.'
+                : activeFilter.types.length > 0
+                  ? `No ${activeFilter.label.toLowerCase()} events found.`
+                  : 'No events matching current filters.'}
+            </p>
+          </div>
+        ) : (
+          filteredEvents.map((event) => {
+            const isHighlight = highlightEventIds?.has(event.id) ?? false
+            const highlight = highlightsMap?.get(event.id)
+            const blocked = isBlockedEvent(event)
+            return (
+              <div
+                key={event.id}
+                className={`timeline-event ${event.event_type} ${event.id === selectedEventId ? 'selected' : ''} ${isHighlight ? 'highlight' : ''} ${blocked ? 'blocked' : ''}`}
+                onClick={() => onSelectEvent(event.id)}
+              >
+                <div className="event-marker" />
+                {isHighlight && <span className="highlight-marker" title="Highlighted event">*</span>}
+                {blocked && <span className="blocked-badge">BLOCKED</span>}
+                <div className="event-info">
+                  <span className="event-type">{event.event_type.replaceAll('_', ' ')}</span>
+                  <span className="event-summary">{formatEventHeadline(event)}</span>
+                  <span className="event-time">
+                    {new Date(event.timestamp).toLocaleTimeString()}
                   </span>
-                )}
-                {blocked && event.blocked_action && (
-                  <span className="blocked-action">Blocked: {event.blocked_action}</span>
-                )}
-                {blocked && event.reason && (
-                  <span className="blocked-reason">Reason: {event.reason}</span>
-                )}
-                {highlight && <span className="highlight-reason">{highlight.reason}</span>}
+                  {event.duration_ms !== undefined && (
+                    <span
+                      className="latency-bar"
+                      title={`Duration: ${event.duration_ms.toFixed(0)}ms`}
+                      style={{
+                        backgroundColor: getLatencyColor(event.duration_ms),
+                        width: `${getLatencyWidth(event.duration_ms)}%`
+                      }}
+                      role="meter"
+                      aria-label={`Duration: ${event.duration_ms.toFixed(0)}ms`}
+                      aria-valuemin={0}
+                      aria-valuemax={latencyStats.maxDuration}
+                      aria-valuenow={event.duration_ms}
+                    >
+                      <span className="latency-text" aria-hidden="true">{event.duration_ms.toFixed(0)}ms</span>
+                    </span>
+                  )}
+                  {blocked && event.blocked_action && (
+                    <span className="blocked-action">Blocked: {event.blocked_action}</span>
+                  )}
+                  {blocked && event.reason && (
+                    <span className="blocked-reason">Reason: {event.reason}</span>
+                  )}
+                  {highlight && <span className="highlight-reason">{highlight.reason}</span>}
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })
+        )}
       </div>
     </div>
   )

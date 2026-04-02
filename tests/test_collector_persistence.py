@@ -21,6 +21,35 @@ from collector.persistence import (
     PersistenceManager,
 )
 
+
+# =============================================================================
+# Test Helpers
+# =============================================================================
+
+
+async def wait_until_condition(
+    condition: callable, timeout: float = 1.0, interval: float = 0.01, error_message: str | None = None
+) -> None:
+    """Wait until a condition is true, with timeout.
+
+    Args:
+        condition: A callable that returns True when the condition is met
+        timeout: Maximum time to wait in seconds
+        interval: Time between checks in seconds
+        error_message: Optional error message for timeout
+
+    Raises:
+        asyncio.TimeoutError: If condition is not met within timeout
+    """
+    start_time = asyncio.get_event_loop().time()
+    while True:
+        if condition():
+            return
+        if asyncio.get_event_loop().time() - start_time >= timeout:
+            raise asyncio.TimeoutError(error_message or f"Condition not met within {timeout}s")
+        await asyncio.sleep(interval)
+
+
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -325,8 +354,12 @@ async def test_flush_loop_runs_periodically(persistence_manager, sample_events):
 
     await persistence_manager.start()
 
-    # Wait for a few flush cycles
-    await asyncio.sleep(0.15)
+    # Wait for flush cycles using polling instead of fixed sleep
+    await wait_until_condition(
+        condition=lambda: flush_count >= 2 or not persistence_manager._running,
+        timeout=1.0,
+        error_message="Flush loop did not run expected number of times"
+    )
 
     assert flush_count >= 2
 
@@ -348,7 +381,13 @@ async def test_flush_loop_handles_exceptions_gracefully(persistence_manager, cap
     persistence_manager.flush_interval = 0.05
 
     await persistence_manager.start()
-    await asyncio.sleep(0.2)
+
+    # Wait for retry after exception using polling
+    await wait_until_condition(
+        condition=lambda: call_count >= 2 or not persistence_manager._running,
+        timeout=1.0,
+        error_message="Flush loop did not retry after exception"
+    )
 
     assert call_count >= 2
 
@@ -359,7 +398,9 @@ async def test_flush_loop_stops_on_cancel(persistence_manager):
     persistence_manager.flush_interval = 0.01
 
     await persistence_manager.start()
-    await asyncio.sleep(0.05)
+
+    # Give it a moment to start, then stop
+    await asyncio.sleep(0.01)  # Minimal sleep to ensure task started
     await persistence_manager.stop()
 
     assert persistence_manager._running is False
@@ -592,7 +633,14 @@ async def test_full_lifecycle_start_flush_stop(temp_storage_path, sample_events)
         await buffer.publish(event.session_id, event)
 
     await manager.start()
-    await asyncio.sleep(0.2)  # Allow flush to run
+
+    # Wait for files to be created using polling
+    await wait_until_condition(
+        condition=lambda: (temp_storage_path / "s1.json").exists() and (temp_storage_path / "s2.json").exists(),
+        timeout=1.0,
+        error_message="Flush did not create expected files"
+    )
+
     await manager.stop()
 
     # Check files exist

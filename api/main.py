@@ -18,6 +18,7 @@ from api.analytics_routes import router as analytics_router
 from api.auth_routes import router as auth_router
 from api.comparison_routes import router as comparison_router
 from api.cost_routes import router as cost_router
+from api.middleware import LoggingMiddleware, RequestIDMiddleware
 from api.replay_routes import router as replay_router
 from api.search_routes import router as search_router
 from api.session_routes import router as session_router
@@ -82,6 +83,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Add request tracking middleware
+    app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(LoggingMiddleware)
 
     app.include_router(collector_router)
     app.include_router(auth_router)

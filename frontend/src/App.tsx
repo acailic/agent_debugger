@@ -28,7 +28,7 @@ import { useSessionStore } from './stores/sessionStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { AppTab, Highlight, TraceEvent } from './types'
 import { useDriftData } from './hooks/useDriftData'
-import { useBreakpoint } from './hooks/useBreakpoint'
+import { useReplayBreakpoint } from './hooks/useReplayBreakpoint'
 import { useInspectEvent } from './hooks/useInspectEvent'
 
 // Keyboard shortcuts
@@ -509,7 +509,7 @@ function App() {
 
 
   // Use custom hook for breakpoint checking
-  useBreakpoint()
+  useReplayBreakpoint()
 
   useEffect(() => {
     const defaultCheckpointId = bundle?.analysis.checkpoint_rankings[0]?.checkpoint_id
@@ -603,16 +603,12 @@ function App() {
                   <div className="inspectors-grid">
                     <div className="inspector-wrapper">
                       <span className="inspector-label">Tool Inspector</span>
-                      <ErrorBoundary fallback={<div className="error-fallback">Tool inspector unavailable</div>}>
-                        <ToolInspector event={toolEvent} />
-                      </ErrorBoundary>
+                      <ToolInspector event={toolEvent} />
                     </div>
                     <div className="inspector-separator" />
                     <div className="inspector-wrapper">
                       <span className="inspector-label">LLM Viewer</span>
-                      <ErrorBoundary fallback={<div className="error-fallback">LLM viewer unavailable</div>}>
-                        <LLMViewer request={llmRequest} response={llmResponse} />
-                      </ErrorBoundary>
+                      <LLMViewer request={llmRequest} response={llmResponse} />
                     </div>
                   </div>
                 </section>
