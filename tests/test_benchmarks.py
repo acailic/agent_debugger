@@ -8,7 +8,10 @@ This module tests:
 
 from __future__ import annotations
 
+import os
 import pytest
+
+os.environ["AGENT_DEBUGGER_ENABLED"] = "false"
 
 from agent_debugger_sdk.core.events import (
     EventType,
