@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import abc
 import re
 from typing import Any
 
@@ -76,20 +77,20 @@ def _enhance_error_message(error_message: str) -> str:
     return error_message
 
 
-class RecordingMixin:
+class RecordingMixin(abc.ABC):
     """Mixin that records typed trace events through a shared emitter."""
 
     session_id: str
     session: Any
 
-    def _check_entered(self) -> None:
-        raise NotImplementedError
+    @abc.abstractmethod
+    def _check_entered(self) -> None: ...
 
-    def get_current_parent(self) -> str | None:
-        raise NotImplementedError
+    @abc.abstractmethod
+    def get_current_parent(self) -> str | None: ...
 
-    async def _emit_event(self, event: TraceEvent) -> None:
-        raise NotImplementedError
+    @abc.abstractmethod
+    async def _emit_event(self, event: TraceEvent) -> None: ...
 
     async def record_decision(
         self,

@@ -32,6 +32,8 @@ class Config:
     redact_prompts: bool = False
     max_payload_kb: int = 100
     mode: str = "local"  # "local" or "cloud"
+    max_retries: int = 3
+    initial_backoff_seconds: float = 0.5
     _skip_validation: bool = False  # Private: skip validation for testing
 
     def validate(self) -> None:

@@ -146,9 +146,7 @@ export function validateResponse<T>(data: unknown, validator: ValidationChecker)
 }
 
 export function logValidationFailure(endpoint: string, reason: string, data: unknown): void {
-  console.warn(`[API Validation] Endpoint: ${endpoint}`)
-  console.warn(`[API Validation] Reason: ${reason}`)
-  console.warn(`[API Validation] Received:`, data)
+  console.warn(`[API Validation] Endpoint: ${endpoint} — Reason: ${reason} — Data: ${JSON.stringify(data)}`)
 }
 
 // Export validators for use in client

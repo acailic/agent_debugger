@@ -154,11 +154,10 @@ export function TraceTimeline({ events, selectedEventId, onSelectEvent, highligh
                         backgroundColor: getLatencyColor(event.duration_ms),
                         width: `${getLatencyWidth(event.duration_ms)}%`
                       }}
-                      role="meter"
-                      aria-label={`Duration: ${event.duration_ms.toFixed(0)}ms`}
                       aria-valuemin={0}
                       aria-valuemax={latencyStats.maxDuration}
                       aria-valuenow={event.duration_ms}
+                      role="progressbar"
                     >
                       <span className="latency-text" aria-hidden="true">{event.duration_ms.toFixed(0)}ms</span>
                     </span>
