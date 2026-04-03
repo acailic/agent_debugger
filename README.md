@@ -226,44 +226,80 @@ cd frontend && npm install && npm run build
 
 ```mermaid
 flowchart TB
-    subgraph SDK["SDK Layer"]
+    %% ── Styles ──────────────────────────────────────────────────────────
+    classDef sdk fill:#4f46e5,stroke:#3730a3,color:#fff,stroke-width:2px
+    classDef api fill:#059669,stroke:#047857,color:#fff,stroke-width:2px
+    classDef store fill:#b45309,stroke:#92400e,color:#fff,stroke-width:2px
+    classDef ui fill:#7c3aed,stroke:#6d28d9,color:#fff,stroke-width:2px
+    classDef intel fill:#dc2626,stroke:#b91c1c,color:#fff,stroke-width:2px
+    classDef ext fill:none,stroke:#64748b,stroke-dasharray:5 5,color:#64748b
+
+    AGENT["🤖 Your Agent"]:::ext
+
+    %% ── Instrumentation Layer ────────────────────────────────────────────
+    subgraph SDK["  🔌  SDK — Instrumentation Layer  "]
         direction LR
-        DEC["@trace decorator"]
-        CTX["trace_session()"]
-        AP["Auto-Patch"]
-        AD["Framework Adapters"]
+        DEC["@trace<br/>decorator"]:::sdk
+        CTX["TraceContext<br/>session mgmt"]:::sdk
+        AP["Auto-Patch<br/>zero-config"]:::sdk
+        AD["Adapters<br/>LangChain · Pydantic-AI<br/>CrewAI · AutoGen · LlamaIndex"]:::sdk
     end
 
-    subgraph API["API Layer — FastAPI"]
+    %% ── Collector & Intelligence ─────────────────────────────────────────
+    subgraph INTEL["  🧠  Collector & Intelligence  "]
         direction LR
-        R1["Sessions"]
-        R2["Traces"]
-        R3["Replay"]
-        R4["Search"]
-        R5["Analytics"]
-        SSE["SSE Stream"]
+        BUF["Event Buffer<br/>Redis / In-Mem"]:::intel
+        PAT["Pattern Detector<br/>loop · drift · anomaly"]:::intel
+        FMEM["Failure Memory<br/>embedding search"]:::intel
+        ALERT["Alert Engine<br/>guardrail · policy"]:::intel
+        RPLAY["Replay Engine<br/>checkpoints · deltas"]:::intel
     end
 
-    subgraph STORE["Storage Layer"]
+    %% ── API Layer ────────────────────────────────────────────────────────
+    subgraph API["  🌐  API — FastAPI + SSE  "]
         direction LR
-        S1["Sessions"]
-        S2["Events"]
-        S3["Checkpoints"]
-        S4["Snapshots"]
+        R1["Session<br/>CRUD"]:::api
+        R2["Trace<br/>query · filter"]:::api
+        R3["Replay<br/>step · seek"]:::api
+        R4["Search<br/>keyword · NL"]:::api
+        R5["Analytics<br/>cost · patterns"]:::api
+        R6["Compare<br/>side-by-side"]:::api
+        SSE["SSE Stream<br/>live events"]:::api
     end
 
-    subgraph UI["Frontend — React + TypeScript"]
+    %% ── Storage Layer ────────────────────────────────────────────────────
+    subgraph STORE["  💾  Storage — SQLite + Async  "]
         direction LR
-        DT["Decision Tree"]
-        TI["Tool Inspector"]
-        SR["Session Replay"]
-        FC["Failure Clustering"]
-        MA["Multi-Agent View"]
+        DB[("🗄️ SQLite<br/>WAL mode")]:::store
+        S1["Sessions<br/>events · checkpoints"]:::store
+        S2["Analytics DB<br/>aggregations"]:::store
+        S3["Embeddings<br/>vector search"]:::store
     end
 
-    SDK -- "HTTP / WebSocket" --> API
-    API -- "SQLite / PostgreSQL" --> STORE
-    UI -- "REST + SSE" --> API
+    %% ── Frontend Layer ──────────────────────────────────────────────────
+    subgraph UI["  🖥️  Frontend — React + TypeScript + Vite  "]
+        direction LR
+        U1["Decision<br/>Tree"]:::ui
+        U2["Trace<br/>Timeline"]:::ui
+        U3["Tool<br/>Inspector"]:::ui
+        U4["Session<br/>Replay"]:::ui
+        U5["Search<br/>cross-session"]:::ui
+        U6["Analytics<br/>Dashboard"]:::ui
+        U7["Session<br/>Comparison"]:::ui
+    end
+
+    %% ── Data Flow ───────────────────────────────────────────────────────
+    AGENT ==>|"instrument"| SDK
+    SDK -->|"emit events"| BUF
+    BUF --> PAT & FMEM & ALERT
+    BUF -->|"persist"| S1
+    S1 --> DB
+    DB --> S2 & S3
+
+    SDK -.->|"ingest"| R1
+    R1 & R2 & R3 & R4 & R5 & R6 <-->|"async queries"| S1
+    SSE -->|"stream"| UI
+    RPLAY -->|"checkpoint restore"| R3
 ```
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for full module breakdown.
