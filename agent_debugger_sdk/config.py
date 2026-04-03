@@ -25,7 +25,7 @@ def _parse_bool(value: str | None, default: bool = False) -> bool:
     return default
 
 
-@dataclass
+@dataclass(frozen=True)
 class Config:
     api_key: str | None = None
     endpoint: str = "http://localhost:8000"
@@ -60,8 +60,9 @@ class Config:
 
     def __post_init__(self):
         # Apply cloud mode defaults if api_key is present
+        # Use object.__setattr__ for frozen dataclass
         if self.api_key and not self._skip_validation:
-            self.mode = "cloud"
+            object.__setattr__(self, "mode", "cloud")
             if self.endpoint == "http://localhost:8000":
                 object.__setattr__(self, "endpoint", "https://api.agentdebugger.dev")
 
@@ -100,13 +101,9 @@ def init(
     falls back to AGENT_DEBUGGER_API_KEY env var. If still no key,
     runs in local mode.
     """
-    # Double-checked locking for thread-safe singleton initialization
     global _global_config
-    if _global_config is not None:
-        return _global_config
 
     with _config_lock:
-        # Check again after acquiring lock
         if _global_config is not None:
             return _global_config
 
@@ -132,12 +129,8 @@ def init(
 def get_config() -> Config:
     """Get current config. Returns defaults if init() was not called."""
     global _global_config
-    # Double-checked locking for thread-safe singleton initialization
-    if _global_config is not None:
-        return _global_config
 
     with _config_lock:
-        # Check again after acquiring lock
         if _global_config is not None:
             return _global_config
 
@@ -145,4 +138,4 @@ def get_config() -> Config:
         return _global_config
 
 
-__all__ = ["Config", "init", "get_config"]
+

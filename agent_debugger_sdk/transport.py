@@ -15,7 +15,6 @@ logger = logging.getLogger("agent_debugger")
 # HTTP timeout constants (seconds)
 DEFAULT_HTTP_TIMEOUT = 5.0
 DEFAULT_CONNECT_TIMEOUT = 3.0
-DEFAULT_READ_TIMEOUT = 10.0
 
 
 class TransportError(Exception):
@@ -34,24 +33,6 @@ class TransientError(TransportError):
 
 class PermanentError(TransportError):
     """Error that will not be resolved by retrying (e.g., 4xx auth failure)."""
-
-    pass
-
-
-class ConfigurationError(TransportError):
-    """Invalid configuration (e.g., bad endpoint, missing API key)."""
-
-    pass
-
-
-class RateLimitError(TransientError):
-    """Rate limited - retry with backoff."""
-
-    pass
-
-
-class TimeoutError(TransientError):
-    """Request timeout - may retry."""
 
     pass
 
@@ -294,9 +275,6 @@ __all__ = [
     "TransportError",
     "TransientError",
     "PermanentError",
-    "ConfigurationError",
-    "RateLimitError",
-    "TimeoutError",
     "DeliveryFailureCallback",
     "RetryConfig",
     "HttpTransport",
@@ -305,5 +283,4 @@ __all__ = [
     "DEFAULT_BACKOFF_MULTIPLIER",
     "DEFAULT_HTTP_TIMEOUT",
     "DEFAULT_CONNECT_TIMEOUT",
-    "DEFAULT_READ_TIMEOUT",
 ]

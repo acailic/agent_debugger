@@ -71,11 +71,13 @@ function App() {
   )
 
   // Live session state
-  const { liveEvents, liveSummary, streamConnected } = useSessionStore(
+  const { liveEvents, liveSummary, streamConnected, streamHealth, streamReconnectAttempts } = useSessionStore(
     useShallow((state) => ({
       liveEvents: state.liveEvents,
       liveSummary: state.liveSummary,
       streamConnected: state.streamConnected,
+      streamHealth: state.streamHealth,
+      streamReconnectAttempts: state.streamReconnectAttempts,
     }))
   )
 
@@ -116,11 +118,13 @@ function App() {
     }))
   )
 
-  const { addLiveEvent, setLiveSummary, setStreamConnected, clearLiveEvents } = useSessionStore(
+  const { addLiveEvent, setLiveSummary, setStreamConnected, setStreamHealth, setStreamReconnectAttempts, clearLiveEvents } = useSessionStore(
     useShallow((state) => ({
       addLiveEvent: state.addLiveEvent,
       setLiveSummary: state.setLiveSummary,
       setStreamConnected: state.setStreamConnected,
+      setStreamHealth: state.setStreamHealth,
+      setStreamReconnectAttempts: state.setStreamReconnectAttempts,
       clearLiveEvents: state.clearLiveEvents,
     }))
   )
@@ -204,34 +208,85 @@ function App() {
       clearLiveEvents()
       setLiveSummary(null)
       setStreamConnected(false)
+      setStreamHealth('disconnected')
+      setStreamReconnectAttempts(0)
       return
     }
 
     clearLiveEvents()
-    const source = createEventSource(selectedSessionId)
+    setStreamReconnectAttempts(0)
 
-    source.onopen = () => {
-      setStreamConnected(true)
+    // Exponential backoff reconnection logic
+    const getReconnectDelay = (attempt: number): number => {
+      const delays = [1000, 2000, 4000, 8000, 16000, 30000] // Max 30s
+      return delays[Math.min(attempt, delays.length - 1)]
     }
 
-    source.onmessage = (message) => {
-      try {
-        const event = JSON.parse(message.data) as TraceEvent
-        addLiveEvent(event)
-      } catch {
+    let reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null
+    let eventSource: EventSource | null = null
+
+    const connect = () => {
+      if (eventSource) {
+        eventSource.close()
+      }
+
+      eventSource = createEventSource(selectedSessionId)
+
+      eventSource.onopen = () => {
+        setStreamConnected(true)
+        setStreamHealth('healthy')
+        setStreamReconnectAttempts(0)
+      }
+
+      eventSource.onmessage = (message) => {
+        try {
+          const event = JSON.parse(message.data) as TraceEvent
+          addLiveEvent(event)
+          setStreamHealth('healthy')
+        } catch (parseError) {
+          // Graceful JSON parse recovery - skip malformed events, don't kill the stream
+          console.warn('[SSE] Failed to parse event, skipping:', message.data)
+          setStreamHealth('degraded')
+        }
+      }
+
+      eventSource.onerror = () => {
         setStreamConnected(false)
+        setStreamHealth('disconnected')
+
+        if (eventSource) {
+          eventSource.close()
+        }
+
+        // Attempt reconnection with exponential backoff
+        const currentAttempt = useSessionStore.getState().streamReconnectAttempts
+        const nextAttempt = currentAttempt + 1
+        setStreamReconnectAttempts(nextAttempt)
+
+        const delay = getReconnectDelay(nextAttempt)
+        console.log(`[SSE] Reconnection attempt ${nextAttempt} in ${delay}ms`)
+
+        reconnectTimeoutId = setTimeout(() => {
+          connect()
+        }, delay)
       }
     }
 
-    source.onerror = () => {
-      setStreamConnected(false)
-    }
+    // Initial connection
+    connect()
 
     return () => {
-      source.close()
+      if (reconnectTimeoutId) {
+        clearTimeout(reconnectTimeoutId)
+      }
+      if (eventSource) {
+        eventSource.close()
+      }
       setStreamConnected(false)
+      setStreamHealth('disconnected')
+      setStreamReconnectAttempts(0)
     }
-  }, [selectedSessionId, clearLiveEvents, addLiveEvent, setStreamConnected, setLiveSummary])
+  }, [selectedSessionId, clearLiveEvents, addLiveEvent, setStreamConnected, setStreamHealth, setStreamReconnectAttempts, setLiveSummary])
 
   useEffect(() => {
     if (!selectedSessionId) return
@@ -269,26 +324,54 @@ function App() {
     }
 
     let ignore = false
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+
     async function loadSecondaryBundle() {
       const targetSessionId = secondarySessionId
       if (!targetSessionId) return
       setCompareLoading(true)
+
+      // Set a 10-second timeout for loading the secondary session
+      timeoutId = setTimeout(() => {
+        if (!ignore) {
+          setCompareLoading(false)
+          setError('Comparison session loading timed out after 10 seconds. The session may be too large or the server may be slow.')
+        }
+      }, 10000)
+
       try {
         const response = await getTraceBundle(targetSessionId)
         if (ignore) return
+
+        // Clear timeout if successful
+        if (timeoutId) {
+          clearTimeout(timeoutId)
+          timeoutId = null
+        }
+
         setSecondaryBundle(response)
       } catch (err) {
         if (!ignore) {
+          // Clear timeout on error
+          if (timeoutId) {
+            clearTimeout(timeoutId)
+            timeoutId = null
+          }
           setError(err instanceof Error ? err.message : 'Failed to load comparison session')
         }
       } finally {
-        if (!ignore) setCompareLoading(false)
+        if (!ignore && !timeoutId) {
+          setCompareLoading(false)
+        }
       }
     }
 
     void loadSecondaryBundle()
     return () => {
       ignore = true
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
     }
   }, [secondarySessionId, selectedSessionId, setSecondaryBundle, setCompareLoading, setError])
 
@@ -546,6 +629,17 @@ function App() {
             <span className="metric-label" title="A metric measuring how closely this trace matches expected behavior patterns">Replay value</span>
             <strong>{(bundle?.analysis.session_replay_value ?? currentSession?.replay_value ?? 0).toFixed(2)}</strong>
           </div>
+          {/* Connection health indicator */}
+          {selectedSessionId && (
+            <div
+              className="connection-health-indicator"
+              title={`Connection: ${streamHealth}${streamReconnectAttempts > 0 ? ` (reconnect attempt ${streamReconnectAttempts})` : ''}`}
+              data-health={streamHealth}
+            >
+              <span className={`connection-dot ${streamHealth}`} />
+              <strong>{streamHealth === 'healthy' ? 'Connected' : streamHealth === 'degraded' ? 'Degraded' : 'Disconnected'}</strong>
+            </div>
+          )}
         </div>
       </header>
 
@@ -623,6 +717,13 @@ function App() {
 
                 <section className="panel panel--secondary">
                   <Suspense fallback={<div className="loading-placeholder">Loading comparison...</div>}>
+                    {compareLoading && (
+                      <div className="comparison-loading-state">
+                        <div className="loading-spinner" />
+                        <p>Loading comparison session...</p>
+                        <small>This may take a moment for large sessions</small>
+                      </div>
+                    )}
                     <SessionComparisonPanel
                       primaryBundle={bundle}
                       secondaryBundle={secondaryBundle}

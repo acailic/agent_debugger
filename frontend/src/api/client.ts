@@ -13,7 +13,7 @@ import type {
   TraceBundle,
   TraceSearchResponse,
 } from '../types'
-import { validateResponse, logValidationFailure, validators } from './validation'
+import { validateResponse, logValidationFailure, validators, ValidationError } from './validation'
 
 const API_BASE = '/api'
 
@@ -132,8 +132,17 @@ async function fetchJSON<T>(url: string, config?: ValidationConfig): Promise<T> 
     const validated = validateResponse<T>(data, config.validator)
     if (validated === null) {
       logValidationFailure(config.endpoint, 'Response shape validation failed', data)
-      // Return fallback if provided, otherwise return unvalidated data
-      return (config.fallback ?? data) as T
+      // If fallback is provided, return it with a console warning
+      if (config.fallback !== undefined) {
+        console.warn(`[API Validation] Using fallback data for endpoint: ${config.endpoint}`)
+        return config.fallback as T
+      }
+      // Otherwise, throw a typed error instead of returning unvalidated data
+      throw new ValidationError(
+        `Response validation failed for endpoint: ${config.endpoint}`,
+        config.endpoint,
+        data
+      )
     }
     return validated
   }

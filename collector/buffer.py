@@ -190,13 +190,9 @@ def get_event_buffer() -> EventBuffer:
     Returns:
         The global EventBuffer instance
     """
-    # Double-checked locking for thread-safe singleton initialization
     global _event_buffer
-    if _event_buffer is not None:
-        return _event_buffer
 
     with _buffer_lock:
-        # Check again after acquiring lock
         if _event_buffer is not None:
             return _event_buffer
         _event_buffer = EventBuffer()

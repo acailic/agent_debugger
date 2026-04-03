@@ -45,6 +45,8 @@ interface SessionStore {
   liveEvents: TraceEvent[]
   liveSummary: LiveSummary | null
   streamConnected: boolean
+  streamHealth: 'healthy' | 'degraded' | 'disconnected'
+  streamReconnectAttempts: number
 
   // UI state
   activeTab: AppTab
@@ -102,6 +104,8 @@ interface SessionStore {
   addLiveEvent: (event: TraceEvent) => void
   setLiveSummary: (summary: LiveSummary | null) => void
   setStreamConnected: (connected: boolean) => void
+  setStreamHealth: (health: 'healthy' | 'degraded' | 'disconnected') => void
+  setStreamReconnectAttempts: (attempts: number) => void
   clearLiveEvents: () => void
 
   // UI actions
@@ -198,6 +202,8 @@ const initialState = {
   liveEvents: [],
   liveSummary: null,
   streamConnected: false,
+  streamHealth: 'disconnected' as 'healthy' | 'degraded' | 'disconnected',
+  streamReconnectAttempts: 0,
 
   // UI state
   activeTab: 'trace' as AppTab,
@@ -269,6 +275,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   }),
   setLiveSummary: (liveSummary) => set({ liveSummary }),
   setStreamConnected: (streamConnected) => set({ streamConnected }),
+  setStreamHealth: (streamHealth) => set({ streamHealth }),
+  setStreamReconnectAttempts: (streamReconnectAttempts) => set({ streamReconnectAttempts }),
   clearLiveEvents: () => set({ liveEvents: [] }),
 
   // UI actions
@@ -321,6 +329,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     liveEvents: [],
     liveSummary: null,
     streamConnected: false,
+    streamHealth: 'disconnected',
+    streamReconnectAttempts: 0,
     selectedEventId: null,
     focusEventId: null,
     selectedCheckpointId: null,

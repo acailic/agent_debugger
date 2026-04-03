@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from api.dependencies import get_repository
+from api.exceptions import NotFoundError
 from storage import TraceRepository
 
 router = APIRouter(tags=["cost"])
@@ -43,7 +44,7 @@ async def get_session_cost(
     """Get cost breakdown for a specific session."""
     session = await repo.get_session(session_id)
     if session is None:
-        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        raise NotFoundError(f"Session {session_id} not found")
     return SessionCostResponse(
         session_id=session.id,
         total_cost_usd=session.total_cost_usd,

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from agent_debugger_sdk.core.events import EventType, RiskLevel, SafetyOutcome, SessionStatus
 
@@ -119,6 +119,7 @@ class SessionUpdateRequest(BaseModel):
 
     agent_name: str | None = Field(default=None, min_length=1, max_length=200)
     framework: str | None = Field(default=None, min_length=1, max_length=50)
+    started_at: datetime | None = None
     ended_at: datetime | None = None
     status: SessionStatus | None = None
     total_tokens: int | None = Field(default=None, ge=0)
@@ -130,6 +131,23 @@ class SessionUpdateRequest(BaseModel):
     config: dict[str, Any] | None = None
     tags: list[str] | None = None
     fix_note: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def validate_session_update(self) -> "SessionUpdateRequest":
+        """Validate cross-field constraints for session updates."""
+        # Validate ended_at >= started_at if both are provided
+        if self.started_at is not None and self.ended_at is not None:
+            if self.ended_at < self.started_at:
+                raise ValueError("ended_at must be greater than or equal to started_at")
+
+        # Validate status transitions are valid
+        # Valid transitions: running -> completed, failed, timeout
+        #                   completed -> (no change allowed)
+        #                   failed -> (no change allowed)
+        #                   timeout -> (no change allowed)
+        # Status can be set to running only if not previously completed/failed/timeout
+        # (This is checked at the service layer with current session state)
+        return self
 
 
 class TraceListResponse(BaseModel):

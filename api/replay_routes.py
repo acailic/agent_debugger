@@ -6,10 +6,11 @@ import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from api.analytics_db import record_event
 from api.dependencies import get_repository
+from api.exceptions import NotFoundError
 from api.schemas import (
     CheckpointSchema,
     CollapsedSegmentSchema,
@@ -125,7 +126,7 @@ async def get_checkpoint(
     """Get a single checkpoint by ID."""
     checkpoint = await repo.get_checkpoint(checkpoint_id)
     if checkpoint is None:
-        raise HTTPException(status_code=404, detail="Checkpoint not found")
+        raise NotFoundError(f"Checkpoint {checkpoint_id} not found")
 
     return CheckpointSchema(
         **normalize_checkpoint(checkpoint).model_dump(),
@@ -141,7 +142,7 @@ async def restore_checkpoint(
     """Restore execution from a checkpoint by creating a new session."""
     checkpoint = await repo.get_checkpoint(checkpoint_id)
     if checkpoint is None:
-        raise HTTPException(status_code=404, detail="Checkpoint not found")
+        raise NotFoundError(f"Checkpoint {checkpoint_id} not found")
 
     from agent_debugger_sdk.core.events import Session
 

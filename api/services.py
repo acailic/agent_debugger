@@ -7,11 +7,11 @@ import json
 import logging
 from typing import Any
 
-from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from agent_debugger_sdk.core.events import Checkpoint, Session, SessionStatus, TraceEvent
 from api import app_context
+from api.exceptions import NotFoundError
 from api.schemas import CheckpointSchema, SessionSchema, TraceEventSchema
 from collector.buffer import EventBuffer, get_event_buffer
 from collector.intelligence.facade import TraceIntelligence
@@ -59,10 +59,7 @@ def analysis_summary(analysis: dict[str, Any]) -> dict[str, Any]:
 async def require_session(repo: TraceRepository, session_id: str) -> Session:
     session = await repo.get_session(session_id)
     if session is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Session {session_id} not found",
-        )
+        raise NotFoundError(f"Session {session_id} not found")
     return session
 
 

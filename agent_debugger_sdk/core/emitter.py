@@ -92,15 +92,15 @@ class EventEmitter:
         if not self._config_enabled:
             return
 
-        current_seq = self._event_sequence.get()
-        self._event_sequence.set(current_seq + 1)
+        # Use event_lock to ensure atomic sequence increment under concurrent async access
+        async with self._event_lock:
+            current_seq = self._event_sequence.get() + 1
+            self._event_sequence.set(current_seq)
+            self._event_store.append(event)
 
-        event.metadata["sequence"] = current_seq + 1
+        event.metadata["sequence"] = current_seq
         if self._score_on_emit:
             event.importance = get_importance_scorer().score(event)
-
-        async with self._event_lock:
-            self._event_store.append(event)
 
         if isinstance(event, LLMResponseEvent):
             usage = event.usage

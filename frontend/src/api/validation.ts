@@ -1,5 +1,20 @@
 export type ValidationChecker = (value: unknown) => boolean
 
+/**
+ * Typed error for validation failures
+ * Thrown when response validation fails and no fallback is provided
+ */
+export class ValidationError extends Error {
+  constructor(
+    message: string,
+    public endpoint: string,
+    public data: unknown
+  ) {
+    super(message)
+    this.name = 'ValidationError'
+  }
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

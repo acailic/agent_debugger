@@ -199,6 +199,58 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* Connection health indicator */
+.connection-health-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem var(--space-sm);
+  border-radius: 1.1rem;
+  background: linear-gradient(135deg, color-mix(in oklch, var(--panel), var(--accent) 10%) 0%, color-mix(in oklch, var(--panel), var(--accent) 4%) 100%);
+  border: 1px solid color-mix(in oklch, var(--panel-border), var(--accent) 25%);
+  min-width: 0;
+  overflow: hidden;
+  transition: all var(--duration-normal) var(--ease-material);
+  box-shadow: 0 1px 4px color-mix(in oklch, var(--accent), transparent 20%), inset 0 1px 2px color-mix(in oklch, white, transparent 30%);
+}
+
+.connection-health-indicator:hover {
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent), white 40%), 0 8px 28px color-mix(in oklch, var(--accent), transparent 55%);
+  background: linear-gradient(135deg, color-mix(in oklch, var(--panel), var(--accent) 10%) 0%, color-mix(in oklch, var(--panel), var(--accent) 5%) 100%);
+  transform: translateY(-2px);
+}
+
+.connection-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.connection-dot.healthy {
+  background: var(--olive);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.connection-dot.degraded {
+  background: var(--warning);
+}
+
+.connection-dot.disconnected {
+  background: var(--danger);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
 .error-banner {
   position: relative;
   margin-top: 1rem;
@@ -1351,6 +1403,44 @@ button {
 .compare-loading {
   color: var(--muted);
   font-size: 0.82rem;
+}
+
+/* Comparison loading state with spinner */
+.comparison-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 3px solid color-mix(in oklch, var(--panel-border), var(--accent) 30%);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.comparison-loading-state p {
+  margin: 0;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.comparison-loading-state small {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
 }
 
 .speaker-strip {

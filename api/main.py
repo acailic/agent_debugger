@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import traceback
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from agent_debugger_sdk.config import get_config
@@ -18,7 +21,8 @@ from api.analytics_routes import router as analytics_router
 from api.auth_routes import router as auth_router
 from api.comparison_routes import router as comparison_router
 from api.cost_routes import router as cost_router
-from api.middleware import LoggingMiddleware, RequestIDMiddleware
+from api.exceptions import AppError
+from api.middleware import ContentTypeValidationMiddleware, LoggingMiddleware, RequestIDMiddleware
 from api.replay_routes import router as replay_router
 from api.search_routes import router as search_router
 from api.session_routes import router as session_router
@@ -29,6 +33,8 @@ from api.ui_routes import router as ui_router
 from collector.server import configure_storage
 from collector.server import router as collector_router
 from storage.engine import get_database_url, prepare_database
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -70,6 +76,33 @@ def create_app() -> FastAPI:
         version="1.0.0",
     )
 
+    # Register global exception handlers
+    @app.exception_handler(AppError)
+    async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+        """Handle custom application errors with consistent JSON responses."""
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.to_dict(),
+        )
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        """Handle unhandled exceptions with logging and generic error response."""
+        logger.error(
+            "Unhandled exception on %s %s: %s\n%s",
+            request.method,
+            request.url.path,
+            str(exc),
+            traceback.format_exc(),
+        )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "detail": "An unexpected error occurred. Please try again later.",
+                "error": "internal_server_error",
+            },
+        )
+
     cors_origins_str = os.environ.get("AGENT_DEBUGGER_CORS_ORIGINS", "*")
     cors_origins = (
         [origin for origin in (item.strip() for item in cors_origins_str.split(",")) if origin]
@@ -85,6 +118,7 @@ def create_app() -> FastAPI:
     )
 
     # Add request tracking middleware
+    app.add_middleware(ContentTypeValidationMiddleware)
     app.add_middleware(LoggingMiddleware)
     app.add_middleware(RequestIDMiddleware)
 

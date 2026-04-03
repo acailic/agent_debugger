@@ -6,7 +6,7 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from api.analytics_db import record_event
 from api.config import (
@@ -16,6 +16,7 @@ from api.config import (
     MAX_SEARCH_RESULTS,
 )
 from api.dependencies import get_repository
+from api.exceptions import NotFoundError
 from api.schemas import (
     AgentBaselineSchema,
     AnalysisResponse,
@@ -144,6 +145,46 @@ async def search_traces(
     )
 
 
+def _empty_baseline(agent_name: str) -> AgentBaselineSchema:
+    """Create a baseline schema with zeroed metrics."""
+    return AgentBaselineSchema(
+        agent_name=agent_name,
+        session_count=0,
+        total_llm_calls=0,
+        total_tool_calls=0,
+        total_tokens=0,
+        total_cost_usd=0.0,
+        avg_llm_calls_per_session=0.0,
+        avg_tool_calls_per_session=0.0,
+        avg_tokens_per_session=0.0,
+        avg_cost_per_session=0.0,
+        error_rate=0.0,
+        avg_duration_seconds=0.0,
+    )
+
+
+def _baseline_from_dict(d: dict[str, Any]) -> AgentBaselineSchema:
+    """Convert an AgentBaseline.to_dict() to an AgentBaselineSchema.
+
+    Only agent_name, session_count, avg_tokens_per_session, avg_cost_per_session,
+    and error_rate overlap between the two models. All other fields default to zero.
+    """
+    return AgentBaselineSchema(
+        agent_name=d["agent_name"],
+        session_count=d["session_count"],
+        total_llm_calls=d.get("total_llm_calls", 0),
+        total_tool_calls=d.get("total_tool_calls", 0),
+        total_tokens=d.get("total_tokens", 0),
+        total_cost_usd=d.get("total_cost_usd", 0.0),
+        avg_llm_calls_per_session=d.get("avg_llm_calls_per_session", 0.0),
+        avg_tool_calls_per_session=d.get("avg_tool_calls_per_session", 0.0),
+        avg_tokens_per_session=d.get("avg_tokens_per_session", 0.0),
+        avg_cost_per_session=d.get("avg_cost_per_session", 0.0),
+        error_rate=d.get("error_rate", 0.0),
+        avg_duration_seconds=d.get("avg_duration_seconds", 0.0),
+    )
+
+
 @router.get("/api/agents/{agent_name}/baseline", response_model=AgentBaselineSchema)
 async def get_agent_baseline(
     agent_name: str,
@@ -153,37 +194,10 @@ async def get_agent_baseline(
     agent_sessions, events_by_session = await _load_agent_sessions_with_events(repo, agent_name)
 
     if not agent_sessions:
-        return AgentBaselineSchema(
-            agent_name=agent_name,
-            session_count=0,
-            total_llm_calls=0,
-            total_tool_calls=0,
-            total_tokens=0,
-            total_cost_usd=0.0,
-            avg_llm_calls_per_session=0.0,
-            avg_tool_calls_per_session=0.0,
-            avg_tokens_per_session=0.0,
-            avg_cost_per_session=0.0,
-            error_rate=0.0,
-            avg_duration_seconds=0.0,
-        )
+        return _empty_baseline(agent_name)
 
     baseline = compute_baseline_from_sessions(agent_name, agent_sessions, events_by_session)
-    baseline_dict = baseline.to_dict()
-    return AgentBaselineSchema(
-        agent_name=baseline_dict["agent_name"],
-        session_count=baseline_dict["session_count"],
-        total_llm_calls=baseline_dict.get("total_llm_calls", 0),
-        total_tool_calls=baseline_dict.get("total_tool_calls", 0),
-        total_tokens=baseline_dict.get("total_tokens", 0),
-        total_cost_usd=baseline_dict.get("total_cost_usd", 0.0),
-        avg_llm_calls_per_session=baseline_dict.get("avg_llm_calls_per_session", 0.0),
-        avg_tool_calls_per_session=baseline_dict.get("avg_tool_calls_per_session", 0.0),
-        avg_tokens_per_session=baseline_dict.get("avg_tokens_per_session", 0.0),
-        avg_cost_per_session=baseline_dict.get("avg_cost_per_session", 0.0),
-        error_rate=baseline_dict.get("error_rate", 0.0),
-        avg_duration_seconds=baseline_dict.get("avg_duration_seconds", 0.0),
-    )
+    return _baseline_from_dict(baseline.to_dict())
 
 
 @router.get("/api/agents/{agent_name}/drift", response_model=DriftResponseSchema)
@@ -197,29 +211,13 @@ async def get_agent_drift(
 
     agent_sessions, events_by_session = await _load_agent_sessions_with_events(repo, agent_name)
 
-    def _make_empty_baseline() -> AgentBaselineSchema:
-        return AgentBaselineSchema(
-            agent_name=agent_name,
-            session_count=0,
-            total_llm_calls=0,
-            total_tool_calls=0,
-            total_tokens=0,
-            total_cost_usd=0.0,
-            avg_llm_calls_per_session=0.0,
-            avg_tool_calls_per_session=0.0,
-            avg_tokens_per_session=0.0,
-            avg_cost_per_session=0.0,
-            error_rate=0.0,
-            avg_duration_seconds=0.0,
-        )
-
     if not agent_sessions:
         return DriftResponseSchema(
             agent_name=agent_name,
             baseline_session_count=0,
             recent_session_count=0,
-            baseline=_make_empty_baseline(),
-            current=_make_empty_baseline(),
+            baseline=_empty_baseline(agent_name),
+            current=_empty_baseline(agent_name),
             alerts=[],
             message="No sessions found",
         )
@@ -241,8 +239,8 @@ async def get_agent_drift(
             agent_name=agent_name,
             baseline_session_count=len(baseline_sessions),
             recent_session_count=len(recent_sessions),
-            baseline=_make_empty_baseline(),
-            current=_make_empty_baseline(),
+            baseline=_empty_baseline(agent_name),
+            current=_empty_baseline(agent_name),
             alerts=[],
             message="Need at least 1 baseline session for drift detection",
         )
@@ -251,42 +249,24 @@ async def get_agent_drift(
     current = compute_baseline_from_sessions(agent_name, recent_sessions, events_by_session)
     alerts = detect_drift(baseline, current)
 
-    def _dict_to_baseline(b: dict[str, Any]) -> AgentBaselineSchema:
-        return AgentBaselineSchema(
-            agent_name=b["agent_name"],
-            session_count=b["session_count"],
-            total_llm_calls=b.get("total_llm_calls", 0),
-            total_tool_calls=b.get("total_tool_calls", 0),
-            total_tokens=b.get("total_tokens", 0),
-            total_cost_usd=b.get("total_cost_usd", 0.0),
-            avg_llm_calls_per_session=b.get("avg_llm_calls_per_session", 0.0),
-            avg_tool_calls_per_session=b.get("avg_tool_calls_per_session", 0.0),
-            avg_tokens_per_session=b.get("avg_tokens_per_session", 0.0),
-            avg_cost_per_session=b.get("avg_cost_per_session", 0.0),
-            error_rate=b.get("error_rate", 0.0),
-            avg_duration_seconds=b.get("avg_duration_seconds", 0.0),
-        )
-
-    alert_schemas = [
-        DriftAlertSchema(
-            metric=alert.metric,
-            metric_label=alert.metric_label,
-            baseline_value=alert.baseline_value,
-            current_value=alert.current_value,
-            change_percent=alert.change_percent,
-            severity=alert.severity,
-            description=alert.description,
-        )
-        for alert in alerts
-    ]
-
     return DriftResponseSchema(
         agent_name=agent_name,
         baseline_session_count=len(baseline_sessions),
         recent_session_count=len(recent_sessions),
-        baseline=_dict_to_baseline(baseline.to_dict()),
-        current=_dict_to_baseline(current.to_dict()),
-        alerts=alert_schemas,
+        baseline=_baseline_from_dict(baseline.to_dict()),
+        current=_baseline_from_dict(current.to_dict()),
+        alerts=[
+            DriftAlertSchema(
+                metric=a.metric,
+                metric_label=a.metric_label,
+                baseline_value=a.baseline_value,
+                current_value=a.current_value,
+                change_percent=a.change_percent,
+                severity=a.severity,
+                description=a.description,
+            )
+            for a in alerts
+        ],
     )
 
 
@@ -349,11 +329,11 @@ async def get_alert(
         AnomalyAlertSchema if found
 
     Raises:
-        HTTPException: 404 if alert not found
+        NotFoundError: if alert not found
     """
     alert = await repo.get_anomaly_alert(alert_id)
     if not alert:
-        raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")
+        raise NotFoundError(f"Alert {alert_id} not found")
 
     return AnomalyAlertSchema(
         id=alert.id,

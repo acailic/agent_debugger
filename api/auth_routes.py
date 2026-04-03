@@ -5,10 +5,11 @@ from __future__ import annotations
 import time
 from collections import defaultdict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_db_session, get_tenant_id
+from api.exceptions import NotFoundError, RateLimitError
 from api.schemas import CreateKeyRequest, CreateKeyResponse, KeyListItem
 from auth.service import create_api_key, list_active_keys, revoke_key
 
@@ -21,14 +22,14 @@ _key_creation_attempts: dict[str, list[float]] = defaultdict(list)
 
 
 def _check_rate_limit(tenant_id: str) -> None:
-    """Raise HTTPException if tenant exceeded key creation rate limit."""
+    """Raise RateLimitError if tenant exceeded key creation rate limit."""
     now = time.monotonic()
     window = now - _RATE_WINDOW_SECONDS
     _key_creation_attempts[tenant_id] = [t for t in _key_creation_attempts[tenant_id] if t > window]
     if len(_key_creation_attempts[tenant_id]) >= _RATE_MAX_KEYS:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Rate limit exceeded: max {_RATE_MAX_KEYS} key creations per {_RATE_WINDOW_SECONDS}s",
+        raise RateLimitError(
+            f"Rate limit exceeded: max {_RATE_MAX_KEYS} key creations per {_RATE_WINDOW_SECONDS}s",
+            retry_after=_RATE_WINDOW_SECONDS,
         )
 
 
@@ -86,5 +87,5 @@ async def revoke_key_endpoint(
     """Revoke an API key for the current tenant."""
     key = await revoke_key(db=db, key_id=key_id, tenant_id=tenant_id)
     if not key:
-        raise HTTPException(status_code=404, detail="Key not found")
+        raise NotFoundError("Key not found")
     await db.commit()
