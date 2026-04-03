@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useSessionStore } from '../stores/sessionStore'
 
 /**
@@ -9,7 +9,10 @@ export function useReplayBreakpoint(): void {
   const isPlaying = useSessionStore((state) => state.isPlaying)
   const currentIndex = useSessionStore((state) => state.currentIndex)
   const replay = useSessionStore((state) => state.replay)
-  const breakpointEventIdSet = new Set(replay?.breakpoints.map((event) => event.id) ?? [])
+  const breakpointEventIdSet = useMemo(
+    () => new Set(replay?.breakpoints.map((event) => event.id) ?? []),
+    [replay?.breakpoints]
+  )
   const setIsPlaying = useSessionStore((state) => state.setIsPlaying)
 
   useEffect(() => {

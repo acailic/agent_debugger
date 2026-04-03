@@ -30,8 +30,9 @@ export function useDriftData(): void {
         if (!ignore) {
           setDriftData(data)
         }
-      } catch {
+      } catch (err) {
         if (!ignore) {
+          console.warn('Failed to load drift data:', err)
           setDriftData(null)
         }
       } finally {

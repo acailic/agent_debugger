@@ -332,14 +332,46 @@ async def event_generator(
     session_id: str,
     *,
     buffer: EventBuffer | None = None,
+    max_connection_time: int = 300,
 ):
+    """Generate SSE events for a session.
+
+    Args:
+        session_id: Session ID to stream events for
+        buffer: Optional event buffer (uses default if None)
+        max_connection_time: Maximum connection time in seconds (default 300)
+    """
+    import time
+
     buf = buffer or get_event_buffer()
     queue = await buf.subscribe(session_id)
+    start_time = time.time()
 
     try:
         while True:
+            # Check connection time limit
+            elapsed = time.time() - start_time
+            if elapsed >= max_connection_time:
+                elapsed_int = int(elapsed)
+                logger.info(
+                    "SSE connection for session %s closed after %s seconds (max: %s)",
+                    session_id,
+                    elapsed_int,
+                    max_connection_time,
+                )
+                close_data = {
+                    "reason": "max_connection_time_exceeded",
+                    "elapsed_seconds": elapsed_int,
+                }
+                yield f'event: close\ndata: {json.dumps(close_data)}\n\n'
+                break
+
+            # Calculate remaining time for queue timeout
+            remaining = max_connection_time - elapsed
+            timeout = min(15.0, remaining)
+
             try:
-                event = await asyncio.wait_for(queue.get(), timeout=15.0)
+                event = await asyncio.wait_for(queue.get(), timeout=timeout)
                 event_data = json.dumps(event.to_dict())
                 yield f"data: {event_data}\n\n"
             except TimeoutError:

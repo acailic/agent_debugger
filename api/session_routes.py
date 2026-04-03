@@ -45,11 +45,13 @@ async def list_sessions(
 ) -> SessionListResponse:
     total = await repo.count_sessions()
     sessions = await repo.list_sessions(limit=limit, offset=offset, sort_by=sort_by)
+    has_more = offset + len(sessions) < total
     return SessionListResponse(
         sessions=await enrich_sessions_for_listing(repo, sessions, sort_by=sort_by),
         total=total,
         limit=limit,
         offset=offset,
+        has_more=has_more,
     )
 
 

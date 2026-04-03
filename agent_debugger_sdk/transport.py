@@ -12,6 +12,11 @@ from agent_debugger_sdk.core.events import Session, TraceEvent
 
 logger = logging.getLogger("agent_debugger")
 
+# HTTP timeout constants (seconds)
+DEFAULT_HTTP_TIMEOUT = 5.0
+DEFAULT_CONNECT_TIMEOUT = 3.0
+DEFAULT_READ_TIMEOUT = 10.0
+
 
 class TransportError(Exception):
     """Base exception for transport-related errors."""
@@ -29,6 +34,24 @@ class TransientError(TransportError):
 
 class PermanentError(TransportError):
     """Error that will not be resolved by retrying (e.g., 4xx auth failure)."""
+
+    pass
+
+
+class ConfigurationError(TransportError):
+    """Invalid configuration (e.g., bad endpoint, missing API key)."""
+
+    pass
+
+
+class RateLimitError(TransientError):
+    """Rate limited - retry with backoff."""
+
+    pass
+
+
+class TimeoutError(TransientError):
+    """Request timeout - may retry."""
 
     pass
 
@@ -109,7 +132,7 @@ class HttpTransport:
         self._client = httpx.AsyncClient(
             base_url=self._endpoint,
             headers=self._headers,
-            timeout=5.0,
+            timeout=httpx.Timeout(DEFAULT_HTTP_TIMEOUT, connect=DEFAULT_CONNECT_TIMEOUT),
         )
         self._retry_config = retry_config or RetryConfig()
         self._on_delivery_failure = on_delivery_failure
@@ -257,3 +280,30 @@ class HttpTransport:
     async def close(self) -> None:
         """Close the HTTP client and release resources."""
         await self._client.aclose()
+
+    async def __aenter__(self) -> "HttpTransport":
+        """Support async context manager protocol for resource cleanup."""
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        """Support async context manager protocol for resource cleanup."""
+        await self.close()
+
+
+__all__ = [
+    "TransportError",
+    "TransientError",
+    "PermanentError",
+    "ConfigurationError",
+    "RateLimitError",
+    "TimeoutError",
+    "DeliveryFailureCallback",
+    "RetryConfig",
+    "HttpTransport",
+    "DEFAULT_MAX_RETRIES",
+    "DEFAULT_INITIAL_BACKOFF_SECONDS",
+    "DEFAULT_BACKOFF_MULTIPLIER",
+    "DEFAULT_HTTP_TIMEOUT",
+    "DEFAULT_CONNECT_TIMEOUT",
+    "DEFAULT_READ_TIMEOUT",
+]

@@ -20,7 +20,10 @@ from agent_debugger_sdk.core.events.checkpoint import Checkpoint
 from agent_debugger_sdk.core.events.decisions import DecisionEvent
 from agent_debugger_sdk.core.events.errors import ErrorEvent
 from agent_debugger_sdk.core.events.llm import LLMRequestEvent, LLMResponseEvent
-from agent_debugger_sdk.core.events.registry import EVENT_TYPE_REGISTRY
+from agent_debugger_sdk.core.events.registry import (
+    EVENT_TYPE_REGISTRY,
+    update_event_type_registry,
+)
 from agent_debugger_sdk.core.events.repair import RepairAttemptEvent, RepairOutcome
 from agent_debugger_sdk.core.events.safety import (
     PolicyViolationEvent,
@@ -36,7 +39,7 @@ from agent_debugger_sdk.core.events.tools import ToolCallEvent, ToolResultEvent
 # package are the ones stored in the registry, avoiding isinstance() failures
 # that can occur when lazy __missing__-based imports resolve through a different
 # path (e.g., editable installs in CI where sys.path ordering differs).
-EVENT_TYPE_REGISTRY.update(
+update_event_type_registry(
     {
         EventType.TOOL_CALL: ToolCallEvent,
         EventType.TOOL_RESULT: ToolResultEvent,

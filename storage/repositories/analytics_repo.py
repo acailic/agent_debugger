@@ -60,8 +60,8 @@ class AnalyticsRepository:
         """
         try:
             ensure_analytics_schema(self._db_path)
-        except Exception:
-            logger.warning("Failed to initialize analytics database", exc_info=True)
+        except (sqlite3.Error, OSError) as e:
+            logger.warning("Failed to initialize analytics database: %s", e, exc_info=True)
 
     def record_event(
         self,
@@ -124,7 +124,7 @@ class AnalyticsRepository:
 
         except sqlite3.Error:
             logger.warning("Failed to record analytics event: %s", event_type, exc_info=True)
-        except Exception:
+        except (OSError, ValueError):
             logger.warning("Unexpected error recording analytics event: %s", event_type, exc_info=True)
 
     def get_aggregates(self, days: int = 7) -> dict[str, int]:
@@ -188,7 +188,7 @@ class AnalyticsRepository:
         except sqlite3.Error:
             logger.warning("Failed to get analytics aggregates", exc_info=True)
             return defaults
-        except Exception:
+        except (OSError, ValueError):
             logger.warning("Unexpected error getting analytics aggregates", exc_info=True)
             return defaults
 
@@ -266,7 +266,7 @@ class AnalyticsRepository:
             today = datetime.now(timezone.utc)
             date_range = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days)]
             return [{"date": d, **empty_day} for d in reversed(date_range)]
-        except Exception:
+        except (OSError, ValueError):
             logger.warning("Unexpected error getting daily analytics breakdown", exc_info=True)
             today = datetime.now(timezone.utc)
             date_range = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days)]

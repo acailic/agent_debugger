@@ -345,16 +345,14 @@ class TestIssue4DriftDetectionInsufficientData:
         result = asyncio.run(run())
 
         # EXPECTED: Drift detected with 1 baseline session (FIXED)
-        assert result["agent_name"] == "sufficient-agent"
+        assert result.agent_name == "sufficient-agent"
         # When drift detection succeeds, returns baseline/current objects with session_count inside
-        assert "baseline" in result, "Should return baseline when drift detection runs"
-        assert result["baseline"]["session_count"] == 1
-        assert "current" in result, "Should return current when drift detection runs"
-        assert result["current"]["session_count"] == 1
+        assert result.baseline.session_count == 1
+        assert result.current.session_count == 1
         # Should have alerts now, not a message about insufficient sessions
-        assert "message" not in result or "Need at least" not in result.get("message", "")
+        assert not result.message or "Need at least" not in result.message
         # May have alerts if confidence difference triggers drift
-        assert isinstance(result.get("alerts"), list)
+        assert isinstance(result.alerts, list)
 
     def test_drift_per_agent_independence(self, drift_repo_factory):
         """Verify Issue #4: Drift detection works independently per agent.
@@ -405,9 +403,9 @@ class TestIssue4DriftDetectionInsufficientData:
         result_a, result_b = asyncio.run(run())
 
         # EXPECTED: Agent A has sufficient baseline, Agent B does not (0 sessions)
-        assert "message" not in result_a or result_a.get("baseline_session_count", 0) >= 1
-        assert "message" in result_b
-        assert "Need at least 1 baseline session" in result_b["message"]
+        assert not result_a.message or result_a.baseline_session_count >= 1
+        assert result_b.message is not None
+        assert "Need at least 1 baseline session" in result_b.message
 
 
 # =============================================================================

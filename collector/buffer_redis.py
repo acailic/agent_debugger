@@ -202,7 +202,7 @@ class RedisEventBuffer(BufferBase):
                     for q in self._local_queues.get(session_id, []):
                         await q.put(event)
 
-                except (json.JSONDecodeError, ValueError, TypeError):
+                except (json.JSONDecodeError, ValueError, TypeError, KeyError):
                     # Skip malformed messages
                     continue
 

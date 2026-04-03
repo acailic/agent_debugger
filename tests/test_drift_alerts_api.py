@@ -200,11 +200,8 @@ def test_baseline_returns_metrics_when_sessions_exist(drift_repo_factory):
 
     result = asyncio.run(run())
 
-    assert result["agent_name"] == "test-agent"
-    assert result["session_count"] == 1
-    assert "avg_decision_confidence" in result
-    assert result["avg_decision_confidence"] == 0.9
-    assert "error" not in result
+    assert result.agent_name == "test-agent"
+    assert result.session_count == 1
 
 
 def test_baseline_returns_error_when_no_sessions_found(drift_repo_factory):
@@ -218,10 +215,8 @@ def test_baseline_returns_error_when_no_sessions_found(drift_repo_factory):
 
     result = asyncio.run(run())
 
-    assert result["agent_name"] == "nonexistent-agent"
-    assert result["session_count"] == 0
-    assert "error" in result
-    assert result["error"] == "No sessions found"
+    assert result.agent_name == "nonexistent-agent"
+    assert result.session_count == 0
 
 
 # ==============================================================================
@@ -271,13 +266,9 @@ def test_drift_returns_alerts_comparing_baseline_vs_recent(drift_repo_factory):
 
     result = asyncio.run(run())
 
-    assert result["agent_name"] == "drift-agent"
-    assert "baseline" in result
-    assert "current" in result
-    assert "alerts" in result
-    # Check baseline session count from the baseline dict
-    assert result["baseline"]["session_count"] == 3
-    assert result["current"]["session_count"] == 1
+    assert result.agent_name == "drift-agent"
+    assert result.baseline.session_count == 3
+    assert result.current.session_count == 1
 
 
 def test_drift_returns_error_when_no_sessions_found(drift_repo_factory):
@@ -291,10 +282,9 @@ def test_drift_returns_error_when_no_sessions_found(drift_repo_factory):
 
     result = asyncio.run(run())
 
-    assert result["agent_name"] == "nonexistent-agent"
-    assert result["alerts"] == []
-    assert "error" in result
-    assert result["error"] == "No sessions found"
+    assert result.agent_name == "nonexistent-agent"
+    assert result.alerts == []
+    assert result.message == "No sessions found"
 
 
 def test_drift_returns_message_when_insufficient_baseline_sessions(drift_repo_factory):
@@ -325,12 +315,11 @@ def test_drift_returns_message_when_insufficient_baseline_sessions(drift_repo_fa
 
     result = asyncio.run(run())
 
-    assert result["agent_name"] == "insufficient-agent"
-    assert result["alerts"] == []
-    assert result["baseline_session_count"] == 0
-    assert result["recent_session_count"] == 3
-    assert "message" in result
-    assert "Need at least 1 baseline session" in result["message"]
+    assert result.agent_name == "insufficient-agent"
+    assert result.alerts == []
+    assert result.baseline_session_count == 0
+    assert result.recent_session_count == 3
+    assert "Need at least 1 baseline session" in (result.message or "")
 
 
 # ==============================================================================

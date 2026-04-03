@@ -259,7 +259,25 @@ export async function searchTraces(params: {
   if (params.sessionId) search.set('session_id', params.sessionId)
   if (params.eventType) search.set('event_type', params.eventType)
   if (params.limit) search.set('limit', String(params.limit))
-  return fetchJSON<TraceSearchResponse>(`${API_BASE}/traces/search?${search.toString()}`)
+  return fetchJSON<TraceSearchResponse>(
+    `${API_BASE}/traces/search?${search.toString()}`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return (
+          'query' in v &&
+          typeof v.query === 'string' &&
+          'total' in v &&
+          typeof v.total === 'number' &&
+          'results' in v &&
+          Array.isArray(v.results) &&
+          v.results.every((r: unknown) => validators.TraceEvent(r))
+        )
+      },
+      endpoint: '/traces/search',
+    }
+  )
 }
 
 export async function getAgentBaseline(agentName: string): Promise<AgentBaseline> {

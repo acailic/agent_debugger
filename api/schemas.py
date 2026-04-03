@@ -107,6 +107,7 @@ class SessionListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+    has_more: bool
 
 
 class SessionDetailResponse(BaseModel):
@@ -297,3 +298,49 @@ class FixNoteResponse(BaseModel):
 
     session_id: str
     fix_note: str
+
+
+# ------------------------------------------------------------------
+# Agent baseline and drift schemas
+# ------------------------------------------------------------------
+
+
+class AgentBaselineSchema(BaseModel):
+    """Response schema for agent baseline metrics."""
+
+    agent_name: str
+    session_count: int
+    total_llm_calls: int
+    total_tool_calls: int
+    total_tokens: int
+    total_cost_usd: float
+    avg_llm_calls_per_session: float
+    avg_tool_calls_per_session: float
+    avg_tokens_per_session: float
+    avg_cost_per_session: float
+    error_rate: float
+    avg_duration_seconds: float
+
+
+class DriftAlertSchema(BaseModel):
+    """Schema for a single drift alert."""
+
+    metric: str
+    metric_label: str
+    baseline_value: float
+    current_value: float
+    change_percent: float
+    severity: str  # "warning", "critical"
+    description: str
+
+
+class DriftResponseSchema(BaseModel):
+    """Response schema for agent drift detection."""
+
+    agent_name: str
+    baseline_session_count: int
+    recent_session_count: int
+    baseline: AgentBaselineSchema
+    current: AgentBaselineSchema
+    alerts: list[DriftAlertSchema]
+    message: str | None = None

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from dataclasses import dataclass
 
 
@@ -83,6 +84,7 @@ class Config:
 
 
 _global_config: Config | None = None
+_config_lock = threading.Lock()
 
 
 def init(
@@ -98,30 +100,49 @@ def init(
     falls back to AGENT_DEBUGGER_API_KEY env var. If still no key,
     runs in local mode.
     """
+    # Double-checked locking for thread-safe singleton initialization
     global _global_config
+    if _global_config is not None:
+        return _global_config
 
-    resolved_key = api_key or os.environ.get("AGENT_DEBUGGER_API_KEY")
-    resolved_endpoint = (
-        endpoint
-        or os.environ.get("AGENT_DEBUGGER_URL")
-        or ("https://api.agentdebugger.dev" if resolved_key else "http://localhost:8000")
-    )
+    with _config_lock:
+        # Check again after acquiring lock
+        if _global_config is not None:
+            return _global_config
 
-    resolved_enabled = enabled and _parse_bool(os.environ.get("AGENT_DEBUGGER_ENABLED"), default=True)
+        resolved_key = api_key or os.environ.get("AGENT_DEBUGGER_API_KEY")
+        resolved_endpoint = (
+            endpoint
+            or os.environ.get("AGENT_DEBUGGER_URL")
+            or ("https://api.agentdebugger.dev" if resolved_key else "http://localhost:8000")
+        )
 
-    _global_config = Config(
-        api_key=resolved_key,
-        endpoint=resolved_endpoint,
-        enabled=resolved_enabled,
-        redact_prompts=_parse_bool(os.environ.get("AGENT_DEBUGGER_REDACT_PROMPTS"), default=redact_prompts),
-        max_payload_kb=int(os.environ.get("AGENT_DEBUGGER_MAX_PAYLOAD_KB", max_payload_kb)),
-    )
-    return _global_config
+        resolved_enabled = enabled and _parse_bool(os.environ.get("AGENT_DEBUGGER_ENABLED"), default=True)
+
+        _global_config = Config(
+            api_key=resolved_key,
+            endpoint=resolved_endpoint,
+            enabled=resolved_enabled,
+            redact_prompts=_parse_bool(os.environ.get("AGENT_DEBUGGER_REDACT_PROMPTS"), default=redact_prompts),
+            max_payload_kb=int(os.environ.get("AGENT_DEBUGGER_MAX_PAYLOAD_KB", max_payload_kb)),
+        )
+        return _global_config
 
 
 def get_config() -> Config:
     """Get current config. Returns defaults if init() was not called."""
     global _global_config
-    if _global_config is None:
+    # Double-checked locking for thread-safe singleton initialization
+    if _global_config is not None:
+        return _global_config
+
+    with _config_lock:
+        # Check again after acquiring lock
+        if _global_config is not None:
+            return _global_config
+
         _global_config = Config()
-    return _global_config
+        return _global_config
+
+
+__all__ = ["Config", "init", "get_config"]

@@ -3,6 +3,10 @@ export type ReplayMode = 'full' | 'focus' | 'failure' | 'highlights'
 export type SessionSortMode = 'started_at' | 'replay_value'
 export type SearchScope = 'current' | 'all'
 
+// Safety and risk level types from SDK
+export type SafetyOutcome = 'pass' | 'fail' | 'warn' | 'block'
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical'
+
 export type EventType =
   | 'trace_root'
   | 'agent_start'
@@ -20,6 +24,7 @@ export type EventType =
   | 'prompt_policy'
   | 'agent_turn'
   | 'behavior_alert'
+  | 'repair_attempt'
 
 export interface TraceEvent {
   id: string
@@ -60,13 +65,13 @@ export interface TraceEvent {
   checkpoint_id?: string
   sequence?: number
   policy_name?: string
-  outcome?: string
-  risk_level?: string
+  outcome?: SafetyOutcome
+  risk_level?: RiskLevel
   rationale?: string
   blocked_action?: string | null
   reason?: string
   safe_alternative?: string | null
-  severity?: string
+  severity?: RiskLevel
   violation_type?: string
   details?: Record<string, unknown>
   template_id?: string

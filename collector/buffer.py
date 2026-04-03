@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -178,6 +179,7 @@ class EventBuffer(BufferBase):
 
 
 _event_buffer: EventBuffer | None = None
+_buffer_lock = threading.Lock()
 
 
 def get_event_buffer() -> EventBuffer:
@@ -188,10 +190,17 @@ def get_event_buffer() -> EventBuffer:
     Returns:
         The global EventBuffer instance
     """
+    # Double-checked locking for thread-safe singleton initialization
     global _event_buffer
-    if _event_buffer is None:
+    if _event_buffer is not None:
+        return _event_buffer
+
+    with _buffer_lock:
+        # Check again after acquiring lock
+        if _event_buffer is not None:
+            return _event_buffer
         _event_buffer = EventBuffer()
-    return _event_buffer
+        return _event_buffer
 
 
 def set_event_buffer(buf: EventBuffer | None) -> None:
@@ -204,4 +213,5 @@ def set_event_buffer(buf: EventBuffer | None) -> None:
         buf: An EventBuffer instance to use, or None to clear.
     """
     global _event_buffer
-    _event_buffer = buf
+    with _buffer_lock:
+        _event_buffer = buf
