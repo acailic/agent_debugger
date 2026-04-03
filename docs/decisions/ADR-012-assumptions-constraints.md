@@ -1,6 +1,6 @@
 # ADR-012: Key Assumptions & Constraints
 
-**Status:** Under Review
+**Status:** Accepted
 **Date:** 2026-03-23
 
 ## Open Challenge
@@ -12,6 +12,10 @@
 - Month 3: 20-30 active users, 5-10 paying
 - Month 6: 50+ active users, 20-50 paying
 - Revenue target adjusted: $1k-5k MRR at month 6, $5k-20k MRR at month 12
+
+## Resolution
+
+Revised milestones adopted: 20-50 paying users at month 6 with $1k-5k MRR. More realistic than original 100-200 paying users. All other approved assumptions (volume, technical, constraints) remain valid. Infrastructure and effort planning should target the revised scale first, then grow.
 
 ---
 
@@ -32,3 +36,9 @@
 - Bootstrapped / early revenue
 - 10-week build to first beta users
 - Must work with Python 3.10+, LangChain 0.2+
+
+### User & Revenue Targets (Revised)
+- Month 1-2: 10 beta users (free)
+- Month 3: 20-30 active users, 5-10 paying
+- Month 6: 50+ active users, 20-50 paying
+- Revenue target: $1k-5k MRR at month 6, $5k-20k MRR at month 12

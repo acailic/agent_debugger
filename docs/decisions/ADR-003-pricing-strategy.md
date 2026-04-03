@@ -1,6 +1,6 @@
 # ADR-003: Pricing Strategy
 
-**Status:** Under Review
+**Status:** Superseded
 **Date:** 2026-03-23
 
 ## Open Challenge
@@ -11,6 +11,10 @@ $29/mo may be too high for indie developers building agents. Consider:
 - Validate willingness-to-pay before committing price points
 
 **Action:** Launch with generous free tier on cloud. Collect usage data before finalizing paid pricing.
+
+## Resolution
+
+Local-first product — pricing strategy deferred until/unless a hosted offering is considered. See ADR-012 for updated user targets. The cloud pricing tiers proposed here are not applicable to the current local-first direction.
 
 ---
 

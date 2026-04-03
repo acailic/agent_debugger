@@ -1,6 +1,6 @@
 # ADR-010: Competitive Differentiation
 
-**Status:** Under Review
+**Status:** Accepted
 **Date:** 2026-03-23
 
 ## Open Challenge
@@ -12,6 +12,10 @@ Six differentiators is too many. Dilutes the message. Should pick 1-2 hero featu
 - **"Replay from any checkpoint"** (time-travel) — visceral, demo-friendly
 
 Everything else (safety, multi-agent, anomaly detection) is a supporting feature, not a headline.
+
+## Resolution
+
+Two hero features: (1) "See WHY your agent did that" — decision provenance as the #1 differentiator that answers the primary pain point, and (2) "Replay from any checkpoint" — time-travel debugging as the #2 visceral, demo-friendly capability. All other features (safety, multi-agent, anomaly detection) support these core messages.
 
 ---
 

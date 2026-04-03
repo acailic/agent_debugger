@@ -1,6 +1,6 @@
 # ADR-001: Product Positioning
 
-**Status:** Under Review
+**Status:** Accepted
 **Date:** 2026-03-23
 
 ## Open Challenge
@@ -8,6 +8,10 @@
 "Decision trees" as hero positioning may be too technical for the target audience. Users may respond more to "replay" or "monitoring" as the lead value prop. Needs user validation before committing positioning.
 
 **Action:** Test 2-3 positioning variants with early beta users before finalizing.
+
+## Resolution
+
+Position as "local-first AI agent debugger" with two hero features: (1) "See WHY your agent did that" — decision provenance that answers the #1 pain point of understanding agent behavior, and (2) "Replay from any checkpoint" — time-travel debugging that lets developers explore alternate paths. This positioning is immediately demonstrable and easy to explain in under 10 seconds.
 
 ---
 

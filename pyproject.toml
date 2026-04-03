@@ -49,6 +49,9 @@ dev = [
     "ruff>=0.1",
 ]
 
+[project.scripts]
+peaky-peek = "agent_debugger_sdk.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/acailic/agent_debugger"
 Repository = "https://github.com/acailic/agent_debugger"
