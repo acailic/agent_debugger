@@ -19,7 +19,6 @@ from collector.failure_memory import (
     SimilarFailureMatch,
 )
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -355,8 +354,6 @@ class TestFailureMemoryIntegration:
     def test_link_to_why_button_analysis(
         self,
         make_error_event,
-        make_decision_event,
-        make_session,
         mock_embedding_model,
         mock_vector_db,
     ):
