@@ -180,7 +180,27 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
 
   // Track inspected nodes for guided exploration
   const [inspectedNodes, setInspectedNodes] = useState<Set<string>>(new Set())
-  const [recommendedNodeId, setRecommendedNodeId] = useState<string | null>(null)
+  const recommendedNodeId = useMemo(() => {
+    if (!tree) {
+      return null
+    }
+
+    const root = d3.hierarchy(convertToD3Tree(tree))
+    const priorities = root.descendants().flatMap((node) => {
+      if (node.data.event.event_type !== 'decision' && node.depth === 0) {
+        return []
+      }
+
+      const priority = computeBranchPriority(node, inspectedNodes)
+      return priority.score > 0 ? [priority] : []
+    })
+
+    if (priorities.length === 0) {
+      return null
+    }
+
+    return priorities.reduce((max, priority) => (priority.score > max.score ? priority : max)).nodeId
+  }, [tree, inspectedNodes])
   const renderTreeRef = useRef<() => void>(() => {})
 
   useEffect(() => {
@@ -364,20 +384,12 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
     })
 
     // Compute priorities for all decision nodes and find recommendation
-    const priorities: Array<{ nodeId: string; score: number }> = []
     root.descendants().forEach((d) => {
       if (d.data.event.event_type === 'decision' || d.depth > 0) {
         const priority = computeBranchPriority(d, inspectedNodes)
         d.data._priority = priority
-        if (priority.score > 0) {
-          priorities.push({ nodeId: priority.nodeId, score: priority.score })
-        }
       }
     })
-    const recommendedNodeId: string | null = priorities.length > 0
-      ? priorities.reduce((max, p) => (p.score > max.score ? p : max)).nodeId
-      : null
-    setRecommendedNodeId(recommendedNodeId)
 
     // Render depth guide lines (every 2 levels)
     const maxDepth = Math.max(...root.descendants().map(d => d.depth))
@@ -604,7 +616,7 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         }
       })
     }
-  }, [tree, selectedEventId, zoom, pan, handleNodeClick, handleNodeDoubleClick, handleMouseMove, handleMouseLeave, inspectedNodes, nodeSpacingX, nodeSpacingY])
+  }, [tree, selectedEventId, zoom, pan, handleNodeClick, handleNodeDoubleClick, handleMouseMove, handleMouseLeave, inspectedNodes, nodeSpacingX, nodeSpacingY, recommendedNodeId])
 
   useEffect(() => {
     renderTreeRef.current = renderTree
