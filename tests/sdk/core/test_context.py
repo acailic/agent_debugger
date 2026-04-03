@@ -13,6 +13,23 @@ from agent_debugger_sdk.core.context import (
     get_current_parent_id,
     get_current_session_id,
 )
+
+
+async def _noop_persist(event):  # noqa: ARG001
+    pass
+
+
+@pytest.fixture(autouse=True)
+def _ensure_noop_pipeline():
+    """Ensure a no-op persist_event is set so TraceContext never creates
+    HttpTransport (which tries to connect to localhost:8000).
+
+    test_configure_clears_buffer_with_none resets the pipeline, so
+    subsequent tests in the same xdist worker would otherwise hang
+    attempting HTTP connections.
+    """
+    configure_event_pipeline(None, persist_event=_noop_persist)
+    yield
 from agent_debugger_sdk.core.context.pipeline import _get_default_event_buffer
 from agent_debugger_sdk.core.context.vars import (
     _current_context,

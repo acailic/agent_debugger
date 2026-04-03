@@ -1,18 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import patch
 
 import pytest
-
-# Belt-and-suspenders: patch HttpTransport so it can never be instantiated,
-# even if the configure_event_pipeline ContextVar is reset by another test
-# running in the same xdist worker.
-patch(
-    "agent_debugger_sdk.transport.HttpTransport.__init__",
-    side_effect=RuntimeError("HttpTransport not available in research workflow tests"),
-).start()
-
 
 # Set a no-op event persister so TraceContext never creates HTTP transport.
 # This must happen before importing benchmarks (which creates TraceContext

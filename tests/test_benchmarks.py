@@ -8,18 +8,7 @@ This module tests:
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
-
-# Belt-and-suspenders: patch HttpTransport so it can never be instantiated,
-# even if the configure_event_pipeline ContextVar is reset by another test
-# running in the same xdist worker.
-patch(
-    "agent_debugger_sdk.transport.HttpTransport.__init__",
-    side_effect=RuntimeError("HttpTransport not available in benchmark tests"),
-).start()
-
 
 # Set a no-op event persister so TraceContext never creates HTTP transport,
 # even after conftest.py's reset_global_config fixture clears _global_config.
