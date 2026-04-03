@@ -36,6 +36,7 @@ jobs:
             bcrypt \
             httpx \
             langchain-core \
+            pydantic-ai \
             pytest \
             pytest-asyncio \
             pytest-xdist \

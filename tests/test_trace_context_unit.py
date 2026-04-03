@@ -38,6 +38,10 @@ async def test_get_default_event_buffer_returns_none_when_collector_import_fails
 
 @pytest.mark.asyncio
 async def test_trace_context_cloud_mode_uses_transport_and_closes_it():
+    # Clear pipeline to ensure the transport code path is tested
+    # (other test files may set _default_event_persister via xdist worker sharing)
+    configure_event_pipeline(None)
+
     transport = SimpleNamespace(
         send_event=AsyncMock(),
         send_session_start=AsyncMock(),
