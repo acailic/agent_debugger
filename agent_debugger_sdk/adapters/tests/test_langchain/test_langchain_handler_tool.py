@@ -20,7 +20,7 @@ class TestLangChainTracingHandlerTool:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-tool-start")
             context = TraceContext(
                 session_id="test-tool-start",
@@ -51,7 +51,7 @@ class TestLangChainTracingHandlerTool:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-tool-end")
             context = TraceContext(
                 session_id="test-tool-end",
@@ -90,7 +90,7 @@ class TestLangChainTracingHandlerTool:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-tool-error")
             context = TraceContext(
                 session_id="test-tool-error",
@@ -132,7 +132,7 @@ class TestLangChainTracingHandlerTool:
             def __str__(self):
                 return "weird-output"
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-tool-fallbacks")
             context = TraceContext(
                 session_id="test-tool-fallbacks",

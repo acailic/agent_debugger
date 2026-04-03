@@ -33,7 +33,7 @@ class TestLangChainAdapter:
         """Test handler property returns LangChainTracingHandler."""
         from agent_debugger_sdk.adapters.langchain import LangChainAdapter, LangChainTracingHandler
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             adapter = LangChainAdapter(session_id="test-session")
             handler = adapter.handler
 
@@ -45,7 +45,7 @@ class TestLangChainAdapter:
         """Test context manager creates session."""
         from agent_debugger_sdk.adapters.langchain import LangChainAdapter
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             adapter = LangChainAdapter(
                 session_id="test-context-session",
                 agent_name="test_agent",
@@ -67,7 +67,7 @@ class TestLangChainAdapter:
         """Test get_callbacks returns handler list."""
         from agent_debugger_sdk.adapters.langchain import LangChainAdapter, LangChainTracingHandler
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             adapter = LangChainAdapter(session_id="test-session")
             callbacks = adapter.get_callbacks()
 
@@ -79,7 +79,7 @@ class TestLangChainAdapter:
         """Test handler is cached and __aexit__ is safe before __aenter__."""
         from agent_debugger_sdk.adapters.langchain import LangChainAdapter
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             adapter = LangChainAdapter(session_id="cached-handler")
             assert adapter.handler is adapter.handler
             await adapter.__aexit__(None, None, None)
@@ -89,7 +89,7 @@ class TestLangChainAdapter:
         """Test trace_session context manager creates session and returns session_id."""
         from agent_debugger_sdk.adapters.langchain import LangChainAdapter
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             adapter = LangChainAdapter(session_id="trace-session-test")
 
             async with adapter.trace_session(agent_name="test_agent", tags=["test"]) as session_id:

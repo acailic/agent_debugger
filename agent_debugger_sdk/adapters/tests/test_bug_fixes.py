@@ -126,7 +126,7 @@ class TestBUG002DuplicateEvents:
         buffer = get_event_buffer()
         buffer._events.clear()  # Clear any previous state
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
             from agent_debugger_sdk.core.context import TraceContext
 

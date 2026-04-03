@@ -20,7 +20,7 @@ class TestLangChainTracingHandlerChain:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-chain-start")
             context = TraceContext(
                 session_id="test-chain-start",
@@ -50,7 +50,7 @@ class TestLangChainTracingHandlerChain:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-chain-end")
             context = TraceContext(
                 session_id="test-chain-end",
@@ -86,7 +86,7 @@ class TestLangChainTracingHandlerChain:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-chain-fallbacks")
             context = TraceContext(
                 session_id="test-chain-fallbacks",

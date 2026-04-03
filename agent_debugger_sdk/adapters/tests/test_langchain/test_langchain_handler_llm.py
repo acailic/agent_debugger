@@ -23,7 +23,7 @@ class TestLangChainTracingHandlerLLM:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-llm-start")
             context = TraceContext(
                 session_id="test-llm-start",
@@ -56,7 +56,7 @@ class TestLangChainTracingHandlerLLM:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-llm-end")
             context = TraceContext(
                 session_id="test-llm-end",
@@ -94,7 +94,7 @@ class TestLangChainTracingHandlerLLM:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-llm-tool-calls")
             context = TraceContext(
                 session_id="test-llm-tool-calls",
@@ -142,7 +142,7 @@ class TestLangChainTracingHandlerLLM:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-llm-error")
             context = TraceContext(
                 session_id="test-llm-error",
@@ -179,7 +179,7 @@ class TestLangChainTracingHandlerLLM:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-llm-model-name")
             context = TraceContext(
                 session_id="test-llm-model-name",

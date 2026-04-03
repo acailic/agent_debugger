@@ -27,7 +27,7 @@ class TestLangChainTracingHandlerEdgeCases:
         """Test callbacks return early when no trace context is set."""
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-no-context")
             run_id = uuid.uuid4()
 

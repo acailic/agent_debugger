@@ -31,6 +31,7 @@ from agent_debugger_sdk.auto_patch.adapters.langchain_adapter import (
     _SyncTracingCallbackHandler,
 )
 from agent_debugger_sdk.auto_patch.registry import PatchConfig
+from tests.helpers.fake_langchain import FakeAIMessage, FakeHumanMessage
 
 _FLUSH_TIMEOUT = 2.0
 
@@ -358,15 +359,13 @@ class TestSyncTracingCallbackHandlerEvents:
 
     def test_on_chat_model_start_routes_to_on_llm_start(self, mock_httpx) -> None:
         """Verify that on_chat_model_start properly converts message lists to prompts and emits an llm_request event."""
-        from langchain_core.messages import AIMessage, HumanMessage
-
         handler = self._make_handler(mock_httpx, capture_content=True)
         run_id = uuid.uuid4()
         # Simulate chat model start with message list (list of lists)
         messages = [
             [
-                HumanMessage(content="Hello"),
-                AIMessage(content="Hi there"),
+                FakeHumanMessage(content="Hello"),
+                FakeAIMessage(content="Hi there"),
             ]
         ]
         handler.on_chat_model_start(

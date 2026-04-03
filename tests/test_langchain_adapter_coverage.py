@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 from agent_debugger_sdk.auto_patch.adapters.langchain_adapter import LangChainAdapter, _SyncTracingCallbackHandler
 from agent_debugger_sdk.auto_patch.registry import PatchConfig
+from tests.helpers.fake_langchain import FakeHumanMessage
 
 
 def _make_transport() -> MagicMock:
@@ -114,13 +115,11 @@ class TestSyncTracingCallbackHandlerLLM:
         assert len(event.get("messages", [])) > 0
 
     def test_on_chat_model_start_adapts_messages_to_prompt_strings(self):
-        from langchain_core.messages import HumanMessage
-
         handler, transport = _make_handler(capture_content=True)
 
         handler.on_chat_model_start(
             serialized={},
-            messages=[[HumanMessage(content="Visible")]],
+            messages=[[FakeHumanMessage(content="Visible")]],
             run_id=uuid.uuid4(),
         )
 
@@ -129,13 +128,11 @@ class TestSyncTracingCallbackHandlerLLM:
         assert event.get("messages")
 
     def test_on_chat_model_start_maps_max_completion_tokens_to_max_tokens(self):
-        from langchain_core.messages import HumanMessage
-
         handler, transport = _make_handler(capture_content=True)
 
         handler.on_chat_model_start(
             serialized={},
-            messages=[[HumanMessage(content="Visible")]],
+            messages=[[FakeHumanMessage(content="Visible")]],
             run_id=uuid.uuid4(),
             invocation_params={"temperature": 0, "max_completion_tokens": 500},
         )

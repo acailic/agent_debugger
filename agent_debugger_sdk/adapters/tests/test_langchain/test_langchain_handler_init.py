@@ -18,7 +18,7 @@ class TestLangChainTracingHandlerInit:
         """Test handler initializes correctly."""
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(
                 session_id="test-session",
                 agent_name="test_agent",
@@ -32,6 +32,7 @@ class TestLangChainTracingHandlerInit:
     def test_module_marks_langchain_available_when_imports_succeed(self):
         """Test module import-path sets availability when dependencies exist."""
         import agent_debugger_sdk.adapters.langchain as langchain_mod
+        import agent_debugger_sdk.adapters.langchain.handler as handler_mod
 
         fake_package = types.ModuleType("langchain_core")
         fake_callbacks = types.ModuleType("langchain_core.callbacks")
@@ -49,11 +50,13 @@ class TestLangChainTracingHandlerInit:
                 "langchain_core.outputs": fake_outputs,
             },
         ):
+            importlib.reload(handler_mod)
             reloaded = importlib.reload(langchain_mod)
             assert reloaded.LANGCHAIN_AVAILABLE is True
             assert reloaded.AsyncCallbackHandler is fake_callbacks.AsyncCallbackHandler
             assert reloaded.LLMResult is fake_outputs.LLMResult
 
+        importlib.reload(handler_mod)
         importlib.reload(langchain_mod)
 
     @pytest.mark.asyncio
@@ -61,7 +64,7 @@ class TestLangChainTracingHandlerInit:
         """Test setting context."""
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-session")
 
             mock_context = MagicMock()

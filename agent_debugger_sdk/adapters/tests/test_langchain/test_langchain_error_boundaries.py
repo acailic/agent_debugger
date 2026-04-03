@@ -17,7 +17,7 @@ class TestLangChainErrorBoundaries:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-error-boundary")
             context = TraceContext(
                 session_id="test-error-boundary",
@@ -46,7 +46,7 @@ class TestLangChainErrorBoundaries:
 
         from .test_langchain_mocks import MockLLMResult
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-error-boundary")
             context = TraceContext(
                 session_id="test-error-boundary",
@@ -79,7 +79,7 @@ class TestLangChainErrorBoundaries:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-error-boundary")
             context = TraceContext(
                 session_id="test-error-boundary",
@@ -105,7 +105,7 @@ class TestLangChainErrorBoundaries:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-error-boundary")
             context = TraceContext(
                 session_id="test-error-boundary",
@@ -139,7 +139,7 @@ class TestLangChainErrorBoundaries:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-error-boundary")
             context = TraceContext(
                 session_id="test-error-boundary",
@@ -165,7 +165,7 @@ class TestLangChainErrorBoundaries:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-error-boundary")
             context = TraceContext(
                 session_id="test-error-boundary",
@@ -198,7 +198,7 @@ class TestLangChainErrorBoundaries:
         from agent_debugger_sdk.adapters.langchain import LangChainTracingHandler
         from agent_debugger_sdk.core.context import TraceContext
 
-        with patch("agent_debugger_sdk.adapters.langchain.LANGCHAIN_AVAILABLE", True):
+        with patch("agent_debugger_sdk.adapters.langchain.handler.LANGCHAIN_AVAILABLE", True):
             handler = LangChainTracingHandler(session_id="test-error-callback-boundary")
             context = TraceContext(
                 session_id="test-error-callback-boundary",
