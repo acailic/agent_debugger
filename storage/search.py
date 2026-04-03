@@ -315,28 +315,20 @@ class SessionSearchService:
             if tag_conditions:
                 stmt = stmt.where(or_(*tag_conditions))
 
-        result = await self.session.execute(stmt)
-        sessions = list(result.scalars().all())
-
-        # Filter by event_type if specified (requires checking events)
         if event_type:
-            sessions_with_event_type = []
-            for session in sessions:
-                # Check if session has any event of the specified type
-                # Handle both string and enum values
-                event_type_str = event_type.value if hasattr(event_type, 'value') else event_type
-
-                event_stmt = select(EventModel).where(
-                    EventModel.session_id == session.id,
+            event_type_str = event_type.value if hasattr(event_type, "value") else event_type
+            event_subq = (
+                select(EventModel.session_id)
+                .where(
                     EventModel.tenant_id == self.tenant_id,
                     EventModel.event_type == event_type_str,
-                ).limit(1)
-                event_result = await self.session.execute(event_stmt)
-                if event_result.scalar_one_or_none() is not None:
-                    sessions_with_event_type.append(session)
-            sessions = sessions_with_event_type
+                )
+                .scalar_subquery()
+            )
+            stmt = stmt.where(SessionModel.id.in_(event_subq))
 
-        return sessions
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def _score_sessions(
         self,

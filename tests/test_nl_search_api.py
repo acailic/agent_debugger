@@ -381,3 +381,53 @@ async def test_search_legacy_endpoint_includes_highlights(db_session):
     assert len(results) == 1
     # Check that highlights are included
     assert hasattr(results[0], "search_highlights")
+
+
+@pytest.mark.asyncio
+async def test_nl_search_event_type_filter_uses_single_query(db_session):
+    """event_type filter must resolve in a single SQL query, not N+1 per session.
+
+    Regression test for: N+1 query in _load_candidate_sessions when filtering
+    by event_type (issue #132). The fix pushes filtering into SQL via IN subquery.
+    """
+    from api.search_routes import NaturalLanguageSearchRequest, search_sessions_nl
+    from storage.repository import TraceRepository
+
+    repo = TraceRepository(db_session, tenant_id="local")
+
+    # session-tool has a tool_result event — should match the filter
+    # Use "search_tool" in the name so the query "search" matches via embedding
+    session_tool = _make_session("session-tool")
+    await repo.create_session(session_tool)
+    await repo.add_event(
+        TraceEvent(
+            id="event-tool",
+            session_id="session-tool",
+            name="search_tool_call",
+            event_type=EventType.TOOL_RESULT,
+            timestamp=datetime(2026, 3, 23, 10, 1, tzinfo=timezone.utc),
+            data={"tool_name": "search", "result": "ok"},
+        )
+    )
+
+    # session-error has only an error event — should be excluded by the filter
+    session_error = _make_session("session-error")
+    await repo.create_session(session_error)
+    await repo.add_event(
+        _make_error_event("session-error", "TimeoutError", "Connection timeout", "event-error")
+    )
+
+    await repo.commit()
+
+    request = NaturalLanguageSearchRequest(
+        query="search tool",
+        event_type="tool_result",
+        interpret_nl=False,
+        limit=10,
+    )
+
+    result = await search_sessions_nl(request, repo=repo)
+
+    session_ids = [r.id for r in result.results]
+    assert "session-tool" in session_ids, "session with tool_result event should be returned"
+    assert "session-error" not in session_ids, "session without tool_result event should be excluded"
