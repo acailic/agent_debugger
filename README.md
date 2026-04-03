@@ -224,82 +224,99 @@ cd frontend && npm install && npm run build
 
 ## Architecture
 
+### System Overview
+
 ```mermaid
 flowchart TB
-    %% ── Styles ──────────────────────────────────────────────────────────
+    classDef layer fill:#0f172a,stroke:#334155,color:#e2e8f0,stroke-width:2px
+    classDef ext fill:none,stroke:#94a3b8,stroke-dasharray:6 3,color:#94a3b8
+
+    AGENT("🤖  Your Agent Code"):::ext
+
+    subgraph RUNTIME[" "]
+        direction TB
+        SDK["<b>🔌  SDK Layer</b><br/><small>Instrument & capture</small><br/><sub>@trace · TraceContext · Auto-Patch · Adapters</sub>"]:::layer
+        INTEL["<b>🧠  Intelligence</b><br/><small>Detect, remember, alert</small><br/><sub>Event Buffer · Pattern Detector · Failure Memory · Replay Engine</sub>"]:::layer
+    end
+
+    subgraph SERVER[" "]
+        direction TB
+        API["<b>🌐  API Server</b><br/><small>FastAPI + SSE</small><br/><sub>11 routers: sessions · traces · replay · search · analytics · compare</sub>"]:::layer
+        STORE["<b>💾  Storage</b><br/><small>SQLite WAL · async</small><br/><sub>Events · Checkpoints · Analytics · Embeddings</sub>"]:::layer
+    end
+
+    UI["<b>🖥️  Frontend</b><br/><small>React · TypeScript · Vite</small><br/><sub>8 panels: decision tree · timeline · tools · replay · search · analytics · compare · live</sub>"]:::layer
+
+    AGENT ==>|"decorate"| SDK
+    SDK ==>|"emit"| INTEL
+    INTEL -->|"persist"| STORE
+    SDK -.->|"ingest"| API
+    API <-->|"query"| STORE
+    API ==>|"SSE stream"| UI
+    INTEL -.->|"replay"| API
+```
+
+### Layer Detail
+
+```mermaid
+flowchart LR
     classDef sdk fill:#4f46e5,stroke:#3730a3,color:#fff,stroke-width:2px
+    classDef intel fill:#dc2626,stroke:#b91c1c,color:#fff,stroke-width:2px
     classDef api fill:#059669,stroke:#047857,color:#fff,stroke-width:2px
     classDef store fill:#b45309,stroke:#92400e,color:#fff,stroke-width:2px
     classDef ui fill:#7c3aed,stroke:#6d28d9,color:#fff,stroke-width:2px
-    classDef intel fill:#dc2626,stroke:#b91c1c,color:#fff,stroke-width:2px
-    classDef ext fill:none,stroke:#64748b,stroke-dasharray:5 5,color:#64748b
 
-    AGENT["🤖 Your Agent"]:::ext
-
-    %% ── Instrumentation Layer ────────────────────────────────────────────
-    subgraph SDK["  🔌  SDK — Instrumentation Layer  "]
-        direction LR
-        DEC["@trace<br/>decorator"]:::sdk
-        CTX["TraceContext<br/>session mgmt"]:::sdk
-        AP["Auto-Patch<br/>zero-config"]:::sdk
-        AD["Adapters<br/>LangChain · Pydantic-AI<br/>CrewAI · AutoGen · LlamaIndex"]:::sdk
+    subgraph SDK[" 🔌  SDK "]
+        direction TB
+        DEC["@trace decorator"]:::sdk
+        CTX["TraceContext"]:::sdk
+        AP["Auto-Patch"]:::sdk
+        AD["Framework Adapters"]:::sdk
     end
 
-    %% ── Collector & Intelligence ─────────────────────────────────────────
-    subgraph INTEL["  🧠  Collector & Intelligence  "]
-        direction LR
-        BUF["Event Buffer<br/>Redis / In-Mem"]:::intel
-        PAT["Pattern Detector<br/>loop · drift · anomaly"]:::intel
-        FMEM["Failure Memory<br/>embedding search"]:::intel
-        ALERT["Alert Engine<br/>guardrail · policy"]:::intel
-        RPLAY["Replay Engine<br/>checkpoints · deltas"]:::intel
+    subgraph INT[" 🧠  Intelligence "]
+        direction TB
+        BUF["Event Buffer"]:::intel
+        PAT["Pattern Detector"]:::intel
+        FMEM["Failure Memory"]:::intel
+        ALERT["Alert Engine"]:::intel
+        RPLAY["Replay Engine"]:::intel
     end
 
-    %% ── API Layer ────────────────────────────────────────────────────────
-    subgraph API["  🌐  API — FastAPI + SSE  "]
-        direction LR
-        R1["Session<br/>CRUD"]:::api
-        R2["Trace<br/>query · filter"]:::api
-        R3["Replay<br/>step · seek"]:::api
-        R4["Search<br/>keyword · NL"]:::api
-        R5["Analytics<br/>cost · patterns"]:::api
-        R6["Compare<br/>side-by-side"]:::api
-        SSE["SSE Stream<br/>live events"]:::api
+    subgraph APIL[" 🌐  API "]
+        direction TB
+        R1["Sessions · Traces"]:::api
+        R2["Replay · Search"]:::api
+        R3["Analytics · Compare"]:::api
+        SSE["SSE Stream"]:::api
     end
 
-    %% ── Storage Layer ────────────────────────────────────────────────────
-    subgraph STORE["  💾  Storage — SQLite + Async  "]
-        direction LR
-        DB[("🗄️ SQLite<br/>WAL mode")]:::store
-        S1["Sessions<br/>events · checkpoints"]:::store
-        S2["Analytics DB<br/>aggregations"]:::store
-        S3["Embeddings<br/>vector search"]:::store
+    subgraph STO[" 💾  Storage "]
+        direction TB
+        DB[("SQLite WAL")]:::store
+        S1["Events · Checkpoints"]:::store
+        S2["Analytics Aggregations"]:::store
     end
 
-    %% ── Frontend Layer ──────────────────────────────────────────────────
-    subgraph UI["  🖥️  Frontend — React + TypeScript + Vite  "]
-        direction LR
-        U1["Decision<br/>Tree"]:::ui
-        U2["Trace<br/>Timeline"]:::ui
-        U3["Tool<br/>Inspector"]:::ui
-        U4["Session<br/>Replay"]:::ui
-        U5["Search<br/>cross-session"]:::ui
-        U6["Analytics<br/>Dashboard"]:::ui
-        U7["Session<br/>Comparison"]:::ui
+    subgraph UIF[" 🖥️  Frontend "]
+        direction TB
+        DT["Decision Tree"]:::ui
+        TL["Trace Timeline"]:::ui
+        TI["Tool Inspector"]:::ui
+        RP["Session Replay"]:::ui
+        SE["Cross-session Search"]:::ui
+        AN["Analytics Dashboard"]:::ui
     end
 
-    %% ── Data Flow ───────────────────────────────────────────────────────
-    AGENT ==>|"instrument"| SDK
-    SDK -->|"emit events"| BUF
+    DEC & CTX --> BUF
+    AP & AD --> BUF
     BUF --> PAT & FMEM & ALERT
-    BUF -->|"persist"| S1
+    BUF --> S1
     S1 --> DB
-    DB --> S2 & S3
-
-    SDK -.->|"ingest"| R1
-    R1 & R2 & R3 & R4 & R5 & R6 <-->|"async queries"| S1
-    SSE -->|"stream"| UI
-    RPLAY -->|"checkpoint restore"| R3
+    DB --> S2
+    R1 & R2 & R3 <--> S1
+    RPLAY --> R2
+    SSE --> DT & TL & RP
 ```
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for full module breakdown.
