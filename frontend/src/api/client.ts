@@ -19,6 +19,7 @@ import { validateResponse, logValidationFailure, validators, ValidationError } f
 const API_BASE = '/api'
 
 // Request deduplication: track in-flight requests to avoid duplicate fetches
+const MAX_PENDING_REQUESTS = 100
 const pendingRequests = new Map<string, Promise<Response>>()
 
 /**
@@ -101,6 +102,13 @@ async function fetchWithDeduplication(url: string): Promise<Response> {
   // Check if there's already a pending request for this URL
   let requestPromise = pendingRequests.get(url)
   if (!requestPromise) {
+    // Evict oldest entries if limit exceeded
+    if (pendingRequests.size >= MAX_PENDING_REQUESTS) {
+      const firstKey = pendingRequests.keys().next().value
+      if (firstKey) {
+        pendingRequests.delete(firstKey)
+      }
+    }
     // Create new request with retry logic and store the promise
     requestPromise = fetchWithRetry(url)
     pendingRequests.set(url, requestPromise)

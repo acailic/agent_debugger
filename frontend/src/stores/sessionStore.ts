@@ -140,6 +140,7 @@ interface SessionStore {
   streamConnected: boolean
   streamHealth: 'healthy' | 'degraded' | 'disconnected'
   streamReconnectAttempts: number
+  streamParseFailures: number
 
   // UI state
   activeTab: AppTab
@@ -200,6 +201,7 @@ interface SessionStore {
   setStreamConnected: (connected: boolean) => void
   setStreamHealth: (health: 'healthy' | 'degraded' | 'disconnected') => void
   setStreamReconnectAttempts: (attempts: number) => void
+  setStreamParseFailures: (failures: number) => void
   clearLiveEvents: () => void
 
   // UI actions
@@ -314,6 +316,7 @@ const initialState = {
   streamConnected: false,
   streamHealth: 'disconnected' as 'healthy' | 'degraded' | 'disconnected',
   streamReconnectAttempts: 0,
+  streamParseFailures: 0,
 
   // UI state
   activeTab: 'trace' as AppTab,
@@ -388,6 +391,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setStreamConnected: (streamConnected) => set({ streamConnected }),
   setStreamHealth: (streamHealth) => set({ streamHealth }),
   setStreamReconnectAttempts: (streamReconnectAttempts) => set({ streamReconnectAttempts }),
+  setStreamParseFailures: (streamParseFailures) => set({ streamParseFailures }),
   clearLiveEvents: () => set({ liveEvents: [] }),
 
   // UI actions
@@ -448,8 +452,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (result.session_id !== state.selectedSessionId) {
       set({ selectedSessionId: result.session_id, selectedEventId: result.id })
     } else {
-      // Need to call inspectEvent logic here
-      set({ selectedEventId: result.id })
+      // Same session: use inspectEvent to properly update index
+      const displayEvents = state.replayMode === 'full' ? state.bundle?.events : state.secondaryBundle?.events
+      const events = displayEvents || []
+      const nextIndex = events.findIndex((event) => event.id === result.id)
+      set({ selectedEventId: result.id, currentIndex: nextIndex >= 0 ? nextIndex : 0 })
     }
   },
 
@@ -461,6 +468,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     streamConnected: false,
     streamHealth: 'disconnected',
     streamReconnectAttempts: 0,
+    streamParseFailures: 0,
     selectedEventId: null,
     focusEventId: null,
     selectedCheckpointId: null,

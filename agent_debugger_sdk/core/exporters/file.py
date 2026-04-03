@@ -142,12 +142,25 @@ class FileExporter:
         Args:
             base_dir: Base directory for storing exported data.
                      Defaults to ~/.peaky-peek/memory
+
+        Raises:
+            ValueError: If the provided base_dir path is outside the intended directory.
         """
         if base_dir is None:
             home = Path.home()
             base_dir = home / ".peaky-peek" / "memory"
 
-        self.base_dir = Path(base_dir)
+        # Resolve and validate the path
+        resolved_path = Path(base_dir).resolve()
+
+        # Reject paths with directory traversal components
+        if ".." in Path(base_dir).parts or "~" in Path(base_dir).parts:
+            raise ValueError(
+                f"Invalid base_dir: {base_dir}. "
+                "Path must not contain directory traversal components."
+            )
+
+        self.base_dir = resolved_path
         self.sessions_dir = self.base_dir / "sessions"
         self.patterns_dir = self.base_dir / "patterns"
         self.entities_dir = self.base_dir / "entities"

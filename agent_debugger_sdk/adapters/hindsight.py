@@ -34,7 +34,7 @@ class HindsightConfig:
     bank_id: str = "agent_debugger"
     api_key: str | None = None
     timeout_seconds: float = 30.0
-    enabled: bool = True
+    enabled: bool = False
 
     # Memory type mappings
     experience_memory_type: str = "failure_experience"

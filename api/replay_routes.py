@@ -48,9 +48,13 @@ async def replay_session(
 
     # FastAPI resolves Query defaults in HTTP calls but not in direct/unit-test calls.
     # Extract the default value when the raw Query object is passed through.
-    if hasattr(collapse_threshold, "default"):
+    # Check for the Query class by examining if the value has a 'default' attribute
+    # and is not already a primitive type.
+    from fastapi import params
+
+    if isinstance(collapse_threshold, params.Query):
         collapse_threshold = float(collapse_threshold.default)
-    if hasattr(stop_at_breakpoint, "default"):
+    if isinstance(stop_at_breakpoint, params.Query):
         stop_at_breakpoint = bool(stop_at_breakpoint.default)
 
     # Record analytics event (fire-and-forget)

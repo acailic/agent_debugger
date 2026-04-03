@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import delete, func, select
@@ -67,7 +67,7 @@ class PatternRepository:
             agent_name=agent_name,
             severity=severity,
             status="active",
-            detected_at=datetime.now(),
+            detected_at=datetime.now(timezone.utc),
             description=description,
             affected_sessions=affected_sessions,
             session_count=len(affected_sessions),
@@ -166,7 +166,7 @@ class PatternRepository:
         if hours:
             from datetime import timedelta
 
-            cutoff = datetime.now() - timedelta(hours=hours)
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
             stmt = stmt.where(PatternModel.detected_at >= cutoff)
 
         stmt = stmt.order_by(PatternModel.detected_at.desc()).limit(limit)
@@ -201,7 +201,7 @@ class PatternRepository:
 
         db_pattern.status = status
         if status == "resolved":
-            db_pattern.resolved_at = datetime.now()
+            db_pattern.resolved_at = datetime.now(timezone.utc)
             db_pattern.resolved_by = resolved_by
 
         return db_pattern

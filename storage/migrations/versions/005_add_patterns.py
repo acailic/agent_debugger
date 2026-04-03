@@ -60,8 +60,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_patterns_tenant_status", table_name="patterns")
-    op.drop_index("ix_patterns_tenant_severity", table_name="patterns")
-    op.drop_index("ix_patterns_tenant_agent", table_name="patterns")
-    op.drop_index("ix_patterns_tenant_type", table_name="patterns")
-    op.drop_table("patterns")
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+
+    # Check if patterns table exists before dropping (idempotency)
+    if "patterns" in inspector.get_table_names():
+        op.drop_index("ix_patterns_tenant_status", table_name="patterns")
+        op.drop_index("ix_patterns_tenant_severity", table_name="patterns")
+        op.drop_index("ix_patterns_tenant_agent", table_name="patterns")
+        op.drop_index("ix_patterns_tenant_type", table_name="patterns")
+        op.drop_table("patterns")

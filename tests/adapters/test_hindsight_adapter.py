@@ -144,7 +144,7 @@ async def test_hindsight_config_defaults():
     assert config.endpoint == "http://localhost:9000"
     assert config.bank_id == "agent_debugger"
     assert config.api_key is None
-    assert config.enabled is True
+    assert config.enabled is False
     assert config.tempr_enabled is True
 
 

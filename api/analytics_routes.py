@@ -5,10 +5,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from api.analytics_db import get_aggregates, get_daily_breakdown, record_event
+from api.dependencies import get_repository
 
 router = APIRouter(tags=["analytics"])
 
@@ -248,17 +249,13 @@ async def get_patterns(
     status: str | None = Query(default="active", description="Filter by status"),
     hours: int | None = Query(default=None, description="Only return patterns from last N hours"),
     limit: int = Query(default=50, ge=1, le=200, description="Maximum results to return"),
+    repo=Depends(get_repository),
 ) -> PatternsListResponse:
     """Get detected patterns across sessions.
 
     Returns patterns matching the specified filters, ordered by detection time.
     Supports filtering by agent, pattern type, severity, status, and time range.
     """
-    from api.dependencies import get_repository
-    from storage import TraceRepository
-
-    repo: TraceRepository = get_repository()
-
     # Use the pattern repository through the session
     from storage.repositories.pattern_repo import PatternRepository
 
@@ -310,16 +307,14 @@ async def get_patterns(
 @router.get("/api/analytics/patterns/{pattern_id}", response_model=PatternDetailResponse)
 async def get_pattern_detail(
     pattern_id: str,
+    repo=Depends(get_repository),
 ) -> PatternDetailResponse:
     """Get detailed information about a specific pattern.
 
     Returns full pattern details including affected sessions list.
     """
-    from api.dependencies import get_repository
-    from storage import TraceRepository
     from storage.repositories.pattern_repo import PatternRepository
 
-    repo: TraceRepository = get_repository()
     pattern_repo = PatternRepository(repo.session, repo.tenant_id)
 
     pattern = await pattern_repo.get_pattern(pattern_id)
@@ -352,6 +347,7 @@ async def get_pattern_detail(
 async def get_health_report(
     agent_name: str | None = Query(default=None, description="Filter by agent name"),
     hours: int | None = Query(default=24, ge=1, le=168, description="Look at patterns from last N hours"),
+    repo=Depends(get_repository),
 ) -> HealthReportSchema:
     """Generate agent health report from detected patterns.
 
@@ -363,12 +359,9 @@ async def get_health_report(
     - Top issues with recommendations
     - Actionable next steps
     """
-    from api.dependencies import get_repository
     from collector.patterns import generate_health_report
-    from storage import TraceRepository
     from storage.repositories.pattern_repo import PatternRepository
 
-    repo: TraceRepository = get_repository()
     pattern_repo = PatternRepository(repo.session, repo.tenant_id)
 
     # Get recent patterns

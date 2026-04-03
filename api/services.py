@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from typing import Any
 
 from sqlalchemy import String, cast, or_, select
@@ -24,6 +25,7 @@ from storage.models import EventModel, SessionModel
 logger = logging.getLogger(__name__)
 SESSION_ANALYSIS_CAP = 100
 FAILURE_SIMILARITY_THRESHOLD = 0.5
+DEFAULT_SSE_TIMEOUT = int(os.getenv("AGENT_DEBUGGER_SSE_TIMEOUT", "300"))
 
 
 def normalize_session(
@@ -213,12 +215,15 @@ async def enrich_sessions_for_listing(
     if sort_by != "replay_value":
         return [normalize_session(session) for session in sessions]
 
-    capped_sessions = sessions[:SESSION_ANALYSIS_CAP]
     if len(sessions) > SESSION_ANALYSIS_CAP:
         logger.warning(
-            "Replay-value enrichment capped at %s sessions for one response page",
+            "Replay-value enrichment capped at %s sessions for one response page (has %s sessions). "
+            "Sessions beyond the cap will be returned without replay_value enrichment.",
             SESSION_ANALYSIS_CAP,
+            len(sessions),
         )
+
+    capped_sessions = sessions[:SESSION_ANALYSIS_CAP]
 
     # Parallelize session analysis for better performance
     # Note: We still analyze sessions to get enrichment data like representative_event_id,
@@ -333,15 +338,18 @@ async def event_generator(
     session_id: str,
     *,
     buffer: EventBuffer | None = None,
-    max_connection_time: int = 300,
+    max_connection_time: int | None = None,
 ):
     """Generate SSE events for a session.
 
     Args:
         session_id: Session ID to stream events for
         buffer: Optional event buffer (uses default if None)
-        max_connection_time: Maximum connection time in seconds (default 300)
+        max_connection_time: Maximum connection time in seconds (default from
+            AGENT_DEBUGGER_SSE_TIMEOUT env var, 300 if not set)
     """
+    if max_connection_time is None:
+        max_connection_time = DEFAULT_SSE_TIMEOUT
     import time
 
     buf = buffer or get_event_buffer()

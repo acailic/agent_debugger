@@ -181,18 +181,6 @@ export function SessionReplay({
         </button>
 
         <button
-          className="replay-btn step-back-single"
-          onClick={onStepBackward}
-          disabled={!canStepBack}
-          title="Previous event"
-          aria-label="Previous event"
-        >
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
-          </svg>
-        </button>
-
-        <button
           className="replay-btn play-pause"
           onClick={togglePlayPause}
           title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}

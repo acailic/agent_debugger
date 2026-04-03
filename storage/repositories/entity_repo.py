@@ -6,11 +6,16 @@ from trace events, including persistence and querying.
 
 from __future__ import annotations
 
-from sqlalchemy import select
+import logging
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from storage.entities import Entity, EntityExtractor, EntityType, get_top_entities
 from storage.models import EventModel, SessionModel
+
+logger = logging.getLogger(__name__)
+MAX_SESSIONS_FOR_ENTITY_EXTRACTION = 1000
 
 
 class EntityRepository:
@@ -151,6 +156,21 @@ class EntityRepository:
         Returns:
             List of event dictionaries including session metadata
         """
+        # First, count the total sessions to warn if the result set is large
+        count_stmt = select(func.count(SessionModel.id)).where(
+            SessionModel.tenant_id == self.tenant_id
+        )
+        session_count_result = await self.session.execute(count_stmt)
+        session_count = session_count_result.scalar() or 0
+
+        if session_count > MAX_SESSIONS_FOR_ENTITY_EXTRACTION:
+            logger.warning(
+                "Entity extraction loading events from %d sessions (exceeds MAX_SESSIONS_FOR_ENTITY_EXTRACTION=%d). "
+                "This may result in large memory usage and slow query performance.",
+                session_count,
+                MAX_SESSIONS_FOR_ENTITY_EXTRACTION,
+            )
+
         stmt = (
             select(EventModel, SessionModel.agent_name)
             .join(SessionModel, EventModel.session_id == SessionModel.id)

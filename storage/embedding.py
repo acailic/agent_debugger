@@ -209,7 +209,8 @@ def cosine_similarity(a: dict[str, float], b: dict[str, float]) -> float:
     magnitude_a = magnitude_a**0.5
     magnitude_b = magnitude_b**0.5
 
-    if magnitude_a == 0.0 or magnitude_b == 0.0:
+    # Check for near-zero magnitudes to avoid division by zero
+    if magnitude_a < 1e-10 or magnitude_b < 1e-10:
         return 0.0
 
     return dot_product / (magnitude_a * magnitude_b)

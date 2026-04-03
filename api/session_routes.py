@@ -37,6 +37,7 @@ from api.services import (
 from storage import TraceRepository
 
 router = APIRouter(tags=["sessions"])
+DEFAULT_EXPORT_CHECKPOINTS_LIMIT = 1000
 
 
 def _normalize_datetime(value: datetime | None) -> datetime | None:
@@ -212,7 +213,7 @@ async def export_session(
     session = await require_session(repo, session_id)
     events = await repo.list_events(session_id, limit=MAX_TRACES_PER_REQUEST)
     # Add limit to checkpoint loading to prevent unbounded queries
-    checkpoints = await repo.list_checkpoints(session_id, limit=1000)
+    checkpoints = await repo.list_checkpoints(session_id, limit=DEFAULT_EXPORT_CHECKPOINTS_LIMIT)
 
     export_data = {
         "export_version": "1.0",

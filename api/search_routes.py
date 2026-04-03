@@ -164,21 +164,21 @@ async def search_sessions_nl(
     if request.min_errors is not None:
         filters_applied["min_errors"] = request.min_errors
 
-    # Parse datetime filters
+    # Parse datetime filters with explicit error handling
     started_after = None
     started_before = None
     if request.started_after:
         try:
             started_after = datetime.fromisoformat(request.started_after.replace("Z", "+00:00"))
             filters_applied["started_after"] = request.started_after
-        except ValueError:
-            pass  # Invalid datetime, ignore filter
+        except ValueError as e:
+            raise ValueError(f"Invalid started_after datetime '{request.started_after}': {e}")
     if request.started_before:
         try:
             started_before = datetime.fromisoformat(request.started_before.replace("Z", "+00:00"))
             filters_applied["started_before"] = request.started_before
-        except ValueError:
-            pass  # Invalid datetime, ignore filter
+        except ValueError as e:
+            raise ValueError(f"Invalid started_before datetime '{request.started_before}': {e}")
 
     # Perform search with all filters
     sessions = await repo.search_sessions(

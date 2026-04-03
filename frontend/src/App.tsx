@@ -138,13 +138,14 @@ function App() {
     }))
   )
 
-  const { addLiveEvent, setLiveSummary, setStreamConnected, setStreamHealth, setStreamReconnectAttempts, clearLiveEvents } = useSessionStore(
+  const { addLiveEvent, setLiveSummary, setStreamConnected, setStreamHealth, setStreamReconnectAttempts, setStreamParseFailures, clearLiveEvents } = useSessionStore(
     useShallow((state) => ({
       addLiveEvent: state.addLiveEvent,
       setLiveSummary: state.setLiveSummary,
       setStreamConnected: state.setStreamConnected,
       setStreamHealth: state.setStreamHealth,
       setStreamReconnectAttempts: state.setStreamReconnectAttempts,
+      setStreamParseFailures: state.setStreamParseFailures,
       clearLiveEvents: state.clearLiveEvents,
     }))
   )
@@ -281,10 +282,21 @@ function App() {
           const event = JSON.parse(message.data) as TraceEvent
           addLiveEvent(event)
           setStreamHealth('healthy')
+          // Reset parse failure counter on successful parse
+          const currentFailures = useSessionStore.getState().streamParseFailures || 0
+          if (currentFailures > 0) {
+            setStreamParseFailures(0)
+          }
         } catch {
-          // Graceful JSON parse recovery - skip malformed events, don't kill the stream
+          // Track consecutive parse failures and show notification after 3+
+          const currentFailures = useSessionStore.getState().streamParseFailures || 0
+          const newFailures = currentFailures + 1
+          setStreamParseFailures(newFailures)
           console.warn('[SSE] Failed to parse event, skipping:', message.data)
           setStreamHealth('degraded')
+          if (newFailures >= 3) {
+            console.error(`[SSE] ${newFailures} consecutive parse failures - check event format`)
+          }
         }
       }
 
