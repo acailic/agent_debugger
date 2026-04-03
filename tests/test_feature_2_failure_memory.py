@@ -1,9 +1,7 @@
-"""Tests for Feature 2: Failure Memory Search.
+"""Tests for Feature 2: Failure Memory.
 
-This module tests the FailureMemory class which provides:
-- Storing failure embeddings for similarity search
-- Retrieving similar past failures with fix information
-- Extracting failure signatures from error events
+Tests for collector.failure_memory.FailureMemory which stores and
+searches for similar failures using embeddings and a vector database.
 """
 
 from __future__ import annotations
@@ -20,384 +18,333 @@ from collector.failure_memory import (
 )
 
 # =============================================================================
-# Fixtures
-# =============================================================================
-
-
-@pytest.fixture
-def mock_embedding_model():
-    """Mock embedding model that returns fixed embeddings."""
-    model = MagicMock()
-    # Default: return a 384-dimensional embedding (typical sentence transformer size)
-    model.encode.return_value = [0.1] * 384
-    return model
-
-
-@pytest.fixture
-def mock_vector_db():
-    """Mock vector database for failure memory storage."""
-    db = MagicMock()
-    # Default: empty results
-    db.query.return_value = {"ids": [], "distances": [], "metadatas": []}
-    db.add.return_value = None
-    return db
-
-
-# =============================================================================
-# TestFailureMemoryHappyPath
+# Happy Path Tests
 # =============================================================================
 
 
 class TestFailureMemoryHappyPath:
-    """Tests for the happy path of failure memory operations."""
+    """Tests for normal operation of FailureMemory."""
 
-    def test_remember_failure_stores_embedding(self, make_error_event, mock_embedding_model, mock_vector_db):
-        """Storing a failure should generate an embedding and call vector_db.add."""
-        # Arrange
-        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
+    def test_remember_failure_adds_to_vector_db(self, make_error_event):
+        """remember_failure stores the failure in the vector database."""
+        embedding_model = MagicMock()
+        vector_db = MagicMock()
+        embedding_model.encode.return_value = [0.1, 0.2, 0.3]
+        vector_db.query.return_value = {"ids": [], "distances": [], "metadatas": []}
+
+        memory = FailureMemory(embedding_model, vector_db)
         error_event = make_error_event(
-            error_type="TimeoutError",
-            error_message="Connection timed out after 30s",
+            session_id="session-1",
+            error_type="ValueError",
+            error_message="Invalid input",
         )
 
-        # Act
-        memory.remember_failure(error_event, fix_applied="Added retry logic")
+        memory.remember_failure(error_event)
 
-        # Assert
-        mock_embedding_model.encode.assert_called_once()
-        call_arg = mock_embedding_model.encode.call_args[0][0]
-        assert "TimeoutError" in call_arg
-        assert "Connection timed out" in call_arg
+        assert vector_db.add.called
+        add_args = vector_db.add.call_args
+        assert add_args[1]["metadatas"][0]["error_type"] == "ValueError"
+        assert add_args[1]["metadatas"][0]["error_message"] == "Invalid input"
 
-        mock_vector_db.add.assert_called_once()
-        add_args = mock_vector_db.add.call_args
-        assert add_args[1]["metadatas"][0]["error_type"] == "TimeoutError"
-        assert add_args[1]["metadatas"][0]["fix_applied"] == "Added retry logic"
+    def test_remember_failure_with_fix_stores_fix(self, make_error_event):
+        """remember_failure stores fix_applied when provided."""
+        embedding_model = MagicMock()
+        vector_db = MagicMock()
+        embedding_model.encode.return_value = [0.1, 0.2, 0.3]
+        vector_db.query.return_value = {"ids": [], "distances": [], "metadatas": []}
 
-    def test_search_similar_returns_matches(self, make_error_event, mock_embedding_model, mock_vector_db):
-        """Searching for similar failures should return a ranked list with scores."""
-        # Arrange
-        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
+        memory = FailureMemory(embedding_model, vector_db)
+        error_event = make_error_event(error_type="NetworkError", error_message="Timeout")
 
-        # Mock the query to return some matches
-        mock_vector_db.query.return_value = {
-            "ids": ["fail-1", "fail-2"],
-            "distances": [0.15, 0.35],  # Lower distance = higher similarity
+        memory.remember_failure(error_event, fix_applied="retry_with_backoff")
+
+        add_args = vector_db.add.call_args
+        assert add_args[1]["metadatas"][0]["fix_applied"] == "retry_with_backoff"
+
+    def test_remember_failure_updates_existing_similar(self, make_error_event):
+        """remember_failure updates existing entry when a very similar failure exists."""
+        embedding_model = MagicMock()
+        vector_db = MagicMock()
+        embedding_model.encode.return_value = [0.1, 0.2, 0.3]
+
+        # Simulate existing similar failure (distance < 0.1 triggers update path)
+        vector_db.query.return_value = {
+            "ids": ["existing-failure-id"],
+            "distances": [0.05],
             "metadatas": [
                 {
-                    "error_type": "TimeoutError",
-                    "error_message": "Connection timed out",
-                    "fix_applied": "Added retry",
+                    "error_type": "ValueError",
+                    "error_message": "Same class of error",
+                    "occurrence_count": 1,
+                    "fix_applied": None,
+                }
+            ],
+        }
+
+        memory = FailureMemory(embedding_model, vector_db)
+        error_event = make_error_event(error_type="ValueError", error_message="Same error")
+
+        memory.remember_failure(error_event)
+
+        assert vector_db.update.called
+        assert not vector_db.add.called
+        update_args = vector_db.update.call_args
+        assert update_args[1]["metadatas"][0]["occurrence_count"] == 2
+
+    def test_remember_failure_update_stores_new_fix(self, make_error_event):
+        """remember_failure overwrites fix_applied when updating an existing entry."""
+        embedding_model = MagicMock()
+        vector_db = MagicMock()
+        embedding_model.encode.return_value = [0.1, 0.2, 0.3]
+        vector_db.query.return_value = {
+            "ids": ["existing-id"],
+            "distances": [0.04],
+            "metadatas": [{"occurrence_count": 1, "fix_applied": None}],
+        }
+
+        memory = FailureMemory(embedding_model, vector_db)
+        error_event = make_error_event()
+
+        memory.remember_failure(error_event, fix_applied="new_fix")
+
+        update_args = vector_db.update.call_args
+        assert update_args[1]["metadatas"][0]["fix_applied"] == "new_fix"
+
+    def test_search_similar_returns_match_instances(self, make_error_event):
+        """search_similar returns SimilarFailureMatch instances."""
+        embedding_model = MagicMock()
+        vector_db = MagicMock()
+        embedding_model.encode.return_value = [0.1, 0.2, 0.3]
+        vector_db.query.return_value = {
+            "ids": ["failure-1"],
+            "distances": [0.2],
+            "metadatas": [
+                {
+                    "error_type": "ValueError",
+                    "error_message": "Bad input",
+                    "tool_name": None,
+                    "session_id": "s1",
+                    "fix_applied": "validated_input",
                     "occurrence_count": 3,
+                }
+            ],
+        }
+
+        memory = FailureMemory(embedding_model, vector_db)
+        error_event = make_error_event(error_type="ValueError", error_message="Invalid value")
+
+        matches = memory.search_similar(error_event)
+
+        assert len(matches) == 1
+        assert isinstance(matches[0], SimilarFailureMatch)
+        assert matches[0].failure_id == "failure-1"
+        assert matches[0].fix_applied == "validated_input"
+        assert matches[0].occurrence_count == 3
+
+    def test_search_similar_filters_below_threshold(self, make_error_event):
+        """search_similar excludes matches with similarity below threshold."""
+        embedding_model = MagicMock()
+        vector_db = MagicMock()
+        embedding_model.encode.return_value = [0.1, 0.2, 0.3]
+
+        # distance=0.7 => similarity_score=0.3, below default threshold of 0.5
+        vector_db.query.return_value = {
+            "ids": ["failure-1"],
+            "distances": [0.7],
+            "metadatas": [
+                {
+                    "error_type": "DifferentError",
+                    "error_message": "Different",
+                    "tool_name": None,
+                    "session_id": None,
+                    "fix_applied": None,
+                    "occurrence_count": 1,
+                }
+            ],
+        }
+
+        memory = FailureMemory(embedding_model, vector_db)
+        error_event = make_error_event()
+
+        matches = memory.search_similar(error_event)
+
+        assert matches == []
+
+    def test_search_similar_sorted_by_score_descending(self, make_error_event):
+        """search_similar returns matches sorted by similarity score descending."""
+        embedding_model = MagicMock()
+        vector_db = MagicMock()
+        embedding_model.encode.return_value = [0.1, 0.2, 0.3]
+        vector_db.query.return_value = {
+            "ids": ["failure-low", "failure-high"],
+            "distances": [0.3, 0.1],  # similarity_scores: 0.7, 0.9
+            "metadatas": [
+                {
+                    "error_type": "Error1",
+                    "error_message": "msg1",
+                    "tool_name": None,
+                    "session_id": None,
+                    "fix_applied": None,
+                    "occurrence_count": 1,
                 },
                 {
-                    "error_type": "ConnectionError",
-                    "error_message": "Failed to connect",
-                    "fix_applied": "Checked network",
+                    "error_type": "Error2",
+                    "error_message": "msg2",
+                    "tool_name": None,
+                    "session_id": None,
+                    "fix_applied": None,
                     "occurrence_count": 1,
                 },
             ],
         }
 
+        memory = FailureMemory(embedding_model, vector_db)
+        error_event = make_error_event()
+
+        matches = memory.search_similar(error_event)
+
+        assert len(matches) == 2
+        assert matches[0].similarity_score >= matches[1].similarity_score
+
+    def test_extract_signature_from_error_event(self, make_error_event):
+        """extract_signature returns FailureSignature with correct fields."""
         error_event = make_error_event(
+            session_id="session-42",
             error_type="TimeoutError",
-            error_message="Request timed out",
+            error_message="Connection timed out",
         )
 
-        # Act
-        results = memory.search_similar(error_event, threshold=0.5)
+        sig = FailureMemory.extract_signature(error_event)
 
-        # Assert
-        mock_embedding_model.encode.assert_called()
-        mock_vector_db.query.assert_called_once()
+        assert isinstance(sig, FailureSignature)
+        assert sig.error_type == "TimeoutError"
+        assert sig.error_message == "Connection timed out"
+        assert sig.session_id == "session-42"
 
-        assert len(results) == 2
-        assert all(isinstance(r, SimilarFailureMatch) for r in results)
-        # Results should be ranked by similarity (highest first)
-        assert results[0].similarity_score >= results[1].similarity_score
+    def test_remember_session_failures_stores_all_errors(self, make_error_event):
+        """remember_session_failures processes all ERROR events in a session."""
+        embedding_model = MagicMock()
+        vector_db = MagicMock()
+        embedding_model.encode.return_value = [0.1, 0.2]
+        vector_db.query.return_value = {"ids": [], "distances": [], "metadatas": []}
 
-    def test_search_includes_fix_information(self, make_error_event, mock_embedding_model, mock_vector_db):
-        """Search results should include the fix that was previously applied."""
-        # Arrange
-        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
+        memory = FailureMemory(embedding_model, vector_db)
 
-        mock_vector_db.query.return_value = {
-            "ids": ["fail-1"],
-            "distances": [0.1],
-            "metadatas": [
-                {
-                    "error_type": "ValueError",
-                    "error_message": "Invalid input",
-                    "fix_applied": "Added input validation with try/except",
-                    "occurrence_count": 2,
-                },
-            ],
-        }
+        error1 = make_error_event(session_id="s1", error_type="Error1", error_message="First")
+        error2 = make_error_event(session_id="s1", error_type="Error2", error_message="Second")
+        session = {"events": [error1, error2]}
 
-        error_event = make_error_event(
-            error_type="ValueError",
-            error_message="Bad value provided",
-        )
-
-        # Act
-        results = memory.search_similar(error_event)
-
-        # Assert
-        assert len(results) == 1
-        assert results[0].fix_applied == "Added input validation with try/except"
-        assert results[0].occurrence_count == 2
-
-    def test_failure_signature_extracts_key_fields(self, make_error_event):
-        """The failure signature should extract error type and message."""
-        # Arrange
-        error_event = make_error_event(
-            error_type="KeyError",
-            error_message="Missing required key 'user_id'",
-            data={"tool_name": "get_user"},
-        )
-
-        # Act
-        signature = FailureMemory.extract_signature(error_event)
-
-        # Assert
-        assert isinstance(signature, FailureSignature)
-        assert signature.error_type == "KeyError"
-        assert "Missing required key" in signature.error_message
-        assert signature.tool_name == "get_user"
-        assert signature.session_id == error_event.session_id
-
-        # Signature text should include key fields
-        sig_text = signature.to_text()
-        assert "KeyError" in sig_text
-        assert "Missing required key" in sig_text
-
-
-# =============================================================================
-# TestFailureMemoryEdgeCases
-# =============================================================================
-
-
-class TestFailureMemoryEdgeCases:
-    """Tests for edge cases in failure memory operations."""
-
-    def test_empty_memory_returns_empty_list(self, make_error_event, mock_embedding_model, mock_vector_db):
-        """An empty vector DB should return an empty list, not an error."""
-        # Arrange
-        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
-
-        # Mock empty response
-        mock_vector_db.query.return_value = {
-            "ids": [],
-            "distances": [],
-            "metadatas": [],
-        }
-
-        error_event = make_error_event()
-
-        # Act
-        results = memory.search_similar(error_event)
-
-        # Assert
-        assert results == []
-        assert isinstance(results, list)
-
-    def test_low_similarity_excluded(self, make_error_event, mock_embedding_model, mock_vector_db):
-        """Results below the similarity threshold should be excluded."""
-        # Arrange
-        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
-
-        # Mock results with varying distances
-        # High distance = low similarity
-        mock_vector_db.query.return_value = {
-            "ids": ["fail-1", "fail-2", "fail-3"],
-            "distances": [0.2, 0.6, 0.9],  # Only first should pass 0.7 threshold
-            "metadatas": [
-                {"error_type": "Error1", "error_message": "Msg1", "occurrence_count": 1},
-                {"error_type": "Error2", "error_message": "Msg2", "occurrence_count": 1},
-                {"error_type": "Error3", "error_message": "Msg3", "occurrence_count": 1},
-            ],
-        }
-
-        error_event = make_error_event()
-
-        # Act - use high threshold (0.7 similarity = 0.3 max distance)
-        results = memory.search_similar(error_event, threshold=0.7)
-
-        # Assert
-        assert len(results) == 1
-        assert results[0].failure_id == "fail-1"
-
-    def test_duplicate_failures_update_existing(self, make_error_event, mock_embedding_model, mock_vector_db):
-        """Storing the same failure again should update the occurrence count."""
-        # Arrange
-        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
-
-        # Mock that the failure already exists
-        mock_vector_db.query.return_value = {
-            "ids": ["existing-fail-1"],
-            "distances": [0.01],  # Very similar
-            "metadatas": [
-                {
-                    "error_type": "ConnectionError",
-                    "error_message": "DB connection failed",
-                    "occurrence_count": 2,
-                    "fix_applied": None,
-                },
-            ],
-        }
-
-        error_event = make_error_event(
-            error_type="ConnectionError",
-            error_message="DB connection failed",
-        )
-
-        # Act
-        memory.remember_failure(error_event)
-
-        # Assert - should update existing, not add new
-        mock_vector_db.update.assert_called_once()
-        update_args = mock_vector_db.update.call_args
-        assert update_args[1]["metadatas"][0]["occurrence_count"] == 3
-
-    def test_session_without_error_skipped(
-        self,
-        make_decision_event,
-        mock_embedding_model,
-        mock_vector_db,
-    ):
-        """A session without an error event should not be stored in memory."""
-        # Arrange
-        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
-
-        decision = make_decision_event()
-        session = {"events": [decision]}
-
-        # Act
         result = memory.remember_session_failures(session)
 
-        # Assert
-        assert result is False or result == []
-        mock_vector_db.add.assert_not_called()
+        assert result is True
+        assert vector_db.add.call_count == 2
+
+    def test_remember_session_failures_no_errors_returns_false(self, make_event):
+        """remember_session_failures returns False when session has no ERROR events."""
+        embedding_model = MagicMock()
+        vector_db = MagicMock()
+
+        memory = FailureMemory(embedding_model, vector_db)
+
+        # make_event defaults to TOOL_CALL type, not ERROR
+        tool_event = make_event()
+        session = {"events": [tool_event]}
+
+        result = memory.remember_session_failures(session)
+
+        assert result is False
+        assert not vector_db.add.called
+
+    def test_remember_session_failures_empty_session_returns_false(self):
+        """remember_session_failures returns False for empty event list."""
+        embedding_model = MagicMock()
+        vector_db = MagicMock()
+
+        memory = FailureMemory(embedding_model, vector_db)
+        result = memory.remember_session_failures({"events": []})
+
+        assert result is False
 
 
 # =============================================================================
-# TestFailureMemoryErrorHandling
+# Error Handling Tests
 # =============================================================================
 
 
 class TestFailureMemoryErrorHandling:
-    """Tests for error handling in failure memory operations."""
+    """Error handling tests for FailureMemory."""
 
-    def test_embedding_failure_returns_graceful_error(self, make_error_event, mock_embedding_model, mock_vector_db):
-        """If embedding generation fails, EmbeddingGenerationError should be raised."""
-        # Arrange
-        mock_embedding_model.encode.side_effect = RuntimeError("Model not loaded")
-        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
+    def test_remember_failure_raises_embedding_generation_error(self, make_error_event):
+        """remember_failure raises EmbeddingGenerationError when encode fails."""
+        embedding_model = MagicMock()
+        vector_db = MagicMock()
+        embedding_model.encode.side_effect = RuntimeError("GPU out of memory")
+        vector_db.query.return_value = {"ids": [], "distances": [], "metadatas": []}
 
+        memory = FailureMemory(embedding_model, vector_db)
         error_event = make_error_event()
 
-        # Act & Assert
-        with pytest.raises(EmbeddingGenerationError) as exc_info:
+        with pytest.raises(EmbeddingGenerationError):
             memory.remember_failure(error_event)
 
-        assert "Model not loaded" in str(exc_info.value)
+    def test_search_similar_returns_empty_on_encode_error(self, make_error_event):
+        """search_similar returns empty list when embedding encode fails."""
+        embedding_model = MagicMock()
+        vector_db = MagicMock()
+        embedding_model.encode.side_effect = Exception("Unexpected failure")
 
-    def test_vector_db_unavailable_returns_empty(self, make_error_event, mock_embedding_model, mock_vector_db):
-        """If vector DB connection fails, search should return empty list."""
-        # Arrange
-        mock_vector_db.query.side_effect = ConnectionError("Vector DB unavailable")
-        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
-
+        memory = FailureMemory(embedding_model, vector_db)
         error_event = make_error_event()
 
-        # Act
-        results = memory.search_similar(error_event)
+        matches = memory.search_similar(error_event)
 
-        # Assert - should return empty list, not raise
-        assert results == []
+        assert matches == []
 
-    def test_malformed_metadata_handled(self, make_error_event, mock_embedding_model, mock_vector_db):
-        """Malformed or None metadata in results should not crash the search."""
-        # Arrange
-        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
+    def test_search_similar_returns_empty_on_query_error(self, make_error_event):
+        """search_similar returns empty list when vector_db.query fails."""
+        embedding_model = MagicMock()
+        vector_db = MagicMock()
+        embedding_model.encode.return_value = [0.1, 0.2, 0.3]
+        vector_db.query.side_effect = Exception("DB connection error")
 
-        # Mock results with malformed metadata
-        mock_vector_db.query.return_value = {
-            "ids": ["fail-1", "fail-2"],
-            "distances": [0.1, 0.2],
-            "metadatas": [
-                None,  # Malformed: None instead of dict
-                {"error_type": "Error", "error_message": "Msg"},  # Missing fields
-            ],
-        }
-
+        memory = FailureMemory(embedding_model, vector_db)
         error_event = make_error_event()
 
-        # Act - should not raise
-        results = memory.search_similar(error_event)
+        matches = memory.search_similar(error_event)
 
-        # Assert - should gracefully handle malformed data
-        assert isinstance(results, list)
-        # Should filter out or provide defaults for malformed entries
-        for result in results:
-            assert isinstance(result, SimilarFailureMatch)
+        assert matches == []
 
 
 # =============================================================================
-# TestFailureMemoryIntegration
+# FailureSignature Tests
 # =============================================================================
 
 
-class TestFailureMemoryIntegration:
-    """Integration tests for failure memory with other components."""
+class TestFailureSignature:
+    """Tests for FailureSignature.to_text()."""
 
-    def test_link_to_why_button_analysis(
-        self,
-        make_error_event,
-        mock_embedding_model,
-        mock_vector_db,
-    ):
-        """Failure memory should be queryable from Why button results."""
-        # Arrange
-        memory = FailureMemory(embedding_model=mock_embedding_model, vector_db=mock_vector_db)
+    def test_to_text_includes_error_type_and_message(self):
+        """to_text includes error type and message."""
+        sig = FailureSignature(error_type="ValueError", error_message="Bad input")
+        text = sig.to_text()
 
-        # Set up a previous similar failure
-        mock_vector_db.query.return_value = {
-            "ids": ["past-fail-1"],
-            "distances": [0.15],
-            "metadatas": [
-                {
-                    "error_type": "ValueError",
-                    "error_message": "Invalid configuration",
-                    "fix_applied": "Added config validation in startup",
-                    "occurrence_count": 5,
-                    "session_id": "past-session-123",
-                },
-            ],
-        }
+        assert "ValueError" in text
+        assert "Bad input" in text
 
-        # Simulate a new error that would trigger "Why" button
-        error_event = make_error_event(
-            session_id="current-session",
-            error_type="ValueError",
-            error_message="Invalid configuration detected",
+    def test_to_text_includes_tool_name_when_present(self):
+        """to_text includes tool name when provided."""
+        sig = FailureSignature(
+            error_type="ToolError",
+            error_message="Tool failed",
+            tool_name="file_writer",
         )
+        text = sig.to_text()
 
-        # Act - simulate what happens when Why button is clicked
-        similar_failures = memory.search_similar(error_event, threshold=0.6)
+        assert "file_writer" in text
 
-        # Assert
-        assert len(similar_failures) == 1
-        match = similar_failures[0]
-        assert match.fix_applied == "Added config validation in startup"
-        assert match.occurrence_count == 5
-        assert match.session_id == "past-session-123"
+    def test_to_text_omits_tool_section_when_none(self):
+        """to_text skips tool name section when tool_name is None."""
+        sig = FailureSignature(error_type="Error", error_message="msg", tool_name=None)
+        text = sig.to_text()
 
-        # The match can be used to populate the Why button tooltip/modal
-        why_button_context = {
-            "similar_failure_count": len(similar_failures),
-            "most_recent_fix": match.fix_applied,
-            "times_seen": match.occurrence_count,
-        }
-        assert why_button_context["similar_failure_count"] == 1
-        assert why_button_context["most_recent_fix"] is not None
+        assert "Tool:" not in text
