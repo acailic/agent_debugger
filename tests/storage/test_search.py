@@ -424,6 +424,55 @@ class TestPrivateMethods:
         assert mock_session.execute.called
 
     @pytest.mark.asyncio
+    async def test_load_candidate_sessions_event_type_filter_in_sql(self):
+        """Test _load_candidate_sessions pushes event_type filter into SQL subquery.
+
+        The event_type predicate must appear in the WHERE clause of the single
+        SQL statement, not as a Python-level N+1 loop over sessions.
+        """
+        mock_session = _create_mock_async_session()
+        service = SessionSearchService(mock_session, tenant_id="tenant-1")
+
+        mock_result = Mock()
+        mock_scalars = Mock()
+        mock_scalars.all = Mock(return_value=[])
+        mock_result.scalars = Mock(return_value=mock_scalars)
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        await service._load_candidate_sessions(event_type="tool_call")
+
+        # Exactly one query should have been issued (no N+1 per-session queries).
+        assert mock_session.execute.call_count == 1
+
+        # The WHERE clause must reference the events table for event_type filtering.
+        stmt = mock_session.execute.await_args.args[0]
+        where_clause = str(stmt.whereclause)
+        assert "events.event_type" in where_clause
+
+    @pytest.mark.asyncio
+    async def test_load_candidate_sessions_event_type_excludes_non_matching_sessions(self):
+        """Test _load_candidate_sessions returns only sessions returned by the DB.
+
+        When the DB returns no sessions (because none have the requested
+        event_type), the result must be empty — no session should slip through.
+        """
+        mock_session = _create_mock_async_session()
+        service = SessionSearchService(mock_session, tenant_id="tenant-1")
+
+        # DB finds no sessions matching the event_type subquery.
+        mock_result = Mock()
+        mock_scalars = Mock()
+        mock_scalars.all = Mock(return_value=[])
+        mock_result.scalars = Mock(return_value=mock_scalars)
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        result = await service._load_candidate_sessions(event_type="error")
+
+        assert result == []
+        # Still exactly one query — no secondary per-session lookups.
+        assert mock_session.execute.call_count == 1
+
+    @pytest.mark.asyncio
     async def test_load_candidate_sessions_with_status(self):
         """Test _load_candidate_sessions applies status filter when provided."""
         # Arrange

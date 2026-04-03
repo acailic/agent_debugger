@@ -325,7 +325,6 @@ class SessionSearchService:
                     EventModel.tenant_id == self.tenant_id,
                     EventModel.event_type == event_type_str,
                 )
-                .distinct()
                 .scalar_subquery()
             )
             stmt = stmt.where(SessionModel.id.in_(event_subq))
