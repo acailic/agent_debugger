@@ -13,6 +13,7 @@ from .seed_data import (
     run_replay_determinism_session,
     run_safety_escalation_session,
 )
+from .seed_enrichment import SESSION_ENRICHMENT, validate_session_enrichment
 
 __all__ = [
     "SeedSession",
@@ -26,4 +27,6 @@ __all__ = [
     "run_looping_behavior_session",
     "run_failure_cluster_session",
     "run_replay_determinism_session",
+    "SESSION_ENRICHMENT",
+    "validate_session_enrichment",
 ]

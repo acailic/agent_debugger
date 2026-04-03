@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import HTTPException
 
+from agent_debugger_sdk.config import Config
 from api import app_context
 from collector import server as collector_server
 
@@ -45,3 +46,12 @@ async def test_create_session_returns_conflict_for_duplicate_id():
 
     assert exc_info.value.status_code == 409
     assert exc_info.value.detail == "Session collector-duplicate-session already exists"
+
+
+def test_resolve_session_id_rejects_explicit_ids_in_cloud_mode():
+    with patch.object(collector_server, "get_config", return_value=Config._create_unvalidated(mode="cloud")):
+        with pytest.raises(HTTPException) as exc_info:
+            collector_server._resolve_session_id("cross-tenant-session")
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Explicit session IDs are only supported in local mode"

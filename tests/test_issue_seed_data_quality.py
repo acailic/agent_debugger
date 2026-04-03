@@ -22,7 +22,7 @@ import pytest
 
 from agent_debugger_sdk.core.events import EventType, Session, TraceEvent
 from agent_debugger_sdk.pricing import calculate_cost
-from scripts.seed_demo_sessions import SESSION_ENRICHMENT, validate_session_enrichment
+from benchmarks import SESSION_ENRICHMENT, validate_session_enrichment
 from storage.models import AnomalyAlertModel
 from storage.repository import TraceRepository
 
@@ -390,13 +390,13 @@ async def test_seed_enrichment_all_sessions_have_tokens_and_cost(db_session):
     - All 8 sessions defined in SESSION_ENRICHMENT should have:
       - total_tokens > 0
       - total_cost_usd > 0
-    - This mirrors the enrichment data in seed_demo_sessions.py
+    - This mirrors the curated benchmark enrichment data
 
     Current behavior: May fail if some sessions end up with zero values.
     """
     repo = TraceRepository(db_session, tenant_id="local")
 
-    # SESSION_ENRICHMENT data from seed_demo_sessions.py
+    # SESSION_ENRICHMENT data from benchmarks.seed_enrichment
     seed_sessions = [
         ("seed-prompt-injection", 856, 0.0042),
         ("seed-evidence-grounding", 140, 0.0021),

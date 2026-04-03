@@ -15,6 +15,7 @@ os.environ["AGENT_DEBUGGER_DB_URL"] = f"sqlite+aiosqlite:///{_test_db_path}"
 
 from agent_debugger_sdk import config as cfg_mod
 from agent_debugger_sdk.core.events import Checkpoint, EventType, Session, SessionStatus, TraceEvent
+from collector.server import configure_storage
 from storage import Base
 
 
@@ -40,9 +41,13 @@ def reset_global_config():
     original_config = cfg_mod._global_config
     original_enabled_env = os.environ.pop("AGENT_DEBUGGER_ENABLED", None)
     cfg_mod._global_config = None
+    configure_storage(None)
     yield
     cfg_mod._global_config = original_config
-    if original_enabled_env is not None:
+    configure_storage(None)
+    if original_enabled_env is None:
+        os.environ.pop("AGENT_DEBUGGER_ENABLED", None)
+    else:
         os.environ["AGENT_DEBUGGER_ENABLED"] = original_enabled_env
 
 

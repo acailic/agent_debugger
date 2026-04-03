@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from uuid import uuid4
 
 import pytest
 
@@ -23,7 +24,7 @@ from agent_debugger_sdk.core.events import (
     TraceEvent,
 )
 from storage.converters import event_to_orm, orm_to_checkpoint, orm_to_event, orm_to_session
-from storage.models import CheckpointModel, SessionModel
+from storage.models import AnomalyAlertModel, CheckpointModel, SessionModel
 from storage.repository import TraceRepository
 
 
@@ -69,11 +70,29 @@ async def test_session_crud_and_count_paths(db_session):
     assert updated.total_tokens == 42
     assert updated.tags == ["updated"]
 
+    alert = AnomalyAlertModel(
+        id=str(uuid4()),
+        tenant_id="tenant-a",
+        session_id=session.id,
+        alert_type="behavior_drift",
+        severity=0.8,
+        signal="Unexpected loop",
+        event_ids=[],
+        detection_source="test",
+        detection_config={},
+    )
+    await repo.create_anomaly_alert(alert)
+    await repo.commit()
+
+    assert await repo.get_anomaly_alert(alert.id) is not None
     assert await repo.update_session("missing", status="completed") is None
     assert await repo.delete_session("missing") is False
     assert await repo.delete_session(session.id) is True
+    await repo.commit()
     assert await repo.get_session(session.id) is None
+    assert await repo.get_anomaly_alert(alert.id) is None
     assert await repo.count_sessions() == 0
+    assert await repo.list_anomaly_alerts(session.id) == []
 
 
 @pytest.mark.asyncio

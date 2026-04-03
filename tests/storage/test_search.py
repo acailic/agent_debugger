@@ -217,6 +217,26 @@ class TestSearchSessions:
         # Verify that execute was called (tenant filtering is in the SQL)
         assert mock_session.execute.called
 
+    @pytest.mark.asyncio
+    async def test_score_session_filters_events_by_tenant(self):
+        """Test _score_session scopes event loading to the repository tenant."""
+        mock_session = _create_mock_async_session()
+        service = SessionSearchService(mock_session, tenant_id="tenant-abc")
+        db_session = _make_mock_session(session_id="session-123")
+
+        mock_result = Mock()
+        mock_scalars = Mock()
+        mock_scalars.all = Mock(return_value=[])
+        mock_result.scalars = Mock(return_value=mock_scalars)
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        await service._score_session(db_session, {"timeout": 1.0})
+
+        stmt = mock_session.execute.await_args.args[0]
+        where_clause = str(stmt.whereclause)
+        assert "events.session_id =" in where_clause
+        assert "events.tenant_id =" in where_clause
+
 
 # =============================================================================
 # Test search_events

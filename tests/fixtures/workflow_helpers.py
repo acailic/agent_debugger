@@ -52,11 +52,12 @@ def cassette_events(interactions: list[dict[str, Any]], session_id: str = "casse
         "error": ErrorEvent,
     }
     for interaction in interactions:
-        event_type_str = interaction.pop("type")
+        event_payload = dict(interaction)
+        event_type_str = event_payload.pop("type")
         cls = type_map.get(event_type_str, TraceEvent)
         if cls is TraceEvent:
-            interaction["event_type"] = EventType(event_type_str)
-        event = cls(session_id=session_id, **interaction)
+            event_payload["event_type"] = EventType(event_type_str)
+        event = cls(session_id=session_id, **event_payload)
         events.append(event)
     return events
 

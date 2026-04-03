@@ -160,6 +160,19 @@ def _get_redaction_pipeline() -> RedactionPipeline:
     return RedactionPipeline.from_config()
 
 
+def _resolve_session_id(requested_id: str | None) -> str:
+    if requested_id is None:
+        return str(uuid.uuid4())
+
+    if get_config().mode != "local":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Explicit session IDs are only supported in local mode",
+        )
+
+    return requested_id
+
+
 async def _persist_event_if_configured(
     event: TraceEvent,
     tenant_id: str = "local",
@@ -271,7 +284,7 @@ async def _create_session(
 ) -> SessionResponse:
     deps = dependencies or _resolve_dependencies()
     session = Session(
-        id=session_data.id or str(uuid.uuid4()),
+        id=_resolve_session_id(session_data.id),
         agent_name=session_data.agent_name,
         framework=session_data.framework,
         config=session_data.config,

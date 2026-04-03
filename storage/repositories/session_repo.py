@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent_debugger_sdk.core.events import Session
 from storage.converters import orm_to_session
-from storage.models import SessionModel
+from storage.models import AnomalyAlertModel, SessionModel
 
 
 class SessionRepository:
@@ -195,5 +195,11 @@ class SessionRepository:
         if db_session is None:
             return False
 
+        await self.session.execute(
+            delete(AnomalyAlertModel).where(
+                AnomalyAlertModel.session_id == session_id,
+                AnomalyAlertModel.tenant_id == self.tenant_id,
+            )
+        )
         await self.session.delete(db_session)
         return True

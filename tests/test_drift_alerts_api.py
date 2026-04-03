@@ -78,6 +78,7 @@ def drift_repo_factory(tmp_path, monkeypatch):
 
     yield session_maker
 
+    configure_storage(None)
     configure_event_pipeline(None)
     asyncio.run(engine.dispose())
 
