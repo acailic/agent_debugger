@@ -204,7 +204,7 @@ class TraceContext(RecordingMixin):
         from agent_debugger_sdk.config import get_config
 
         config = get_config()
-        if not hooks_configured and config.enabled:
+        if not hooks_configured and config.enabled and getattr(config, "api_key", None):
             # No hooks configured - use HTTP transport to send events to the server
             from agent_debugger_sdk.transport import HttpTransport
 
