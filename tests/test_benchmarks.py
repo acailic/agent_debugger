@@ -8,19 +8,13 @@ This module tests:
 
 from __future__ import annotations
 
-import os
-
-os.environ["AGENT_DEBUGGER_ENABLED"] = "false"
-
 import pytest
-
-from agent_debugger_sdk import init as sdk_init
-
-sdk_init()
 
 
 # Set a no-op event persister so TraceContext never creates HTTP transport,
 # even after conftest.py's reset_global_config fixture clears _global_config.
+# This makes hooks_configured=True in TraceContext.__aenter__, which bypasses
+# the HTTP transport branch entirely — no env var needed.
 async def _noop_persist(event):  # noqa: ARG001
     """No-op persister to prevent HTTP transport creation in benchmark tests."""
     pass

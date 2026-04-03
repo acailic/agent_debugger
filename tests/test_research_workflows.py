@@ -2,7 +2,20 @@ from __future__ import annotations
 
 import asyncio
 
-from benchmarks import (
+
+# Set a no-op event persister so TraceContext never creates HTTP transport.
+# This must happen before importing benchmarks (which creates TraceContext
+# instances that would otherwise try to connect to localhost:8000).
+async def _noop_persist(event):  # noqa: ARG001
+    """No-op persister to prevent HTTP transport creation."""
+    pass
+
+
+from agent_debugger_sdk.core.context import configure_event_pipeline  # noqa: E402
+
+configure_event_pipeline(None, persist_event=_noop_persist)
+
+from benchmarks import (  # noqa: E402
     run_evidence_grounding_session,
     run_failure_cluster_session,
     run_looping_behavior_session,
@@ -12,8 +25,8 @@ from benchmarks import (
     run_replay_determinism_session,
     run_safety_escalation_session,
 )
-from collector.intelligence.facade import TraceIntelligence
-from collector.replay import build_replay
+from collector.intelligence.facade import TraceIntelligence  # noqa: E402
+from collector.replay import build_replay  # noqa: E402
 
 
 def test_prompt_injection_refusal_benchmark():

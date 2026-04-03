@@ -32,11 +32,18 @@ def pytest_unconfigure(config):
 
 @pytest.fixture(autouse=True)
 def reset_global_config():
-    """Reset global SDK config before and after each test to ensure isolation."""
+    """Reset global SDK config before and after each test to ensure isolation.
+
+    Also saves/restores AGENT_DEBUGGER_ENABLED to prevent module-level env
+    mutations (e.g. in test_benchmarks.py) from leaking across xdist workers.
+    """
     original_config = cfg_mod._global_config
+    original_enabled_env = os.environ.pop("AGENT_DEBUGGER_ENABLED", None)
     cfg_mod._global_config = None
     yield
     cfg_mod._global_config = original_config
+    if original_enabled_env is not None:
+        os.environ["AGENT_DEBUGGER_ENABLED"] = original_enabled_env
 
 
 @pytest.fixture(scope="session", autouse=True)
