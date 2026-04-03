@@ -313,24 +313,22 @@ class SessionSearchService:
             if tag_conditions:
                 stmt = stmt.where(or_(*tag_conditions))
 
-        # For event_type filtering, use EXISTS to avoid N+1 queries
+        # Filter by event_type in SQL using a subquery to avoid N+1 queries.
+        # Previously this was done with a Python loop issuing one query per session.
         if event_type:
-            event_type_str = event_type.value if hasattr(event_type, 'value') else event_type
-
-            # Use EXISTS subquery to filter sessions that have at least one event of the specified type
-            event_exists = exists(
-                select(EventModel.id).where(
-                    EventModel.session_id == SessionModel.id,
+            event_type_str = event_type.value if hasattr(event_type, "value") else event_type
+            event_subq = (
+                select(EventModel.session_id)
+                .where(
                     EventModel.tenant_id == self.tenant_id,
                     EventModel.event_type == event_type_str,
                 )
+                .scalar_subquery()
             )
-            stmt = stmt.where(event_exists)
+            stmt = stmt.where(SessionModel.id.in_(event_subq))
 
         result = await self.session.execute(stmt)
-        sessions = list(result.scalars().all())
-
-        return sessions
+        return list(result.scalars().all())
 
     async def _score_sessions(
         self,
