@@ -30,14 +30,14 @@ def _ensure_noop_pipeline():
     """
     configure_event_pipeline(None, persist_event=_noop_persist)
     yield
-from agent_debugger_sdk.core.context.pipeline import _get_default_event_buffer
-from agent_debugger_sdk.core.context.vars import (
+from agent_debugger_sdk.core.context.pipeline import _get_default_event_buffer  # noqa: E402
+from agent_debugger_sdk.core.context.vars import (  # noqa: E402
     _current_context,
     _current_parent_id,
     _current_session_id,
     _event_sequence,
 )
-from agent_debugger_sdk.core.events import EventType, SessionStatus
+from agent_debugger_sdk.core.events import EventType, SessionStatus  # noqa: E402
 
 
 class TestContextVariables:

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pytest
 
+
 # Set a no-op event persister so TraceContext never creates HTTP transport,
 # even after conftest.py's reset_global_config fixture clears _global_config.
 # This makes hooks_configured=True in TraceContext.__aenter__, which bypasses

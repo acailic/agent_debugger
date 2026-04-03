@@ -4,6 +4,7 @@ import asyncio
 
 import pytest
 
+
 # Set a no-op event persister so TraceContext never creates HTTP transport.
 # This must happen before importing benchmarks (which creates TraceContext
 # instances that would otherwise try to connect to localhost:8000).
