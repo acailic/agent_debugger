@@ -131,7 +131,7 @@ const mockUseSessionStore = vi.fn((selector: unknown) => {
 }) as unknown as typeof import('../stores/sessionStore').useSessionStore
 
 // The component calls useSessionStore.getState() directly in its onClick handler.
-mockUseSessionStore.getState = () => currentState
+;(mockUseSessionStore as unknown as { getState: () => unknown }).getState = () => currentState
 
 vi.mock('../stores/sessionStore', () => ({
   get useSessionStore() {

@@ -68,7 +68,7 @@ export function SimilarFailuresPanel({
       try {
         const response = await getSimilarFailures({
           sessionId: sessionId!, // Non-null assertion: we checked above
-          failureEventId,
+          failureEventId: failureEventId!,
           limit: 5,
         })
         if (!ignore) {

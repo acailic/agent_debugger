@@ -108,27 +108,38 @@ function WhyButtonInner({
       {status === 'loaded' && explanation && (
         <div className="diagnosis-card">
           <div className="diagnosis-card__header">
-            <strong>{explanation.label}</strong>
+            <strong>{explanation.failure_headline}</strong>
             <span>{confidencePercent}% confidence</span>
           </div>
-          <p>{explanation.summary}</p>
-          {explanation.likely_causes.length > 0 && (
+          <p>{explanation.failure_mode.replaceAll('_', ' ')}</p>
+          <p>{explanation.narrative}</p>
+          {explanation.candidates.length > 0 && (
             <ul className="diagnosis-list">
-              {explanation.likely_causes.map((cause) => (
-                <li key={cause}>{cause}</li>
+              {explanation.candidates.map((cause) => (
+                <li key={cause.event_id}>
+                  <button type="button" onClick={() => onSelectEvent(cause.event_id)}>
+                    {cause.headline}
+                  </button>
+                </li>
               ))}
             </ul>
           )}
-          {explanation.event_id && (
-            <div className="diagnosis-actions">
-              <button type="button" onClick={() => onSelectEvent(explanation.event_id!)}>
-                Inspect event
+          <div className="diagnosis-actions">
+            {explanation.likely_cause_event_id && (
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectEvent(explanation.likely_cause_event_id!)
+                  onFocusReplay(explanation.likely_cause_event_id!)
+                }}
+              >
+                Inspect likely cause
               </button>
-              <button type="button" onClick={() => onFocusReplay(explanation.event_id!)}>
-                Focus replay
-              </button>
-            </div>
-          )}
+            )}
+            <button type="button" onClick={() => onFocusReplay(explanation.next_inspection_event_id)}>
+              Focus replay
+            </button>
+          </div>
         </div>
       )}
     </div>
