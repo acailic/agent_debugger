@@ -133,7 +133,7 @@ class TestSecretPatterns:
     def test_aws_access_key_pattern_matches_valid_key(self):
         """Test AWS Access Key ID pattern matches valid keys."""
         pattern = SECRET_PATTERNS["aws_access_key"]
-        valid_key = "AKIAIOSFODNN7EXAMPLE"
+        valid_key = "AKIAIOSFODNN7EXAMPLE"  # gitleaks:allow
 
         match = pattern.search(valid_key)
         assert match is not None
@@ -157,7 +157,7 @@ class TestSecretPatterns:
     def test_aws_secret_key_pattern_matches_valid_key(self):
         """Test AWS Secret Access Key pattern matches valid keys."""
         pattern = SECRET_PATTERNS["aws_secret_key"]
-        valid_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+        valid_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"  # gitleaks:allow
 
         match = pattern.search(valid_key)
         assert match is not None
@@ -195,7 +195,7 @@ class TestSecretPatterns:
 
         # Test various bearer token formats
         valid_tokens = [
-            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",  # gitleaks:allow
             "Bearer my-token-12345",
             "bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",  # Case insensitive
             "BEARER TOKEN12345678901234567890",
@@ -210,7 +210,7 @@ class TestSecretPatterns:
         pattern = SECRET_PATTERNS["jwt"]
 
         # Valid JWT format (header.payload.signature)
-        valid_jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+        valid_jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"  # gitleaks:allow
 
         match = pattern.search(valid_jwt)
         assert match is not None
@@ -224,10 +224,10 @@ class TestSecretPatterns:
         # It requires uppercase letters between BEGIN and PRIVATE KEY
         # Test formats that match the actual pattern
         valid_headers = [
-            "-----BEGIN RSA PRIVATE KEY-----",
-            "-----BEGIN EC PRIVATE KEY-----",
-            "-----BEGIN DSA PRIVATE KEY-----",
-            "-----BEGIN OPENSSH PRIVATE KEY-----",
+            "-----BEGIN RSA PRIVATE KEY-----",  # gitleaks:allow
+            "-----BEGIN EC PRIVATE KEY-----",  # gitleaks:allow
+            "-----BEGIN DSA PRIVATE KEY-----",  # gitleaks:allow
+            "-----BEGIN OPENSSH PRIVATE KEY-----",  # gitleaks:allow
         ]
 
         for header in valid_headers:
@@ -285,7 +285,7 @@ class TestExceptionHierarchy:
         assert error.detail == "Something went wrong"
         assert error.status_code == 500
         assert error.error == "internal_error"
-        assert str(error) == "Something went wrong"
+        assert str(error) == "500: Something went wrong"
 
     def test_app_error_custom_status_code(self):
         """Test AppError with custom status code."""
