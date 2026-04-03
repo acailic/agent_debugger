@@ -257,6 +257,7 @@ class TestPydanticAIAdapter:
 
                 PydanticAIAdapter(MagicMock())
 
+    @pytest.mark.timeout(60)
     @pytest.mark.asyncio
     async def test_instrument_wraps_run_once_and_captures_live_message_shapes(self):
         """Test instrument() captures request/response/tool events from message history."""
