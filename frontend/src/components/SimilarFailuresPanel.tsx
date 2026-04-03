@@ -61,14 +61,16 @@ export function SimilarFailuresPanel({
       return
     }
 
+    const targetSessionId = sessionId
+    const targetFailureEventId = failureEventId
     let ignore = false
     async function loadSimilarFailures() {
       setLoading(true)
       setError(null)
       try {
         const response = await getSimilarFailures({
-          sessionId: sessionId!, // Non-null assertion: we checked above
-          failureEventId: failureEventId!,
+          sessionId: targetSessionId,
+          failureEventId: targetFailureEventId,
           limit: 5,
         })
         if (!ignore) {

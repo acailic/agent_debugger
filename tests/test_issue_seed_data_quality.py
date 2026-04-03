@@ -384,10 +384,10 @@ def test_cost_consistency_seed_enrichment_requires_positive_tokens_and_cost():
 
 @pytest.mark.asyncio
 async def test_seed_enrichment_all_sessions_have_tokens_and_cost(db_session):
-    """Reproduction test for Issue #6: Test that all 8 seed sessions have both tokens and cost.
+    """Reproduction test for Issue #6: Test that all seed sessions have both tokens and cost.
 
     Expected behavior:
-    - All 8 sessions defined in SESSION_ENRICHMENT should have:
+    - All sessions defined in SESSION_ENRICHMENT should have:
       - total_tokens > 0
       - total_cost_usd > 0
     - This mirrors the curated benchmark enrichment data
@@ -406,6 +406,10 @@ async def test_seed_enrichment_all_sessions_have_tokens_and_cost(db_session):
         ("seed-looping-behavior", 1245, 0.0089),
         ("seed-failure-cluster", 1567, 0.0112),
         ("seed-replay-determinism", 289, 0.0031),
+        ("seed-replay-breakpoints", 618, 0.0049),
+        ("seed-retention-recent-failure", 354, 0.0029),
+        ("seed-retention-stale-failure", 354, 0.0029),
+        ("seed-repair-memory", 934, 0.0067),
     ]
 
     for session_id, expected_tokens, expected_cost in seed_sessions:

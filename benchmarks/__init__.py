@@ -10,7 +10,11 @@ from .seed_data import (
     run_multi_agent_dialogue_session,
     run_prompt_injection_session,
     run_prompt_policy_shift_session,
+    run_repair_memory_session,
+    run_replay_breakpoints_session,
     run_replay_determinism_session,
+    run_retention_recent_failure_session,
+    run_retention_stale_failure_session,
     run_safety_escalation_session,
 )
 from .seed_enrichment import SESSION_ENRICHMENT, validate_session_enrichment
@@ -27,6 +31,10 @@ __all__ = [
     "run_looping_behavior_session",
     "run_failure_cluster_session",
     "run_replay_determinism_session",
+    "run_replay_breakpoints_session",
+    "run_retention_recent_failure_session",
+    "run_retention_stale_failure_session",
+    "run_repair_memory_session",
     "SESSION_ENRICHMENT",
     "validate_session_enrichment",
 ]

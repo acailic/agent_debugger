@@ -258,6 +258,15 @@ class TestRetentionTierAssignment:
                 failure_cluster_count=1,
                 behavior_alert_count=0,
             )
+            == "downsampled"
+        )
+        assert (
+            intelligence.retention_tier(
+                replay_value=0.36,
+                high_severity_count=0,
+                failure_cluster_count=1,
+                behavior_alert_count=0,
+            )
             == "summarized"
         )
         assert (

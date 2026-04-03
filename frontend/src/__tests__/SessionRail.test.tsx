@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { SessionRail } from '../components/SessionRail'
 import type { Session, TraceBundle } from '../types'
 
+type SessionStoreState = ReturnType<(typeof import('../stores/sessionStore'))['useSessionStore']['getState']>
+
 // ---------------------------------------------------------------------------
 // Test data
 // ---------------------------------------------------------------------------
@@ -103,25 +105,101 @@ const mockBundle: TraceBundle = {
  */
 
 /** Build a default mock state with sensible defaults and overridable fields. */
-function buildState(overrides: Record<string, unknown> = {}) {
+function buildState(overrides: Record<string, unknown> = {}): SessionStoreState {
   return {
     sessions: mockSessions,
     selectedSessionId: null,
-    bundle: null,
-    loading: false,
-    sessionSortMode: 'started_at' as const,
     secondarySessionId: null,
-    setSecondarySessionId: vi.fn(),
+    bundle: null,
+    secondaryBundle: null,
+    replay: null,
+    replayMode: 'full',
+    currentIndex: 0,
+    isPlaying: false,
+    speed: 1,
+    collapseThreshold: 0,
+    expandedSegments: new Set<number>(),
+    searchQuery: '',
+    searchEventType: '',
+    searchScope: 'current',
+    searchResponse: null,
+    searchLoading: false,
+    searchError: null,
+    liveEvents: [],
+    liveSummary: null,
+    streamConnected: false,
+    streamHealth: 'healthy',
+    streamReconnectAttempts: 0,
+    activeTab: 'trace',
+    sessionSortMode: 'started_at',
+    selectedEventId: null,
+    focusEventId: null,
+    selectedCheckpointId: null,
+    currentHighlightIndex: 0,
+    showBlockedActions: false,
+    breakpointEventTypes: '',
+    breakpointToolNames: '',
+    breakpointConfidenceBelow: '',
+    breakpointSafetyOutcomes: '',
+    stopAtBreakpoint: false,
+    loading: false,
+    compareLoading: false,
+    error: null,
+    driftData: null,
+    driftLoading: false,
+    setSessions: vi.fn(),
     setSelectedSessionId: vi.fn(),
-    setSessionSortMode: vi.fn(),
+    setSecondarySessionId: vi.fn(),
+    setBundle: vi.fn(),
+    setSecondaryBundle: vi.fn(),
+    setReplay: vi.fn(),
     setReplayMode: vi.fn(),
+    setCurrentIndex: vi.fn(),
+    setIsPlaying: vi.fn(),
+    setSpeed: vi.fn(),
+    setCollapseThreshold: vi.fn(),
+    setExpandedSegments: vi.fn(),
+    toggleExpandedSegment: vi.fn(),
+    setSearchQuery: vi.fn(),
+    setSearchEventType: vi.fn(),
+    setSearchScope: vi.fn(),
+    setSearchResponse: vi.fn(),
+    setSearchLoading: vi.fn(),
+    setSearchError: vi.fn(),
+    setLiveEvents: vi.fn(),
+    addLiveEvent: vi.fn(),
+    setLiveSummary: vi.fn(),
+    setStreamConnected: vi.fn(),
+    setStreamHealth: vi.fn(),
+    setStreamReconnectAttempts: vi.fn(),
+    clearLiveEvents: vi.fn(),
+    setActiveTab: vi.fn(),
+    setSessionSortMode: vi.fn(),
     setSelectedEventId: vi.fn(),
+    setFocusEventId: vi.fn(),
+    setSelectedCheckpointId: vi.fn(),
+    setCurrentHighlightIndex: vi.fn(),
+    setShowBlockedActions: vi.fn(),
+    setBreakpointEventTypes: vi.fn(),
+    setBreakpointToolNames: vi.fn(),
+    setBreakpointConfidenceBelow: vi.fn(),
+    setBreakpointSafetyOutcomes: vi.fn(),
+    setStopAtBreakpoint: vi.fn(),
+    setLoading: vi.fn(),
+    setCompareLoading: vi.fn(),
+    setError: vi.fn(),
+    setDriftData: vi.fn(),
+    setDriftLoading: vi.fn(),
+    inspectEvent: vi.fn(),
+    jumpToSearchResult: vi.fn(),
+    resetSessionState: vi.fn(),
+    reset: vi.fn(),
     ...overrides,
-  }
+  } as SessionStoreState
 }
 
 // Shared mutable state that both the selector mock and getState() read from.
-let currentState: ReturnType<typeof buildState>
+let currentState: SessionStoreState
 
 const mockUseSessionStore = vi.fn((selector: unknown) => {
   if (typeof selector === 'function') {

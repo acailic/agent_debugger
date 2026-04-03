@@ -823,10 +823,21 @@ class TestRetentionTier:
 
         assert tier == "summarized"
 
-    def test_one_failure_cluster_returns_summarized(self):
-        """failure_cluster_count == 1 should return 'summarized'."""
+    def test_one_low_value_failure_cluster_returns_downsampled(self):
+        """A single stale/low-value failure cluster should not force summarization."""
         tier = retention_tier(
             replay_value=0.3,
+            high_severity_count=0,
+            failure_cluster_count=1,
+            behavior_alert_count=0,
+        )
+
+        assert tier == "downsampled"
+
+    def test_one_moderate_failure_cluster_returns_summarized(self):
+        """A single failure cluster with moderate replay value should stay summarized."""
+        tier = retention_tier(
+            replay_value=0.36,
             high_severity_count=0,
             failure_cluster_count=1,
             behavior_alert_count=0,

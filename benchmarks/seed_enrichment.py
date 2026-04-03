@@ -67,6 +67,38 @@ SESSION_ENRICHMENT = {
         "errors": 0,
         "behavior_alerts": 0,
     },
+    "seed-replay-breakpoints": {
+        "total_tokens": 618,
+        "total_cost_usd": 0.0049,
+        "retention_tier": "full",
+        "fix_note": "Replay presets now stop at the low-confidence refund decision before the blocked tool action.",
+        "errors": 0,
+        "behavior_alerts": 0,
+    },
+    "seed-retention-recent-failure": {
+        "total_tokens": 354,
+        "total_cost_usd": 0.0029,
+        "retention_tier": "summarized",
+        "fix_note": "Recent refusal kept for investigation because the underlying balance snapshot race is still active.",
+        "errors": 0,
+        "behavior_alerts": 0,
+    },
+    "seed-retention-stale-failure": {
+        "total_tokens": 354,
+        "total_cost_usd": 0.0029,
+        "retention_tier": "downsampled",
+        "fix_note": "Older refusal retained only as a compact digest after the balance snapshot issue cooled off.",
+        "errors": 0,
+        "behavior_alerts": 0,
+    },
+    "seed-repair-memory": {
+        "total_tokens": 934,
+        "total_cost_usd": 0.0067,
+        "retention_tier": "full",
+        "fix_note": "Successful fix used approval preflight checks plus exponential backoff.",
+        "errors": 1,
+        "behavior_alerts": 0,
+    },
 }
 
 

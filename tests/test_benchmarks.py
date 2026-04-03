@@ -48,13 +48,17 @@ from benchmarks.seed_data import (  # noqa: E402
     run_multi_agent_dialogue_session,
     run_prompt_injection_session,
     run_prompt_policy_shift_session,
+    run_repair_memory_session,
+    run_replay_breakpoints_session,
     run_replay_determinism_session,
+    run_retention_recent_failure_session,
+    run_retention_stale_failure_session,
     run_safety_escalation_session,
 )
 
 
 class TestBenchmarkScenarioGeneration:
-    """Tests verifying all 8 benchmark scenarios produce valid sessions."""
+    """Tests verifying all benchmark scenarios produce valid sessions."""
 
     @pytest.mark.asyncio
     async def test_prompt_injection_session_produces_valid_session(self):
@@ -219,10 +223,81 @@ class TestBenchmarkScenarioGeneration:
         assert checkpoint.importance >= 0.9  # High importance checkpoint
 
     @pytest.mark.asyncio
+    async def test_replay_breakpoints_session_produces_valid_session(self):
+        """Replay breakpoint scenario should contain low-confidence and safety breakpoint events."""
+        session = await run_replay_breakpoints_session()
+
+        assert session.session_id == DEFAULT_SEED_SESSION_IDS["replay_breakpoints"]
+        assert len(session.events) > 0
+        assert len(session.checkpoints) == 1
+
+        event_types = {e.event_type for e in session.events}
+        assert EventType.PROMPT_POLICY in event_types
+        assert EventType.DECISION in event_types
+        assert EventType.SAFETY_CHECK in event_types
+        assert EventType.REFUSAL in event_types
+
+        decision = next(e for e in session.events if e.event_type == EventType.DECISION)
+        assert getattr(decision, "confidence", 1.0) <= 0.4
+
+        safety_checks = [e for e in session.events if e.event_type == EventType.SAFETY_CHECK]
+        assert [getattr(safety_check, "outcome", None) for safety_check in safety_checks] == ["warn", "block"]
+
+    @pytest.mark.asyncio
+    async def test_retention_recent_failure_session_produces_valid_session(self):
+        """Recent retention seed should preserve a compact refusal trace with recent timestamps."""
+        session = await run_retention_recent_failure_session()
+
+        assert session.session_id == DEFAULT_SEED_SESSION_IDS["retention_recent_failure"]
+        assert len(session.events) > 0
+        assert len(session.checkpoints) == 0
+        assert session.session_overrides["ended_at"] > session.session_overrides["started_at"]
+
+        event_types = {e.event_type for e in session.events}
+        assert EventType.DECISION in event_types
+        assert EventType.TOOL_RESULT in event_types
+
+    @pytest.mark.asyncio
+    async def test_retention_stale_failure_session_produces_valid_session(self):
+        """Stale retention seed should preserve the same failure shape but older timestamps."""
+        recent = await run_retention_recent_failure_session()
+        stale = await run_retention_stale_failure_session()
+
+        assert stale.session_id == DEFAULT_SEED_SESSION_IDS["retention_stale_failure"]
+        assert len(stale.events) == len(recent.events)
+        assert stale.session_overrides["started_at"] < recent.session_overrides["started_at"]
+        assert stale.session_overrides["ended_at"] < recent.session_overrides["ended_at"]
+
+    @pytest.mark.asyncio
+    async def test_repair_memory_session_produces_valid_session(self):
+        """Repair memory scenario should produce a linked failed-to-success repair chain."""
+        session = await run_repair_memory_session()
+
+        assert session.session_id == DEFAULT_SEED_SESSION_IDS["repair_memory"]
+        assert len(session.events) > 0
+        assert len(session.checkpoints) == 1
+
+        event_types = {e.event_type for e in session.events}
+        assert EventType.ERROR in event_types
+        assert EventType.REPAIR_ATTEMPT in event_types
+        assert EventType.DECISION in event_types
+
+        repairs = [e for e in session.events if e.event_type == EventType.REPAIR_ATTEMPT]
+        assert len(repairs) == 3
+        assert {getattr(repair, "repair_sequence_id", None) for repair in repairs} == {
+            f"{DEFAULT_SEED_SESSION_IDS['repair_memory']}:repair-sequence"
+        }
+        assert [getattr(repair, "repair_outcome", None).value for repair in repairs] == [
+            "failure",
+            "failure",
+            "success",
+        ]
+
+    @pytest.mark.asyncio
     async def test_all_scenarios_via_iter_seed_scenarios(self):
         """All scenarios should be accessible via iter_seed_scenarios."""
         scenarios = iter_seed_scenarios()
-        assert len(scenarios) == 8
+        assert len(scenarios) == 12
 
         names = [name for name, _ in scenarios]
         expected_names = [
@@ -234,6 +309,10 @@ class TestBenchmarkScenarioGeneration:
             "looping_behavior",
             "failure_cluster",
             "replay_determinism",
+            "replay_breakpoints",
+            "retention_recent_failure",
+            "retention_stale_failure",
+            "repair_memory",
         ]
         assert names == expected_names
 
@@ -373,6 +452,34 @@ class TestCIRegressionAssertions:
         assert "step" in checkpoint.state.get("data", {})
 
     @pytest.mark.asyncio
+    async def test_replay_breakpoints_orders_low_confidence_before_safety_block(self):
+        """Regression: Replay breakpoint fixture should warn after a low-confidence decision, then block execution."""
+        session = await run_replay_breakpoints_session()
+
+        decision = next(e for e in session.events if e.event_type == EventType.DECISION)
+        safety_checks = [e for e in session.events if e.event_type == EventType.SAFETY_CHECK]
+        refusal = next(e for e in session.events if e.event_type == EventType.REFUSAL)
+
+        assert getattr(decision, "confidence", 1.0) == pytest.approx(0.24)
+        assert [getattr(safety_check, "outcome", None) for safety_check in safety_checks] == ["warn", "block"]
+        assert decision.timestamp <= safety_checks[0].timestamp <= safety_checks[1].timestamp <= refusal.timestamp
+
+    @pytest.mark.asyncio
+    async def test_retention_failure_seeds_only_differ_by_age(self):
+        """Regression: recent/stale retention fixtures should keep the same failure shape while shifting age."""
+        recent = await run_retention_recent_failure_session()
+        stale = await run_retention_stale_failure_session()
+
+        recent_types = [event.event_type.value for event in recent.events]
+        stale_types = [event.event_type.value for event in stale.events]
+        assert recent_types == stale_types
+
+        recent_failure = next(event for event in recent.events if event.event_type == EventType.TOOL_RESULT)
+        stale_failure = next(event for event in stale.events if event.event_type == EventType.TOOL_RESULT)
+        assert recent_failure.error == stale_failure.error
+        assert stale_failure.timestamp < recent_failure.timestamp
+
+    @pytest.mark.asyncio
     async def test_policy_violation_high_severity_present(self):
         """Regression: High-severity policy violations should be present in risky scenarios."""
         risky_scenarios = [
@@ -495,6 +602,20 @@ class TestSafeUnsafePaths:
         refusal = refusals[0]
         assert "Unsafe" in refusal.reason or "conflict" in refusal.reason.lower()
         assert refusal.blocked_action == "continue_execution"
+
+    @pytest.mark.asyncio
+    async def test_repair_memory_records_prior_failed_repairs_before_success(self):
+        """Repair-memory path should preserve failed fixes before the successful one."""
+        session = await run_repair_memory_session()
+
+        repairs = [e for e in session.events if e.event_type == EventType.REPAIR_ATTEMPT]
+        assert len(repairs) == 3
+        assert [getattr(repair, "attempted_fix", "") for repair in repairs] == [
+            "Retry the request once with the existing timeout.",
+            "Increase timeout from 15s to 30s.",
+            "Add approval-service preflight check and exponential backoff before sync.",
+        ]
+        assert getattr(repairs[-1], "validation_result", "").startswith("Sync completed successfully")
 
     @pytest.mark.asyncio
     async def test_safety_check_risk_levels_appropriate(self):

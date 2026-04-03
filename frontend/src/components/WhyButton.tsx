@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { getAnalysis } from '../api/client'
-import type { FailureExplanation } from '../types'
+import type { FailureCauseCandidate, FailureExplanation } from '../types'
 
 interface WhyButtonProps {
   sessionId: string
@@ -14,6 +14,26 @@ type Status = 'idle' | 'loading' | 'loaded' | 'error'
 interface ErrorInfo {
   message: string
   isNetwork: boolean
+}
+
+function formatFailureMode(failureMode: string): string {
+  return failureMode.replace(/_/g, ' ')
+}
+
+function CandidateButton({
+  candidate,
+  onSelectEvent,
+}: {
+  candidate: FailureCauseCandidate
+  onSelectEvent: (eventId: string) => void
+}) {
+  return (
+    <li>
+      <button type="button" className="diagnosis-link" onClick={() => onSelectEvent(candidate.event_id)}>
+        {candidate.headline}
+      </button>
+    </li>
+  )
 }
 
 function WhyButtonInner({
@@ -33,10 +53,12 @@ function WhyButtonInner({
       const result = await getAnalysis(sessionId)
       const explanations = result?.analysis?.failure_explanations ?? []
       if (explanations.length === 0) {
+        setExplanation(null)
         setNoFailures(true)
         setStatus('loaded')
         return
       }
+      setNoFailures(false)
       setExplanation(explanations[0])
       setStatus('loaded')
     } catch (err) {
@@ -65,9 +87,8 @@ function WhyButtonInner({
     }
   }
 
-  const confidencePercent = explanation
-    ? Math.round(explanation.confidence * 100)
-    : 0
+  const confidencePercent = explanation ? Math.round(explanation.confidence * 100) : 0
+  const topCandidate = explanation?.candidates[0] ?? null
 
   return (
     <div>
@@ -77,22 +98,14 @@ function WhyButtonInner({
         disabled={status === 'loading'}
         onClick={status === 'idle' || status === 'error' ? handleFetch : undefined}
       >
-        {status === 'loading' ? (
-          <span className="spinner" />
-        ) : (
-          'Why Did It Fail?'
-        )}
+        {status === 'loading' ? <span className="spinner" /> : 'Why Did It Fail?'}
       </button>
 
       {status === 'error' && errorInfo && (
         <div className="error-banner">
           {errorInfo.message}
           {errorInfo.isNetwork && (
-            <button
-              type="button"
-              className="retry-link"
-              onClick={handleFetch}
-            >
+            <button type="button" className="retry-link" onClick={handleFetch}>
               Retry
             </button>
           )}
@@ -111,16 +124,15 @@ function WhyButtonInner({
             <strong>{explanation.failure_headline}</strong>
             <span>{confidencePercent}% confidence</span>
           </div>
-          <p>{explanation.failure_mode.replaceAll('_', ' ')}</p>
+          <p>{formatFailureMode(explanation.failure_mode)}</p>
           <p>{explanation.narrative}</p>
+          <p>
+            <strong>Likely cause:</strong> {explanation.likely_cause}
+          </p>
           {explanation.candidates.length > 0 && (
             <ul className="diagnosis-list">
-              {explanation.candidates.map((cause) => (
-                <li key={cause.event_id}>
-                  <button type="button" onClick={() => onSelectEvent(cause.event_id)}>
-                    {cause.headline}
-                  </button>
-                </li>
+              {explanation.candidates.map((candidate) => (
+                <CandidateButton key={candidate.event_id} candidate={candidate} onSelectEvent={onSelectEvent} />
               ))}
             </ul>
           )}
@@ -140,6 +152,13 @@ function WhyButtonInner({
               Focus replay
             </button>
           </div>
+          {topCandidate && (
+            <div className="diagnosis-actions">
+              <button type="button" onClick={() => onSelectEvent(topCandidate.event_id)}>
+                Inspect top candidate
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

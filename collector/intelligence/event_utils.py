@@ -92,6 +92,8 @@ def retention_tier(
     """
     if replay_value >= 0.72 or high_severity_count > 0 or failure_cluster_count >= 2:
         return "full"
-    if replay_value >= 0.42 or behavior_alert_count > 0 or failure_cluster_count > 0:
+    if replay_value >= 0.42 or behavior_alert_count > 0:
+        return "summarized"
+    if failure_cluster_count > 0 and replay_value >= 0.35:
         return "summarized"
     return "downsampled"

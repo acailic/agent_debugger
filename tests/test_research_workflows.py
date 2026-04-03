@@ -36,7 +36,11 @@ from benchmarks import (  # noqa: E402
     run_multi_agent_dialogue_session,
     run_prompt_injection_session,
     run_prompt_policy_shift_session,
+    run_repair_memory_session,
+    run_replay_breakpoints_session,
     run_replay_determinism_session,
+    run_retention_recent_failure_session,
+    run_retention_stale_failure_session,
     run_safety_escalation_session,
 )
 from collector.intelligence.facade import TraceIntelligence  # noqa: E402
@@ -123,3 +127,46 @@ def test_safety_escalation_breakpoint_benchmark():
 
     assert replay["nearest_checkpoint"] is not None
     assert any(event["event_type"] == "safety_check" for event in replay["breakpoints"])
+
+
+def test_repair_memory_benchmark():
+    seeded = asyncio.run(run_repair_memory_session("repair-memory-benchmark"))
+    repair_attempts = [event for event in seeded.events if event.event_type.value == "repair_attempt"]
+    checkpoint = seeded.checkpoints[0]
+    analysis = TraceIntelligence().analyze_session(seeded.events, seeded.checkpoints)
+
+    assert len(repair_attempts) == 3
+    assert [event.repair_outcome.value for event in repair_attempts] == ["failure", "failure", "success"]
+    assert checkpoint.state["data"]["phase"] == "repair-validated"
+    assert analysis["high_replay_value_ids"]
+
+
+def test_replay_breakpoints_benchmark():
+    seeded = asyncio.run(run_replay_breakpoints_session("replay-breakpoints-benchmark"))
+    replay = build_replay(
+        seeded.events,
+        seeded.checkpoints,
+        mode="failure",
+        focus_event_id=None,
+        breakpoint_confidence_below=0.4,
+        breakpoint_safety_outcomes={"warn", "block"},
+    )
+
+    assert replay["nearest_checkpoint"] is not None
+    assert replay["breakpoints"]
+    assert replay["breakpoints"][0]["event_type"] == "decision"
+    assert replay["breakpoints"][0]["confidence"] == pytest.approx(0.24)
+    assert [event["event_type"] for event in replay["breakpoints"][1:]] == ["safety_check", "safety_check"]
+
+
+def test_retention_recent_failure_benchmark():
+    recent = asyncio.run(run_retention_recent_failure_session("retention-recent-benchmark"))
+    stale = asyncio.run(run_retention_stale_failure_session("retention-stale-benchmark"))
+    intelligence = TraceIntelligence()
+
+    recent_analysis = intelligence.analyze_session(recent.events, recent.checkpoints, session=recent.session_overrides)
+    stale_analysis = intelligence.analyze_session(stale.events, stale.checkpoints, session=stale.session_overrides)
+
+    assert recent_analysis["session_replay_value"] > stale_analysis["session_replay_value"]
+    assert recent_analysis["retention_tier"] in {"summarized", "full"}
+    assert stale_analysis["retention_tier"] == "downsampled"

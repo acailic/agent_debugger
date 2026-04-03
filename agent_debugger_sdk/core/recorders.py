@@ -16,6 +16,8 @@ from .events import (
     LLMResponseEvent,
     PolicyViolationEvent,
     PromptPolicyEvent,
+    RepairAttemptEvent,
+    RepairOutcome,
     RefusalEvent,
     RiskLevel,
     SafetyCheckEvent,
@@ -423,6 +425,39 @@ class RecordingMixin(abc.ABC):
             related_event_ids=related_event_ids or [],
             upstream_event_ids=upstream_event_ids or [],
             importance=0.82,
+        )
+        await self._emit_event(event)
+        return event.id
+
+    async def record_repair_attempt(
+        self,
+        attempted_fix: str,
+        *,
+        validation_result: str | None = None,
+        repair_outcome: RepairOutcome | str = RepairOutcome.FAILURE,
+        repair_sequence_id: str | None = None,
+        repair_diff: str | None = None,
+        upstream_event_ids: list[str] | None = None,
+        name: str | None = None,
+    ) -> str:
+        self._check_entered()
+        normalized_outcome = RepairOutcome(repair_outcome)
+        importance = {
+            RepairOutcome.FAILURE: 0.74,
+            RepairOutcome.PARTIAL: 0.7,
+            RepairOutcome.SUCCESS: 0.62,
+        }[normalized_outcome]
+        event = RepairAttemptEvent(
+            session_id=self.session_id,
+            parent_id=self.get_current_parent(),
+            name=name or f"repair_attempt_{normalized_outcome.value}",
+            attempted_fix=attempted_fix,
+            validation_result=validation_result,
+            repair_outcome=normalized_outcome,
+            repair_sequence_id=repair_sequence_id,
+            repair_diff=repair_diff,
+            upstream_event_ids=upstream_event_ids or [],
+            importance=importance,
         )
         await self._emit_event(event)
         return event.id

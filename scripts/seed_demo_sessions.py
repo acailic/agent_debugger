@@ -13,11 +13,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import update
 
 from agent_debugger_sdk.core.context import configure_event_pipeline
 from agent_debugger_sdk.core.events import Checkpoint, Session, TraceEvent
 from benchmarks import (
     DEFAULT_SEED_SESSION_IDS,
+    SeedSession,
     SESSION_ENRICHMENT,
     iter_seed_scenarios,
     validate_session_enrichment,
@@ -25,7 +27,7 @@ from benchmarks import (
 from collector.buffer import get_event_buffer
 from collector.server import configure_storage
 from storage import Base, TraceRepository
-from storage.models import AnomalyAlertModel
+from storage.models import AnomalyAlertModel, CheckpointModel, EventModel
 
 DATABASE_URL = os.environ.get("AGENT_DEBUGGER_DB_URL", "sqlite+aiosqlite:///./data/agent_debugger.db")
 
@@ -109,6 +111,32 @@ async def enrich_session(session_id: str, session_maker: async_sessionmaker[Asyn
         await db_session.commit()
 
 
+async def apply_seed_session_overrides(seed_session: SeedSession, session_maker: async_sessionmaker[AsyncSession]) -> None:
+    """Persist any benchmark-provided session and timestamp overrides."""
+    if not seed_session.session_overrides:
+        return
+
+    async with session_maker() as db_session:
+        repo = TraceRepository(db_session)
+        await repo.update_session(seed_session.session_id, **seed_session.session_overrides)
+
+        for event in seed_session.events:
+            await db_session.execute(
+                update(EventModel)
+                .where(EventModel.id == event.id, EventModel.tenant_id == "local")
+                .values(timestamp=event.timestamp)
+            )
+
+        for checkpoint in seed_session.checkpoints:
+            await db_session.execute(
+                update(CheckpointModel)
+                .where(CheckpointModel.id == checkpoint.id, CheckpointModel.tenant_id == "local")
+                .values(timestamp=checkpoint.timestamp)
+            )
+
+        await db_session.commit()
+
+
 async def main() -> None:
     engine = create_async_engine(DATABASE_URL, echo=False)
     session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -169,7 +197,8 @@ async def main() -> None:
         async with session_maker() as db_session:
             repo = TraceRepository(db_session)
             await repo.delete_session(session_id)
-        await runner(session_id)
+        seed_session = await runner(session_id)
+        await apply_seed_session_overrides(seed_session, session_maker)
         await enrich_session(session_id, session_maker)
         print(f"seeded {session_id}")
 

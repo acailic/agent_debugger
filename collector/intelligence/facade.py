@@ -156,6 +156,16 @@ class TraceIntelligence:
                 if cost:
                     total_cost += float(cost)
 
+            if event.event_type == EventType.BEHAVIOR_ALERT:
+                behavior_alerts.append(
+                    {
+                        "alert_type": event_value(event, "alert_type", "behavior_alert"),
+                        "severity": event_value(event, "severity", "medium"),
+                        "signal": event_value(event, "signal", event.name or "Behavior alert recorded"),
+                        "event_id": event.id,
+                    }
+                )
+
             # Detect and track tool loops
             consecutive_tool_loop, previous_tool_name, new_alerts = detect_tool_loop(
                 event=event,

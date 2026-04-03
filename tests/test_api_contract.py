@@ -10,7 +10,12 @@ import api.main as api_main
 from agent_debugger_sdk.core.context import configure_event_pipeline
 from api import app_context
 from api import services as api_services
-from benchmarks import run_evidence_grounding_session, run_failure_cluster_session, run_safety_escalation_session
+from benchmarks import (
+    run_evidence_grounding_session,
+    run_failure_cluster_session,
+    run_replay_breakpoints_session,
+    run_safety_escalation_session,
+)
 from collector.buffer import get_event_buffer
 from collector.server import SessionCreate, TraceEventIngest, configure_storage, create_session, ingest_trace
 from storage import Base, TraceRepository
@@ -146,6 +151,37 @@ def test_replay_endpoint_keeps_checkpoint_and_safety_breakpoints(api_repo_factor
     assert replay.nearest_checkpoint is not None
     assert replay.failure_event_ids
     assert any(event.event_type == "safety_check" for event in replay.breakpoints)
+
+
+def test_replay_endpoint_stops_at_first_low_confidence_or_safety_breakpoint(api_repo_factory):
+    session_id = "api-replay-breakpoints"
+    asyncio.run(run_replay_breakpoints_session(session_id))
+    replay_endpoint = _get_route_endpoint("/api/sessions/{session_id}/replay", "GET")
+
+    async def run():
+        async with api_repo_factory() as session:
+            repo = TraceRepository(session)
+            return await replay_endpoint(
+                session_id=session_id,
+                mode="failure",
+                focus_event_id=None,
+                breakpoint_event_types=None,
+                breakpoint_tool_names=None,
+                breakpoint_confidence_below=0.4,
+                breakpoint_safety_outcomes="warn,block",
+                stop_at_breakpoint=True,
+                collapse_threshold=0.35,
+                repo=repo,
+            )
+
+    replay = asyncio.run(run())
+    first_breakpoint_index = next(i for i, event in enumerate(replay.events) if event.id == replay.breakpoints[0].id)
+    assert replay.nearest_checkpoint is not None
+    assert replay.stopped_at_breakpoint is True
+    assert replay.stopped_at_index == first_breakpoint_index
+    assert replay.breakpoints[0].event_type == "decision"
+    assert replay.breakpoints[0].confidence == pytest.approx(0.24)
+    assert [event.event_type for event in replay.breakpoints[1:]] == ["safety_check", "safety_check"]
 
 
 def test_ingest_trace_preserves_upstream_event_ids(api_repo_factory):
