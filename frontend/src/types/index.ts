@@ -68,6 +68,11 @@ export interface TraceEvent {
   outcome?: SafetyOutcome
   risk_level?: RiskLevel
   rationale?: string
+  attempted_fix?: string
+  validation_result?: string | null
+  repair_outcome?: 'success' | 'failure' | 'partial'
+  repair_sequence_id?: string | null
+  repair_diff?: string | null
   blocked_action?: string | null
   reason?: string
   safe_alternative?: string | null

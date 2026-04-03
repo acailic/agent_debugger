@@ -316,3 +316,24 @@ def test_safe_alternative_extraction():
 
     assert alt_entity is not None
     assert alt_entity.value == "summarize"
+
+
+def test_agent_name_extraction():
+    extractor = EntityExtractor()
+    events = [
+        {
+            "id": "e1",
+            "session_id": "s1",
+            "event_type": "tool_call",
+            "agent_name": "agent-alpha",
+            "data": {"tool_name": "search"},
+            "event_metadata": {},
+            "timestamp": "2026-04-03T10:00:00Z",
+        }
+    ]
+
+    entities = extractor.extract_from_events(events)
+    agent_entity = entities.get(f"{EntityType.AGENT_NAME}:agent-alpha")
+
+    assert agent_entity is not None
+    assert agent_entity.value == "agent-alpha"

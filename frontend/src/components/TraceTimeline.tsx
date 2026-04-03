@@ -2,6 +2,7 @@ import { useState, memo, useCallback, useMemo } from 'react'
 import type { TraceEvent, Highlight, EventType } from '../types'
 import { formatEventHeadline } from '../utils/formatting'
 import { BLOCKED_EVENT_TYPES } from '../utils/latency'
+import './TraceTimeline.css'
 
 interface TraceTimelineProps {
   events: TraceEvent[]

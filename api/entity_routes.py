@@ -40,6 +40,7 @@ class EntityListResponse(BaseModel):
 class EntitySummaryResponse(BaseModel):
     """Response schema for entity summary statistics."""
 
+    agent_name_count: int
     tool_name_count: int
     error_type_count: int
     model_count: int
@@ -156,6 +157,7 @@ async def get_entity_summary(
     summary = await repo.get_entity_summary()
 
     return EntitySummaryResponse(
+        agent_name_count=summary.get(EntityType.AGENT_NAME, 0),
         tool_name_count=summary.get(EntityType.TOOL_NAME, 0),
         error_type_count=summary.get(EntityType.ERROR_TYPE, 0),
         model_count=summary.get(EntityType.MODEL, 0),

@@ -723,3 +723,22 @@ class TestBuildReplay:
         # Only error2 should be a breakpoint (error1 is before the checkpoint)
         assert len(result["breakpoints"]) == 1
         assert result["breakpoints"][0]["name"] == "error2"
+
+    def test_breakpoints_follow_filtered_focus_scope(self) -> None:
+        """Focus replays should only return breakpoint hits inside the visible branch."""
+        root = TraceEvent(session_id="s1", event_type=EventType.TOOL_CALL, name="root")
+        branch1 = TraceEvent(session_id="s1", parent_id=root.id, event_type=EventType.TOOL_CALL, name="branch1")
+        branch1_error = TraceEvent(session_id="s1", parent_id=branch1.id, event_type=EventType.ERROR, name="error1")
+        branch2 = TraceEvent(session_id="s1", parent_id=root.id, event_type=EventType.TOOL_CALL, name="branch2")
+        branch2_error = TraceEvent(session_id="s1", parent_id=branch2.id, event_type=EventType.ERROR, name="error2")
+
+        result = build_replay(
+            [root, branch1, branch1_error, branch2, branch2_error],
+            [],
+            mode="focus",
+            focus_event_id=branch2_error.id,
+            breakpoint_event_types={"error"},
+        )
+
+        assert [event["id"] for event in result["events"]] == [root.id, branch2.id, branch2_error.id]
+        assert [event["id"] for event in result["breakpoints"]] == [branch2_error.id]

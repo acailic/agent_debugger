@@ -25,6 +25,14 @@ interface D3TreeNode {
   _priority?: BranchPriority
 }
 
+function convertToD3Tree(node: TreeNode): D3TreeNode {
+  return {
+    id: node.event.id,
+    event: node.event,
+    children: node.children.map(convertToD3Tree),
+  }
+}
+
 const NODE_COLORS: Record<string, string> = {
   trace_root: 'var(--node-default)',
   agent_start: 'var(--node-session)',
@@ -173,6 +181,7 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
   // Track inspected nodes for guided exploration
   const [inspectedNodes, setInspectedNodes] = useState<Set<string>>(new Set())
   const [recommendedNodeId, setRecommendedNodeId] = useState<string | null>(null)
+  const renderTreeRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -199,14 +208,6 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
     }
   }, [])
 
-  const convertToD3Tree = useCallback((node: TreeNode): D3TreeNode => {
-    return {
-      id: node.event.id,
-      event: node.event,
-      children: node.children.map(convertToD3Tree),
-    }
-  }, [])
-
   const handleNodeClick = useCallback(
     (event: MouseEvent, d: d3.HierarchyNode<D3TreeNode>) => {
       event.stopPropagation()
@@ -222,7 +223,7 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
       event.stopPropagation()
       if (d.data.children.length > 0) {
         d.data._collapsed = !d.data._collapsed
-        renderTree()
+        renderTreeRef.current()
       }
     },
     []
@@ -603,15 +604,20 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         }
       })
     }
-  }, [tree, selectedEventId, zoom, pan, convertToD3Tree, handleNodeClick, handleNodeDoubleClick, handleMouseMove, handleMouseLeave, inspectedNodes, recommendedNodeId, nodeSpacingX, nodeSpacingY])
+  }, [tree, selectedEventId, zoom, pan, handleNodeClick, handleNodeDoubleClick, handleMouseMove, handleMouseLeave, inspectedNodes, nodeSpacingX, nodeSpacingY])
+
+  useEffect(() => {
+    renderTreeRef.current = renderTree
+  }, [renderTree])
 
   useEffect(() => {
     renderTree()
+    const currentSvg = svgRef.current
 
     // Cleanup D3 selections and event listeners on unmount
     return () => {
-      if (svgRef.current) {
-        const svg = d3.select(svgRef.current)
+      if (currentSvg) {
+        const svg = d3.select(currentSvg)
         svg.selectAll('*').on('click', null).on('dblclick', null).on('mousemove', null).on('mouseleave', null)
         svg.selectAll('*').remove()
       }

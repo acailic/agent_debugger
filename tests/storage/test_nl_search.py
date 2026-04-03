@@ -340,6 +340,7 @@ async def test_nl_query_interpretation_stuck_in_loop(db_session):
     assert "min_errors" in params
     assert params["min_errors"] == 1
     assert "loop" in params["query"] or "repeat" in params["query"]
+    assert "agent_name" not in params
 
 
 @pytest.mark.asyncio
@@ -368,6 +369,18 @@ async def test_nl_query_interpretation_agent_name(db_session):
 
     assert "agent_name" in params
     assert params["agent_name"] == "my-agent"
+
+
+@pytest.mark.asyncio
+async def test_nl_query_interpretation_ignores_generic_agent_phrase(db_session):
+    """Test that generic references to 'the agent' do not create a name filter."""
+    from storage.search import SessionSearchService
+
+    service = SessionSearchService(db_session, "tenant-nl")
+
+    params = service.interpret_nl_query("show me sessions where the agent got stuck in a loop")
+
+    assert "agent_name" not in params
 
 
 @pytest.mark.asyncio

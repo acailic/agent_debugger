@@ -70,6 +70,11 @@ class TraceEventSchema(BaseModel):
     outcome: SafetyOutcome | None = None
     risk_level: RiskLevel | None = None
     rationale: str | None = None
+    attempted_fix: str | None = None
+    validation_result: str | None = None
+    repair_outcome: str | None = None
+    repair_sequence_id: str | None = None
+    repair_diff: str | None = None
     blocked_action: str | None = None
     reason: str | None = None
     safe_alternative: str | None = None

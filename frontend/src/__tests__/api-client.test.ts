@@ -9,6 +9,7 @@ import {
   getAgentBaseline,
   getAgentDrift,
   getAnalytics,
+  getSimilarFailures,
   createEventSource,
 } from '../api/client'
 
@@ -24,6 +25,7 @@ describe('API client', () => {
     expect(typeof getAgentBaseline).toBe('function')
     expect(typeof getAgentDrift).toBe('function')
     expect(typeof getAnalytics).toBe('function')
+    expect(typeof getSimilarFailures).toBe('function')
   })
 
   it('getSessions returns a promise with sessions array shape', async () => {
@@ -141,5 +143,76 @@ describe('API client', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('serializes similar failures params into query string', async () => {
+    const payload = { session_id: 'session-1', failure_event_id: 'event-1', similar_failures: [], total: 0 }
+
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })),
+    )
+    globalThis.fetch = fetchMock as typeof fetch
+
+    await getSimilarFailures({ sessionId: 'session-1', failureEventId: 'event-1', limit: 3 })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const firstCall = fetchMock.mock.calls[0] as unknown as [RequestInfo | URL, ...unknown[]]
+    const calledUrl = firstCall ? String(firstCall[0]) : ''
+    expect(calledUrl).toContain('/api/sessions/session-1/similar-failures?')
+    expect(calledUrl).toContain('failure_event_id=event-1')
+    expect(calledUrl).toContain('limit=3')
+  })
+
+  it('serializes breakpoint replay params into query string', async () => {
+    const replayResponse = {
+      session_id: 'session-1',
+      mode: 'focus',
+      focus_event_id: 'event-1',
+      start_index: 0,
+      events: [],
+      checkpoints: [],
+      nearest_checkpoint: null,
+      breakpoints: [],
+      failure_event_ids: [],
+      collapsed_segments: [],
+      highlight_indices: [],
+      stopped_at_breakpoint: true,
+      stopped_at_index: 0,
+    }
+
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      void input
+      return Promise.resolve(new Response(JSON.stringify(replayResponse), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+    })
+    globalThis.fetch = fetchMock as typeof fetch
+
+    await getReplay('session-1', {
+      mode: 'focus',
+      focusEventId: 'event-1',
+      breakpointEventTypes: ['error', 'decision'],
+      breakpointToolNames: ['search'],
+      breakpointConfidenceBelow: 0.4,
+      breakpointSafetyOutcomes: ['warn', 'block'],
+      stopAtBreakpoint: true,
+      collapseThreshold: 0.35,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const calledUrl = String((fetchMock.mock.calls as string[][])[0][0])
+    expect(calledUrl).toContain('/api/sessions/session-1/replay?')
+    expect(calledUrl).toContain('mode=focus')
+    expect(calledUrl).toContain('focus_event_id=event-1')
+    expect(calledUrl).toContain('breakpoint_event_types=error%2Cdecision')
+    expect(calledUrl).toContain('breakpoint_tool_names=search')
+    expect(calledUrl).toContain('breakpoint_confidence_below=0.4')
+    expect(calledUrl).toContain('breakpoint_safety_outcomes=warn%2Cblock')
+    expect(calledUrl).toContain('stop_at_breakpoint=true')
+    expect(calledUrl).toContain('collapse_threshold=0.35')
   })
 })

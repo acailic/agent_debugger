@@ -9,6 +9,20 @@ interface SimilarFailuresPanelProps {
   selectedSessionId: string | null
 }
 
+function isFailureLikeEvent(event: TraceEvent | null): boolean {
+  if (!event) return false
+
+  const failureEventTypes = [
+    'error',
+    'refusal',
+    'policy_violation',
+    'behavior_alert',
+    'safety_check',
+  ]
+
+  return failureEventTypes.includes(event.event_type) || Boolean(event.error)
+}
+
 function getSimilarityColor(similarity: number): string {
   if (similarity >= 0.7) return 'var(--success)'
   if (similarity >= 0.5) return 'var(--warning)'
@@ -37,9 +51,11 @@ export function SimilarFailuresPanel({
   const [similarFailures, setSimilarFailures] = useState<SimilarFailure[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const isFailureEvent = isFailureLikeEvent(failureEvent)
+  const failureEventId = failureEvent?.id ?? null
 
   useEffect(() => {
-    if (!sessionId || !failureEvent) {
+    if (!sessionId || !failureEventId || !isFailureEvent) {
       setSimilarFailures([])
       setError(null)
       return
@@ -52,7 +68,7 @@ export function SimilarFailuresPanel({
       try {
         const response = await getSimilarFailures({
           sessionId: sessionId!, // Non-null assertion: we checked above
-          failureEventId: failureEvent!.id, // Non-null assertion: we checked above
+          failureEventId,
           limit: 5,
         })
         if (!ignore) {
@@ -72,24 +88,14 @@ export function SimilarFailuresPanel({
     return () => {
       ignore = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, failureEvent?.id])
+  }, [failureEventId, isFailureEvent, sessionId])
 
   // Don't show panel if no session selected or viewing a non-failure event
   if (!sessionId || !failureEvent) {
     return null
   }
 
-  // Check if the current event is actually a failure
-  const isFailureEvent = [
-    'error',
-    'refusal',
-    'policy_violation',
-    'behavior_alert',
-    'safety_check',
-  ].includes(failureEvent.event_type)
-
-  if (!isFailureEvent && !failureEvent.error) {
+  if (!isFailureEvent) {
     return null
   }
 
@@ -124,17 +130,18 @@ export function SimilarFailuresPanel({
 
       {!loading && !error && similarFailures.length > 0 && (
         <div className="similar-failures-list">
-          {similarFailures.map((failure) => {
+          {similarFailures.map((failure, index) => {
             const similarityColor = getSimilarityColor(failure.similarity)
             const similarityLabel = getSimilarityLabel(failure.similarity)
             const failureModeColor = getFailureModeColor(failure.failure_mode)
             const isActive = selectedSessionId === failure.session_id
+            const staggerClass = `stagger-${Math.min(index + 1, 5)}`
 
             return (
               <button
                 key={failure.session_id}
                 type="button"
-                className={`similar-failure-card ${isActive ? 'active' : ''}`}
+                className={`similar-failure-card slide-up ${staggerClass} ${isActive ? 'active' : ''}`}
                 onClick={() => onSelectSession(failure.session_id)}
                 aria-label={`Similar failure in session ${failure.session_id}, ${failure.agent_name}, similarity ${failure.similarity.toFixed(2)}`}
               >

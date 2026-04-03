@@ -120,7 +120,7 @@ async def test_nl_search_interpretation_enabled(db_session):
     session.errors = 5
     await repo.create_session(session)
 
-    event = _make_error_event("session-1", "TimeoutError", "Connection timeout", "event-1")
+    event = _make_error_event("session-1", "LoopError", "Agent got stuck in a loop and kept retrying", "event-1")
     await repo.add_event(event)
 
     await repo.commit()
@@ -137,8 +137,11 @@ async def test_nl_search_interpretation_enabled(db_session):
     result = await search_sessions_nl(request, repo=repo)
 
     # Should interpret the query and apply min_errors filter
-    assert "interpreted_query" in result.model_fields_set or True
     assert result.interpreted_query is not None
+    assert result.filters_applied["min_errors"] == 1
+    assert "agent_name" not in result.filters_applied
+    assert len(result.results) == 1
+    assert result.results[0].id == "session-1"
 
 
 @pytest.mark.asyncio

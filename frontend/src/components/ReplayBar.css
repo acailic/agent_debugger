@@ -3,7 +3,7 @@
   display: grid;
   gap: 1rem;
   margin-bottom: 0.5rem;
-  padding: 1rem 1.1rem;
+  padding: var(--space-md) 1.1rem;
   border-radius: 1.3rem;
   background: linear-gradient(135deg, color-mix(in oklch, var(--panel), var(--bg-strong) 20%) 0%, color-mix(in oklch, var(--panel), var(--bg-strong) 12%) 100%);
   border: 1px solid color-mix(in oklch, var(--panel-border), transparent 35%);
@@ -15,12 +15,69 @@
   gap: 0.55rem;
 }
 
+.replay-bar .mode-switches button {
+  transition: background-color var(--duration-fast) var(--ease-out-quart),
+              transform var(--duration-fast) var(--ease-out-quart),
+              box-shadow var(--duration-normal) var(--ease-out-quart);
+}
+
+.replay-bar .mode-switches button:hover {
+  transform: scale(1.02);
+}
+
+.replay-bar .mode-switches button:active {
+  transform: scale(0.95);
+}
+
+.replay-bar .threshold-presets button {
+  transition: background-color var(--duration-fast) var(--ease-out-quart),
+              transform var(--duration-fast) var(--ease-out-quart);
+}
+
+.replay-bar .threshold-presets button:hover {
+  transform: scale(1.02);
+}
+
+.replay-bar .threshold-presets button:active {
+  transform: scale(0.95);
+}
+
+.breakpoint-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.breakpoint-preset {
+  padding: 0.55rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklch, var(--panel-border), transparent 30%);
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 18%);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: transform var(--duration-fast) var(--ease-out-quart),
+              background-color var(--duration-normal) var(--ease-material),
+              border-color var(--duration-normal) var(--ease-material);
+}
+
+.breakpoint-preset:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in oklch, var(--accent), var(--panel-border) 30%);
+}
+
+.breakpoint-preset.active {
+  background: color-mix(in oklch, var(--accent), white 85%);
+  border-color: color-mix(in oklch, var(--accent), transparent 20%);
+}
+
 .breakpoint-bar {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   gap: 0.85rem;
   align-items: end;
-  padding: 1rem 1.1rem;
+  padding: var(--space-md) 1.1rem;
   border-radius: 1.2rem;
   border: 1px solid var(--panel-border);
   background: color-mix(in oklch, var(--panel), var(--bg-strong) 28%);

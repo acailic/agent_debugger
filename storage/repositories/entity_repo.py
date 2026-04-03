@@ -41,8 +41,7 @@ class EntityRepository:
         Returns:
             Dictionary of extracted entities keyed by entity_type:value
         """
-        events = await self._load_session_events(session_id)
-        event_dicts = [self._event_to_dict(db_event) for db_event in events]
+        event_dicts = await self._load_session_event_dicts(session_id)
         return self.extractor.extract_from_events(event_dicts)
 
     async def extract_entities_from_all_sessions(self) -> dict[str, Entity]:
@@ -51,8 +50,7 @@ class EntityRepository:
         Returns:
             Dictionary of extracted entities keyed by entity_type:value
         """
-        events = await self._load_all_events()
-        event_dicts = [self._event_to_dict(db_event) for db_event in events]
+        event_dicts = await self._load_all_event_dicts()
         return self.extractor.extract_from_events(event_dicts)
 
     async def get_top_entities(
@@ -123,17 +121,17 @@ class EntityRepository:
 
         return summary
 
-    async def _load_session_events(self, session_id: str) -> list[EventModel]:
-        """Load all events for a specific session with tenant isolation.
+    async def _load_session_event_dicts(self, session_id: str) -> list[dict]:
+        """Load all events for a specific session as extractor-ready dictionaries.
 
         Args:
             session_id: Session ID to load events for
 
         Returns:
-            List of EventModel instances
+            List of event dictionaries including session metadata
         """
         stmt = (
-            select(EventModel)
+            select(EventModel, SessionModel.agent_name)
             .join(SessionModel, EventModel.session_id == SessionModel.id)
             .where(
                 SessionModel.tenant_id == self.tenant_id,
@@ -142,28 +140,35 @@ class EntityRepository:
             .order_by(EventModel.timestamp)
         )
         result = await self.session.execute(stmt)
-        return list(result.scalars().all())
+        return [
+            self._event_to_dict(db_event, agent_name)
+            for db_event, agent_name in result.all()
+        ]
 
-    async def _load_all_events(self) -> list[EventModel]:
-        """Load all events across all sessions with tenant isolation.
+    async def _load_all_event_dicts(self) -> list[dict]:
+        """Load all events across all sessions as extractor-ready dictionaries.
 
         Returns:
-            List of EventModel instances
+            List of event dictionaries including session metadata
         """
         stmt = (
-            select(EventModel)
+            select(EventModel, SessionModel.agent_name)
             .join(SessionModel, EventModel.session_id == SessionModel.id)
             .where(SessionModel.tenant_id == self.tenant_id)
             .order_by(EventModel.timestamp)
         )
         result = await self.session.execute(stmt)
-        return list(result.scalars().all())
+        return [
+            self._event_to_dict(db_event, agent_name)
+            for db_event, agent_name in result.all()
+        ]
 
-    def _event_to_dict(self, db_event: EventModel) -> dict:
+    def _event_to_dict(self, db_event: EventModel, agent_name: str | None) -> dict:
         """Convert an EventModel to a dictionary for entity extraction.
 
         Args:
             db_event: EventModel instance
+            agent_name: Agent name for the event's session
 
         Returns:
             Dictionary representation of the event
@@ -176,4 +181,5 @@ class EntityRepository:
             "data": db_event.data or {},
             "event_metadata": db_event.event_metadata or {},
             "timestamp": db_event.timestamp.isoformat() if db_event.timestamp else None,
+            "agent_name": agent_name,
         }

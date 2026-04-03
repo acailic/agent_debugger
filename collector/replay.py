@@ -243,9 +243,10 @@ def build_replay(
     breakpoint_tool_names = breakpoint_tool_names or set()
     breakpoint_safety_outcomes = breakpoint_safety_outcomes or set()
 
+    breakpoint_source_events = replay_events if mode == "focus" else replay_window_events
     breakpoints = [
         event.to_dict()
-        for event in replay_window_events
+        for event in breakpoint_source_events
         if matches_breakpoint(
             event,
             event_types=breakpoint_event_types,

@@ -7,6 +7,7 @@ import json
 import logging
 from typing import Any
 
+from sqlalchemy import String, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from agent_debugger_sdk.core.events import Checkpoint, EventType, Session, SessionStatus, TraceEvent
@@ -17,9 +18,12 @@ from collector.buffer import EventBuffer, get_event_buffer
 from collector.intelligence.facade import TraceIntelligence
 from redaction.pipeline import RedactionPipeline
 from storage import TraceRepository
+from storage.converters import orm_to_event, orm_to_session
+from storage.models import EventModel, SessionModel
 
 logger = logging.getLogger(__name__)
 SESSION_ANALYSIS_CAP = 100
+FAILURE_SIMILARITY_THRESHOLD = 0.5
 
 
 def normalize_session(
@@ -400,67 +404,95 @@ async def find_similar_failures(
     # Get the failure event
     failure_event = await repo.get_event(failure_event_id)
     if not failure_event:
-        return []
+        raise NotFoundError(f"Failure event {failure_event_id} not found")
+    if failure_event.session_id != session_id:
+        raise NotFoundError(
+            f"Failure event {failure_event_id} was not found in session {session_id}"
+        )
 
     # Determine failure characteristics
-    error_text = failure_event.error or failure_event.error_message or failure_event.name or ""
-    error_type = failure_event.error_type or ""
+    error_text = _event_error_text(failure_event)
+    error_type = _event_error_type(failure_event)
+    candidate_failures = await _load_candidate_failure_events(repo, failure_event, session_id)
 
-    # Get all sessions with failures
-    all_sessions = await repo.list_sessions(limit=500, offset=0, sort_by="started_at")
+    best_match_by_session: dict[str, dict[str, Any]] = {}
 
-    similar_failures: list[dict[str, Any]] = []
-
-    for session in all_sessions:
-        # Skip the current session
-        if session.id == session_id:
+    for event, session in candidate_failures:
+        similarity = _calculate_failure_similarity(
+            failure_event,
+            event,
+            error_text,
+            error_type,
+        )
+        if similarity < FAILURE_SIMILARITY_THRESHOLD:
             continue
 
-        # Skip sessions without errors
-        if session.errors == 0:
-            continue
-
-        # Get events from this session to find matching failures
-        try:
-            session_events = await repo.list_events(session.id, limit=1000)
-        except Exception:
-            continue
-
-        # Find failure events in this session
-        for event in session_events:
-            if not _is_failure_event(event):
-                continue
-
-            # Calculate similarity score
-            similarity = _calculate_failure_similarity(
-                failure_event,
-                event,
-                error_text,
-                error_type,
-            )
-
-            # Only include reasonably similar failures
-            if similarity >= 0.3:
-                # Derive failure mode and root cause
-                failure_mode = _derive_failure_mode(event)
-                root_cause = _derive_root_cause(event)
-
-                similar_failures.append({
-                    "session_id": session.id,
-                    "agent_name": session.agent_name,
-                    "framework": session.framework,
-                    "started_at": session.started_at,
-                    "failure_type": str(event.event_type),
-                    "failure_mode": failure_mode,
-                    "root_cause": root_cause,
-                    "similarity": similarity,
-                    "fix_note": session.fix_note,
-                })
-                break  # Only add one failure per session
+        failure_summary = {
+            "session_id": session.id,
+            "agent_name": session.agent_name,
+            "framework": session.framework,
+            "started_at": session.started_at,
+            "failure_type": str(event.event_type),
+            "failure_mode": _derive_failure_mode(event),
+            "root_cause": _derive_root_cause(event),
+            "similarity": similarity,
+            "fix_note": session.fix_note,
+        }
+        existing = best_match_by_session.get(session.id)
+        if existing is None or failure_summary["similarity"] > existing["similarity"]:
+            best_match_by_session[session.id] = failure_summary
 
     # Sort by similarity and limit
+    similar_failures = list(best_match_by_session.values())
     similar_failures.sort(key=lambda x: x["similarity"], reverse=True)
     return similar_failures[:limit]
+
+
+async def _load_candidate_failure_events(
+    repo: TraceRepository,
+    failure_event: TraceEvent,
+    session_id: str,
+) -> list[tuple[TraceEvent, Session]]:
+    """Load tenant-scoped failure candidates without per-session N+1 queries."""
+    failure_event_types = [
+        str(EventType.ERROR),
+        str(EventType.REFUSAL),
+        str(EventType.POLICY_VIOLATION),
+        str(EventType.BEHAVIOR_ALERT),
+        str(EventType.TOOL_RESULT),
+        str(EventType.SAFETY_CHECK),
+    ]
+
+    source_clues = [EventModel.event_type == str(failure_event.event_type)]
+    source_error_type = _event_error_type(failure_event)
+    if source_error_type:
+        source_clues.append(cast(EventModel.data, String).ilike(f"%{source_error_type}%"))
+    source_tool_name = getattr(failure_event, "tool_name", None)
+    if source_tool_name:
+        source_clues.append(cast(EventModel.data, String).ilike(f"%{source_tool_name}%"))
+
+    stmt = (
+        select(EventModel, SessionModel)
+        .join(SessionModel, EventModel.session_id == SessionModel.id)
+        .where(
+            SessionModel.tenant_id == repo.tenant_id,
+            EventModel.tenant_id == repo.tenant_id,
+            SessionModel.id != session_id,
+            SessionModel.errors > 0,
+            EventModel.event_type.in_(failure_event_types),
+            or_(*source_clues),
+        )
+        .order_by(SessionModel.started_at.desc(), EventModel.timestamp.desc())
+    )
+    result = await repo.session.execute(stmt)
+
+    candidates: list[tuple[TraceEvent, Session]] = []
+    for db_event, db_session in result.all():
+        event = orm_to_event(db_event)
+        if not _is_failure_event(event):
+            continue
+        candidates.append((event, orm_to_session(db_session)))
+    return candidates
 
 
 def _is_failure_event(event: TraceEvent) -> bool:
@@ -473,6 +505,28 @@ def _is_failure_event(event: TraceEvent) -> bool:
         or (event.event_type == EventType.TOOL_RESULT and bool(event.error))
         or (event.event_type == EventType.SAFETY_CHECK and event.outcome and event.outcome != "pass")
     )
+
+
+def _event_error_text(event: TraceEvent) -> str:
+    """Return the most useful error-like text available on an event."""
+    return (
+        getattr(event, "error", None)
+        or getattr(event, "error_message", None)
+        or getattr(event, "reason", None)
+        or event.name
+        or ""
+    )
+
+
+def _event_error_type(event: TraceEvent) -> str:
+    """Return the most useful error-like type available on an event."""
+    return (
+        getattr(event, "error_type", None)
+        or getattr(event, "violation_type", None)
+        or getattr(event, "alert_type", None)
+        or ""
+    )
+
 
 
 def _calculate_failure_similarity(
@@ -492,13 +546,13 @@ def _calculate_failure_similarity(
         score += 0.4
 
     # Error type match
-    candidate_error_type = candidate_event.error_type or ""
+    candidate_error_type = _event_error_type(candidate_event)
     if source_error_type and candidate_error_type:
         if source_error_type.lower() == candidate_error_type.lower():
             score += 0.3
 
     # Error text similarity (simple keyword overlap)
-    candidate_error_text = candidate_event.error or candidate_event.error_message or candidate_event.name or ""
+    candidate_error_text = _event_error_text(candidate_event)
     if source_error_text and candidate_error_text:
         source_words = set(source_error_text.lower().split())
         candidate_words = set(candidate_error_text.lower().split())

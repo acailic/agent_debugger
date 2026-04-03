@@ -61,7 +61,6 @@ export function SessionRail() {
   const currentSession = sessions.find((session) => session.id === selectedSessionId) ?? bundle?.session ?? null
 
   // Memoize health scores for all sessions
-  // Note: bundle is NOT in deps to avoid O(n) recomputation on every session selection
   const healthScores = useMemo(() => {
     const scores = new Map<string, number>()
     sessions.forEach((session) => {
@@ -69,7 +68,7 @@ export function SessionRail() {
       scores.set(session.id, computeHealthScore(session, sessionBundle))
     })
     return scores
-  }, [sessions, selectedSessionId])
+  }, [bundle, sessions, selectedSessionId])
 
   return (
     <aside className="session-rail panel panel--secondary">

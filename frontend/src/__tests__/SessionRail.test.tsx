@@ -123,13 +123,12 @@ function buildState(overrides: Record<string, unknown> = {}) {
 // Shared mutable state that both the selector mock and getState() read from.
 let currentState: ReturnType<typeof buildState>
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockUseSessionStore = vi.fn((selector: unknown) => {
   if (typeof selector === 'function') {
     return selector(currentState)
   }
   return currentState
-}) as any
+}) as unknown as typeof import('../stores/sessionStore').useSessionStore
 
 // The component calls useSessionStore.getState() directly in its onClick handler.
 mockUseSessionStore.getState = () => currentState

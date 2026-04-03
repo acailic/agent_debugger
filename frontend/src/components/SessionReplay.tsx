@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState } from 'react'
+import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, CSSProperties } from 'react'
 import type { TraceEvent } from '../types'
 import { formatEventHeadline } from '../utils/formatting'
@@ -16,7 +16,6 @@ interface SessionReplayProps {
   onSeek: (index: number) => void
   speed: number
   onSpeedChange: (speed: number) => void
-  onToggleBreakpoint?: (eventId: string) => void
   showBlockedActions?: boolean
   onToggleShowBlockedActions?: (show: boolean) => void
 }
@@ -24,9 +23,6 @@ interface SessionReplayProps {
 const SPEED_OPTIONS = [0.5, 1, 2, 5]
 
 const HIGH_IMPORTANCE_TYPES = ['decision', 'error', 'tool_call']
-
-// Event types that can have breakpoints set on them
-const BREAKPOINTABLE_TYPES = ['decision', 'error', 'tool_call', 'llm_request', 'llm_response', 'safety_check', 'refusal', 'policy_violation']
 
 function isCheckpoint(event: TraceEvent): boolean {
   return event.event_type === 'checkpoint'
@@ -44,40 +40,22 @@ export function SessionReplay({
   onSeek,
   speed,
   onSpeedChange,
-  onToggleBreakpoint,
   showBlockedActions,
   onToggleShowBlockedActions,
 }: SessionReplayProps) {
   const sliderRef = useRef<HTMLInputElement>(null)
   const playIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const [localBreakpoints, setLocalBreakpoints] = useState<Set<string>>(new Set(breakpointEventIds))
   const [showBreakpointPanel, setShowBreakpointPanel] = useState(false)
   const [internalShowBlockedActions, setInternalShowBlockedActions] = useState(false)
 
-  const breakpointIdSet = localBreakpoints
+  const breakpointIdSet = useMemo(() => new Set(breakpointEventIds), [breakpointEventIds])
   const blockedActionsVisible = showBlockedActions ?? internalShowBlockedActions
   const currentEvent = currentIndex >= 0 && currentIndex < events.length ? events[currentIndex] : null
   const blockedEventCount = events.filter((event) => BLOCKED_EVENT_TYPES.includes(event.event_type)).length
-
-  const handleToggleBreakpoint = useCallback((eventId: string) => {
-    setLocalBreakpoints((prev) => {
-      const newSet = new Set(prev)
-      if (newSet.has(eventId)) {
-        newSet.delete(eventId)
-      } else {
-        newSet.add(eventId)
-      }
-      return newSet
-    })
-    // Notify parent if callback provided
-    if (onToggleBreakpoint) {
-      onToggleBreakpoint(eventId)
-    }
-  }, [onToggleBreakpoint])
-
-  const clearAllBreakpoints = useCallback(() => {
-    setLocalBreakpoints(new Set())
-  }, [])
+  const breakpointEvents = useMemo(
+    () => events.filter((event) => breakpointIdSet.has(event.id)),
+    [events, breakpointIdSet],
+  )
 
   const handleBlockedActionsToggle = useCallback((nextValue: boolean) => {
     setInternalShowBlockedActions(nextValue)
@@ -87,10 +65,6 @@ export function SessionReplay({
   const isBreakpointed = useCallback((eventId: string) => {
     return breakpointIdSet.has(eventId)
   }, [breakpointIdSet])
-
-  const canSetBreakpoint = useCallback((event: TraceEvent) => {
-    return BREAKPOINTABLE_TYPES.includes(event.event_type)
-  }, [])
 
   const isBlockedEvent = useCallback((event: TraceEvent) => {
     return BLOCKED_EVENT_TYPES.includes(event.event_type)
@@ -319,17 +293,17 @@ export function SessionReplay({
         </label>
 
         <button
-          className={`replay-btn breakpoint-toggle ${localBreakpoints.size > 0 ? 'has-breakpoints' : ''}`}
+          className={`replay-btn breakpoint-toggle ${breakpointEventIds.length > 0 ? 'has-breakpoints' : ''}`}
           onClick={() => setShowBreakpointPanel((prev) => !prev)}
-          title={`Breakpoints (${localBreakpoints.size})`}
-          aria-label="Toggle breakpoint panel"
+          title={`Breakpoint hits (${breakpointEventIds.length})`}
+          aria-label="Toggle breakpoint hits panel"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <circle cx="8" cy="12" r="3" />
             <circle cx="16" cy="12" r="3" />
           </svg>
-          {localBreakpoints.size > 0 && (
-            <span className="breakpoint-count">{localBreakpoints.size}</span>
+          {breakpointEventIds.length > 0 && (
+            <span className="breakpoint-count">{breakpointEventIds.length}</span>
           )}
         </button>
       </div>
@@ -344,47 +318,28 @@ export function SessionReplay({
       {showBreakpointPanel && (
         <div className="breakpoint-panel">
           <div className="breakpoint-panel-header">
-            <h4>Breakpoints</h4>
-            <button
-              className="breakpoint-clear-btn"
-              onClick={clearAllBreakpoints}
-              disabled={localBreakpoints.size === 0}
-              title="Clear all breakpoints"
-              aria-label="Clear all breakpoints"
-            >
-              Clear All
-            </button>
+            <h4>Breakpoint Hits</h4>
           </div>
           <div className="breakpoint-list">
-            {events.length === 0 ? (
-              <div className="breakpoint-empty">No events available</div>
+            {breakpointEvents.length === 0 ? (
+              <div className="breakpoint-empty">No breakpoint hits in this replay scope. Configure them in Replay Bar.</div>
             ) : (
-              events
-                .filter((event) => canSetBreakpoint(event))
-                .slice(0, 50) // Limit to first 50 breakpointable events for performance
+              breakpointEvents
+                .slice(0, 50)
                 .map((event) => (
                   <div
                     key={event.id}
-                    className={`breakpoint-item ${isBreakpointed(event.id) ? 'breakpoint-active' : ''}`}
-                    onClick={() => handleToggleBreakpoint(event.id)}
+                    className="breakpoint-item breakpoint-active"
+                    onClick={() => onSeek(events.findIndex((candidate) => candidate.id === event.id))}
                   >
                     <div className="breakpoint-indicator">
-                      {isBreakpointed(event.id) && <div className="breakpoint-dot" />}
+                      <div className="breakpoint-dot" />
                     </div>
                     <div className="breakpoint-info">
                       <span className="breakpoint-type">{event.event_type}</span>
                       <span className="breakpoint-name">{formatEventHeadline(event)}</span>
                     </div>
-                    <button
-                      className="breakpoint-toggle-btn"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleToggleBreakpoint(event.id)
-                      }}
-                      aria-label={isBreakpointed(event.id) ? 'Remove breakpoint' : 'Add breakpoint'}
-                    >
-                      {isBreakpointed(event.id) ? '−' : '+'}
-                    </button>
+                    <span className="breakpoint-toggle-btn" aria-hidden="true">View</span>
                   </div>
                 ))
             )}

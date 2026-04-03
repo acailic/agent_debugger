@@ -74,4 +74,63 @@ describe('SessionReplay', () => {
 
     expect(onToggleShowBlockedActions).toHaveBeenCalledWith(true)
   })
+
+  it('updates breakpoint hit count when breakpointEventIds prop changes', () => {
+    const events = [
+      makeEvent({ id: '1', event_type: 'error', name: 'Error A' }),
+      makeEvent({ id: '2', event_type: 'decision', chosen_action: 'search_docs' }),
+    ]
+
+    const { rerender } = renderReplay(events, { breakpointEventIds: ['1'] })
+
+    expect(screen.getByRole('button', { name: 'Toggle breakpoint hits panel' })).toHaveTextContent('1')
+
+    rerender(
+      <SessionReplay
+        events={events}
+        breakpointEventIds={[]}
+        currentIndex={0}
+        isPlaying={false}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        onStepForward={vi.fn()}
+        onStepBackward={vi.fn()}
+        onSeek={vi.fn()}
+        speed={1}
+        onSpeedChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'Toggle breakpoint hits panel' })).not.toHaveTextContent('1')
+  })
+
+  it('shows server breakpoint hits as read-only replay scope items', async () => {
+    const onSeek = vi.fn()
+    const events = [
+      makeEvent({ id: '1', event_type: 'tool_call', name: 'Search docs', tool_name: 'search' }),
+      makeEvent({ id: '2', event_type: 'error', name: 'Tool failed' }),
+    ]
+
+    renderReplay(events, { breakpointEventIds: ['2'], onSeek })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Toggle breakpoint hits panel' }))
+
+    expect(screen.getByText('Breakpoint Hits')).toBeInTheDocument()
+    expect(screen.getByText('Tool failed')).toBeInTheDocument()
+    expect(screen.getByText('View')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByText('Tool failed'))
+
+    expect(onSeek).toHaveBeenCalledWith(1)
+  })
+
+  it('shows an empty breakpoint hit state when the replay scope has no hits', async () => {
+    const events = [makeEvent({ id: '1', event_type: 'tool_call', name: 'Search docs', tool_name: 'search' })]
+
+    renderReplay(events)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Toggle breakpoint hits panel' }))
+
+    expect(screen.getByText('No breakpoint hits in this replay scope. Configure them in Replay Bar.')).toBeInTheDocument()
+  })
 })

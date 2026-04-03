@@ -244,6 +244,7 @@ async def test_entity_repo_get_entity_summary(db_session):
 
     summary = await repo.get_entity_summary()
 
+    assert summary.get(EntityType.AGENT_NAME, 0) >= 1
     assert summary.get(EntityType.TOOL_NAME, 0) >= 1
     assert summary.get(EntityType.ERROR_TYPE, 0) >= 1
     assert summary.get(EntityType.MODEL, 0) >= 1

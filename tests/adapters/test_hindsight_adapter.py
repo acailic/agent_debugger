@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import httpx
 import pytest
 
 from agent_debugger_sdk.adapters.hindsight import HindsightConfig, HindsightMemoryAdapter
@@ -174,9 +175,9 @@ async def test_hindsight_health_check_healthy(hindsight_config, respx_mock):
     adapter = HindsightMemoryAdapter(hindsight_config)
 
     # Mock health check endpoint
-    health_route = respx.route(
-        "http://test-hindsight.local/api/v1/health"
-    ).get(mock_return_json={"status": "ok", "version": "1.0"})
+    health_route = respx.get("http://test-hindsight.local/api/v1/health").mock(
+        return_value=httpx.Response(200, json={"status": "ok", "version": "1.0"})
+    )
 
     health = await adapter.health_check()
 
@@ -196,9 +197,9 @@ async def test_hindsight_health_check_unhealthy(hindsight_config, respx_mock):
     adapter = HindsightMemoryAdapter(hindsight_config)
 
     # Mock failing health check endpoint
-    health_route = respx.route(
-        "http://test-hindsight.local/api/v1/health"
-    ).get(side_effect=Exception("Connection refused"))
+    health_route = respx.get("http://test-hindsight.local/api/v1/health").mock(
+        side_effect=Exception("Connection refused")
+    )
 
     health = await adapter.health_check()
 

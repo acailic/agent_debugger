@@ -8,7 +8,7 @@ interface CheckpointSnapshotProps {
 
 export function CheckpointSnapshot({ title, checkpoint, variant = 'selected' }: CheckpointSnapshotProps) {
   return (
-    <div className={`checkpoint-preview ${variant}`}>
+    <div className={`checkpoint-preview ${variant} scale-in`}>
       <div className="checkpoint-copy">
         <p className="eyebrow">{title}</p>
         <h3>Sequence {checkpoint.sequence}</h3>

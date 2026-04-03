@@ -57,7 +57,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
       // Default fallback UI
       return (
-        <div className="error-boundary" role="alert" aria-live="polite">
+        <div className="error-boundary shake-x" role="alert" aria-live="polite">
           <div className="error-boundary-content">
             <span className="error-icon">⚠️</span>
             <h2>Something went wrong</h2>

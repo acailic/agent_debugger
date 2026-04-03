@@ -14,6 +14,7 @@ import { FailureClusterPanelMemo } from './components/FailureClusterPanel'
 import { LLMViewer } from './components/LLMViewer'
 import { LiveDashboard } from './components/LiveDashboard'
 import { MultiAgentCoordinationPanelMemo } from './components/MultiAgentCoordinationPanel'
+import { ReplayBar } from './components/ReplayBar'
 import { SearchPanel } from './components/SearchPanel'
 import { SessionReplay } from './components/SessionReplay'
 import { SessionRailMemo } from './components/SessionRail'
@@ -25,7 +26,7 @@ import HighlightChip from './components/HighlightChip'
 import { CheckpointSnapshot } from './components/CheckpointSnapshot'
 import { EventDetailMemo } from './components/EventDetail'
 import { formatEventHeadline, formatNumber } from './utils/formatting'
-import { useSessionStore } from './stores/sessionStore'
+import { buildReplayBreakpointParams, useSessionStore } from './stores/sessionStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { AppTab, Highlight, TraceEvent } from './types'
 import { useDriftData } from './hooks/useDriftData'
@@ -60,7 +61,19 @@ function App() {
   )
 
   // Replay controls
-  const { replayMode, currentIndex, isPlaying, speed, collapseThreshold, expandedSegments } = useSessionStore(
+  const {
+    replayMode,
+    currentIndex,
+    isPlaying,
+    speed,
+    collapseThreshold,
+    expandedSegments,
+    breakpointEventTypes,
+    breakpointToolNames,
+    breakpointConfidenceBelow,
+    breakpointSafetyOutcomes,
+    stopAtBreakpoint,
+  } = useSessionStore(
     useShallow((state) => ({
       replayMode: state.replayMode,
       currentIndex: state.currentIndex,
@@ -68,6 +81,11 @@ function App() {
       speed: state.speed,
       collapseThreshold: state.collapseThreshold,
       expandedSegments: state.expandedSegments,
+      breakpointEventTypes: state.breakpointEventTypes,
+      breakpointToolNames: state.breakpointToolNames,
+      breakpointConfidenceBelow: state.breakpointConfidenceBelow,
+      breakpointSafetyOutcomes: state.breakpointSafetyOutcomes,
+      stopAtBreakpoint: state.stopAtBreakpoint,
     }))
   )
 
@@ -152,6 +170,23 @@ function App() {
 
   // Local state for items not yet moved to the store
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
+  const replayBreakpointParams = useMemo(
+    () =>
+      buildReplayBreakpointParams({
+        breakpointEventTypes,
+        breakpointToolNames,
+        breakpointConfidenceBelow,
+        breakpointSafetyOutcomes,
+        stopAtBreakpoint,
+      }),
+    [
+      breakpointEventTypes,
+      breakpointToolNames,
+      breakpointConfidenceBelow,
+      breakpointSafetyOutcomes,
+      stopAtBreakpoint,
+    ],
+  )
 
   useEffect(() => {
     let ignore = false
@@ -246,7 +281,7 @@ function App() {
           const event = JSON.parse(message.data) as TraceEvent
           addLiveEvent(event)
           setStreamHealth('healthy')
-        } catch (parseError) {
+        } catch {
           // Graceful JSON parse recovery - skip malformed events, don't kill the stream
           console.warn('[SSE] Failed to parse event, skipping:', message.data)
           setStreamHealth('degraded')
@@ -383,17 +418,11 @@ function App() {
     const sessionId = selectedSessionId
     let ignore = false
     async function loadReplay() {
-      // Get breakpoint config from store directly
-      const breakpointConfig = useSessionStore.getState()
       try {
         const response = await getReplay(sessionId, {
           mode: replayMode,
           focusEventId: replayMode === 'focus' ? (focusEventId ?? selectedEventId) : null,
-          breakpointEventTypes: breakpointConfig.breakpointEventTypes.split(',').map((item) => item.trim()).filter(Boolean),
-          breakpointToolNames: breakpointConfig.breakpointToolNames.split(',').map((item) => item.trim()).filter(Boolean),
-          breakpointConfidenceBelow: breakpointConfig.breakpointConfidenceBelow ? Number(breakpointConfig.breakpointConfidenceBelow) : null,
-          breakpointSafetyOutcomes: breakpointConfig.breakpointSafetyOutcomes.split(',').map((item) => item.trim()).filter(Boolean),
-          stopAtBreakpoint: breakpointConfig.stopAtBreakpoint,
+          ...replayBreakpointParams,
           collapseThreshold: replayMode === 'highlights' ? collapseThreshold : undefined,
         })
         if (ignore) return
@@ -421,6 +450,7 @@ function App() {
     selectedEventId,
     focusEventId,
     collapseThreshold,
+    replayBreakpointParams,
     setReplay,
     setCurrentIndex,
     setIsPlaying,
@@ -446,7 +476,10 @@ function App() {
     ? mergedSessionEvents
     : replay?.events ?? mergedSessionEvents
 
-  const highlights = bundle?.analysis.highlights ?? []
+  const highlights = useMemo(
+    () => bundle?.analysis.highlights ?? [],
+    [bundle?.analysis.highlights],
+  )
   const highlightEventIds = useMemo(
     () => new Set(highlights.map((h) => h.event_id)),
     [highlights],
@@ -483,6 +516,10 @@ function App() {
   const breakpointEventIds = useMemo(
     () => replay?.breakpoints.map((event) => event.id) ?? [],
     [replay?.breakpoints],
+  )
+  const replayRepairAttemptCount = useMemo(
+    () => activeEvents.filter((event) => event.event_type === 'repair_attempt').length,
+    [activeEvents],
   )
 
   const llmRequest = useMemo(() => {
@@ -662,13 +699,13 @@ function App() {
       </nav>
 
       {activeTab === 'analytics' && (
-        <Suspense fallback={<div className="loading-placeholder">Loading analytics...</div>}>
+        <Suspense fallback={<div className="loading-placeholder fade-in">Loading analytics...</div>}>
           <AnalyticsTab />
         </Suspense>
       )}
 
       {activeTab === 'inspect' && (
-        <main className="workspace workspace--inspect">
+        <main className="workspace workspace--inspect slide-up">
           <section className="main-stage">
             {!selectedSessionId ? (
               <EmptyState
@@ -719,7 +756,7 @@ function App() {
                 </section>
 
                 <section className="panel panel--secondary">
-                  <Suspense fallback={<div className="loading-placeholder">Loading comparison...</div>}>
+                  <Suspense fallback={<div className="loading-placeholder fade-in">Loading comparison...</div>}>
                     {compareLoading && (
                       <div className="comparison-loading-state">
                         <div className="loading-spinner" />
@@ -897,7 +934,7 @@ function App() {
       )}
 
       {activeTab === 'trace' && (
-      <main className="workspace">
+      <main className="workspace slide-up">
         <SessionRailMemo />
 
         <section className="main-stage">
@@ -910,6 +947,7 @@ function App() {
           ) : null}
 
           <ErrorBoundary>
+            <ReplayBar disabled={!selectedSessionId} />
             <section className="panel panel--primary replay-panel">
               <SessionReplay
                 events={activeEvents}
@@ -931,6 +969,9 @@ function App() {
                 <span>Nearest checkpoint: {replay?.nearest_checkpoint?.sequence ?? 'none'}</span>
                 <span>Breakpoints hit: {replay?.breakpoints.length ?? 0}</span>
                 <span>Failures: {replay?.failure_event_ids.length ?? 0}</span>
+                {replayRepairAttemptCount > 0 && (
+                  <span>Repair attempts: {replayRepairAttemptCount}</span>
+                )}
                 {replay?.collapsed_segments && replay.collapsed_segments.length > 0 && (
                   <span>Collapsed segments: {replay.collapsed_segments.length}</span>
                 )}

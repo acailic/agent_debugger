@@ -15,6 +15,11 @@ import type {
 } from '../types'
 
 const BLOCKED_ACTIONS_STORAGE_KEY = 'peaky-peek:show-blocked-actions'
+const BREAKPOINT_EVENT_TYPES_STORAGE_KEY = 'peaky-peek:breakpoint-event-types'
+const BREAKPOINT_TOOL_NAMES_STORAGE_KEY = 'peaky-peek:breakpoint-tool-names'
+const BREAKPOINT_CONFIDENCE_STORAGE_KEY = 'peaky-peek:breakpoint-confidence-below'
+const BREAKPOINT_SAFETY_STORAGE_KEY = 'peaky-peek:breakpoint-safety-outcomes'
+const STOP_AT_BREAKPOINT_STORAGE_KEY = 'peaky-peek:stop-at-breakpoint'
 
 function loadBooleanPreference(key: string, fallback: boolean): boolean {
   if (typeof window === 'undefined') {
@@ -41,6 +46,64 @@ function saveBooleanPreference(key: string, value: boolean): void {
     window.localStorage.setItem(key, String(value))
   } catch {
     // Ignore storage failures; the in-memory store still reflects the preference.
+  }
+}
+
+function loadStringPreference(key: string, fallback: string): string {
+  if (typeof window === 'undefined') {
+    return fallback
+  }
+
+  try {
+    return window.localStorage.getItem(key) ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
+function saveStringPreference(key: string, value: string): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+    // Ignore storage failures; the in-memory store still reflects the preference.
+  }
+}
+
+function splitCsv(value: string): string[] {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+export interface ReplayBreakpointConfig {
+  breakpointEventTypes: string
+  breakpointToolNames: string
+  breakpointConfidenceBelow: string
+  breakpointSafetyOutcomes: string
+  stopAtBreakpoint: boolean
+}
+
+export function buildReplayBreakpointParams(config: ReplayBreakpointConfig): {
+  breakpointEventTypes: string[]
+  breakpointToolNames: string[]
+  breakpointConfidenceBelow: number | null
+  breakpointSafetyOutcomes: string[]
+  stopAtBreakpoint: boolean
+} {
+  const rawConfidence = config.breakpointConfidenceBelow.trim()
+  const parsedConfidence = rawConfidence ? Number(rawConfidence) : null
+  return {
+    breakpointEventTypes: splitCsv(config.breakpointEventTypes),
+    breakpointToolNames: splitCsv(config.breakpointToolNames),
+    breakpointConfidenceBelow:
+      parsedConfidence !== null && Number.isFinite(parsedConfidence) ? parsedConfidence : null,
+    breakpointSafetyOutcomes: splitCsv(config.breakpointSafetyOutcomes),
+    stopAtBreakpoint: config.stopAtBreakpoint,
   }
 }
 
@@ -201,6 +264,21 @@ export const sessionSelectors = {
   isSessionLoaded: (state: SessionStore): boolean => {
     return !!state.bundle || !!state.secondaryBundle
   },
+
+  getReplayBreakpointParams: (state: SessionStore): {
+    breakpointEventTypes: string[]
+    breakpointToolNames: string[]
+    breakpointConfidenceBelow: number | null
+    breakpointSafetyOutcomes: string[]
+    stopAtBreakpoint: boolean
+  } =>
+    buildReplayBreakpointParams({
+      breakpointEventTypes: state.breakpointEventTypes,
+      breakpointToolNames: state.breakpointToolNames,
+      breakpointConfidenceBelow: state.breakpointConfidenceBelow,
+      breakpointSafetyOutcomes: state.breakpointSafetyOutcomes,
+      stopAtBreakpoint: state.stopAtBreakpoint,
+    }),
 }
 
 const initialState = {
@@ -247,11 +325,11 @@ const initialState = {
   showBlockedActions: loadBooleanPreference(BLOCKED_ACTIONS_STORAGE_KEY, false),
 
   // Breakpoint config
-  breakpointEventTypes: 'error,refusal,policy_violation',
-  breakpointToolNames: '',
-  breakpointConfidenceBelow: '0.45',
-  breakpointSafetyOutcomes: 'warn,block',
-  stopAtBreakpoint: true,
+  breakpointEventTypes: loadStringPreference(BREAKPOINT_EVENT_TYPES_STORAGE_KEY, 'error,refusal,policy_violation'),
+  breakpointToolNames: loadStringPreference(BREAKPOINT_TOOL_NAMES_STORAGE_KEY, ''),
+  breakpointConfidenceBelow: loadStringPreference(BREAKPOINT_CONFIDENCE_STORAGE_KEY, '0.45'),
+  breakpointSafetyOutcomes: loadStringPreference(BREAKPOINT_SAFETY_STORAGE_KEY, 'warn,block'),
+  stopAtBreakpoint: loadBooleanPreference(STOP_AT_BREAKPOINT_STORAGE_KEY, true),
 
   // Loading/error states
   loading: true,
@@ -325,11 +403,26 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   // Breakpoint config actions
-  setBreakpointEventTypes: (breakpointEventTypes) => set({ breakpointEventTypes }),
-  setBreakpointToolNames: (breakpointToolNames) => set({ breakpointToolNames }),
-  setBreakpointConfidenceBelow: (breakpointConfidenceBelow) => set({ breakpointConfidenceBelow }),
-  setBreakpointSafetyOutcomes: (breakpointSafetyOutcomes) => set({ breakpointSafetyOutcomes }),
-  setStopAtBreakpoint: (stopAtBreakpoint) => set({ stopAtBreakpoint }),
+  setBreakpointEventTypes: (breakpointEventTypes) => {
+    saveStringPreference(BREAKPOINT_EVENT_TYPES_STORAGE_KEY, breakpointEventTypes)
+    set({ breakpointEventTypes })
+  },
+  setBreakpointToolNames: (breakpointToolNames) => {
+    saveStringPreference(BREAKPOINT_TOOL_NAMES_STORAGE_KEY, breakpointToolNames)
+    set({ breakpointToolNames })
+  },
+  setBreakpointConfidenceBelow: (breakpointConfidenceBelow) => {
+    saveStringPreference(BREAKPOINT_CONFIDENCE_STORAGE_KEY, breakpointConfidenceBelow)
+    set({ breakpointConfidenceBelow })
+  },
+  setBreakpointSafetyOutcomes: (breakpointSafetyOutcomes) => {
+    saveStringPreference(BREAKPOINT_SAFETY_STORAGE_KEY, breakpointSafetyOutcomes)
+    set({ breakpointSafetyOutcomes })
+  },
+  setStopAtBreakpoint: (stopAtBreakpoint) => {
+    saveBooleanPreference(STOP_AT_BREAKPOINT_STORAGE_KEY, stopAtBreakpoint)
+    set({ stopAtBreakpoint })
+  },
 
   // Loading/error actions
   setLoading: (loading) => set({ loading }),
@@ -378,5 +471,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   reset: () => set({
     ...initialState,
     showBlockedActions: loadBooleanPreference(BLOCKED_ACTIONS_STORAGE_KEY, false),
+    breakpointEventTypes: loadStringPreference(BREAKPOINT_EVENT_TYPES_STORAGE_KEY, 'error,refusal,policy_violation'),
+    breakpointToolNames: loadStringPreference(BREAKPOINT_TOOL_NAMES_STORAGE_KEY, ''),
+    breakpointConfidenceBelow: loadStringPreference(BREAKPOINT_CONFIDENCE_STORAGE_KEY, '0.45'),
+    breakpointSafetyOutcomes: loadStringPreference(BREAKPOINT_SAFETY_STORAGE_KEY, 'warn,block'),
+    stopAtBreakpoint: loadBooleanPreference(STOP_AT_BREAKPOINT_STORAGE_KEY, true),
   }),
 }))

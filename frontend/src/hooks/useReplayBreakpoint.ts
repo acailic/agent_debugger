@@ -9,6 +9,7 @@ export function useReplayBreakpoint(): void {
   const isPlaying = useSessionStore((state) => state.isPlaying)
   const currentIndex = useSessionStore((state) => state.currentIndex)
   const replay = useSessionStore((state) => state.replay)
+  const stopAtBreakpoint = useSessionStore((state) => state.stopAtBreakpoint)
   const breakpointEventIdSet = useMemo(
     () => new Set(replay?.breakpoints.map((event) => event.id) ?? []),
     [replay?.breakpoints]
@@ -16,7 +17,7 @@ export function useReplayBreakpoint(): void {
   const setIsPlaying = useSessionStore((state) => state.setIsPlaying)
 
   useEffect(() => {
-    if (!isPlaying || currentIndex === 0) return
+    if (!stopAtBreakpoint || !isPlaying || currentIndex === 0) return
 
     const currentReplayEvent = replay?.events[currentIndex]
     if (!currentReplayEvent) return
@@ -24,5 +25,5 @@ export function useReplayBreakpoint(): void {
     if (breakpointEventIdSet.has(currentReplayEvent.id)) {
       setIsPlaying(false)
     }
-  }, [breakpointEventIdSet, currentIndex, isPlaying, replay, setIsPlaying])
+  }, [breakpointEventIdSet, currentIndex, isPlaying, replay, setIsPlaying, stopAtBreakpoint])
 }

@@ -1,0 +1,302 @@
+/* TraceTimeline Component Styles */
+
+.trace-timeline {
+  display: grid;
+  gap: 1rem;
+  padding: 1.2rem;
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.timeline-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.timeline-header-left h3 {
+  font-size: 1.45rem;
+  margin: 0;
+}
+
+.event-count {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.timeline-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.blocked-actions-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.toggle-label {
+  cursor: pointer;
+}
+
+.event-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 25%);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out-quart),
+              border-color var(--duration-fast) var(--ease-out-quart),
+              transform var(--duration-fast) var(--ease-out-quart),
+              box-shadow var(--duration-normal) var(--ease-out-quart);
+}
+
+.filter-chip:hover {
+  transform: scale(1.02);
+  background-color: color-mix(in oklch, var(--panel), var(--bg-strong) 35%);
+  box-shadow: var(--shadow-sm);
+}
+
+.filter-chip:active {
+  transform: scale(0.95);
+}
+
+.filter-chip.active {
+  background-color: color-mix(in oklch, var(--accent), white 15%);
+  border-color: var(--accent);
+  color: var(--accent-deep);
+  font-weight: 600;
+}
+
+.filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--muted), transparent 40%);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.timeline-events {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.timeline-event {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 28%);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-out-quart),
+              box-shadow var(--duration-normal) var(--ease-out-quart),
+              background-color var(--duration-fast) var(--ease-out-quart),
+              border-color var(--duration-fast) var(--ease-out-quart);
+}
+
+.timeline-event:hover {
+  transform: scale(1.01);
+  background-color: color-mix(in oklch, var(--panel), var(--bg-strong) 35%);
+  box-shadow: var(--shadow-md);
+}
+
+.timeline-event:active {
+  transform: scale(0.99);
+}
+
+.timeline-event.selected {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--panel), var(--accent) 8%);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent), transparent 70%);
+}
+
+.timeline-event.highlight {
+  border-color: var(--highlight);
+  background: color-mix(in oklch, var(--panel), var(--highlight) 10%);
+}
+
+.timeline-event.blocked {
+  opacity: 0.7;
+}
+
+.event-marker {
+  width: 3px;
+  height: 100%;
+  min-height: 40px;
+  border-radius: 2px;
+  background: var(--node-default);
+}
+
+.timeline-event.llm_request .event-marker,
+.timeline-event.llm_response .event-marker {
+  background: var(--node-llm);
+}
+
+.timeline-event.tool_call .event-marker,
+.timeline-event.tool_result .event-marker {
+  background: var(--node-tool);
+}
+
+.timeline-event.decision .event-marker {
+  background: var(--node-decision);
+}
+
+.timeline-event.error .event-marker {
+  background: var(--node-risk);
+}
+
+.timeline-event.agent_start .event-marker,
+.timeline-event.agent_end .event-marker,
+.timeline-event.agent_turn .event-marker {
+  background: var(--node-session);
+}
+
+.timeline-event.checkpoint .event-marker {
+  background: var(--node-checkpoint);
+}
+
+.highlight-marker {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 1rem;
+  color: var(--highlight);
+}
+
+.blocked-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background: var(--danger);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.event-info {
+  display: grid;
+  gap: 0.25rem;
+  align-content: start;
+}
+
+.event-type {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.event-summary {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-time {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.latency-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  overflow: hidden;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: white;
+  text-shadow: 0 1px 2px color-mix(in oklch, black, transparent 70%);
+  transition: width var(--duration-slow) var(--ease-out-quart);
+}
+
+.latency-text {
+  position: relative;
+  z-index: 1;
+}
+
+.blocked-action,
+.blocked-reason {
+  font-size: 0.75rem;
+  color: var(--danger);
+  font-weight: 500;
+}
+
+.highlight-reason {
+  font-size: 0.75rem;
+  color: var(--highlight);
+  font-weight: 500;
+}
+
+.timeline-empty {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.timeline-empty p {
+  margin: 0;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .timeline-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .event-filters {
+    gap: 0.4rem;
+  }
+
+  .filter-chip {
+    padding: 0.45rem 0.7rem;
+    font-size: 0.78rem;
+  }
+}

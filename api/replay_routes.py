@@ -26,6 +26,10 @@ from storage import TraceRepository
 router = APIRouter(tags=["replay"])
 
 
+def _split_csv_param(value: str | None) -> set[str]:
+    return {item.strip() for item in (value or "").split(",") if item.strip()}
+
+
 @router.get("/api/sessions/{session_id}/replay", response_model=ReplayResponse)
 async def replay_session(
     session_id: str,
@@ -46,6 +50,8 @@ async def replay_session(
     # Extract the default value when the raw Query object is passed through.
     if hasattr(collapse_threshold, "default"):
         collapse_threshold = float(collapse_threshold.default)
+    if hasattr(stop_at_breakpoint, "default"):
+        stop_at_breakpoint = bool(stop_at_breakpoint.default)
 
     # Record analytics event (fire-and-forget)
     record_event("replay_started", session_id=session_id, properties={"mode": mode})
@@ -72,10 +78,10 @@ async def replay_session(
         checkpoints,
         mode=mode,
         focus_event_id=focus_event_id,
-        breakpoint_event_types={item for item in (breakpoint_event_types or "").split(",") if item},
-        breakpoint_tool_names={item for item in (breakpoint_tool_names or "").split(",") if item},
+        breakpoint_event_types=_split_csv_param(breakpoint_event_types),
+        breakpoint_tool_names=_split_csv_param(breakpoint_tool_names),
         breakpoint_confidence_below=breakpoint_confidence_below,
-        breakpoint_safety_outcomes={item for item in (breakpoint_safety_outcomes or "").split(",") if item},
+        breakpoint_safety_outcomes=_split_csv_param(breakpoint_safety_outcomes),
     )
 
     # Handle segment collapsing for highlights mode
@@ -98,8 +104,10 @@ async def replay_session(
         stopped_at_breakpoint = True
         # Build O(1) event_id -> index map for efficient breakpoint lookup
         event_id_to_index = {event.get("id"): i for i, event in enumerate(replay_data["events"])}
-        first_breakpoint_id = replay_data["breakpoints"][0].get("id")
-        stopped_at_index = event_id_to_index.get(first_breakpoint_id)
+        for breakpoint_event in replay_data["breakpoints"]:
+            stopped_at_index = event_id_to_index.get(breakpoint_event.get("id"))
+            if stopped_at_index is not None:
+                break
 
     return ReplayResponse(
         session_id=session_id,

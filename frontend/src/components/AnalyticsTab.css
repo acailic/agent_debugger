@@ -12,13 +12,26 @@
 
 .analytics-panel {
   padding: 1.4rem;
+  animation: fadeIn var(--duration-entrance) var(--ease-out-quart) both;
+}
+
+.analytics-panel:nth-of-type(1) {
+  animation-delay: 50ms;
+}
+
+.analytics-panel:nth-of-type(2) {
+  animation-delay: 100ms;
+}
+
+.analytics-panel:nth-of-type(3) {
+  animation-delay: 150ms;
 }
 
 .analytics-header {
   display: flex;
   justify-content: space-between;
   align-items: start;
-  gap: 1rem;
+  gap: var(--space-md);
   margin-bottom: 0.75rem;
 }
 
@@ -34,7 +47,7 @@
 
 .time-range-btn {
   padding: 0.6rem 1rem;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: color-mix(in oklch, var(--panel), var(--bg-strong) 35%);
   border: 1px solid transparent;
   font-size: 0.85rem;
@@ -72,7 +85,7 @@
 .analytics-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  gap: var(--space-md);
   margin-bottom: 1.5rem;
 }
 
@@ -140,19 +153,19 @@
 
 .adoption-bar-row:hover {
   background: color-mix(in oklch, var(--panel), var(--bg-strong) 8%);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
 }
 
 .adoption-bar-track {
   height: 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: color-mix(in oklch, var(--bg-strong), var(--muted) 15%);
   overflow: hidden;
 }
 
 .adoption-bar-fill {
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: linear-gradient(90deg, var(--accent) 0%, var(--olive) 100%);
   transition: width var(--duration-slow) var(--ease-material);
 }
@@ -200,7 +213,7 @@
 /* Cost Summary Styles */
 .cost-summary {
   margin-bottom: 1.5rem;
-  padding: 1.5rem;
+  padding: var(--space-lg);
   border: 1px solid var(--panel-border);
   border-radius: 1.5rem;
   background: var(--panel);
@@ -210,12 +223,12 @@
 .cost-summary-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+  gap: var(--space-md);
   margin-bottom: 1.5rem;
 }
 
 .cost-stat {
-  padding: 1rem;
+  padding: var(--space-md);
   border-radius: 1rem;
   background: color-mix(in oklch, var(--panel), var(--bg-strong) 40%);
 }
@@ -279,7 +292,7 @@
 
 /* Rolling Summary Card Styles */
 .rolling-summary-card {
-  padding: 1rem;
+  padding: var(--space-md);
   border-radius: 1rem;
   border: 1px solid var(--panel-border);
   background: color-mix(in oklch, var(--panel), white 28%);

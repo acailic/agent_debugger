@@ -53,6 +53,8 @@ export function formatEventHeadline(event: TraceEvent | null, fallback = 'Select
       return event.alert_type ?? event.name
     case 'error':
       return event.error_type ?? event.name
+    case 'repair_attempt':
+      return event.attempted_fix || `Repair ${event.repair_outcome ?? 'attempt'}`
     default:
       return event.name
   }

@@ -6,6 +6,53 @@ interface ReplayBarProps {
   disabled?: boolean
 }
 
+const BREAKPOINT_PRESETS = [
+  {
+    id: 'errors',
+    label: 'Errors',
+    config: {
+      breakpointEventTypes: 'error,refusal,policy_violation',
+      breakpointToolNames: '',
+      breakpointConfidenceBelow: '',
+      breakpointSafetyOutcomes: '',
+      stopAtBreakpoint: true,
+    },
+  },
+  {
+    id: 'low-confidence',
+    label: 'Low confidence',
+    config: {
+      breakpointEventTypes: '',
+      breakpointToolNames: '',
+      breakpointConfidenceBelow: '0.45',
+      breakpointSafetyOutcomes: '',
+      stopAtBreakpoint: true,
+    },
+  },
+  {
+    id: 'safety',
+    label: 'Safety',
+    config: {
+      breakpointEventTypes: '',
+      breakpointToolNames: '',
+      breakpointConfidenceBelow: '',
+      breakpointSafetyOutcomes: 'warn,block',
+      stopAtBreakpoint: true,
+    },
+  },
+  {
+    id: 'tools',
+    label: 'Tools',
+    config: {
+      breakpointEventTypes: 'tool_call,tool_result',
+      breakpointToolNames: '',
+      breakpointConfidenceBelow: '',
+      breakpointSafetyOutcomes: '',
+      stopAtBreakpoint: true,
+    },
+  },
+] as const
+
 export function ReplayBar({ disabled = false }: ReplayBarProps) {
   const {
     replayMode,
@@ -23,6 +70,21 @@ export function ReplayBar({ disabled = false }: ReplayBarProps) {
     setBreakpointSafetyOutcomes,
     setStopAtBreakpoint,
   } = useSessionStore()
+
+  const applyPreset = (preset: (typeof BREAKPOINT_PRESETS)[number]['config']) => {
+    setBreakpointEventTypes(preset.breakpointEventTypes)
+    setBreakpointToolNames(preset.breakpointToolNames)
+    setBreakpointConfidenceBelow(preset.breakpointConfidenceBelow)
+    setBreakpointSafetyOutcomes(preset.breakpointSafetyOutcomes)
+    setStopAtBreakpoint(preset.stopAtBreakpoint)
+  }
+
+  const isPresetActive = (preset: (typeof BREAKPOINT_PRESETS)[number]['config']) =>
+    breakpointEventTypes === preset.breakpointEventTypes
+    && breakpointToolNames === preset.breakpointToolNames
+    && breakpointConfidenceBelow === preset.breakpointConfidenceBelow
+    && breakpointSafetyOutcomes === preset.breakpointSafetyOutcomes
+    && stopAtBreakpoint === preset.stopAtBreakpoint
 
   return (
     <div className="replay-bar" style={disabled ? { opacity: 0.3, pointerEvents: 'none' as const } : undefined}>
@@ -55,6 +117,18 @@ export function ReplayBar({ disabled = false }: ReplayBarProps) {
             ))}
           </div>
         )}
+      </div>
+      <div className="breakpoint-presets" aria-label="Breakpoint presets">
+        {BREAKPOINT_PRESETS.map((preset) => (
+          <button
+            key={preset.id}
+            type="button"
+            className={`breakpoint-preset${isPresetActive(preset.config) ? ' active' : ''}`}
+            onClick={() => applyPreset(preset.config)}
+          >
+            {preset.label}
+          </button>
+        ))}
       </div>
       <div className="breakpoint-bar">
         <label htmlFor="breakpoint-events">

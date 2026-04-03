@@ -20,6 +20,8 @@ from agent_debugger_sdk.core.events import (
     LLMResponseEvent,
     PolicyViolationEvent,
     PromptPolicyEvent,
+    RepairAttemptEvent,
+    RepairOutcome,
     RefusalEvent,
     RiskLevel,
     SafetyCheckEvent,
@@ -566,6 +568,42 @@ class TestErrorEventContract:
         validated = TraceEventSchema(**data)
         assert validated.error_type == "ValidationError"
         assert validated.stack_trace is None
+
+
+class TestRepairEventContract:
+    """Tests for SDK repair events matching API TraceEventSchema."""
+
+    def test_repair_attempt_event_matches_schema(self):
+        """SDK RepairAttemptEvent.to_dict() should validate against TraceEventSchema."""
+        event = RepairAttemptEvent(
+            id="repair-1",
+            session_id="session-1",
+            parent_id="error-1",
+            event_type=EventType.REPAIR_ATTEMPT,
+            timestamp=datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            name="repair_timeout",
+            data={},
+            metadata={},
+            importance=0.8,
+            upstream_event_ids=["error-1"],
+            attempted_fix="Increase timeout and retry",
+            validation_result="Partial success under load",
+            repair_outcome=RepairOutcome.PARTIAL,
+            repair_sequence_id="seq-123",
+            repair_diff="+ timeout: 60",
+        )
+
+        data = event.to_dict()
+        data["timestamp"] = datetime.fromisoformat(data["timestamp"])
+
+        validated = TraceEventSchema(**data)
+        assert validated.id == "repair-1"
+        assert validated.event_type == EventType.REPAIR_ATTEMPT
+        assert validated.attempted_fix == "Increase timeout and retry"
+        assert validated.validation_result == "Partial success under load"
+        assert validated.repair_outcome == "partial"
+        assert validated.repair_sequence_id == "seq-123"
+        assert validated.repair_diff == "+ timeout: 60"
 
 
 class TestCheckpointContract:

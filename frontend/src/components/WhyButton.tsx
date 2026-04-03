@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { getAnalysis } from '../api/client'
 import type { FailureExplanation } from '../types'
 
@@ -16,26 +16,15 @@ interface ErrorInfo {
   isNetwork: boolean
 }
 
-export default function WhyButton({
+function WhyButtonInner({
   sessionId,
   onSelectEvent,
   onFocusReplay,
-  hasFailures = true,
-}: WhyButtonProps) {
+}: Omit<WhyButtonProps, 'hasFailures'>) {
   const [status, setStatus] = useState<Status>('idle')
   const [explanation, setExplanation] = useState<FailureExplanation | null>(null)
   const [noFailures, setNoFailures] = useState(false)
   const [errorInfo, setErrorInfo] = useState<ErrorInfo | null>(null)
-
-  // Reset state when session changes
-  useEffect(() => {
-    setStatus('idle')
-    setExplanation(null)
-    setNoFailures(false)
-    setErrorInfo(null)
-  }, [sessionId])
-
-  if (!hasFailures) return null
 
   const handleFetch = async () => {
     setStatus('loading')
@@ -51,7 +40,6 @@ export default function WhyButton({
       setExplanation(explanations[0])
       setStatus('loaded')
     } catch (err) {
-      // Extract meaningful error info
       let message = 'Analysis unavailable.'
       let isNetwork = false
 
@@ -59,7 +47,6 @@ export default function WhyButton({
         message = 'Network error. Check your connection and try again.'
         isNetwork = true
       } else if (err instanceof Error) {
-        // Try to extract status or message from API error
         const errStr = err.message.toLowerCase()
         if (errStr.includes('404') || errStr.includes('not found')) {
           message = 'Session not found or analysis not available.'
@@ -120,85 +107,25 @@ export default function WhyButton({
 
       {status === 'loaded' && explanation && (
         <div className="diagnosis-card">
-          {/* Failure mode + confidence */}
-          <div className="candidate-head">
-            <span className="failure-mode-badge">
-              {explanation.failure_mode.replaceAll('_', ' ')}
-            </span>
-            <span className="diagnosis-badge">
-              {confidencePercent}%
-            </span>
+          <div className="diagnosis-card__header">
+            <strong>{explanation.label}</strong>
+            <span>{confidencePercent}% confidence</span>
           </div>
-
-          {/* Symptom */}
-          <h3>{explanation.failure_headline}</h3>
-          <p>{explanation.symptom}</p>
-
-          {/* Likely cause */}
-          {explanation.likely_cause && (
-            <p className="likely-cause">{explanation.likely_cause}</p>
-          )}
-
-          {/* Narrative */}
-          {explanation.narrative && (
-            <div className="failure-narrative">
-              <p>{explanation.narrative}</p>
-            </div>
-          )}
-
-          {/* Candidates */}
-          {explanation.candidates.length > 0 && (
-            <div className="candidate-list">
-              {explanation.candidates.map((candidate) => (
-                <button
-                  key={candidate.event_id}
-                  type="button"
-                  className="candidate-card"
-                  onClick={() => onSelectEvent(candidate.event_id)}
-                >
-                  <div className="candidate-head">
-                    <span>{candidate.event_type.replaceAll('_', ' ')}</span>
-                    <span className="diagnosis-badge">
-                      {Math.round(candidate.score * 100)}%
-                    </span>
-                  </div>
-                  <h4>{candidate.headline}</h4>
-                  <p>{candidate.rationale}</p>
-                </button>
+          <p>{explanation.summary}</p>
+          {explanation.likely_causes.length > 0 && (
+            <ul className="diagnosis-list">
+              {explanation.likely_causes.map((cause) => (
+                <li key={cause}>{cause}</li>
               ))}
-            </div>
+            </ul>
           )}
-
-          {/* Supporting event chain */}
-          {explanation.supporting_event_ids.length > 0 && (
-            <div className="analysis-strip">
-              {explanation.supporting_event_ids.map((eventId) => (
-                <button
-                  key={eventId}
-                  type="button"
-                  className="reference-chip"
-                  onClick={() => onSelectEvent(eventId)}
-                >
-                  <span>supporting event</span>
-                  <strong>{eventId.slice(0, 8)}</strong>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Inspect likely cause */}
-          {explanation.likely_cause_event_id && (
-            <div className="analysis-strip">
-              <button
-                type="button"
-                className="reference-chip"
-                onClick={() => {
-                  onSelectEvent(explanation.likely_cause_event_id!)
-                  onFocusReplay(explanation.likely_cause_event_id!)
-                }}
-              >
-                <span>inspect likely cause</span>
-                <strong>{explanation.likely_cause_event_id.slice(0, 8)}</strong>
+          {explanation.event_id && (
+            <div className="diagnosis-actions">
+              <button type="button" onClick={() => onSelectEvent(explanation.event_id!)}>
+                Inspect event
+              </button>
+              <button type="button" onClick={() => onFocusReplay(explanation.event_id!)}>
+                Focus replay
               </button>
             </div>
           )}
@@ -206,4 +133,9 @@ export default function WhyButton({
       )}
     </div>
   )
+}
+
+export default function WhyButton({ hasFailures = true, ...props }: WhyButtonProps) {
+  if (!hasFailures) return null
+  return <WhyButtonInner key={props.sessionId} {...props} />
 }

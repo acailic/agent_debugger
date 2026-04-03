@@ -106,6 +106,21 @@ class EntityExtractor:
         event_id = event.get("id", "")
         session_id = event.get("session_id", "")
         timestamp = event.get("timestamp", "")
+        agent_name = (
+            event.get("agent_name")
+            or event_data.get("agent_name")
+            or event_metadata.get("agent_name")
+        )
+
+        if agent_name:
+            self._add_entity(
+                entities,
+                EntityType.AGENT_NAME,
+                agent_name,
+                event_id,
+                session_id,
+                timestamp,
+            )
 
         # Extract tool names
         tool_name = event_data.get("tool_name") or event_metadata.get("tool_name")

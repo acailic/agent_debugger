@@ -14,7 +14,7 @@ from fastapi.routing import APIRoute
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import api.main as api_main
-from agent_debugger_sdk.core.events import Checkpoint, Session, ToolCallEvent
+from agent_debugger_sdk.core.events import Checkpoint, EventType, Session, ToolCallEvent, TraceEvent
 from api import app_context
 from api import dependencies as api_dependencies
 from api import services as api_services
@@ -516,6 +516,40 @@ async def test_replay_returns_empty_payload_for_session_without_events(api_repo_
     assert response.checkpoints == []
     assert response.nearest_checkpoint is None
     assert response.focus_event_id == "event-1"
+
+
+@pytest.mark.asyncio
+async def test_replay_route_stops_at_first_visible_breakpoint(api_repo_factory):
+    replay_session = _get_route_endpoint("/api/sessions/{session_id}/replay", "GET")
+    session = Session(id="focus-breakpoint", agent_name="agent", framework="pytest")
+    root = TraceEvent(session_id=session.id, event_type=EventType.TOOL_CALL, name="root")
+    branch1 = TraceEvent(session_id=session.id, parent_id=root.id, event_type=EventType.TOOL_CALL, name="branch1")
+    branch1_error = TraceEvent(session_id=session.id, parent_id=branch1.id, event_type=EventType.ERROR, name="error1")
+    branch2 = TraceEvent(session_id=session.id, parent_id=root.id, event_type=EventType.TOOL_CALL, name="branch2")
+    branch2_error = TraceEvent(session_id=session.id, parent_id=branch2.id, event_type=EventType.ERROR, name="error2")
+
+    async with api_repo_factory() as db_session:
+        repo = TraceRepository(db_session)
+        await repo.create_session(session)
+        for event in (root, branch1, branch1_error, branch2, branch2_error):
+            await repo.add_event(event)
+
+        response = await replay_session(
+            session_id=session.id,
+            mode="focus",
+            focus_event_id=branch2_error.id,
+            breakpoint_event_types="error",
+            breakpoint_tool_names=None,
+            breakpoint_confidence_below=None,
+            breakpoint_safety_outcomes=None,
+            stop_at_breakpoint=True,
+            repo=repo,
+        )
+
+    assert [event.id for event in response.events] == [root.id, branch2.id, branch2_error.id]
+    assert [event.id for event in response.breakpoints] == [branch2_error.id]
+    assert response.stopped_at_breakpoint is True
+    assert response.stopped_at_index == 2
 
 
 @pytest.mark.asyncio

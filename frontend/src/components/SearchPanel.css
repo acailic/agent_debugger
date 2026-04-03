@@ -8,14 +8,14 @@
 
 .search-head {
   display: flex;
-  gap: 1rem;
+  gap: var(--space-md);
   justify-content: space-between;
   align-items: start;
 }
 
 .search-submit {
   padding: 0.85rem 1.15rem;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: color-mix(in oklch, var(--accent), white 22%);
   color: white;
   min-height: 44px;
@@ -46,13 +46,18 @@
   border: 1px solid var(--panel-border);
   background: color-mix(in oklch, var(--panel), white 55%);
   color: var(--text);
+  transition: border-color var(--duration-fast) var(--ease-out-quart),
+              box-shadow var(--duration-normal) var(--ease-out-quart),
+              background-color var(--duration-fast) var(--ease-out-quart);
 }
 
 .search-controls input:focus,
 .search-controls select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent), transparent 85%);
+  background-color: color-mix(in oklch, var(--panel), white 70%);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent), transparent 85%),
+              0 2px 8px color-mix(in oklch, var(--accent), transparent 20%);
 }
 
 .search-scope-switches {
@@ -94,18 +99,25 @@
   display: grid;
   gap: 0.35rem;
   width: 100%;
-  padding: 0.95rem 1rem;
+  padding: 0.95rem var(--space-md);
   border-radius: 1rem;
   border: 1px solid var(--panel-border);
   background: color-mix(in oklch, var(--panel), var(--bg-strong) 34%);
   border-left: 3px solid transparent;
   text-align: left;
   cursor: pointer;
-  transition: border-color 180ms ease, transform 180ms ease;
+  transition: border-color var(--duration-fast) var(--ease-out-quart),
+              transform var(--duration-fast) var(--ease-out-quart),
+              box-shadow var(--duration-normal) var(--ease-out-quart);
 }
 
 .search-result:hover {
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: var(--shadow-md);
+}
+
+.search-result:active {
+  transform: translateY(0) scale(0.99);
 }
 
 .search-result p {

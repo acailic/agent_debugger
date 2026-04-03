@@ -6,6 +6,7 @@ functionality over sessions and events with natural language query support.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any
 
@@ -67,6 +68,28 @@ class SessionSearchService:
         "completed": {"status": "completed", "query": "done finished"},
         "running": {"status": "running", "query": "active ongoing"},
     }
+    AGENT_NAME_PATTERNS = (
+        re.compile(r'\bagent\s+named\s+["\']?([\w-]+)["\']?', re.IGNORECASE),
+        re.compile(r'\bagent\s+["\']([^"\']+)["\']', re.IGNORECASE),
+        re.compile(r"\bagent\s+([\w-]+)\b", re.IGNORECASE),
+    )
+    AGENT_NAME_STOPWORDS = {
+        "a",
+        "an",
+        "and",
+        "for",
+        "got",
+        "has",
+        "in",
+        "is",
+        "named",
+        "or",
+        "stuck",
+        "that",
+        "the",
+        "where",
+        "with",
+    }
 
     def __init__(self, session: AsyncSession, tenant_id: str):
         """Initialize the search service with an async session and tenant_id.
@@ -108,11 +131,12 @@ class SessionSearchService:
                 if "query" in filters:
                     params["query"] = f"{query} {filters['query']}"
 
-        # Extract agent name if mentioned
-        import re
-        agent_match = re.search(r'agent\s+["\']?([\w-]+)["\']?', query_lower)
-        if agent_match:
-            params["agent_name"] = agent_match.group(1)
+        # Extract agent name only from explicit naming phrases like
+        # "agent my-agent" or "agent named my-agent". Avoid parsing
+        # "the agent got stuck..." into an agent filter.
+        agent_name = self._extract_agent_name(query)
+        if agent_name:
+            params["agent_name"] = agent_name
 
         # Extract tags if mentioned
         tag_matches = re.findall(r'tag:\s*([\w-]+)', query_lower)
@@ -120,6 +144,17 @@ class SessionSearchService:
             params["tags"] = tag_matches
 
         return params
+
+    def _extract_agent_name(self, query: str) -> str | None:
+        """Extract an explicitly named agent from a natural language query."""
+        for pattern in self.AGENT_NAME_PATTERNS:
+            match = pattern.search(query)
+            if not match:
+                continue
+            agent_name = match.group(1).strip().strip("\"'")
+            if agent_name.lower() not in self.AGENT_NAME_STOPWORDS:
+                return agent_name
+        return None
 
     async def search_sessions(
         self,

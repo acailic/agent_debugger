@@ -1,5 +1,7 @@
 import type { TraceEvent } from '../types'
 import { formatDuration, formatTime } from '../utils/formatting'
+import { useState } from 'react'
+import './ToolInspector.css'
 
 interface ToolInspectorProps {
   event: TraceEvent | null
@@ -27,6 +29,9 @@ function highlightJSON(obj: unknown): string {
 }
 
 export function ToolInspector({ event }: ToolInspectorProps) {
+  const [argumentsExpanded, setArgumentsExpanded] = useState(true)
+  const [resultExpanded, setResultExpanded] = useState(true)
+
   if (!event) {
     return (
       <div className="tool-inspector empty">
@@ -93,8 +98,13 @@ export function ToolInspector({ event }: ToolInspectorProps) {
       </div>
 
       {hasArguments && (
-        <div className="tool-section">
-          <h4>Arguments</h4>
+        <div className={`tool-section ${!argumentsExpanded ? 'collapsed' : ''}`}>
+          <h4
+            onClick={() => setArgumentsExpanded(!argumentsExpanded)}
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+          >
+            {argumentsExpanded ? '▼' : '▶'} Arguments
+          </h4>
           <pre
             className="code-block json"
             dangerouslySetInnerHTML={{ __html: highlightJSON(arguments_) }}
@@ -103,8 +113,13 @@ export function ToolInspector({ event }: ToolInspectorProps) {
       )}
 
       {isToolResult && (
-        <div className={`tool-section ${isError ? 'error' : ''}`}>
-          <h4>{isError ? 'Error' : 'Result'}</h4>
+        <div className={`tool-section ${isError ? 'error' : ''} ${!resultExpanded ? 'collapsed' : ''}`}>
+          <h4
+            onClick={() => setResultExpanded(!resultExpanded)}
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+          >
+            {resultExpanded ? '▼' : '▶'} {isError ? 'Error' : 'Result'}
+          </h4>
           {isError ? (
             <div className="error-message">
               <span className="error-icon">⚠️</span>

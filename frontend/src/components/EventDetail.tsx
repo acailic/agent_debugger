@@ -38,9 +38,20 @@ export function EventDetail({
   }
 
   const isBlockedEvent = BLOCKED_EVENT_TYPES.includes(event.event_type)
+  const isRepairAttempt = event.event_type === 'repair_attempt'
+  const repairSequenceEvents = isRepairAttempt && event.repair_sequence_id
+    ? [...eventLookup.values()]
+      .filter((candidate) => candidate.event_type === 'repair_attempt' && candidate.repair_sequence_id === event.repair_sequence_id)
+      .sort((left, right) => new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime())
+    : isRepairAttempt
+      ? [event]
+      : []
+  const currentRepairIndex = repairSequenceEvents.findIndex((candidate) => candidate.id === event.id)
+  const priorRepairEvents = currentRepairIndex > 0 ? repairSequenceEvents.slice(0, currentRepairIndex) : []
+  const priorFailedRepairEvents = priorRepairEvents.filter((candidate) => candidate.repair_outcome === 'failure')
 
   return (
-    <section className="event-detail panel panel--primary">
+    <section className="event-detail panel panel--primary fade-in">
       {highlight && (
         <div className="highlight-info-card">
           <h4>Why highlighted</h4>
@@ -160,6 +171,41 @@ export function EventDetail({
           <div>
             <h3>Reasoning</h3>
             <p>{event.reasoning}</p>
+          </div>
+        )}
+        {isRepairAttempt && (
+          <div>
+            <h3>Repair Attempt</h3>
+            <div className="analysis-strip">
+              <span>Outcome {event.repair_outcome ?? 'failure'}</span>
+              <span>Sequence {event.repair_sequence_id ?? 'standalone'}</span>
+              <span>Prior attempts {priorRepairEvents.length}</span>
+              <span>Prior failed {priorFailedRepairEvents.length}</span>
+            </div>
+            {event.attempted_fix && <p><strong>Attempted fix:</strong> {event.attempted_fix}</p>}
+            {event.validation_result && <p><strong>Validation:</strong> {event.validation_result}</p>}
+            {event.repair_diff && (
+              <div>
+                <h3>Repair Diff</h3>
+                <pre>{event.repair_diff}</pre>
+              </div>
+            )}
+            {repairSequenceEvents.length > 1 && (
+              <EventReferenceList
+                title="Repair Sequence"
+                eventIds={repairSequenceEvents.map((candidate) => candidate.id)}
+                eventLookup={eventLookup}
+                onSelectEvent={onSelectEvent}
+              />
+            )}
+            {priorRepairEvents.length > 0 && (
+              <EventReferenceList
+                title="Prior Repair Attempts"
+                eventIds={priorRepairEvents.map((candidate) => candidate.id)}
+                eventLookup={eventLookup}
+                onSelectEvent={onSelectEvent}
+              />
+            )}
           </div>
         )}
         {isBlockedEvent && (
