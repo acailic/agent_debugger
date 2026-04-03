@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from api.config import MAX_SESSIONS_PER_PAGE, MAX_TRACES_PER_REQUEST
 from api.dependencies import get_repository
+from api.exceptions import ValidationError
 from api.schemas import (
     CheckpointDeltaSchema,
     CheckpointDeltasResponse,
@@ -34,6 +35,38 @@ from api.services import (
 from storage import TraceRepository
 
 router = APIRouter(tags=["sessions"])
+
+
+def _normalize_datetime(value: datetime | None) -> datetime | None:
+    """Normalize datetimes so persisted naive UTC values compare safely with request payloads."""
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
+def _validate_session_update_request(current_session, update: SessionUpdateRequest) -> None:
+    """Validate an update against the current persisted session state."""
+    effective_started_at = _normalize_datetime(
+        update.started_at if update.started_at is not None else current_session.started_at
+    )
+    effective_ended_at = _normalize_datetime(
+        update.ended_at if update.ended_at is not None else current_session.ended_at
+    )
+
+    if (
+        effective_started_at is not None
+        and effective_ended_at is not None
+        and effective_ended_at < effective_started_at
+    ):
+        raise ValidationError("ended_at must be greater than or equal to started_at")
+
+    if update.status is None or update.status == current_session.status:
+        return
+
+    if current_session.status != "running" and update.status == "running":
+        raise ValidationError(f"Cannot transition session from {current_session.status} to {update.status}")
 
 
 @router.get("/api/sessions", response_model=SessionListResponse)
@@ -70,10 +103,12 @@ async def update_session(
     update: SessionUpdateRequest,
     repo: TraceRepository = Depends(get_repository),
 ) -> SessionDetailResponse:
+    current_session = await require_session(repo, session_id)
+    _validate_session_update_request(current_session, update)
     update_data = update.model_dump(exclude_none=True)
     session = await repo.update_session(session_id, **update_data)
     if session is None:
-        session = await require_session(repo, session_id)
+        session = current_session
     else:
         await repo.commit()
     return SessionDetailResponse(session=normalize_session(session))

@@ -119,17 +119,15 @@ class SessionSearchService:
         return [orm_to_event(db) for db in result.scalars()]
 
     async def _load_candidate_sessions(self, *, status: str | None) -> list[SessionModel]:
-        """Fetch recent tenant-scoped sessions without eager-loading all events.
+        """Fetch tenant-scoped sessions without eager-loading all events.
 
         Events are loaded lazily on demand in _score_session to avoid the
         O(n*m) cost of eagerly loading every event for every candidate session.
         """
-        candidate_limit = 500
         stmt = (
             select(SessionModel)
             .where(SessionModel.tenant_id == self.tenant_id)
             .order_by(SessionModel.started_at.desc())
-            .limit(candidate_limit)
         )
         if status:
             stmt = stmt.where(SessionModel.status == status)

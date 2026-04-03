@@ -1,6 +1,6 @@
 """Tests for semantic session search functionality."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -186,6 +186,62 @@ async def test_search_respects_limit(db_session):
 
     # Should return at most 2 results
     assert len(results) <= 2
+
+
+@pytest.mark.asyncio
+async def test_search_finds_older_matching_sessions_beyond_recent_candidate_window(db_session):
+    """Older matching sessions should remain searchable even with many newer sessions."""
+    repo = TraceRepository(db_session, tenant_id="tenant-a")
+
+    old_session = Session(
+        id="older-target",
+        agent_name="agent",
+        framework="pytest",
+        started_at=datetime.now(timezone.utc) - timedelta(days=30),
+        status=SessionStatus.ERROR,
+        config={"mode": "test"},
+        tags=["coverage"],
+    )
+    await repo.create_session(old_session)
+    await repo.add_event(
+        TraceEvent(
+            id="older-target-event",
+            session_id="older-target",
+            name="error_occurred",
+            event_type=EventType.ERROR,
+            timestamp=datetime.now(timezone.utc) - timedelta(days=30),
+            data={"error_type": "RareError", "error_message": "rare needle failure"},
+        )
+    )
+
+    base_time = datetime.now(timezone.utc)
+    for index in range(500):
+        session = Session(
+            id=f"recent-session-{index}",
+            agent_name="agent",
+            framework="pytest",
+            started_at=base_time - timedelta(minutes=index),
+            status=SessionStatus.ERROR,
+            config={"mode": "test"},
+            tags=["coverage"],
+        )
+        await repo.create_session(session)
+        await repo.add_event(
+            TraceEvent(
+                id=f"recent-event-{index}",
+                session_id=session.id,
+                name="tool_called",
+                event_type=EventType.TOOL_CALL,
+                timestamp=base_time - timedelta(minutes=index),
+                data={"tool_name": "common_tool", "model": "gpt-4"},
+            )
+        )
+
+    await repo.commit()
+
+    results = await repo.search_sessions("rare needle")
+
+    assert any(session.id == "older-target" for session in results)
 
 
 @pytest.mark.asyncio

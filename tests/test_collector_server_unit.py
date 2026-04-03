@@ -29,6 +29,7 @@ from agent_debugger_sdk.core.events import (
     TraceEvent,
 )
 from storage import Base, TraceRepository
+from tests.helpers.fakes import FakeEventBuffer, FakeRedactionPipeline
 
 
 @pytest.fixture
@@ -358,7 +359,7 @@ async def test_ingest_trace_without_storage_scores_and_publishes(monkeypatch):
         patch("collector.server.get_importance_scorer", return_value=scorer),
         patch(
             "collector.server._persist_event_if_configured",
-            side_effect=lambda event, tenant_id="local": persisted.append((tenant_id, event.importance)),
+            side_effect=lambda event, tenant_id="local", **_: persisted.append((tenant_id, event.importance)),
         ) as persist,
     ):
         response = await collector_server.ingest_trace(event_data, request=SimpleNamespace(headers={}))
@@ -401,6 +402,69 @@ async def test_ingest_trace_with_storage_resolves_tenant_and_publishes(collector
 
     assert len(events) == 1
     assert events[0].tool_name == "search"
+
+
+@pytest.mark.asyncio
+async def test_ingest_trace_accepts_explicit_dependencies_without_global_patching():
+    event_data = collector_server.TraceEventIngest(
+        session_id="session-injected",
+        event_type="tool_call",
+        data={"tool_name": "search", "arguments": {"q": "Belgrade"}},
+    )
+    buffer = FakeEventBuffer()
+    scorer = SimpleNamespace(score=MagicMock(return_value=0.9))
+    dependencies = collector_server.CollectorDependencies(
+        session_maker=None,
+        buffer=buffer,
+        scorer=scorer,
+        tenant_resolver=AsyncMock(return_value="unused"),
+        redaction_pipeline_factory=FakeRedactionPipeline,
+    )
+
+    response = await collector_server._ingest_trace(
+        event_data,
+        request=SimpleNamespace(headers={}),
+        dependencies=dependencies,
+    )
+
+    assert response.status == "queued"
+    events = await buffer.get_events("session-injected")
+    assert len(events) == 1
+    assert events[0].importance == 0.9
+
+
+@pytest.mark.asyncio
+async def test_create_session_accepts_explicit_dependencies(collector_repo_factory):
+    request = SimpleNamespace(headers={})
+    dependencies = collector_server.CollectorDependencies(
+        session_maker=collector_repo_factory,
+        buffer=FakeEventBuffer(),
+        scorer=SimpleNamespace(score=MagicMock()),
+        tenant_resolver=AsyncMock(return_value="tenant-a"),
+        redaction_pipeline_factory=FakeRedactionPipeline,
+    )
+
+    persisted = await collector_server._create_session(
+        collector_server.SessionCreate(
+            id="injected-session",
+            agent_name="agent",
+            framework="pytest",
+            config={"mode": "test"},
+            tags=["coverage"],
+        ),
+        request=request,
+        dependencies=dependencies,
+    )
+
+    assert persisted.id == "injected-session"
+
+    async with collector_repo_factory() as db_session:
+        repo = TraceRepository(db_session, tenant_id="tenant-a")
+        stored = await repo.get_session("injected-session")
+
+    assert stored is not None
+    assert stored.config == {"mode": "test"}
+    assert stored.tags == ["coverage"]
 
 
 @pytest.mark.asyncio

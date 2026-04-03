@@ -297,6 +297,71 @@ async def test_update_session_multiple_fields():
 
 
 @pytest.mark.asyncio
+async def test_update_session_started_at_persists():
+    """Test updating started_at applies the change instead of being silently ignored."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        from api import app_context
+
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            await repo.create_session(_make_session("started-at-update-session"))
+            await db_session.commit()
+
+        resp = await client.put(
+            "/api/sessions/started-at-update-session",
+            json={"started_at": "2026-03-26T09:30:00Z"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+
+        assert data["session"]["started_at"] == "2026-03-26T09:30:00Z"
+
+
+@pytest.mark.asyncio
+async def test_update_session_rejects_terminal_status_transition():
+    """Test terminal sessions cannot transition back to running."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        from api import app_context
+
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            await repo.create_session(_make_session("terminal-status-session", status=SessionStatus.COMPLETED))
+            await db_session.commit()
+
+        resp = await client.put(
+            "/api/sessions/terminal-status-session",
+            json={"status": "running"},
+        )
+        assert resp.status_code == 422
+        assert "Cannot transition session from completed to running" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_update_session_rejects_ended_at_before_existing_started_at():
+    """Test partial updates still validate timestamps against persisted started_at."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        from api import app_context
+
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            await repo.create_session(_make_session("timestamp-window-session"))
+            await db_session.commit()
+
+        resp = await client.put(
+            "/api/sessions/timestamp-window-session",
+            json={"ended_at": "2026-03-26T09:00:00Z"},
+        )
+        assert resp.status_code == 422
+        assert "ended_at must be greater than or equal to started_at" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
 async def test_update_session_not_found():
     """Test updating a nonexistent session."""
     app = create_app()

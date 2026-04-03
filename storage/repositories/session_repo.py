@@ -133,6 +133,7 @@ class SessionRepository:
         valid_fields = {
             "agent_name",
             "framework",
+            "started_at",
             "ended_at",
             "status",
             "total_tokens",
