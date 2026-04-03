@@ -79,7 +79,10 @@ SESSION_ENRICHMENT = {
         "total_tokens": 354,
         "total_cost_usd": 0.0029,
         "retention_tier": "summarized",
-        "fix_note": "Recent refusal kept for investigation because the underlying balance snapshot race is still active.",
+        "fix_note": (
+            "Recent refusal kept for investigation because the underlying "
+            "balance snapshot race is still active."
+        ),
         "errors": 0,
         "behavior_alerts": 0,
     },

@@ -36,6 +36,11 @@ def _reconfigure_noop_pipeline():
     configure_event_pipeline(None, persist_event=_noop_persist)
     yield
 
+
+# Apply longer timeout to all benchmark tests since they run async
+# and may experience overhead from xdist parallel execution.
+pytestmark = [pytest.mark.timeout(60)]
+
 from agent_debugger_sdk.core.events import (  # noqa: E402
     EventType,
 )

@@ -12,15 +12,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import uuid
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy import update
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from agent_debugger_sdk.core.context import configure_event_pipeline
 from agent_debugger_sdk.core.events import Checkpoint, Session, TraceEvent
 from benchmarks import (
     DEFAULT_SEED_SESSION_IDS,
-    SeedSession,
     SESSION_ENRICHMENT,
+    SeedSession,
     iter_seed_scenarios,
     validate_session_enrichment,
 )
@@ -111,7 +111,10 @@ async def enrich_session(session_id: str, session_maker: async_sessionmaker[Asyn
         await db_session.commit()
 
 
-async def apply_seed_session_overrides(seed_session: SeedSession, session_maker: async_sessionmaker[AsyncSession]) -> None:
+async def apply_seed_session_overrides(
+    seed_session: SeedSession,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
     """Persist any benchmark-provided session and timestamp overrides."""
     if not seed_session.session_overrides:
         return

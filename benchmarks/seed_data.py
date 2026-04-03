@@ -56,7 +56,10 @@ def _retime_records(records: list[TraceEvent | Checkpoint], *, age_days: int) ->
     if not timestamps:
         return {"started_at": target_end, "ended_at": target_end}
 
-    current_end = max(timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=timezone.utc) for timestamp in timestamps)
+    current_end = max(
+        timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=timezone.utc)
+        for timestamp in timestamps
+    )
     delta = target_end - current_end
 
     for record in records:
@@ -473,10 +476,16 @@ async def run_replay_breakpoints_session(session_id: str | None = None) -> SeedS
         )
         decision_id = await ctx.record_decision(
             name="Decision: low-confidence refund path",
-            reasoning="Eligibility lookup is stale, but the request appears urgent enough to keep evaluating a refund path.",
+            reasoning=(
+                "Eligibility lookup is stale, but the request appears urgent "
+                "enough to keep evaluating a refund path."
+            ),
             confidence=0.24,
             evidence=[
-                {"source": "payments.lookup_refund_eligibility", "content": "Eligibility unknown; approval token missing."},
+                {
+                    "source": "payments.lookup_refund_eligibility",
+                    "content": "Eligibility unknown; approval token missing.",
+                },
             ],
             evidence_event_ids=[tool_result_id],
             chosen_action="prepare_refund_execution",
@@ -557,11 +566,19 @@ async def _run_retention_failure_session(session_id: str, *, age_days: int) -> S
             upstream_event_ids=[tool_call_id],
             parent_id=tool_call_id,
         )
-        decision_id = await ctx.record_decision(
+        await ctx.record_decision(
             name="Decision: tentative credit adjustment path",
-            reasoning="The request looks plausible, but the adjustment should wait until the balance snapshot stabilizes.",
+            reasoning=(
+                "The request looks plausible, but the adjustment should wait "
+                "until the balance snapshot stabilizes."
+            ),
             confidence=0.8,
-            evidence=[{"source": "billing.lookup_credit_status", "content": "Balance snapshot missing; eligibility cannot be confirmed."}],
+            evidence=[
+                {
+                    "source": "billing.lookup_credit_status",
+                    "content": "Balance snapshot missing; eligibility cannot be confirmed.",
+                }
+            ],
             evidence_event_ids=[tool_result_id],
             chosen_action="queue_manual_credit_review",
             upstream_event_ids=[tool_result_id],
@@ -652,7 +669,10 @@ async def run_repair_memory_session(session_id: str | None = None) -> SeedSessio
             importance=0.93,
         )
         await ctx.record_decision(
-            reasoning="Prior retries and timeout-only changes failed; preflight plus backoff resolved the upstream dependency issue.",
+            reasoning=(
+                "Prior retries and timeout-only changes failed; preflight plus "
+                "backoff resolved the upstream dependency issue."
+            ),
             confidence=0.79,
             evidence=[
                 {"source": "repair_validation", "content": "Preflight + backoff removed timeout failures in replay."},
