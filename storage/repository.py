@@ -410,21 +410,44 @@ class TraceRepository:
         query: str,
         *,
         status: str | None = None,
+        event_type: str | None = None,
+        agent_name: str | None = None,
+        tags: list[str] | None = None,
+        started_after: datetime | None = None,
+        started_before: datetime | None = None,
+        min_errors: int | None = None,
         limit: int = 20,
     ) -> list[Session]:
-        """Search sessions by semantic similarity to a text query.
+        """Search sessions by semantic similarity to a text query with advanced filters.
 
         Delegates to SessionSearchService.search_sessions for backward compatibility.
 
         Args:
             query: Search query text
             status: Optional session status to filter by (e.g., "error", "completed")
+            event_type: Optional event type to filter sessions by
+            agent_name: Optional agent name to filter by
+            tags: Optional list of tags to filter sessions by (sessions must have at least one)
+            started_after: Optional start time filter (sessions started after this datetime)
+            started_before: Optional start time filter (sessions started before this datetime)
+            min_errors: Minimum error count for sessions to include
             limit: Maximum number of results to return
 
         Returns:
-            List of Session instances with search_similarity attribute set, ranked by similarity
+            List of Session instances with search_similarity and search_highlights attributes set,
+            ranked by similarity
         """
-        return await self.search.search_sessions(query, status=status, limit=limit)
+        return await self.search.search_sessions(
+            query,
+            status=status,
+            event_type=event_type,
+            agent_name=agent_name,
+            tags=tags,
+            started_after=started_after,
+            started_before=started_before,
+            min_errors=min_errors,
+            limit=limit,
+        )
 
     async def search_events(
         self,

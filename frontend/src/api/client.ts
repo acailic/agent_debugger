@@ -9,6 +9,7 @@ import type {
   SearchResponse,
   Session,
   SessionCost,
+  SimilarFailuresResponse,
   TraceAnalysis,
   TraceBundle,
   TraceSearchResponse,
@@ -339,4 +340,17 @@ export async function addFixNote(sessionId: string, note: string) {
     throw new Error(`API error: ${response.status} ${response.statusText}`)
   }
   return response.json() as Promise<FixNoteResponse>
+}
+
+export async function getSimilarFailures(params: {
+  sessionId: string
+  failureEventId: string
+  limit?: number
+}) {
+  const search = new URLSearchParams()
+  search.set('failure_event_id', params.failureEventId)
+  if (params.limit) search.set('limit', String(params.limit))
+  return fetchJSON<SimilarFailuresResponse>(
+    `${API_BASE}/sessions/${params.sessionId}/similar-failures?${search.toString()}`
+  )
 }

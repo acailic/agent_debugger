@@ -184,3 +184,233 @@ async def record_analytics_event(request: RecordEventRequest) -> RecordEventResp
         properties=request.properties,
     )
     return RecordEventResponse(recorded=True, event_type=request.event_type)
+
+
+# =============================================================================
+# Pattern Detection API Routes
+# =============================================================================
+
+
+class PatternSchema(BaseModel):
+    """Schema for detected patterns."""
+
+    id: str = Field(..., description="Pattern ID")
+    pattern_type: str = Field(..., description="Type of pattern")
+    agent_name: str = Field(..., description="Agent affected by pattern")
+    severity: str = Field(..., description="Severity level")
+    status: str = Field(..., description="Pattern status")
+    description: str = Field(..., description="Pattern description")
+    affected_sessions: list[str] = Field(..., description="Affected session IDs")
+    session_count: int = Field(..., description="Number of affected sessions")
+    detected_at: str = Field(..., description="When pattern was detected")
+    baseline_value: float | None = Field(None, description="Baseline metric value")
+    current_value: float | None = Field(None, description="Current metric value")
+    threshold: float | None = Field(None, description="Threshold exceeded")
+    change_percent: float | None = Field(None, description="Percentage change")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+
+
+class PatternsListResponse(BaseModel):
+    """Response schema for listing patterns."""
+
+    patterns: list[PatternSchema]
+    total: int
+    filters_applied: dict[str, Any] = Field(default_factory=dict)
+
+
+class PatternDetailResponse(BaseModel):
+    """Response schema for pattern details."""
+
+    pattern: PatternSchema
+
+
+class HealthReportSchema(BaseModel):
+    """Schema for agent health report."""
+
+    generated_at: str
+    overall_health_score: float
+    agent_summary: str
+    total_patterns: int
+    patterns_by_severity: dict[str, int]
+    patterns_by_type: dict[str, int]
+    critical_patterns: list[dict[str, Any]]
+    top_issues: list[dict[str, Any]]
+    recommendations: list[str]
+    affected_agents: list[str]
+    trend_metrics: dict[str, Any]
+
+
+@router.get("/api/analytics/patterns", response_model=PatternsListResponse)
+async def get_patterns(
+    agent_name: str | None = Query(default=None, description="Filter by agent name"),
+    pattern_type: str | None = Query(default=None, description="Filter by pattern type"),
+    severity: str | None = Query(default=None, description="Filter by severity"),
+    status: str | None = Query(default="active", description="Filter by status"),
+    hours: int | None = Query(default=None, description="Only return patterns from last N hours"),
+    limit: int = Query(default=50, ge=1, le=200, description="Maximum results to return"),
+) -> PatternsListResponse:
+    """Get detected patterns across sessions.
+
+    Returns patterns matching the specified filters, ordered by detection time.
+    Supports filtering by agent, pattern type, severity, status, and time range.
+    """
+    from api.dependencies import get_repository
+    from storage import TraceRepository
+
+    repo: TraceRepository = get_repository()
+
+    # Use the pattern repository through the session
+    from storage.repositories.pattern_repo import PatternRepository
+
+    pattern_repo = PatternRepository(repo.session, repo.tenant_id)
+
+    patterns = await pattern_repo.get_recent_patterns(
+        pattern_type=pattern_type,
+        severity=severity,
+        status=status,
+        hours=hours,
+        limit=limit,
+    )
+
+    # Convert to schema
+    pattern_schemas = [
+        PatternSchema(
+            id=p.id,
+            pattern_type=p.pattern_type,
+            agent_name=p.agent_name,
+            severity=p.severity,
+            status=p.status,
+            description=p.description,
+            affected_sessions=p.affected_sessions,
+            session_count=p.session_count,
+            detected_at=p.detected_at.isoformat(),
+            baseline_value=p.baseline_value,
+            current_value=p.current_value,
+            threshold=p.threshold,
+            change_percent=p.change_percent,
+            metadata=p.pattern_data,
+        )
+        for p in patterns
+    ]
+
+    # Build filters applied dict
+    filters_applied = {}
+    if agent_name:
+        # Filter in-memory (or we could add agent filter to get_recent_patterns)
+        pattern_schemas = [p for p in pattern_schemas if p.agent_name == agent_name]
+        filters_applied["agent_name"] = agent_name
+
+    return PatternsListResponse(
+        patterns=pattern_schemas,
+        total=len(pattern_schemas),
+        filters_applied=filters_applied,
+    )
+
+
+@router.get("/api/analytics/patterns/{pattern_id}", response_model=PatternDetailResponse)
+async def get_pattern_detail(
+    pattern_id: str,
+) -> PatternDetailResponse:
+    """Get detailed information about a specific pattern.
+
+    Returns full pattern details including affected sessions list.
+    """
+    from api.dependencies import get_repository
+    from storage import TraceRepository
+    from storage.repositories.pattern_repo import PatternRepository
+
+    repo: TraceRepository = get_repository()
+    pattern_repo = PatternRepository(repo.session, repo.tenant_id)
+
+    pattern = await pattern_repo.get_pattern(pattern_id)
+    if pattern is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail=f"Pattern {pattern_id} not found")
+
+    pattern_schema = PatternSchema(
+        id=pattern.id,
+        pattern_type=pattern.pattern_type,
+        agent_name=pattern.agent_name,
+        severity=pattern.severity,
+        status=pattern.status,
+        description=pattern.description,
+        affected_sessions=pattern.affected_sessions,
+        session_count=pattern.session_count,
+        detected_at=pattern.detected_at.isoformat(),
+        baseline_value=pattern.baseline_value,
+        current_value=pattern.current_value,
+        threshold=pattern.threshold,
+        change_percent=pattern.change_percent,
+        metadata=pattern.pattern_data,
+    )
+
+    return PatternDetailResponse(pattern=pattern_schema)
+
+
+@router.get("/api/analytics/health-report", response_model=HealthReportSchema)
+async def get_health_report(
+    agent_name: str | None = Query(default=None, description="Filter by agent name"),
+    hours: int | None = Query(default=24, ge=1, le=168, description="Look at patterns from last N hours"),
+) -> HealthReportSchema:
+    """Generate agent health report from detected patterns.
+
+    Analyzes patterns from the specified time window and generates
+    a comprehensive health report with:
+    - Overall health score (0-100)
+    - Pattern summary by type and severity
+    - Critical patterns requiring attention
+    - Top issues with recommendations
+    - Actionable next steps
+    """
+    from api.dependencies import get_repository
+    from collector.patterns import generate_health_report
+    from storage import TraceRepository
+    from storage.repositories.pattern_repo import PatternRepository
+
+    repo: TraceRepository = get_repository()
+    pattern_repo = PatternRepository(repo.session, repo.tenant_id)
+
+    # Get recent patterns
+    patterns = await pattern_repo.get_recent_patterns(hours=hours, status="active")
+
+    # Filter by agent if specified
+    if agent_name:
+        patterns = [p for p in patterns if p.agent_name == agent_name]
+
+    # Convert PatternModel to Pattern objects
+    from collector.patterns.pattern_detector import Pattern as DetectorPattern
+
+    detector_patterns = [
+        DetectorPattern(
+            pattern_type=p.pattern_type,
+            agent_name=p.agent_name,
+            severity=p.severity,
+            description=p.description,
+            affected_sessions=p.affected_sessions,
+            detected_at=p.detected_at,
+            baseline_value=p.baseline_value,
+            current_value=p.current_value,
+            threshold=p.threshold,
+            change_percent=p.change_percent,
+            metadata=p.pattern_data,
+        )
+        for p in patterns
+    ]
+
+    # Generate health report
+    report = generate_health_report(detector_patterns)
+
+    return HealthReportSchema(
+        generated_at=report.generated_at.isoformat(),
+        overall_health_score=report.overall_health_score,
+        agent_summary=report.agent_summary,
+        total_patterns=report.total_patterns,
+        patterns_by_severity=report.patterns_by_severity,
+        patterns_by_type=report.patterns_by_type,
+        critical_patterns=report.critical_patterns,
+        top_issues=report.top_issues,
+        recommendations=report.recommendations,
+        affected_agents=report.affected_agents,
+        trend_metrics=report.trend_metrics,
+    )

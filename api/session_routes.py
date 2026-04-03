@@ -21,12 +21,14 @@ from api.schemas import (
     SessionDetailResponse,
     SessionListResponse,
     SessionUpdateRequest,
+    SimilarFailuresResponse,
     TraceListResponse,
 )
 from api.services import (
     compute_checkpoint_deltas,
     enrich_sessions_for_listing,
     event_generator,
+    find_similar_failures,
     normalize_checkpoint,
     normalize_event,
     normalize_session,
@@ -237,3 +239,26 @@ async def add_fix_note(
     if updated_session:
         await repo.commit()
     return FixNoteResponse(session_id=session_id, fix_note=request.note)
+
+
+@router.get("/api/sessions/{session_id}/similar-failures", response_model=SimilarFailuresResponse)
+async def get_similar_failures(
+    session_id: str,
+    failure_event_id: str,
+    limit: int = Query(default=5, ge=1, le=10),
+    repo: TraceRepository = Depends(get_repository),
+) -> SimilarFailuresResponse:
+    """Get historically similar failures for a given failure event.
+
+    Returns sessions with similar failure types and error patterns,
+    including their root causes and fix notes if available.
+    """
+    await require_session(repo, session_id)
+    similar_failures = await find_similar_failures(repo, session_id, failure_event_id, limit)
+
+    return SimilarFailuresResponse(
+        session_id=session_id,
+        failure_event_id=failure_event_id,
+        similar_failures=similar_failures,
+        total=len(similar_failures),
+    )

@@ -123,3 +123,39 @@ class FailureClusterModel(Base):
     sample_failure_mode: Mapped[str | None] = mapped_column(String(64), nullable=True)
     sample_symptom: Mapped[str | None] = mapped_column(String(512), nullable=True)
     avg_severity: Mapped[float] = mapped_column(Float, default=0.0)
+
+
+class PatternModel(Base):
+    """SQLAlchemy ORM model for detected patterns across sessions."""
+
+    __tablename__ = "patterns"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), nullable=False, default="local", index=True)
+    pattern_type: Mapped[str] = mapped_column(
+        String(32),
+        index=True,
+    )  # error_trend, tool_failure, confidence_drop, new_failure_mode
+    agent_name: Mapped[str] = mapped_column(String(255), index=True)
+    severity: Mapped[str] = mapped_column(String(16), default="warning")  # warning, critical
+    status: Mapped[str] = mapped_column(String(32), default="active")  # active, resolved, dismissed
+    detected_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc), index=True)
+    description: Mapped[str] = mapped_column(Text)
+    affected_sessions: Mapped[list[str]] = mapped_column(JSON, default=list)  # List of session IDs
+    session_count: Mapped[int] = mapped_column(default=0)
+    pattern_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)  # Pattern-specific data
+    # Pattern trend fields
+    baseline_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    current_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    threshold: Mapped[float | None] = mapped_column(Float, nullable=True)
+    change_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Resolution tracking
+    resolved_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    resolved_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    __table_args__ = (
+        Index("ix_patterns_tenant_type", "tenant_id", "pattern_type"),
+        Index("ix_patterns_tenant_agent", "tenant_id", "agent_name"),
+        Index("ix_patterns_tenant_severity", "tenant_id", "severity"),
+        Index("ix_patterns_tenant_status", "tenant_id", "status"),
+    )

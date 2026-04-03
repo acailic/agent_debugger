@@ -21,6 +21,7 @@ from api.analytics_routes import router as analytics_router
 from api.auth_routes import router as auth_router
 from api.comparison_routes import router as comparison_router
 from api.cost_routes import router as cost_router
+from api.entity_routes import router as entity_router
 from api.exceptions import AppError
 from api.middleware import ContentTypeValidationMiddleware, LoggingMiddleware, RequestIDMiddleware
 from api.replay_routes import router as replay_router
@@ -131,6 +132,7 @@ def create_app() -> FastAPI:
     app.include_router(comparison_router)
     app.include_router(cost_router)
     app.include_router(search_router)
+    app.include_router(entity_router)
     app.include_router(system_router)
     app.include_router(ui_router)
 

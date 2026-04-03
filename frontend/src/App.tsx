@@ -17,6 +17,7 @@ import { MultiAgentCoordinationPanelMemo } from './components/MultiAgentCoordina
 import { SearchPanel } from './components/SearchPanel'
 import { SessionReplay } from './components/SessionReplay'
 import { SessionRailMemo } from './components/SessionRail'
+import { SimilarFailuresPanelMemo } from './components/SimilarFailuresPanel'
 import { ToolInspector } from './components/ToolInspector'
 import { TraceTimelineMemo } from './components/TraceTimeline'
 import WhyButton from './components/WhyButton'
@@ -82,13 +83,14 @@ function App() {
   )
 
   // UI state
-  const { activeTab, selectedEventId, focusEventId, selectedCheckpointId, currentHighlightIndex, compareLoading, error, driftData, driftLoading } = useSessionStore(
+  const { activeTab, selectedEventId, focusEventId, selectedCheckpointId, currentHighlightIndex, showBlockedActions, compareLoading, error, driftData, driftLoading } = useSessionStore(
     useShallow((state) => ({
       activeTab: state.activeTab,
       selectedEventId: state.selectedEventId,
       focusEventId: state.focusEventId,
       selectedCheckpointId: state.selectedCheckpointId,
       currentHighlightIndex: state.currentHighlightIndex,
+      showBlockedActions: state.showBlockedActions,
       compareLoading: state.compareLoading,
       error: state.error,
       driftData: state.driftData,
@@ -129,13 +131,14 @@ function App() {
     }))
   )
 
-  const { setActiveTab, setSelectedEventId, setFocusEventId, setSelectedCheckpointId, setCurrentHighlightIndex } = useSessionStore(
+  const { setActiveTab, setSelectedEventId, setFocusEventId, setSelectedCheckpointId, setCurrentHighlightIndex, setShowBlockedActions } = useSessionStore(
     useShallow((state) => ({
       setActiveTab: state.setActiveTab,
       setSelectedEventId: state.setSelectedEventId,
       setFocusEventId: state.setFocusEventId,
       setSelectedCheckpointId: state.setSelectedCheckpointId,
       setCurrentHighlightIndex: state.setCurrentHighlightIndex,
+      setShowBlockedActions: state.setShowBlockedActions,
     }))
   )
 
@@ -920,6 +923,8 @@ function App() {
                 onSeek={seekReplayIndex}
                 speed={speed}
                 onSpeedChange={setSpeed}
+                showBlockedActions={showBlockedActions}
+                onToggleShowBlockedActions={setShowBlockedActions}
               />
               <div className="replay-summary">
                 <span>Scope events: {activeEvents.length}</span>
@@ -960,6 +965,8 @@ function App() {
               onSelectEvent={handleInspectEvent}
               highlightEventIds={highlightEventIds}
               highlightsMap={highlightsMap}
+              showBlockedActions={showBlockedActions}
+              onToggleShowBlockedActions={setShowBlockedActions}
             />
             {replayMode === 'highlights' && replay?.collapsed_segments?.map((segment, index) => (
               <HighlightChip
@@ -1020,6 +1027,12 @@ function App() {
               setSelectedEventId(eventId)
             }}
             onResetReplay={() => setReplayMode('full')}
+          />
+          <SimilarFailuresPanelMemo
+            sessionId={selectedSessionId}
+            failureEvent={selectedEvent}
+            onSelectSession={setSelectedSessionId}
+            selectedSessionId={selectedSessionId}
           />
         </aside>
       </main>

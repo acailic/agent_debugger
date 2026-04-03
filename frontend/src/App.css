@@ -2025,6 +2025,11 @@ button {
   cursor: pointer;
 }
 
+.timeline-marker.blocked {
+  background: color-mix(in oklch, var(--muted), white 20%);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--muted), white 82%);
+}
+
 .replay-summary,
 .analysis-strip {
   display: flex;
@@ -2045,6 +2050,12 @@ button {
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 500;
+}
+
+.replay-summary--inline {
+  margin-top: 0.75rem;
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
 }
 
 .checkpoint-list,
@@ -4648,6 +4659,10 @@ pre {
   transition: background-color 160ms ease, border-color 160ms ease;
 }
 
+.replay-toggle {
+  flex-shrink: 0;
+}
+
 .blocked-actions-toggle:hover {
   background: color-mix(in oklch, var(--panel), var(--bg-strong) 50%);
   border-color: color-mix(in oklch, var(--panel-border), var(--muted) 30%);
@@ -4708,6 +4723,15 @@ pre {
   color: var(--muted);
   font-size: 0.75rem;
   font-style: italic;
+}
+
+.blocked-event-indicator {
+  border: 1px solid color-mix(in oklch, var(--muted), white 55%);
+  background: color-mix(in oklch, var(--panel), var(--muted) 20%);
+}
+
+.blocked-event-dot {
+  background: var(--muted);
 }
 
 /* Decision Tree - Guided Exploration Styles */
@@ -5772,3 +5796,186 @@ pre {
   border: 1px solid var(--panel-border);
 }
 
+/* Similar Failures Panel */
+.similar-failures-panel {
+  margin-top: var(--space-md);
+}
+
+.similar-failures-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.similar-failure-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-material);
+}
+
+.similar-failure-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px color-mix(in oklch, var(--accent), transparent 80%);
+  transform: translateY(-1px);
+}
+
+.similar-failure-card.active {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent), transparent 92%);
+}
+
+.failure-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.failure-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.failure-agent {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.failure-framework {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.similarity-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+}
+
+.similarity-label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.similarity-score {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.failure-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: var(--space-sm) 0;
+  border-top: 1px solid var(--panel-border);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.failure-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.detail-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detail-value {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+  text-align: right;
+}
+
+.detail-value.failure-mode {
+  font-weight: 600;
+}
+
+.failure-root-cause {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.root-cause-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.root-cause-text {
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.failure-fix-note {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: var(--space-sm);
+  background: color-mix(in oklch, var(--success), transparent 92%);
+  border-radius: 6px;
+  border: 1px solid color-mix(in oklch, var(--success), transparent 80%);
+}
+
+.fix-note-label {
+  font-size: 0.7rem;
+  color: var(--success);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.fix-note-text {
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.view-session-link {
+  font-size: 0.8rem;
+  color: var(--accent);
+  font-weight: 500;
+  text-align: center;
+}
+
+.similar-failures-footer {
+  padding: var(--space-sm) 0 0 0;
+  text-align: center;
+}
+
+.loading-state,
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+}
+
+.error-state {
+  color: var(--danger);
+}

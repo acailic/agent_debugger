@@ -9,7 +9,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from agent_debugger_sdk.core.events import Checkpoint, Session, SessionStatus, TraceEvent
+from agent_debugger_sdk.core.events import Checkpoint, EventType, Session, SessionStatus, TraceEvent
 from api import app_context
 from api.exceptions import NotFoundError
 from api.schemas import CheckpointSchema, SessionSchema, TraceEventSchema
@@ -377,3 +377,192 @@ async def event_generator(
         raise
     finally:
         await buf.unsubscribe(session_id, queue)
+
+
+async def find_similar_failures(
+    repo: TraceRepository,
+    session_id: str,
+    failure_event_id: str,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    """Find sessions with similar failures based on failure type and error patterns.
+
+    Args:
+        repo: Trace repository
+        session_id: Current session ID
+        failure_event_id: The failure event to find similar failures for
+        limit: Maximum number of similar failures to return
+
+    Returns:
+        List of similar failure dicts with session_id, agent_name, framework,
+        started_at, failure_type, failure_mode, root_cause, similarity, fix_note
+    """
+    # Get the failure event
+    failure_event = await repo.get_event(failure_event_id)
+    if not failure_event:
+        return []
+
+    # Determine failure characteristics
+    error_text = failure_event.error or failure_event.error_message or failure_event.name or ""
+    error_type = failure_event.error_type or ""
+
+    # Get all sessions with failures
+    all_sessions = await repo.list_sessions(limit=500, offset=0, sort_by="started_at")
+
+    similar_failures: list[dict[str, Any]] = []
+
+    for session in all_sessions:
+        # Skip the current session
+        if session.id == session_id:
+            continue
+
+        # Skip sessions without errors
+        if session.errors == 0:
+            continue
+
+        # Get events from this session to find matching failures
+        try:
+            session_events = await repo.list_events(session.id, limit=1000)
+        except Exception:
+            continue
+
+        # Find failure events in this session
+        for event in session_events:
+            if not _is_failure_event(event):
+                continue
+
+            # Calculate similarity score
+            similarity = _calculate_failure_similarity(
+                failure_event,
+                event,
+                error_text,
+                error_type,
+            )
+
+            # Only include reasonably similar failures
+            if similarity >= 0.3:
+                # Derive failure mode and root cause
+                failure_mode = _derive_failure_mode(event)
+                root_cause = _derive_root_cause(event)
+
+                similar_failures.append({
+                    "session_id": session.id,
+                    "agent_name": session.agent_name,
+                    "framework": session.framework,
+                    "started_at": session.started_at,
+                    "failure_type": str(event.event_type),
+                    "failure_mode": failure_mode,
+                    "root_cause": root_cause,
+                    "similarity": similarity,
+                    "fix_note": session.fix_note,
+                })
+                break  # Only add one failure per session
+
+    # Sort by similarity and limit
+    similar_failures.sort(key=lambda x: x["similarity"], reverse=True)
+    return similar_failures[:limit]
+
+
+def _is_failure_event(event: TraceEvent) -> bool:
+    """Check if an event represents a failure."""
+    return (
+        event.event_type == EventType.ERROR
+        or event.event_type == EventType.REFUSAL
+        or event.event_type == EventType.POLICY_VIOLATION
+        or event.event_type == EventType.BEHAVIOR_ALERT
+        or (event.event_type == EventType.TOOL_RESULT and bool(event.error))
+        or (event.event_type == EventType.SAFETY_CHECK and event.outcome and event.outcome != "pass")
+    )
+
+
+def _calculate_failure_similarity(
+    source_event: TraceEvent,
+    candidate_event: TraceEvent,
+    source_error_text: str,
+    source_error_type: str,
+) -> float:
+    """Calculate similarity score between two failure events.
+
+    Returns a float between 0.0 and 1.0.
+    """
+    score = 0.0
+
+    # Event type match (high weight)
+    if source_event.event_type == candidate_event.event_type:
+        score += 0.4
+
+    # Error type match
+    candidate_error_type = candidate_event.error_type or ""
+    if source_error_type and candidate_error_type:
+        if source_error_type.lower() == candidate_error_type.lower():
+            score += 0.3
+
+    # Error text similarity (simple keyword overlap)
+    candidate_error_text = candidate_event.error or candidate_event.error_message or candidate_event.name or ""
+    if source_error_text and candidate_error_text:
+        source_words = set(source_error_text.lower().split())
+        candidate_words = set(candidate_error_text.lower().split())
+
+        if source_words and candidate_words:
+            overlap = len(source_words & candidate_words)
+            total = len(source_words | candidate_words)
+            if total > 0:
+                score += 0.3 * (overlap / total)
+
+    # Tool name match for tool_result failures
+    if source_event.event_type == EventType.TOOL_RESULT and candidate_event.event_type == EventType.TOOL_RESULT:
+        if source_event.tool_name and candidate_event.tool_name:
+            if source_event.tool_name == candidate_event.tool_name:
+                score += 0.2
+
+    return min(score, 1.0)
+
+
+def _derive_failure_mode(event: TraceEvent) -> str:
+    """Derive a human-readable failure mode from an event."""
+    if event.event_type == EventType.BEHAVIOR_ALERT:
+        alert_type = event.alert_type or ""
+        if alert_type == "tool_loop":
+            return "looping_behavior"
+        return "behavior_anomaly"
+    if event.event_type in {EventType.REFUSAL, EventType.SAFETY_CHECK}:
+        return "guardrail_block"
+    if event.event_type == EventType.POLICY_VIOLATION:
+        return "policy_mismatch"
+    if event.event_type == EventType.TOOL_RESULT and event.error:
+        return "tool_execution_failure"
+    if event.event_type == EventType.ERROR:
+        return "runtime_error"
+    return "unknown_failure"
+
+
+def _derive_root_cause(event: TraceEvent) -> str:
+    """Derive a root cause summary from an event."""
+    if event.event_type == EventType.TOOL_RESULT and event.error:
+        tool_name = event.tool_name or "tool"
+        return f"Tool {tool_name} failed: {_truncate_text(event.error, 80)}"
+    if event.event_type == EventType.ERROR:
+        error_type = event.error_type or "Error"
+        error_msg = event.error_message or event.error or "Unknown error"
+        return f"{error_type}: {_truncate_text(error_msg, 80)}"
+    if event.event_type == EventType.REFUSAL:
+        reason = event.reason or "No reason provided"
+        return f"Request refused: {_truncate_text(reason, 80)}"
+    if event.event_type == EventType.POLICY_VIOLATION:
+        vtype = event.violation_type or event.name or "Unknown violation"
+        return f"Policy violation: {_truncate_text(vtype, 80)}"
+    if event.event_type == EventType.BEHAVIOR_ALERT:
+        signal = event.signal or event.name or "Behavior anomaly"
+        return f"Behavior alert: {_truncate_text(signal, 80)}"
+    if event.event_type == EventType.SAFETY_CHECK:
+        policy = event.policy_name or "policy"
+        outcome = event.outcome or "failed"
+        return f"Safety check {policy} returned {outcome}"
+    return "Unknown cause"
+
+
+def _truncate_text(text: str, max_length: int) -> str:
+    """Truncate text to max length with ellipsis."""
+    if len(text) <= max_length:
+        return text
+    return text[:max_length - 3] + "..."

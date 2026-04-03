@@ -129,7 +129,16 @@ class _SyncTracingCallbackHandler(BaseCallbackHandler):
             metadata: Additional metadata.
             **kwargs: Additional keyword arguments passed to LLM start.
         """
-        prompts = [get_buffer_string(message_list) for message_list in messages]
+        prompts: list[str] = []
+        for message_list in messages:
+            try:
+                prompts.append(get_buffer_string(message_list))
+            except Exception:
+                prompts.append(
+                    "\n".join(
+                        str(getattr(message, "content", message)) for message in message_list
+                    )
+                )
         self.on_llm_start(
             serialized,
             prompts,

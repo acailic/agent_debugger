@@ -32,6 +32,8 @@ class Session:
         config: Agent configuration settings
         tags: Tags for categorizing and filtering sessions
         fix_note: Developer notes on how a failure was fixed
+        search_similarity: Semantic similarity score from search queries
+        search_highlights: Highlight snippets from matched search results
     """
 
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -50,6 +52,7 @@ class Session:
     tags: list[str] = field(default_factory=list)
     fix_note: str | None = None
     search_similarity: float | None = None
+    search_highlights: list[dict[str, Any]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self.status = SessionStatus(self.status)
@@ -73,4 +76,5 @@ class Session:
             "tags": self.tags,
             "fix_note": self.fix_note,
             "search_similarity": self.search_similarity,
+            "search_highlights": self.search_highlights,
         }

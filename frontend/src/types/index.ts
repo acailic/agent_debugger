@@ -412,3 +412,23 @@ export interface FixNoteResponse {
   session_id: string
   fix_note: string
 }
+
+// Similar Failures types
+export interface SimilarFailure {
+  session_id: string
+  agent_name: string
+  framework: string
+  started_at: string
+  failure_type: string
+  failure_mode: string
+  root_cause: string
+  similarity: number
+  fix_note: string | null
+}
+
+export interface SimilarFailuresResponse {
+  session_id: string
+  failure_event_id: string
+  similar_failures: SimilarFailure[]
+  total: number
+}

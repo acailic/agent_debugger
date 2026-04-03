@@ -36,6 +36,11 @@ class Config:
     max_retries: int = 3
     initial_backoff_seconds: float = 0.5
     _skip_validation: bool = False  # Private: skip validation for testing
+    # Hindsight memory integration
+    hindsight_enabled: bool = False
+    hindsight_endpoint: str = "http://localhost:9000"
+    hindsight_bank_id: str = "agent_debugger"
+    hindsight_api_key: str | None = None
 
     def validate(self) -> None:
         """Validate configuration values.
@@ -94,6 +99,10 @@ def init(
     enabled: bool = True,
     redact_prompts: bool = False,
     max_payload_kb: int = 100,
+    hindsight_enabled: bool = False,
+    hindsight_endpoint: str | None = None,
+    hindsight_bank_id: str = "agent_debugger",
+    hindsight_api_key: str | None = None,
 ) -> Config:
     """Initialize the Agent Debugger SDK.
 
@@ -116,12 +125,32 @@ def init(
 
         resolved_enabled = enabled and _parse_bool(os.environ.get("AGENT_DEBUGGER_ENABLED"), default=True)
 
+        # Hindsight configuration
+        resolved_hindsight_enabled = hindsight_enabled or _parse_bool(
+            os.environ.get("AGENT_DEBUGGER_HINDSIGHT_ENABLED"), default=False
+        )
+        resolved_hindsight_endpoint = (
+            hindsight_endpoint
+            or os.environ.get("HINDSIGHT_URL")
+            or "http://localhost:9000"
+        )
+        resolved_hindsight_bank_id = (
+            os.environ.get("HINDSIGHT_BANK_ID") or hindsight_bank_id
+        )
+        resolved_hindsight_api_key = (
+            hindsight_api_key or os.environ.get("HINDSIGHT_API_KEY")
+        )
+
         _global_config = Config(
             api_key=resolved_key,
             endpoint=resolved_endpoint,
             enabled=resolved_enabled,
             redact_prompts=_parse_bool(os.environ.get("AGENT_DEBUGGER_REDACT_PROMPTS"), default=redact_prompts),
             max_payload_kb=int(os.environ.get("AGENT_DEBUGGER_MAX_PAYLOAD_KB", max_payload_kb)),
+            hindsight_enabled=resolved_hindsight_enabled,
+            hindsight_endpoint=resolved_hindsight_endpoint,
+            hindsight_bank_id=resolved_hindsight_bank_id,
+            hindsight_api_key=resolved_hindsight_api_key,
         )
         return _global_config
 
@@ -136,6 +165,26 @@ def get_config() -> Config:
 
         _global_config = Config()
         return _global_config
+
+
+def get_hindsight_config():
+    """Get Hindsight configuration from current SDK config.
+
+    Creates a HindsightConfig instance from the main SDK configuration.
+    This is a convenience function for initializing HindsightMemoryAdapter.
+
+    Returns:
+        HindsightConfig instance with values from current SDK config
+    """
+    from agent_debugger_sdk.adapters.hindsight import HindsightConfig
+
+    config = get_config()
+    return HindsightConfig(
+        endpoint=config.hindsight_endpoint,
+        bank_id=config.hindsight_bank_id,
+        api_key=config.hindsight_api_key,
+        enabled=config.hindsight_enabled,
+    )
 
 
 

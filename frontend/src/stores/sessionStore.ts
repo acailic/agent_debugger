@@ -14,6 +14,36 @@ import type {
   SessionSortMode,
 } from '../types'
 
+const BLOCKED_ACTIONS_STORAGE_KEY = 'peaky-peek:show-blocked-actions'
+
+function loadBooleanPreference(key: string, fallback: boolean): boolean {
+  if (typeof window === 'undefined') {
+    return fallback
+  }
+
+  try {
+    const stored = window.localStorage.getItem(key)
+    if (stored === null) {
+      return fallback
+    }
+    return stored === 'true'
+  } catch {
+    return fallback
+  }
+}
+
+function saveBooleanPreference(key: string, value: boolean): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(key, String(value))
+  } catch {
+    // Ignore storage failures; the in-memory store still reflects the preference.
+  }
+}
+
 interface SessionStore {
   // Sessions list and selection
   sessions: Session[]
@@ -55,6 +85,7 @@ interface SessionStore {
   focusEventId: string | null
   selectedCheckpointId: string | null
   currentHighlightIndex: number
+  showBlockedActions: boolean
 
   // Breakpoint config
   breakpointEventTypes: string
@@ -115,6 +146,7 @@ interface SessionStore {
   setFocusEventId: (id: string | null) => void
   setSelectedCheckpointId: (id: string | null) => void
   setCurrentHighlightIndex: (index: number) => void
+  setShowBlockedActions: (show: boolean) => void
 
   // Breakpoint config actions
   setBreakpointEventTypes: (types: string) => void
@@ -212,6 +244,7 @@ const initialState = {
   focusEventId: null,
   selectedCheckpointId: null,
   currentHighlightIndex: 0,
+  showBlockedActions: loadBooleanPreference(BLOCKED_ACTIONS_STORAGE_KEY, false),
 
   // Breakpoint config
   breakpointEventTypes: 'error,refusal,policy_violation',
@@ -286,6 +319,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setFocusEventId: (focusEventId) => set({ focusEventId }),
   setSelectedCheckpointId: (selectedCheckpointId) => set({ selectedCheckpointId }),
   setCurrentHighlightIndex: (currentHighlightIndex) => set({ currentHighlightIndex }),
+  setShowBlockedActions: (showBlockedActions) => {
+    saveBooleanPreference(BLOCKED_ACTIONS_STORAGE_KEY, showBlockedActions)
+    set({ showBlockedActions })
+  },
 
   // Breakpoint config actions
   setBreakpointEventTypes: (breakpointEventTypes) => set({ breakpointEventTypes }),
@@ -338,5 +375,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     isPlaying: false,
   }),
 
-  reset: () => set(initialState),
+  reset: () => set({
+    ...initialState,
+    showBlockedActions: loadBooleanPreference(BLOCKED_ACTIONS_STORAGE_KEY, false),
+  }),
 }))

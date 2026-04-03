@@ -57,3 +57,13 @@ def get_repository(
 ) -> TraceRepository:
     """Construct a repository scoped to the current tenant."""
     return TraceRepository(session, tenant_id=tenant_id)
+
+
+def get_entity_repository(
+    session: AsyncSession = Depends(get_db_session),
+    tenant_id: str = Depends(get_tenant_id),
+):
+    """Construct an entity repository scoped to the current tenant."""
+    from storage.repositories.entity_repo import EntityRepository
+
+    return EntityRepository(session, tenant_id=tenant_id)

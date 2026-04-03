@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import String, and_, cast, or_, select
+from sqlalchemy import String, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent_debugger_sdk.core.events import Session, TraceEvent
@@ -58,12 +58,12 @@ class SessionSearchService:
     # Natural language query patterns
     NL_PATTERNS = {
         "stuck in a loop": {"min_errors": 1, "query": "loop repeat retry again"},
-        "tool execution failures": {"event_type": "tool_error", "query": "tool error failed"},
-        "llm errors": {"event_type": "llm_error", "query": "llm error api rate limit"},
-        "safety violations": {"event_type": "safety_violation", "query": "safety violation blocked"},
+        "tool execution failures": {"event_type": "tool_result", "query": "tool error failed"},
+        "llm errors": {"event_type": "error", "query": "llm error api rate limit"},
+        "safety violations": {"event_type": "policy_violation", "query": "safety violation blocked"},
         "high cost": {"query": "expensive cost tokens"},
-        "timeout": {"status": "timeout", "query": "timeout slow"},
-        "failed": {"status": "failed", "query": "error failure"},
+        "timeout": {"query": "timeout slow"},
+        "failed": {"status": "error", "query": "error failure"},
         "completed": {"status": "completed", "query": "done finished"},
         "running": {"status": "running", "query": "active ongoing"},
     }
@@ -264,11 +264,21 @@ class SessionSearchService:
 
         # For tags and event_type filtering, we need to check JSON fields
         # Tags are stored as JSON array in the tags column
+        # For SQLite, we need to use json_each or string matching
         if tags:
-            # Check if session has any of the specified tags
-            # Using JSON contains logic for PostgreSQL
+            # For SQLite, check if any tag is in the JSON array
+            # This works for both SQLite and PostgreSQL
+            from sqlalchemy import or_
+
+            tag_conditions = []
             for tag in tags:
-                stmt = stmt.where(SessionModel.tags.contains([tag]))
+                # For SQLite: cast tags to string and check if tag is present
+                # This is a simple approach that works for JSON arrays stored as text
+                tag_conditions.append(
+                    cast(SessionModel.tags, String).like(f'%"{tag}"%')
+                )
+            if tag_conditions:
+                stmt = stmt.where(or_(*tag_conditions))
 
         result = await self.session.execute(stmt)
         sessions = list(result.scalars().all())
@@ -278,10 +288,13 @@ class SessionSearchService:
             sessions_with_event_type = []
             for session in sessions:
                 # Check if session has any event of the specified type
+                # Handle both string and enum values
+                event_type_str = event_type.value if hasattr(event_type, 'value') else event_type
+
                 event_stmt = select(EventModel).where(
                     EventModel.session_id == session.id,
                     EventModel.tenant_id == self.tenant_id,
-                    EventModel.event_type == event_type,
+                    EventModel.event_type == event_type_str,
                 ).limit(1)
                 event_result = await self.session.execute(event_stmt)
                 if event_result.scalar_one_or_none() is not None:

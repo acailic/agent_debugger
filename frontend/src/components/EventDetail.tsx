@@ -3,6 +3,7 @@ import { formatEventHeadline } from '../utils/formatting'
 import { EventReferenceList } from './EventReferenceList'
 import { DecisionProvenancePanel } from './DecisionProvenancePanel'
 import { memo } from 'react'
+import { BLOCKED_EVENT_TYPES } from '../utils/latency'
 
 interface EventDetailProps {
   event: TraceEvent | null
@@ -35,6 +36,8 @@ export function EventDetail({
       </section>
     )
   }
+
+  const isBlockedEvent = BLOCKED_EVENT_TYPES.includes(event.event_type)
 
   return (
     <section className="event-detail panel panel--primary">
@@ -157,6 +160,20 @@ export function EventDetail({
           <div>
             <h3>Reasoning</h3>
             <p>{event.reasoning}</p>
+          </div>
+        )}
+        {isBlockedEvent && (
+          <div>
+            <h3>Blocked Action Context</h3>
+            <div className="analysis-strip">
+              <span>Outcome {event.outcome ?? 'blocked'}</span>
+              <span>Policy {event.policy_name ?? 'unknown'}</span>
+              <span>Risk {event.risk_level ?? event.severity ?? 'unknown'}</span>
+            </div>
+            {event.blocked_action && <p><strong>Blocked:</strong> {event.blocked_action}</p>}
+            {event.reason && <p><strong>Reason:</strong> {event.reason}</p>}
+            {event.safe_alternative && <p><strong>Safe alternative:</strong> {event.safe_alternative}</p>}
+            {event.rationale && <p><strong>Rationale:</strong> {event.rationale}</p>}
           </div>
         )}
         {event.evidence?.length ? (

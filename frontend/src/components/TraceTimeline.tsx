@@ -1,6 +1,7 @@
 import { useState, memo, useCallback, useMemo } from 'react'
 import type { TraceEvent, Highlight, EventType } from '../types'
 import { formatEventHeadline } from '../utils/formatting'
+import { BLOCKED_EVENT_TYPES } from '../utils/latency'
 
 interface TraceTimelineProps {
   events: TraceEvent[]
@@ -9,9 +10,9 @@ interface TraceTimelineProps {
   highlightEventIds?: Set<string>
   /** Map of event_id to Highlight for displaying reasons */
   highlightsMap?: Map<string, Highlight>
+  showBlockedActions?: boolean
+  onToggleShowBlockedActions?: (show: boolean) => void
 }
-
-const BLOCKED_EVENT_TYPES = ['safety_check', 'refusal', 'policy_violation']
 
 const EVENT_TYPE_FILTERS: { label: string; types: EventType[]; color: string }[] = [
   { label: 'All', types: [], color: '#6366f1' },
@@ -22,9 +23,23 @@ const EVENT_TYPE_FILTERS: { label: string; types: EventType[]; color: string }[]
   { label: 'Agents', types: ['agent_start', 'agent_end', 'agent_turn'], color: '#10b981' },
 ]
 
-export function TraceTimeline({ events, selectedEventId, onSelectEvent, highlightEventIds, highlightsMap }: TraceTimelineProps) {
-  const [showBlockedActions, setShowBlockedActions] = useState(false)
+export function TraceTimeline({
+  events,
+  selectedEventId,
+  onSelectEvent,
+  highlightEventIds,
+  highlightsMap,
+  showBlockedActions,
+  onToggleShowBlockedActions,
+}: TraceTimelineProps) {
+  const [internalShowBlockedActions, setInternalShowBlockedActions] = useState(false)
   const [activeFilter, setActiveFilter] = useState<typeof EVENT_TYPE_FILTERS[number]>(EVENT_TYPE_FILTERS[0])
+  const blockedActionsVisible = showBlockedActions ?? internalShowBlockedActions
+
+  const handleBlockedActionsToggle = useCallback((nextValue: boolean) => {
+    setInternalShowBlockedActions(nextValue)
+    onToggleShowBlockedActions?.(nextValue)
+  }, [onToggleShowBlockedActions])
 
   const filteredEvents = useMemo(() => events.filter((event) => {
     // Apply type filter
@@ -32,11 +47,11 @@ export function TraceTimeline({ events, selectedEventId, onSelectEvent, highligh
       return false
     }
     // Apply blocked actions filter
-    if (!showBlockedActions) {
+    if (!blockedActionsVisible) {
       return !BLOCKED_EVENT_TYPES.includes(event.event_type)
     }
     return true
-  }), [events, activeFilter.types, showBlockedActions])
+  }), [events, activeFilter.types, blockedActionsVisible])
 
   // Compute latency statistics for color-coding
   const latencyStats = useMemo(() => {
@@ -85,8 +100,8 @@ export function TraceTimeline({ events, selectedEventId, onSelectEvent, highligh
           <label className="blocked-actions-toggle">
             <input
               type="checkbox"
-              checked={showBlockedActions}
-              onChange={(e) => setShowBlockedActions(e.target.checked)}
+              checked={blockedActionsVisible}
+              onChange={(e) => handleBlockedActionsToggle(e.target.checked)}
               className="toggle-checkbox"
             />
             <span className="toggle-label">Show Blocked Actions</span>
@@ -119,7 +134,7 @@ export function TraceTimeline({ events, selectedEventId, onSelectEvent, highligh
         {filteredEvents.length === 0 ? (
           <div className="timeline-empty">
             <p>
-              {showBlockedActions && activeFilter.types.length === 0
+              {blockedActionsVisible && activeFilter.types.length === 0
                 ? 'No events captured in this trace.'
                 : activeFilter.types.length > 0
                   ? `No ${activeFilter.label.toLowerCase()} events found.`
@@ -188,7 +203,8 @@ function arePropsEqual(
     prevProps.selectedEventId === nextProps.selectedEventId &&
     prevProps.events === nextProps.events &&
     prevProps.highlightEventIds === nextProps.highlightEventIds &&
-    prevProps.highlightsMap === nextProps.highlightsMap
+    prevProps.highlightsMap === nextProps.highlightsMap &&
+    prevProps.showBlockedActions === nextProps.showBlockedActions
   )
 }
 

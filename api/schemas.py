@@ -372,3 +372,31 @@ class DriftResponseSchema(BaseModel):
     current: AgentBaselineSchema
     alerts: list[DriftAlertSchema]
     message: str | None = None
+
+
+# ------------------------------------------------------------------
+# Similar failures schemas
+# ------------------------------------------------------------------
+
+
+class SimilarFailureSchema(BaseModel):
+    """Schema for a similar failure session."""
+
+    session_id: str
+    agent_name: str
+    framework: str
+    started_at: datetime
+    failure_type: str
+    failure_mode: str
+    root_cause: str
+    similarity: float
+    fix_note: str | None = None
+
+
+class SimilarFailuresResponse(BaseModel):
+    """Response schema for similar failures endpoint."""
+
+    session_id: str
+    failure_event_id: str
+    similar_failures: list[SimilarFailureSchema]
+    total: int

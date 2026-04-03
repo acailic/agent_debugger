@@ -210,6 +210,26 @@ describe('TraceTimeline', () => {
     expect(screen.getByText('injection_attempt')).toBeInTheDocument()
   })
 
+  it('supports controlled blocked-action visibility', async () => {
+    const onToggleShowBlockedActions = vi.fn()
+    render(
+      <TraceTimeline
+        events={mockEvents}
+        selectedEventId={null}
+        onSelectEvent={vi.fn()}
+        showBlockedActions={true}
+        onToggleShowBlockedActions={onToggleShowBlockedActions}
+      />,
+    )
+
+    const toggle = screen.getByRole('checkbox')
+    expect(toggle).toBeChecked()
+    expect(screen.getByText('8 events')).toBeInTheDocument()
+
+    await userEvent.click(toggle)
+    expect(onToggleShowBlockedActions).toHaveBeenCalledWith(false)
+  })
+
   it('hides blocked events again when toggled back off', async () => {
     render(
       <TraceTimeline events={mockEvents} selectedEventId={null} onSelectEvent={vi.fn()} />,

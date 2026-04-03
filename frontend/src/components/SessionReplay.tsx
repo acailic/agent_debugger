@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef, useState } from 'react'
 import type { ChangeEvent, CSSProperties } from 'react'
 import type { TraceEvent } from '../types'
 import { formatEventHeadline } from '../utils/formatting'
+import { BLOCKED_EVENT_TYPES } from '../utils/latency'
 
 interface SessionReplayProps {
   events: TraceEvent[]
@@ -16,6 +17,8 @@ interface SessionReplayProps {
   speed: number
   onSpeedChange: (speed: number) => void
   onToggleBreakpoint?: (eventId: string) => void
+  showBlockedActions?: boolean
+  onToggleShowBlockedActions?: (show: boolean) => void
 }
 
 const SPEED_OPTIONS = [0.5, 1, 2, 5]
@@ -42,13 +45,19 @@ export function SessionReplay({
   speed,
   onSpeedChange,
   onToggleBreakpoint,
+  showBlockedActions,
+  onToggleShowBlockedActions,
 }: SessionReplayProps) {
   const sliderRef = useRef<HTMLInputElement>(null)
   const playIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [localBreakpoints, setLocalBreakpoints] = useState<Set<string>>(new Set(breakpointEventIds))
   const [showBreakpointPanel, setShowBreakpointPanel] = useState(false)
+  const [internalShowBlockedActions, setInternalShowBlockedActions] = useState(false)
 
   const breakpointIdSet = localBreakpoints
+  const blockedActionsVisible = showBlockedActions ?? internalShowBlockedActions
+  const currentEvent = currentIndex >= 0 && currentIndex < events.length ? events[currentIndex] : null
+  const blockedEventCount = events.filter((event) => BLOCKED_EVENT_TYPES.includes(event.event_type)).length
 
   const handleToggleBreakpoint = useCallback((eventId: string) => {
     setLocalBreakpoints((prev) => {
@@ -70,12 +79,21 @@ export function SessionReplay({
     setLocalBreakpoints(new Set())
   }, [])
 
+  const handleBlockedActionsToggle = useCallback((nextValue: boolean) => {
+    setInternalShowBlockedActions(nextValue)
+    onToggleShowBlockedActions?.(nextValue)
+  }, [onToggleShowBlockedActions])
+
   const isBreakpointed = useCallback((eventId: string) => {
     return breakpointIdSet.has(eventId)
   }, [breakpointIdSet])
 
   const canSetBreakpoint = useCallback((event: TraceEvent) => {
     return BREAKPOINTABLE_TYPES.includes(event.event_type)
+  }, [])
+
+  const isBlockedEvent = useCallback((event: TraceEvent) => {
+    return BLOCKED_EVENT_TYPES.includes(event.event_type)
   }, [])
 
   const totalEvents = events.length
@@ -164,7 +182,12 @@ export function SessionReplay({
 
   const timelineMarkers = events
     .map((event, index) => ({ event, index }))
-    .filter(({ event }) => isCheckpoint(event) || breakpointIdSet.has(event.id) || HIGH_IMPORTANCE_TYPES.includes(event.event_type))
+    .filter(({ event }) => (
+      isCheckpoint(event)
+      || breakpointIdSet.has(event.id)
+      || HIGH_IMPORTANCE_TYPES.includes(event.event_type)
+      || (blockedActionsVisible && isBlockedEvent(event))
+    ))
 
   const progressPercent = totalEvents > 1 ? (currentIndex / (totalEvents - 1)) * 100 : 0
 
@@ -243,10 +266,11 @@ export function SessionReplay({
               const isHighImportance = HIGH_IMPORTANCE_TYPES.includes(event.event_type)
               const isBreakpointMarker = isBreakpointed(event.id)
               const isCurrentBreakpoint = index === currentIndex && isBreakpointMarker
+              const isBlockedMarker = blockedActionsVisible && isBlockedEvent(event)
               return (
                 <div
                   key={event.id}
-                  className={`timeline-marker ${event.event_type} ${isHighImportance ? 'high-importance' : ''} ${isBreakpointMarker ? 'breakpoint' : ''} ${isCurrentBreakpoint ? 'current-breakpoint' : ''}`}
+                  className={`timeline-marker ${event.event_type} ${isHighImportance ? 'high-importance' : ''} ${isBreakpointMarker ? 'breakpoint' : ''} ${isCurrentBreakpoint ? 'current-breakpoint' : ''} ${isBlockedMarker ? 'blocked' : ''}`}
                   style={{ left: `${markerPercent}%` }}
                   title={formatEventHeadline(event)}
                   onClick={() => onSeek(index)}
@@ -284,6 +308,16 @@ export function SessionReplay({
           ))}
         </select>
 
+        <label className="blocked-actions-toggle replay-toggle">
+          <input
+            type="checkbox"
+            checked={blockedActionsVisible}
+            onChange={(e) => handleBlockedActionsToggle(e.target.checked)}
+            className="toggle-checkbox"
+          />
+          <span className="toggle-label">Show Blocked Actions</span>
+        </label>
+
         <button
           className={`replay-btn breakpoint-toggle ${localBreakpoints.size > 0 ? 'has-breakpoints' : ''}`}
           onClick={() => setShowBreakpointPanel((prev) => !prev)}
@@ -299,6 +333,12 @@ export function SessionReplay({
           )}
         </button>
       </div>
+
+      {blockedActionsVisible && blockedEventCount > 0 && (
+        <div className="replay-summary replay-summary--inline">
+          <span>Blocked events in scope: {blockedEventCount}</span>
+        </div>
+      )}
 
       {/* Breakpoint Panel */}
       {showBreakpointPanel && (
@@ -353,10 +393,20 @@ export function SessionReplay({
       )}
 
       {/* Current Event Breakpoint Indicator */}
-      {currentIndex >= 0 && currentIndex < events.length && isBreakpointed(events[currentIndex].id) && (
+      {currentEvent && isBreakpointed(currentEvent.id) && (
         <div className="breakpoint-reached-indicator">
           <div className="breakpoint-reached-dot" />
-          <span>Breakpoint: {formatEventHeadline(events[currentIndex])}</span>
+          <span>Breakpoint: {formatEventHeadline(currentEvent)}</span>
+        </div>
+      )}
+
+      {blockedActionsVisible && currentEvent && isBlockedEvent(currentEvent) && (
+        <div className="breakpoint-reached-indicator blocked-event-indicator">
+          <div className="breakpoint-reached-dot blocked-event-dot" />
+          <span>
+            Blocked action: {currentEvent.blocked_action ?? formatEventHeadline(currentEvent)}
+            {currentEvent.reason ? ` (${currentEvent.reason})` : ''}
+          </span>
         </div>
       )}
     </div>
