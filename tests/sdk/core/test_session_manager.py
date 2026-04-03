@@ -10,20 +10,12 @@ import pytest
 from agent_debugger_sdk.checkpoints import CustomCheckpointState
 from agent_debugger_sdk.core.context.session_manager import (
     SessionManager,
+    _build_restored_session,
     _CheckpointRestoreError,
+    _fetch_checkpoint_payload,
+    _resolve_restore_server_url,
 )
 from agent_debugger_sdk.core.events import Session, SessionStatus
-
-
-@pytest.fixture(autouse=True)
-def reset_shared_client():
-    """Reset shared async client before each test."""
-    import agent_debugger_sdk.core.context.session_manager as sm_mod
-
-    original = getattr(sm_mod, "_shared_async_client", None)
-    sm_mod._shared_async_client = None
-    yield
-    sm_mod._shared_async_client = original
 
 
 class TestSessionManagerCreation:
@@ -114,6 +106,57 @@ def _make_mock_http_client(checkpoint_data: dict) -> AsyncMock:
     return mock_client
 
 
+class TestRestoreHelpers:
+    def test_resolve_restore_server_url_uses_explicit_value(self):
+        assert _resolve_restore_server_url("http://test:8000") == "http://test:8000"
+
+    def test_resolve_restore_server_url_falls_back_to_config(self):
+        with patch(
+            "agent_debugger_sdk.config.get_config",
+            return_value=MagicMock(endpoint="https://api.example.com"),
+            create=True,
+        ):
+            assert _resolve_restore_server_url(None) == "https://api.example.com"
+
+    @pytest.mark.asyncio
+    async def test_fetch_checkpoint_payload_returns_payload(self):
+        client = _make_mock_http_client({"id": "cp-123", "state": {"framework": "test"}})
+
+        payload = await _fetch_checkpoint_payload(client, "cp-123", "http://test:8000")
+
+        assert payload["id"] == "cp-123"
+        client.get.assert_awaited_once_with("http://test:8000/api/checkpoints/cp-123")
+
+    @pytest.mark.asyncio
+    async def test_fetch_checkpoint_payload_rejects_non_dict_payload(self):
+        mock_response = MagicMock()
+        mock_response.json.return_value = ["not", "a", "dict"]
+        mock_response.raise_for_status = MagicMock()
+        client = AsyncMock()
+        client.get = AsyncMock(return_value=mock_response)
+
+        with pytest.raises(_CheckpointRestoreError, match="Unexpected checkpoint payload type"):
+            await _fetch_checkpoint_payload(client, "cp-123", "http://test:8000")
+
+    def test_build_restored_session_returns_validated_state(self):
+        session, state = _build_restored_session(
+            "cp-123",
+            {"session_id": "original-session", "state": {"framework": "custom", "custom_key": "value"}},
+            session_id="restored-id",
+            label="restored-agent",
+        )
+
+        assert session.id == "restored-id"
+        assert session.agent_name == "restored-agent"
+        assert session.framework == "custom"
+        assert session.config == {
+            "restored_from_checkpoint": "cp-123",
+            "original_session_id": "original-session",
+        }
+        assert isinstance(state, CustomCheckpointState)
+        assert state.data["custom_key"] == "value"
+
+
 class TestRestoreFromCheckpoint:
     """Tests for checkpoint restoration flow."""
 
@@ -125,14 +168,16 @@ class TestRestoreFromCheckpoint:
             "state": {"framework": "langchain"},
         }
 
-        with patch("agent_debugger_sdk.core.context.session_manager._shared_async_client", None):
-            with patch("httpx.AsyncClient", return_value=_make_mock_http_client(checkpoint_data)):
-                session, state = await SessionManager.restore_from_checkpoint("cp-123", server_url="http://test:8000")
+        with patch(
+            "agent_debugger_sdk.core.context.session_manager.httpx.AsyncClient",
+            return_value=_make_mock_http_client(checkpoint_data),
+        ):
+            session, state = await SessionManager.restore_from_checkpoint("cp-123", server_url="http://test:8000")
 
-                assert session.id is not None
-                assert len(session.id) == 36
-                assert session.framework == "langchain"
-                assert state is not None
+        assert session.id is not None
+        assert len(session.id) == 36
+        assert session.framework == "langchain"
+        assert state is not None
 
     @pytest.mark.asyncio
     async def test_restore_creates_session_with_custom_id(self):
@@ -142,13 +187,15 @@ class TestRestoreFromCheckpoint:
             "state": {"framework": "custom"},
         }
 
-        with patch("agent_debugger_sdk.core.context.session_manager._shared_async_client", None):
-            with patch("httpx.AsyncClient", return_value=_make_mock_http_client(checkpoint_data)):
-                session, state = await SessionManager.restore_from_checkpoint(
-                    "cp-123", session_id="my-custom-id", server_url="http://test:8000"
-                )
+        with patch(
+            "agent_debugger_sdk.core.context.session_manager.httpx.AsyncClient",
+            return_value=_make_mock_http_client(checkpoint_data),
+        ):
+            session, _ = await SessionManager.restore_from_checkpoint(
+                "cp-123", session_id="my-custom-id", server_url="http://test:8000"
+            )
 
-                assert session.id == "my-custom-id"
+        assert session.id == "my-custom-id"
 
     @pytest.mark.asyncio
     async def test_restore_uses_label_for_agent_name(self):
@@ -158,13 +205,15 @@ class TestRestoreFromCheckpoint:
             "state": {"framework": "test"},
         }
 
-        with patch("agent_debugger_sdk.core.context.session_manager._shared_async_client", None):
-            with patch("httpx.AsyncClient", return_value=_make_mock_http_client(checkpoint_data)):
-                session, state = await SessionManager.restore_from_checkpoint(
-                    "cp-123", label="restored_agent", server_url="http://test:8000"
-                )
+        with patch(
+            "agent_debugger_sdk.core.context.session_manager.httpx.AsyncClient",
+            return_value=_make_mock_http_client(checkpoint_data),
+        ):
+            session, _ = await SessionManager.restore_from_checkpoint(
+                "cp-123", label="restored_agent", server_url="http://test:8000"
+            )
 
-                assert session.agent_name == "restored_agent"
+        assert session.agent_name == "restored_agent"
 
     @pytest.mark.asyncio
     async def test_restore_includes_checkpoint_metadata_in_config(self):
@@ -174,12 +223,14 @@ class TestRestoreFromCheckpoint:
             "state": {"framework": "test"},
         }
 
-        with patch("agent_debugger_sdk.core.context.session_manager._shared_async_client", None):
-            with patch("httpx.AsyncClient", return_value=_make_mock_http_client(checkpoint_data)):
-                session, state = await SessionManager.restore_from_checkpoint("cp-123", server_url="http://test:8000")
+        with patch(
+            "agent_debugger_sdk.core.context.session_manager.httpx.AsyncClient",
+            return_value=_make_mock_http_client(checkpoint_data),
+        ):
+            session, _ = await SessionManager.restore_from_checkpoint("cp-123", server_url="http://test:8000")
 
-                assert session.config["restored_from_checkpoint"] == "cp-123"
-                assert session.config["original_session_id"] == "original-session"
+        assert session.config["restored_from_checkpoint"] == "cp-123"
+        assert session.config["original_session_id"] == "original-session"
 
     @pytest.mark.asyncio
     async def test_restore_handles_custom_checkpoint_state(self):
@@ -189,12 +240,14 @@ class TestRestoreFromCheckpoint:
             "state": {"framework": "custom", "custom_key": "custom_value"},
         }
 
-        with patch("agent_debugger_sdk.core.context.session_manager._shared_async_client", None):
-            with patch("httpx.AsyncClient", return_value=_make_mock_http_client(checkpoint_data)):
-                session, state = await SessionManager.restore_from_checkpoint("cp-123", server_url="http://test:8000")
+        with patch(
+            "agent_debugger_sdk.core.context.session_manager.httpx.AsyncClient",
+            return_value=_make_mock_http_client(checkpoint_data),
+        ):
+            _, state = await SessionManager.restore_from_checkpoint("cp-123", server_url="http://test:8000")
 
-                assert isinstance(state, CustomCheckpointState)
-                assert state.data.get("custom_key") == "custom_value"
+        assert isinstance(state, CustomCheckpointState)
+        assert state.data.get("custom_key") == "custom_value"
 
 
 class TestRestoreErrorHandling:
@@ -215,8 +268,6 @@ class TestRestoreErrorHandling:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock()
 
-        # Patch httpx where it's imported in the session_manager module
-        # Don't use return_value - let __aenter__ return the configured mock_client
         with patch("agent_debugger_sdk.core.context.session_manager.httpx.AsyncClient") as mock_async_client:
             mock_async_client.return_value.__aenter__.return_value = mock_client
             mock_async_client.return_value.__aexit__.return_value = None
@@ -235,8 +286,6 @@ class TestRestoreErrorHandling:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock()
 
-        # Patch httpx where it's imported in the session_manager module
-        # Don't use return_value - let __aenter__ return the configured mock_client
         with patch("agent_debugger_sdk.core.context.session_manager.httpx.AsyncClient") as mock_async_client:
             mock_async_client.return_value.__aenter__.return_value = mock_client
             mock_async_client.return_value.__aexit__.return_value = None
@@ -259,14 +308,12 @@ class TestClientLifecycle:
 
         mock_client = _make_mock_http_client(checkpoint_data)
 
-        with patch("httpx.AsyncClient", return_value=mock_client) as mock_client_class:
+        with patch(
+            "agent_debugger_sdk.core.context.session_manager.httpx.AsyncClient",
+            return_value=mock_client,
+        ) as mock_client_class:
             await SessionManager.restore_from_checkpoint("cp-123", server_url="http://test:8000")
 
-            # Verify AsyncClient was instantiated (entering context manager)
-            mock_client_class.assert_called_once()
-
-            # Verify __aenter__ was called (context manager protocol)
-            mock_client.__aenter__.assert_called_once()
-
-            # Verify __aexit__ was called (proper cleanup)
-            mock_client.__aexit__.assert_called_once()
+        mock_client_class.assert_called_once()
+        mock_client.__aenter__.assert_called_once()
+        mock_client.__aexit__.assert_called_once()

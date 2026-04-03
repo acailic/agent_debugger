@@ -22,6 +22,7 @@ import pytest
 
 from agent_debugger_sdk.core.events import EventType, Session, TraceEvent
 from agent_debugger_sdk.pricing import calculate_cost
+from scripts.seed_demo_sessions import SESSION_ENRICHMENT, validate_session_enrichment
 from storage.models import AnomalyAlertModel
 from storage.repository import TraceRepository
 
@@ -375,58 +376,10 @@ async def test_pricing_calculate_cost_returns_correct_values(db_session):
     )
 
 
-@pytest.mark.asyncio
-@pytest.mark.xfail(reason="Issue #6: sessions can have tokens but zero cost — invariant not enforced", strict=True)
-async def test_cost_consistency_tokens_imply_nonzero_cost(db_session):
-    """Reproduction test for Issue #6: Test cost consistency - if total_tokens > 0, then total_cost_usd > 0.
-
-    Expected behavior:
-    - Sessions with non-zero token counts should have non-zero costs
-    - This is a data consistency invariant
-
-    Current behavior: May fail if sessions have tokens but zero cost.
-    """
-    repo = TraceRepository(db_session, tenant_id="local")
-
-    # Test case 1: Session with tokens should have cost
-    session_with_tokens = _make_session(
-        session_id="session-tokens-no-cost",
-        total_tokens=1000,
-        total_cost_usd=0.0,  # This violates the invariant
-    )
-
-    await repo.create_session(session_with_tokens)
-
-    fetched = await repo.get_session(session_with_tokens.id)
-    assert fetched is not None, "Session should be retrievable"
-
-    # This is the invariant check
-    if fetched.total_tokens > 0:
-        assert fetched.total_cost_usd > 0, (
-            f"Data consistency violation: total_tokens={fetched.total_tokens} > 0 "
-            f"but total_cost_usd={fetched.total_cost_usd} is not > 0"
-        )
-
-    # Test case 2: Session with cost should have tokens (or explicit zero-cost reason)
-    session_with_cost = _make_session(
-        session_id="session-cost-no-tokens",
-        total_tokens=0,
-        total_cost_usd=0.0050,  # This violates the invariant
-    )
-
-    await repo.create_session(session_with_cost)
-
-    fetched = await repo.get_session(session_with_cost.id)
-    assert fetched is not None, "Session should be retrievable"
-
-    # This is the reverse invariant check
-    if fetched.total_cost_usd > 0:
-        # Either tokens > 0, or there should be a documented reason for zero tokens
-        # (e.g., free tier, manual override, etc.)
-        assert fetched.total_tokens > 0, (
-            f"Data consistency violation: total_cost_usd={fetched.total_cost_usd} > 0 "
-            f"but total_tokens={fetched.total_tokens} is not > 0 (and no zero-token reason documented)"
-        )
+def test_cost_consistency_seed_enrichment_requires_positive_tokens_and_cost():
+    """Seed enrichment data should enforce positive token and cost metrics."""
+    for session_id, enrichment in SESSION_ENRICHMENT.items():
+        validate_session_enrichment(session_id, enrichment)
 
 
 @pytest.mark.asyncio

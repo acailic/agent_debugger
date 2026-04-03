@@ -27,6 +27,18 @@ DATABASE_URL = os.environ.get("AGENT_DEBUGGER_DB_URL", "sqlite+aiosqlite:///./da
 # Session enrichment data: realistic values for demo sessions
 # Note: failure_count is computed in API layer (services.py) as errors count
 # behavior_alert_count is computed in API layer from AnomalyAlertModel records
+def validate_session_enrichment(session_id: str, enrichment: dict[str, object]) -> None:
+    """Validate curated enrichment metrics for demo seed sessions."""
+    total_tokens = enrichment.get("total_tokens")
+    total_cost_usd = enrichment.get("total_cost_usd")
+
+    if not isinstance(total_tokens, int) or total_tokens <= 0:
+        raise ValueError(f"Seed enrichment for {session_id} must define positive total_tokens")
+
+    if not isinstance(total_cost_usd, (int, float)) or float(total_cost_usd) <= 0:
+        raise ValueError(f"Seed enrichment for {session_id} must define positive total_cost_usd")
+
+
 SESSION_ENRICHMENT = {
     "seed-prompt-injection": {
         "total_tokens": 856,
@@ -95,19 +107,41 @@ SESSION_ENRICHMENT = {
 }
 
 
+def validate_session_metrics(total_tokens: int, total_cost_usd: float, *, context: str) -> None:
+    """Validate curated session metrics before persisting demo seed data."""
+    if total_tokens < 0:
+        raise ValueError(f"{context}: total_tokens must be non-negative, got {total_tokens}")
+    if total_cost_usd < 0:
+        raise ValueError(f"{context}: total_cost_usd must be non-negative, got {total_cost_usd}")
+
+    has_tokens = total_tokens > 0
+    has_cost = total_cost_usd > 0
+    if has_tokens != has_cost:
+        raise ValueError(
+            f"{context}: total_tokens and total_cost_usd must either both be zero or both be positive "
+            f"(got total_tokens={total_tokens}, total_cost_usd={total_cost_usd})"
+        )
+
+
 async def enrich_session(session_id: str, session_maker: async_sessionmaker[AsyncSession]) -> None:
     """Enrich a session with realistic data fields and behavior alerts."""
     enrichment = SESSION_ENRICHMENT.get(session_id, {})
     if not enrichment:
         return
 
+    validate_session_enrichment(session_id, enrichment)
+
+    total_tokens = enrichment.get("total_tokens", 0)
+    total_cost_usd = enrichment.get("total_cost_usd", 0.0)
+    validate_session_metrics(total_tokens, total_cost_usd, context=f"seed enrichment for {session_id}")
+
     async with session_maker() as db_session:
         repo = TraceRepository(db_session)
 
         # Update session fields
         update_data = {
-            "total_tokens": enrichment.get("total_tokens", 0),
-            "total_cost_usd": enrichment.get("total_cost_usd", 0.0),
+            "total_tokens": total_tokens,
+            "total_cost_usd": total_cost_usd,
             "errors": enrichment.get("errors", 0),
         }
 

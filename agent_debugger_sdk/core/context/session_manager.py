@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -19,6 +19,77 @@ class _CheckpointRestoreError(Exception):
     """Raised when checkpoint restoration fails."""
 
     pass
+
+
+def _resolve_restore_server_url(server_url: str | None) -> str:
+    """Resolve the checkpoint restore server URL."""
+    if server_url is not None:
+        return server_url
+
+    from agent_debugger_sdk.config import get_config
+
+    config = get_config()
+    return config.endpoint or "http://localhost:8000"
+
+
+async def _fetch_checkpoint_payload(
+    client: httpx.AsyncClient,
+    checkpoint_id: str,
+    server_url: str,
+) -> dict[str, Any]:
+    """Fetch and decode checkpoint payload data from the server."""
+    try:
+        response = await client.get(f"{server_url}/api/checkpoints/{checkpoint_id}")
+        response.raise_for_status()
+        payload = response.json()
+    except httpx.HTTPStatusError as e:
+        raise _CheckpointRestoreError(
+            f"Failed to restore checkpoint {checkpoint_id!r} from {server_url}: "
+            f"{e.response.status_code} {e.response.reason_phrase}"
+        ) from e
+    except httpx.RequestError as e:
+        raise _CheckpointRestoreError(
+            f"Network error while restoring checkpoint {checkpoint_id!r} from {server_url}: {e}"
+        ) from e
+    except Exception as e:
+        raise _CheckpointRestoreError(
+            f"Unexpected error while restoring checkpoint {checkpoint_id!r} from {server_url}: {e}"
+        ) from e
+
+    if not isinstance(payload, dict):
+        raise _CheckpointRestoreError(
+            f"Unexpected checkpoint payload type for {checkpoint_id!r} from {server_url}: "
+            f"{type(payload).__name__}"
+        )
+
+    return payload
+
+
+def _build_restored_session(
+    checkpoint_id: str,
+    checkpoint_data: dict[str, Any],
+    *,
+    session_id: str | None = None,
+    label: str = "",
+) -> tuple[Session, BaseCheckpointState | None]:
+    """Build a restored Session and validated checkpoint state from payload data."""
+    from agent_debugger_sdk.checkpoints import validate_checkpoint_state
+
+    state_dict = checkpoint_data.get("state", {})
+    original_session_id = checkpoint_data.get("session_id", "")
+
+    session = Session(
+        id=session_id or str(uuid.uuid4()),
+        agent_name=label or f"restored from {checkpoint_id[:8]}",
+        framework=state_dict.get("framework", "custom"),
+        config={
+            "restored_from_checkpoint": checkpoint_id,
+            "original_session_id": original_session_id,
+        },
+    )
+
+    restored_state = validate_checkpoint_state(state_dict)
+    return session, restored_state
 
 
 class SessionManager:
@@ -79,48 +150,9 @@ class SessionManager:
         Example:
             >>> session, state = await SessionManager.restore_from_checkpoint("ckpt_123")
         """
-        from agent_debugger_sdk.checkpoints import validate_checkpoint_state
-        from agent_debugger_sdk.config import get_config
+        resolved_server_url = _resolve_restore_server_url(server_url)
 
-        if server_url is None:
-            config = get_config()
-            server_url = config.endpoint or "http://localhost:8000"
-
-        # Fetch checkpoint data using a temporary client (avoids connection leaks)
-        # All processing happens inside the context manager to ensure checkpoint_data is in scope
         async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(f"{server_url}/api/checkpoints/{checkpoint_id}")
-                response.raise_for_status()
-                checkpoint_data = response.json()
-            except httpx.HTTPStatusError as e:
-                raise _CheckpointRestoreError(
-                    f"Failed to restore checkpoint {checkpoint_id!r} from {server_url}: "
-                    f"{e.response.status_code} {e.response.reason_phrase}"
-                ) from e
-            except httpx.RequestError as e:
-                raise _CheckpointRestoreError(
-                    f"Network error while restoring checkpoint {checkpoint_id!r} from {server_url}: {e}"
-                ) from e
-            except Exception as e:
-                # Catch any other unexpected errors and wrap them
-                raise _CheckpointRestoreError(
-                    f"Unexpected error while restoring checkpoint {checkpoint_id!r} from {server_url}: {e}"
-                ) from e
+            checkpoint_data = await _fetch_checkpoint_payload(client, checkpoint_id, resolved_server_url)
 
-            # Process the checkpoint data inside the context manager where checkpoint_data is in scope
-            state_dict = checkpoint_data.get("state", {})
-            original_session_id = checkpoint_data.get("session_id", "")
-
-            session = Session(
-                id=session_id or str(uuid.uuid4()),
-                agent_name=label or f"restored from {checkpoint_id[:8]}",
-                framework=state_dict.get("framework", "custom"),
-                config={
-                    "restored_from_checkpoint": checkpoint_id,
-                    "original_session_id": original_session_id,
-                },
-            )
-
-            restored_state = validate_checkpoint_state(state_dict)
-            return session, restored_state
+        return _build_restored_session(checkpoint_id, checkpoint_data, session_id=session_id, label=label)

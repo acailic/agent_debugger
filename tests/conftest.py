@@ -56,13 +56,17 @@ def setup_test_db():
     from storage.engine import create_db_engine
 
     async def _setup():
-        # Reset app context globals so each xdist worker uses its own engine
-        app_context.engine = None
-        app_context.async_session_maker = None
+        # Build schema with a short-lived engine bound to this temporary loop.
+        # The app context is initialized lazily inside each test loop.
         engine = create_db_engine()
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-        app_context.init_app_context()
+        await engine.dispose()
+
+        app_context.engine = None
+        app_context.async_session_maker = None
+        app_context.trace_intelligence = None
+        app_context._redaction_pipeline = None
 
     asyncio.run(_setup())
     yield
