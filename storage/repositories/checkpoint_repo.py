@@ -75,7 +75,7 @@ class CheckpointRepository:
             return None
         return orm_to_checkpoint(db_checkpoint)
 
-    async def list_checkpoints(self, session_id: str) -> list[Checkpoint]:
+    async def list_checkpoints(self, session_id: str, limit: int | None = None) -> list[Checkpoint]:
         """List all checkpoints for a session.
 
         Args:
@@ -85,7 +85,7 @@ class CheckpointRepository:
             List of Checkpoint instances ordered by timestamp
         """
         # Join with SessionModel to ensure tenant isolation
-        result = await self.session.execute(
+        stmt = (
             select(CheckpointModel)
             .join(SessionModel, CheckpointModel.session_id == SessionModel.id)
             .options(selectinload(CheckpointModel.event))
@@ -95,6 +95,9 @@ class CheckpointRepository:
             )
             .order_by(CheckpointModel.timestamp)
         )
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        result = await self.session.execute(stmt)
         return [orm_to_checkpoint(db) for db in result.scalars()]
 
     async def get_high_importance_checkpoints(self, session_id: str, limit: int = 10) -> list[Checkpoint]:

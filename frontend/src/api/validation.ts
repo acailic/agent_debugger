@@ -88,6 +88,40 @@ const sessionValidator: ValidationChecker = shapeValidator({
   tags: isArray,
 })
 
+const agentBaselineValidator: ValidationChecker = shapeValidator({
+  agent_name: isString,
+  session_count: isNumber,
+  total_llm_calls: isNumber,
+  total_tool_calls: isNumber,
+  total_tokens: isNumber,
+  total_cost_usd: isNumber,
+  avg_llm_calls_per_session: isNumber,
+  avg_tool_calls_per_session: isNumber,
+  avg_tokens_per_session: isNumber,
+  avg_cost_per_session: isNumber,
+  error_rate: isNumber,
+  avg_duration_seconds: isNumber,
+})
+
+const driftAlertValidator: ValidationChecker = shapeValidator({
+  metric: isString,
+  metric_label: isString,
+  baseline_value: isNumber,
+  current_value: isNumber,
+  change_percent: isNumber,
+  severity: value => typeof value === 'string' && ['warning', 'critical'].includes(value),
+  description: isString,
+})
+
+const driftResponseValidator: ValidationChecker = shapeValidator({
+  agent_name: isString,
+  baseline_session_count: isNumber,
+  recent_session_count: isNumber,
+  baseline: agentBaselineValidator,
+  current: agentBaselineValidator,
+  alerts: arrayValidator(driftAlertValidator),
+})
+
 const checkpointValidator: ValidationChecker = shapeValidator({
   id: isString,
   session_id: isString,
@@ -172,4 +206,7 @@ export const validators = {
   ReplayResponse: replayResponseValidator,
   AnalysisResult: traceAnalysisValidator,
   LiveSummary: liveSummaryValidator,
+  AgentBaseline: agentBaselineValidator,
+  DriftAlert: driftAlertValidator,
+  DriftResponse: driftResponseValidator,
 }

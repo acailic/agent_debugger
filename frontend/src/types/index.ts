@@ -282,17 +282,16 @@ export interface TraceSearchResponse {
 export interface AgentBaseline {
   agent_name: string
   session_count: number
-  computed_at: string
-  time_window_days: number
-  avg_decision_confidence: number
-  low_confidence_rate: number
-  avg_tool_duration_ms: number
-  error_rate: number
-  avg_cost_per_session: number
+  total_llm_calls: number
+  total_tool_calls: number
+  total_tokens: number
+  total_cost_usd: number
+  avg_llm_calls_per_session: number
+  avg_tool_calls_per_session: number
   avg_tokens_per_session: number
-  tool_loop_rate: number
-  refusal_rate: number
-  avg_session_replay_value: number
+  avg_cost_per_session: number
+  error_rate: number
+  avg_duration_seconds: number
 }
 
 export interface DriftAlert {
@@ -303,7 +302,6 @@ export interface DriftAlert {
   change_percent: number
   severity: 'warning' | 'critical'
   description: string
-  likely_cause: string | null
 }
 
 export interface DriftResponse {
@@ -312,7 +310,6 @@ export interface DriftResponse {
   current: AgentBaseline
   alerts: DriftAlert[]
   message?: string
-  error?: string
   baseline_session_count?: number
   recent_session_count?: number
 }

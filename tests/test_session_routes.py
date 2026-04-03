@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from agent_debugger_sdk.core.events import Session, SessionStatus
+from agent_debugger_sdk.core.events import Checkpoint, EventType, Session, SessionStatus, TraceEvent
 from api.main import create_app
 from storage import TraceRepository
 
@@ -472,6 +472,51 @@ async def test_list_checkpoints_not_found():
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/api/sessions/nonexistent-checkpoints/checkpoints")
         assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_export_session_includes_events_and_checkpoints():
+    """Test exporting a session succeeds and includes checkpoint data."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        from api import app_context
+
+        checkpoint_timestamp = datetime(2026, 3, 26, 10, 30, tzinfo=timezone.utc)
+
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            await repo.create_session(_make_session("export-session"))
+            await repo.add_event(
+                TraceEvent(
+                    id="evt-export-1",
+                    session_id="export-session",
+                    event_type=EventType.DECISION,
+                    name="decision",
+                )
+            )
+            await repo.create_checkpoint(
+                Checkpoint(
+                    id="cp-export-1",
+                    session_id="export-session",
+                    event_id="evt-export-1",
+                    sequence=1,
+                    state={"step": 1},
+                    memory={"summary": "checkpoint"},
+                    timestamp=checkpoint_timestamp,
+                    importance=0.8,
+                )
+            )
+            await db_session.commit()
+
+        resp = await client.get("/api/sessions/export-session/export")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        assert data["session"]["id"] == "export-session"
+        assert isinstance(data["events"], list)
+        assert len(data["checkpoints"]) == 1
+        assert data["checkpoints"][0]["id"] == "cp-export-1"
 
 
 @pytest.mark.asyncio

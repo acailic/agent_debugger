@@ -328,16 +328,25 @@ class AgentBaselineSchema(BaseModel):
 
     agent_name: str
     session_count: int
-    total_llm_calls: int
-    total_tool_calls: int
-    total_tokens: int
-    total_cost_usd: float
-    avg_llm_calls_per_session: float
-    avg_tool_calls_per_session: float
+    computed_at: datetime
+    time_window_days: int
+    avg_decision_confidence: float
+    low_confidence_rate: float
+    avg_tool_duration_ms: float
+    error_rate: float
     avg_tokens_per_session: float
     avg_cost_per_session: float
-    error_rate: float
-    avg_duration_seconds: float
+    tool_loop_rate: float
+    refusal_rate: float
+    avg_session_replay_value: float
+    multi_agent_metrics: dict[str, Any] | None = None
+    total_llm_calls: int = 0
+    total_tool_calls: int = 0
+    total_tokens: int = 0
+    total_cost_usd: float = 0.0
+    avg_llm_calls_per_session: float = 0.0
+    avg_tool_calls_per_session: float = 0.0
+    avg_duration_seconds: float = 0.0
 
 
 class DriftAlertSchema(BaseModel):
@@ -350,6 +359,7 @@ class DriftAlertSchema(BaseModel):
     change_percent: float
     severity: str  # "warning", "critical"
     description: str
+    likely_cause: str | None = None
 
 
 class DriftResponseSchema(BaseModel):

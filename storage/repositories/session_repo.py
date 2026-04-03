@@ -85,6 +85,7 @@ class SessionRepository:
         offset: int = 0,
         *,
         sort_by: str = "started_at",
+        agent_name: str | None = None,
     ) -> list[Session]:
         """List sessions with pagination.
 
@@ -96,6 +97,8 @@ class SessionRepository:
             List of Session instances
         """
         stmt = select(SessionModel).where(SessionModel.tenant_id == self.tenant_id)
+        if agent_name is not None:
+            stmt = stmt.where(SessionModel.agent_name == agent_name)
         if sort_by == "replay_value":
             stmt = stmt.order_by(SessionModel.replay_value.desc(), SessionModel.started_at.desc())
         else:

@@ -98,20 +98,20 @@ async function fetchWithRetry(
 
 async function fetchWithDeduplication(url: string): Promise<Response> {
   // Check if there's already a pending request for this URL
-  if (pendingRequests.has(url)) {
-    return pendingRequests.get(url)!
+  let requestPromise = pendingRequests.get(url)
+  if (!requestPromise) {
+    // Create new request with retry logic and store the promise
+    requestPromise = fetchWithRetry(url)
+    pendingRequests.set(url, requestPromise)
+
+    // Clean up after request completes (whether success or failure)
+    requestPromise.finally(() => {
+      pendingRequests.delete(url)
+    })
   }
 
-  // Create new request with retry logic and store the promise
-  const requestPromise = fetchWithRetry(url)
-  pendingRequests.set(url, requestPromise)
-
-  // Clean up after request completes (whether success or failure)
-  requestPromise.finally(() => {
-    pendingRequests.delete(url)
-  })
-
-  return requestPromise
+  // Clone the shared response so concurrent callers can read the body safely.
+  return (await requestPromise).clone()
 }
 
 interface ValidationConfig {
@@ -290,11 +290,17 @@ export async function searchTraces(params: {
 }
 
 export async function getAgentBaseline(agentName: string): Promise<AgentBaseline> {
-  return fetchJSON<AgentBaseline>(`${API_BASE}/agents/${encodeURIComponent(agentName)}/baseline`)
+  return fetchJSON<AgentBaseline>(`${API_BASE}/agents/${encodeURIComponent(agentName)}/baseline`, {
+    validator: validators.AgentBaseline,
+    endpoint: `/agents/${encodeURIComponent(agentName)}/baseline`,
+  })
 }
 
 export async function getAgentDrift(agentName: string): Promise<DriftResponse> {
-  return fetchJSON<DriftResponse>(`${API_BASE}/agents/${encodeURIComponent(agentName)}/drift`)
+  return fetchJSON<DriftResponse>(`${API_BASE}/agents/${encodeURIComponent(agentName)}/drift`, {
+    validator: validators.DriftResponse,
+    endpoint: `/agents/${encodeURIComponent(agentName)}/drift`,
+  })
 }
 
 export async function getAnalytics(range: string): Promise<AnalyticsResponse> {

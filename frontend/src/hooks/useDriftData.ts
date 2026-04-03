@@ -19,6 +19,7 @@ export function useDriftData(): void {
     const agentName = currentSession?.agent_name
     if (!agentName) {
       setDriftData(null)
+      setDriftLoading(false)
       return
     }
 

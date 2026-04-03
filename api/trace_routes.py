@@ -48,8 +48,7 @@ async def _load_agent_sessions_with_events(
     agent_name: str,
 ) -> tuple[list[Any], dict[str, list[Any]]]:
     """Load sessions and their events for a specific agent."""
-    sessions = await repo.list_sessions(limit=MAX_EVENTS_FOR_ANALYSIS)
-    agent_sessions = [s for s in sessions if s.agent_name == agent_name]
+    agent_sessions = await repo.list_sessions(limit=MAX_EVENTS_FOR_ANALYSIS, agent_name=agent_name)
 
     # Parallelize event loading with asyncio.gather
     events_results = await asyncio.gather(*[repo.get_events(s.id) for s in agent_sessions])
@@ -147,40 +146,48 @@ async def search_traces(
 
 def _empty_baseline(agent_name: str) -> AgentBaselineSchema:
     """Create a baseline schema with zeroed metrics."""
+    now = datetime.now(timezone.utc)
     return AgentBaselineSchema(
         agent_name=agent_name,
         session_count=0,
-        total_llm_calls=0,
-        total_tool_calls=0,
-        total_tokens=0,
-        total_cost_usd=0.0,
-        avg_llm_calls_per_session=0.0,
-        avg_tool_calls_per_session=0.0,
+        computed_at=now,
+        time_window_days=7,
+        avg_decision_confidence=0.0,
+        low_confidence_rate=0.0,
+        avg_tool_duration_ms=0.0,
+        error_rate=0.0,
         avg_tokens_per_session=0.0,
         avg_cost_per_session=0.0,
-        error_rate=0.0,
+        tool_loop_rate=0.0,
+        refusal_rate=0.0,
+        avg_session_replay_value=0.0,
         avg_duration_seconds=0.0,
     )
 
 
 def _baseline_from_dict(d: dict[str, Any]) -> AgentBaselineSchema:
-    """Convert an AgentBaseline.to_dict() to an AgentBaselineSchema.
-
-    Only agent_name, session_count, avg_tokens_per_session, avg_cost_per_session,
-    and error_rate overlap between the two models. All other fields default to zero.
-    """
+    """Convert an AgentBaseline.to_dict() payload to the public API schema."""
     return AgentBaselineSchema(
         agent_name=d["agent_name"],
         session_count=d["session_count"],
+        computed_at=datetime.fromisoformat(d["computed_at"]),
+        time_window_days=d.get("time_window_days", 7),
+        avg_decision_confidence=d.get("avg_decision_confidence", 0.0),
+        low_confidence_rate=d.get("low_confidence_rate", 0.0),
+        avg_tool_duration_ms=d.get("avg_tool_duration_ms", 0.0),
+        error_rate=d.get("error_rate", 0.0),
+        avg_tokens_per_session=d.get("avg_tokens_per_session", 0.0),
+        avg_cost_per_session=d.get("avg_cost_per_session", 0.0),
+        tool_loop_rate=d.get("tool_loop_rate", 0.0),
+        refusal_rate=d.get("refusal_rate", 0.0),
+        avg_session_replay_value=d.get("avg_session_replay_value", 0.0),
+        multi_agent_metrics=d.get("multi_agent_metrics"),
         total_llm_calls=d.get("total_llm_calls", 0),
         total_tool_calls=d.get("total_tool_calls", 0),
         total_tokens=d.get("total_tokens", 0),
         total_cost_usd=d.get("total_cost_usd", 0.0),
         avg_llm_calls_per_session=d.get("avg_llm_calls_per_session", 0.0),
         avg_tool_calls_per_session=d.get("avg_tool_calls_per_session", 0.0),
-        avg_tokens_per_session=d.get("avg_tokens_per_session", 0.0),
-        avg_cost_per_session=d.get("avg_cost_per_session", 0.0),
-        error_rate=d.get("error_rate", 0.0),
         avg_duration_seconds=d.get("avg_duration_seconds", 0.0),
     )
 
@@ -264,6 +271,7 @@ async def get_agent_drift(
                 change_percent=a.change_percent,
                 severity=a.severity,
                 description=a.description,
+                likely_cause=a.likely_cause,
             )
             for a in alerts
         ],

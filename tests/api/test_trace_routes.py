@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -306,6 +306,59 @@ async def test_get_agent_baseline_no_sessions():
 
 
 @pytest.mark.asyncio
+async def test_get_agent_baseline_filters_by_agent_before_limit(monkeypatch):
+    """Baseline queries should not lose older sessions from the target agent."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    monkeypatch.setattr("api.trace_routes.MAX_EVENTS_FOR_ANALYSIS", 2)
+
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        from api import app_context
+
+        now = datetime.now(timezone.utc)
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            await repo.create_session(
+                Session(
+                    id="quiet-agent-session",
+                    agent_name="quiet-agent",
+                    framework="pytest",
+                    started_at=now - timedelta(days=3),
+                    ended_at=now - timedelta(days=3, minutes=-1),
+                    status=SessionStatus.COMPLETED,
+                )
+            )
+            await repo.create_session(
+                Session(
+                    id="busy-agent-session-1",
+                    agent_name="busy-agent",
+                    framework="pytest",
+                    started_at=now - timedelta(minutes=1),
+                    ended_at=now,
+                    status=SessionStatus.COMPLETED,
+                )
+            )
+            await repo.create_session(
+                Session(
+                    id="busy-agent-session-2",
+                    agent_name="busy-agent",
+                    framework="pytest",
+                    started_at=now - timedelta(minutes=2),
+                    ended_at=now - timedelta(minutes=1),
+                    status=SessionStatus.COMPLETED,
+                )
+            )
+            await db_session.commit()
+
+        resp = await client.get("/api/agents/quiet-agent/baseline")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        assert data["agent_name"] == "quiet-agent"
+        assert data["session_count"] == 1
+
+
+@pytest.mark.asyncio
 async def test_get_agent_drift_no_sessions():
     """Test getting agent drift when no sessions exist."""
     app = create_app()
@@ -319,6 +372,65 @@ async def test_get_agent_drift_no_sessions():
         assert "alerts" in data
         assert data["agent_name"] == "nonexistent-agent"
         assert isinstance(data["alerts"], list)
+
+
+@pytest.mark.asyncio
+async def test_get_agent_drift_includes_frontend_required_fields():
+    """Drift responses should expose the metrics and alert guidance used by the UI."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        from api import app_context
+
+        now = datetime.now(timezone.utc)
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            await repo.create_session(
+                Session(
+                    id="drift-baseline-session",
+                    agent_name="drift-ui-agent",
+                    framework="pytest",
+                    started_at=now - timedelta(days=2),
+                    ended_at=now - timedelta(days=2, minutes=-1),
+                    status=SessionStatus.COMPLETED,
+                )
+            )
+            await repo.add_event(
+                _make_event(
+                    "drift-baseline-session",
+                    EventType.DECISION,
+                    name="baseline-decision",
+                    data={"confidence": 0.9},
+                )
+            )
+            await repo.create_session(
+                Session(
+                    id="drift-current-session",
+                    agent_name="drift-ui-agent",
+                    framework="pytest",
+                    started_at=now - timedelta(hours=1),
+                    ended_at=now - timedelta(minutes=30),
+                    status=SessionStatus.COMPLETED,
+                )
+            )
+            await repo.add_event(
+                _make_event(
+                    "drift-current-session",
+                    EventType.DECISION,
+                    name="current-decision",
+                    data={"confidence": 0.2},
+                )
+            )
+            await db_session.commit()
+
+        resp = await client.get("/api/agents/drift-ui-agent/drift")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        assert data["baseline"]["avg_decision_confidence"] == pytest.approx(0.9)
+        assert data["baseline"]["time_window_days"] == 7
+        assert data["current"]["avg_decision_confidence"] == pytest.approx(0.2)
+        assert data["alerts"][0]["likely_cause"]
 
 
 @pytest.mark.asyncio

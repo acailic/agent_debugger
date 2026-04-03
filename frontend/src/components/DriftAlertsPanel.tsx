@@ -28,17 +28,7 @@ export function DriftAlertsPanel({ agentName, driftData, loading }: DriftAlertsP
     )
   }
 
-  const { baseline, current, alerts, message, error } = driftData
-
-  if (error) {
-    return (
-      <section className="panel drift-panel">
-        <p className="eyebrow">Behavior Drift</p>
-        <h2>{agentName}</h2>
-        <p className="drift-error">{error}</p>
-      </section>
-    )
-  }
+  const { baseline, current, alerts, message, recent_session_count } = driftData
 
   return (
     <section className="panel drift-panel">
@@ -52,15 +42,19 @@ export function DriftAlertsPanel({ agentName, driftData, loading }: DriftAlertsP
       {baseline && (
         <div className="baseline-summary">
           <span>Sessions: {baseline.session_count}</span>
-          <span>Window: {baseline.time_window_days}d</span>
-          <span>Confidence: {baseline.avg_decision_confidence.toFixed(2)}</span>
+          <span>LLM/session: {formatMetricValue(baseline.avg_llm_calls_per_session)}</span>
+          <span>Cost/session: {formatCurrency(baseline.avg_cost_per_session)}</span>
+          <span>Tokens/session: {formatMetricValue(baseline.avg_tokens_per_session)}</span>
+          <span>Error rate: {formatPercent(baseline.error_rate)}</span>
         </div>
       )}
 
       {current && (
         <div className="baseline-summary current-summary">
-          <span>Current Sessions: {driftData.recent_session_count ?? 'N/A'}</span>
-          <span>Confidence: {current.avg_decision_confidence.toFixed(2)}</span>
+          <span>Current Sessions: {recent_session_count ?? current.session_count}</span>
+          <span>Tool/session: {formatMetricValue(current.avg_tool_calls_per_session)}</span>
+          <span>Cost/session: {formatCurrency(current.avg_cost_per_session)}</span>
+          <span>Duration: {formatDuration(current.avg_duration_seconds)}</span>
         </div>
       )}
 
@@ -84,11 +78,8 @@ export function DriftAlertsPanel({ agentName, driftData, loading }: DriftAlertsP
                 <span>Current: {formatMetricValue(alert.current_value)}</span>
                 <span>Change: {formatChange(alert.change_percent)}</span>
               </div>
-              {alert.likely_cause && (
-                <p className="alert-cause">Likely cause: {alert.likely_cause}</p>
-              )}
               <p className="alert-suggested-action">
-                <small>Consider anchoring your prompt or reviewing recent prompt changes</small>
+                <small>Review the recent execution pattern that moved this metric.</small>
               </p>
             </div>
           ))}
@@ -112,4 +103,16 @@ function formatMetricValue(value: number): string {
 function formatChange(percent: number): string {
   const sign = percent >= 0 ? '+' : ''
   return `${sign}${percent.toFixed(1)}%`
+}
+
+function formatPercent(value: number): string {
+  return `${(value * 100).toFixed(1)}%`
+}
+
+function formatCurrency(value: number): string {
+  return `$${value.toFixed(3)}`
+}
+
+function formatDuration(value: number): string {
+  return `${value.toFixed(1)}s`
 }

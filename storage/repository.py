@@ -99,6 +99,7 @@ class TraceRepository:
         offset: int = 0,
         *,
         sort_by: str = "started_at",
+        agent_name: str | None = None,
     ) -> list[Session]:
         """List sessions with pagination.
 
@@ -109,7 +110,7 @@ class TraceRepository:
         Returns:
             List of Session instances
         """
-        return await self._session_repo.list_sessions(limit, offset, sort_by=sort_by)
+        return await self._session_repo.list_sessions(limit, offset, sort_by=sort_by, agent_name=agent_name)
 
     async def count_sessions(self) -> int:
         """Count total number of sessions.
@@ -293,7 +294,7 @@ class TraceRepository:
         """
         return await self._checkpoint_repo.get_checkpoint(checkpoint_id)
 
-    async def list_checkpoints(self, session_id: str) -> list[Checkpoint]:
+    async def list_checkpoints(self, session_id: str, limit: int | None = None) -> list[Checkpoint]:
         """List all checkpoints for a session.
 
         Args:
@@ -302,7 +303,7 @@ class TraceRepository:
         Returns:
             List of Checkpoint instances ordered by timestamp
         """
-        return await self._checkpoint_repo.list_checkpoints(session_id)
+        return await self._checkpoint_repo.list_checkpoints(session_id, limit=limit)
 
     async def get_high_importance_checkpoints(self, session_id: str, limit: int = 10) -> list[Checkpoint]:
         """Get checkpoints with high importance scores.
