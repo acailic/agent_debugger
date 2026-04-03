@@ -8,7 +8,17 @@ This module tests:
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
+
+# Belt-and-suspenders: patch HttpTransport so it can never be instantiated,
+# even if the configure_event_pipeline ContextVar is reset by another test
+# running in the same xdist worker.
+patch(
+    "agent_debugger_sdk.transport.HttpTransport.__init__",
+    side_effect=RuntimeError("HttpTransport not available in benchmark tests"),
+).start()
 
 
 # Set a no-op event persister so TraceContext never creates HTTP transport,
@@ -23,6 +33,18 @@ async def _noop_persist(event):  # noqa: ARG001
 from agent_debugger_sdk.core.context import configure_event_pipeline  # noqa: E402
 
 configure_event_pipeline(None, persist_event=_noop_persist)
+
+
+@pytest.fixture(autouse=True)
+def _reconfigure_noop_pipeline():
+    """Re-configure the no-op pipeline before each test.
+
+    xdist workers share processes: another test may call
+    configure_event_pipeline(persist_event=None), resetting the
+    ContextVar.  This fixture restores the no-op before every test.
+    """
+    configure_event_pipeline(None, persist_event=_noop_persist)
+    yield
 
 from agent_debugger_sdk.core.events import (  # noqa: E402
     EventType,
