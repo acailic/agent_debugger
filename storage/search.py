@@ -10,7 +10,7 @@ import re
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import String, cast, exists, or_, select
+from sqlalchemy import String, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent_debugger_sdk.core.events import Session, TraceEvent
