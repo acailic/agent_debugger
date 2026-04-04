@@ -123,6 +123,8 @@ class TraceContext(RecordingMixin):
         self._entered = False
         self._transport: Any | None = None  # HttpTransport instance if in cloud mode
         self._restored_state: BaseCheckpointState | None = None
+        self._drift_detector: Any = None
+        self.replayed_events: list[Any] = []
 
     @classmethod
     async def restore(
@@ -132,6 +134,8 @@ class TraceContext(RecordingMixin):
         session_id: str | None = None,
         server_url: str | None = None,
         label: str = "",
+        replay_events: bool = False,
+        importance_threshold: float | None = None,
     ) -> TraceContext:
         """Restore execution from a checkpoint.
 
@@ -143,6 +147,10 @@ class TraceContext(RecordingMixin):
             session_id: Optional session ID for the restored session (new UUID if None).
             server_url: Server URL (uses configured endpoint if None).
             label: Label for the restored session.
+            replay_events: If True, fetch and store events that occurred after
+                the checkpoint was taken (available via ctx.replayed_events).
+            importance_threshold: When replay_events is True, only include events
+                with importance >= this threshold.
 
         Returns:
             TraceContext with restored state accessible via ctx.restored_state.
@@ -166,6 +174,31 @@ class TraceContext(RecordingMixin):
             config=session.config,
         )
         ctx._restored_state = restored_state
+
+        # Apply framework-specific restore hook when one is registered
+        if restored_state is not None:
+            from agent_debugger_sdk.checkpoints.hooks import apply_restore_hook
+
+            framework = getattr(restored_state, "framework", "custom")
+            await apply_restore_hook(framework, restored_state, ctx)
+
+        # Fetch and store post-checkpoint events when requested
+        if replay_events:
+            from agent_debugger_sdk.checkpoints.hooks import AutoReplayManager
+
+            from .session_manager import _resolve_restore_server_url
+
+            orig_session_id: str = session.config.get("original_session_id", "")
+            checkpoint_sequence: int = session.config.get("checkpoint_sequence", 0)
+            resolved_url = _resolve_restore_server_url(server_url)
+            manager = AutoReplayManager(
+                server_url=resolved_url,
+                original_session_id=orig_session_id,
+                checkpoint_sequence=checkpoint_sequence,
+                importance_threshold=importance_threshold,
+            )
+            ctx.replayed_events = await manager.fetch_and_filter()
+
         return ctx
 
     @property
