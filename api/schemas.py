@@ -187,6 +187,8 @@ class RestoreRequest(BaseModel):
 
     session_id: str | None = None
     label: str = Field(default="", max_length=200)
+    replay_events: bool = False
+    track_drift: bool = False
 
 
 class RestoreResponse(BaseModel):
@@ -196,6 +198,8 @@ class RestoreResponse(BaseModel):
     restored_at: str
     state: dict[str, Any]
     restore_token: str
+    replayed_events_count: int = 0
+    drift_detected: bool = False
 
 
 class DeleteResponse(BaseModel):
