@@ -211,9 +211,9 @@ class TraceContext(RecordingMixin):
                 if not cancelled and sess_id:
                     all_events: list[Any] = []
                     try:
-                        resp = await client.get(f"{resolved_url}/api/sessions/{sess_id}/events")
+                        resp = await client.get(f"{resolved_url}/api/sessions/{sess_id}/traces")
                         resp.raise_for_status()
-                        all_events = resp.json().get("events", [])
+                        all_events = resp.json().get("traces", [])
                     except Exception:
                         _logger.debug("Failed to fetch replay events for session %r", sess_id, exc_info=True)
 

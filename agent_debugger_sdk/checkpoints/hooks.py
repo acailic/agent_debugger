@@ -51,9 +51,9 @@ async def _langchain_restore_hook(state: Any, target: Any) -> Any:
     target do not corrupt the checkpoint snapshot.
     """
     if hasattr(state, "messages") and hasattr(target, "messages"):
-        target.messages = copy.copy(state.messages)
+        target.messages = copy.deepcopy(state.messages)
     if hasattr(state, "intermediate_steps") and hasattr(target, "intermediate_steps"):
-        target.intermediate_steps = copy.copy(state.intermediate_steps)
+        target.intermediate_steps = copy.deepcopy(state.intermediate_steps)
     return target
 
 
@@ -67,7 +67,7 @@ async def _generic_restore_hook(state: Any, target: Any) -> Any:
     for attr in ("messages", "intermediate_steps", "data"):
         if hasattr(state, attr) and hasattr(target, attr):
             val = getattr(state, attr)
-            setattr(target, attr, copy.copy(val) if isinstance(val, (list, dict)) else val)
+            setattr(target, attr, copy.deepcopy(val) if isinstance(val, (list, dict)) else val)
     return target
 
 
