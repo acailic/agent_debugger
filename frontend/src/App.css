@@ -3939,6 +3939,18 @@ pre {
   color: var(--warning);
 }
 
+.cost-error,
+.cost-empty {
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.cost-error {
+  color: var(--danger);
+}
+
 /* ============================================
    Fix Annotation
    ============================================ */

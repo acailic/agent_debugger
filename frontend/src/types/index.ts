@@ -382,7 +382,32 @@ export interface CostSummary {
     framework: string
     session_count: number
     total_cost_usd: number
+    avg_cost_per_session: number
+    total_tokens: number
   }>
+  daily_cost: DailyCostItem[]
+  period_start: string | null
+  period_end: string | null
+}
+
+export interface DailyCostItem {
+  date: string
+  session_count: number
+  total_cost_usd: number
+  total_tokens: number
+  avg_cost_usd: number
+}
+
+export interface TopSession {
+  session_id: string
+  agent_name: string
+  framework: string
+  total_cost_usd: number
+  total_tokens: number
+  llm_calls: number
+  tool_calls: number
+  started_at: string
+  status: string
 }
 
 export interface SessionCost {

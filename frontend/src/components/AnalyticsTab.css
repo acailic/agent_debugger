@@ -210,84 +210,184 @@
   font-size: 0.85rem;
 }
 
-/* Cost Summary Styles */
-.cost-summary {
-  margin-bottom: 1.5rem;
-  padding: var(--space-lg);
-  border: 1px solid var(--panel-border);
-  border-radius: 1.5rem;
-  background: var(--panel);
-  box-shadow: var(--shadow);
+/* Cost Summary Panel Styles */
+.cost-summary-panel {
+  padding: 1.4rem;
+  animation: fadeIn var(--duration-entrance) var(--ease-out-quart) both;
 }
 
-.cost-summary-grid {
+.cost-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: var(--space-md);
+  margin-bottom: 0.75rem;
+}
+
+.cost-summary-header h2 {
+  margin: 0;
+  font-size: 1.45rem;
+}
+
+.cost-period {
+  margin-bottom: 1.25rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.cost-summary-loading,
+.cost-summary-error {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.cost-summary-error {
+  color: var(--danger);
+}
+
+.cost-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-md);
   margin-bottom: 1.5rem;
 }
 
-.cost-stat {
-  padding: var(--space-md);
-  border-radius: 1rem;
-  background: color-mix(in oklch, var(--panel), var(--bg-strong) 40%);
+.cost-section {
+  margin-bottom: 1.5rem;
 }
 
-.cost-label {
-  display: block;
-  margin-bottom: 0.5rem;
+.cost-section:last-child {
+  margin-bottom: 0;
+}
+
+.cost-section h3 {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+/* Framework breakdown styles */
+.cost-framework-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.cost-framework-item {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 8%);
+  transition: background-color 180ms ease;
+}
+
+.cost-framework-item:hover {
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 12%);
+}
+
+.cost-framework-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cost-framework-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cost-framework-cost {
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.cost-framework-bar-track {
+  height: 0.6rem;
+  border-radius: var(--radius-full);
+  background: color-mix(in oklch, var(--bg-strong), var(--muted) 15%);
+  overflow: hidden;
+}
+
+.cost-framework-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--accent) 0%, var(--olive) 100%);
+  transition: width var(--duration-slow) var(--ease-material);
+}
+
+.cost-framework-details {
+  display: flex;
+  gap: 1rem;
   font-size: 0.8rem;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
 }
 
-.cost-value {
-  display: block;
-  font-family: 'Fraunces', serif;
-  font-size: 1.8rem;
-  font-weight: 700;
+.cost-framework-details span {
+  display: flex;
+  align-items: center;
+}
+
+/* Top sessions styles */
+.cost-top-sessions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cost-top-session-item {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem;
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 6%);
+  border: 1px solid color-mix(in oklch, var(--panel-border), transparent 50%);
+  transition: all 180ms ease;
+}
+
+.cost-top-session-item:hover {
+  background: color-mix(in oklch, var(--panel), var(--bg-strong) 10%);
+  border-color: color-mix(in oklch, var(--panel-border), var(--accent) 25%);
+}
+
+.cost-top-session-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cost-top-session-name {
+  font-size: 0.9rem;
+  font-weight: 600;
   color: var(--text);
-  font-variant-numeric: tabular-nums;
 }
 
-.cost-summary .cost-value {
-  font-variant-numeric: tabular-nums;
-}
-
-.cost-by-framework {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--panel-border);
-}
-
-.cost-by-framework h3 {
-  margin: 0 0 1rem;
-  font-size: 1.2rem;
-  color: var(--text);
-}
-
-.cost-by-framework table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.cost-by-framework th,
-.cost-by-framework td {
-  padding: 0.75rem;
-  text-align: left;
-  border-bottom: 1px solid var(--panel-border);
-}
-
-.cost-by-framework th {
-  font-size: 0.85rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.cost-by-framework td {
+.cost-top-session-cost {
   font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.cost-top-session-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.cost-top-session-framework {
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: color-mix(in oklch, var(--bg-strong), var(--muted) 10%);
+}
+
+.cost-top-session-date {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Rolling Summary Card Styles */

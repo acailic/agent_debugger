@@ -22,6 +22,7 @@ import { SimilarFailuresPanelMemo } from './components/SimilarFailuresPanel'
 import { ToolInspector } from './components/ToolInspector'
 import { TraceTimelineMemo } from './components/TraceTimeline'
 import WhyButton from './components/WhyButton'
+import CostPanel from './components/CostPanel'
 import HighlightChip from './components/HighlightChip'
 import { CheckpointSnapshot } from './components/CheckpointSnapshot'
 import { EventDetailMemo } from './components/EventDetail'
@@ -1063,6 +1064,9 @@ function App() {
 
         <aside className="detail-rail">
           <SearchPanel />
+          {selectedSessionId && (
+            <CostPanel sessionId={selectedSessionId} />
+          )}
           <EventDetailMemo
             event={activeEventForInspectors}
             ranking={selectedRanking}

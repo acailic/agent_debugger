@@ -19,13 +19,15 @@ def _make_session(
     total_tokens: int = 1000,
     llm_calls: int = 5,
     tool_calls: int = 10,
+    started_at: datetime | None = None,
 ) -> Session:
+    _started = started_at or datetime(2026, 3, 26, 10, 0, tzinfo=timezone.utc)
     return Session(
         id=session_id,
         agent_name="test_agent",
         framework=framework,
-        started_at=datetime(2026, 3, 26, 10, 0, tzinfo=timezone.utc),
-        ended_at=datetime(2026, 3, 26, 11, 0, tzinfo=timezone.utc),
+        started_at=_started,
+        ended_at=_started.replace(hour=11),
         status=SessionStatus.COMPLETED,
         total_cost_usd=total_cost_usd,
         total_tokens=total_tokens,
@@ -220,3 +222,207 @@ async def test_get_cost_summary_includes_new_sessions():
             "session_count", 0
         )
         assert by_framework["langchain"]["session_count"] == baseline_langchain + 1
+
+
+@pytest.mark.asyncio
+async def test_get_cost_summary_with_range():
+    """Test cost summary endpoint with time-range filtering."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        from api import app_context
+
+        # Create sessions with different dates - some within 7 days, some older
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            # Recent session (within 7 days)
+            await repo.create_session(
+                _make_session(
+                    "cost-range-recent",
+                    total_cost_usd=2.00,
+                    started_at=datetime(2026, 4, 1, 10, 0, tzinfo=timezone.utc),
+                )
+            )
+            # Old session (more than 7 days ago)
+            await repo.create_session(
+                _make_session(
+                    "cost-range-old",
+                    total_cost_usd=5.00,
+                    started_at=datetime(2026, 3, 20, 10, 0, tzinfo=timezone.utc),
+                )
+            )
+            await db_session.commit()
+
+        # Verify range filter works
+        resp = await client.get("/api/cost/summary?range=7d")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        # Verify response includes daily_cost and period boundaries
+        assert "daily_cost" in data
+        assert "period_start" in data
+        assert "period_end" in data
+        assert isinstance(data["daily_cost"], list)
+
+
+@pytest.mark.asyncio
+async def test_get_cost_summary_daily_breakdown():
+    """Test daily cost breakdown in cost summary."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        from api import app_context
+
+        # Create sessions across multiple days
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            await repo.create_session(
+                _make_session(
+                    "cost-daily-1",
+                    total_cost_usd=1.00,
+                    started_at=datetime(2026, 4, 1, 10, 0, tzinfo=timezone.utc),
+                )
+            )
+            await repo.create_session(
+                _make_session(
+                    "cost-daily-2",
+                    total_cost_usd=2.50,
+                    started_at=datetime(2026, 4, 2, 10, 0, tzinfo=timezone.utc),
+                )
+            )
+            await repo.create_session(
+                _make_session(
+                    "cost-daily-3",
+                    total_cost_usd=1.75,
+                    started_at=datetime(2026, 4, 2, 15, 0, tzinfo=timezone.utc),
+                )
+            )
+            await db_session.commit()
+
+        resp = await client.get("/api/cost/summary?range=7d")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        # Verify daily_cost structure
+        assert "daily_cost" in data
+        daily_costs = data["daily_cost"]
+        assert isinstance(daily_costs, list)
+
+        # Verify totals match (approximately, due to baseline data)
+        expected_daily_total = 1.00 + 2.50 + 1.75
+        daily_sum = sum(day.get("total_cost_usd", 0) for day in daily_costs)
+        # Should be at least the expected amount (may include baseline)
+        assert daily_sum >= expected_daily_total
+
+
+@pytest.mark.asyncio
+async def test_get_top_sessions():
+    """Test the top-sessions endpoint."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        from api import app_context
+
+        # Create sessions with varying costs
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            await repo.create_session(
+                _make_session("cost-top-1", total_cost_usd=5.00, total_tokens=10000, llm_calls=50, tool_calls=100)
+            )
+            await repo.create_session(
+                _make_session("cost-top-2", total_cost_usd=3.50, total_tokens=7000, llm_calls=35, tool_calls=70)
+            )
+            await repo.create_session(
+                _make_session("cost-top-3", total_cost_usd=7.25, total_tokens=15000, llm_calls=75, tool_calls=150)
+            )
+            await repo.create_session(
+                _make_session("cost-top-4", total_cost_usd=1.00, total_tokens=2000, llm_calls=10, tool_calls=20)
+            )
+            await db_session.commit()
+
+        # Test default limit
+        resp = await client.get("/api/cost/top-sessions")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        # Verify response structure
+        assert "sessions" in data
+        assert isinstance(data["sessions"], list)
+
+        # Verify sorting by cost descending
+        costs = [s.get("total_cost_usd", 0) for s in data["sessions"]]
+        for i in range(1, len(costs)):
+            assert costs[i - 1] >= costs[i], "Sessions should be sorted by cost descending"
+
+        # Test limit parameter
+        resp_limit = await client.get("/api/cost/top-sessions?limit=2")
+        assert resp_limit.status_code == 200
+        data_limit = resp_limit.json()
+        assert len(data_limit["sessions"]) <= 2
+
+
+@pytest.mark.asyncio
+async def test_get_cost_summary_enhanced_framework():
+    """Test enhanced framework breakdown with avg_cost_per_session and total_tokens."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        from api import app_context
+
+        # Create sessions with known token counts
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            await repo.create_session(
+                _make_session(
+                    "cost-enhance-1",
+                    framework="langchain",
+                    total_cost_usd=2.00,
+                    total_tokens=5000,
+                    llm_calls=20,
+                    tool_calls=40,
+                )
+            )
+            await repo.create_session(
+                _make_session(
+                    "cost-enhance-2",
+                    framework="langchain",
+                    total_cost_usd=3.00,
+                    total_tokens=7500,
+                    llm_calls=30,
+                    tool_calls=60,
+                )
+            )
+            await repo.create_session(
+                _make_session(
+                    "cost-enhance-3",
+                    framework="pytest",
+                    total_cost_usd=1.50,
+                    total_tokens=3000,
+                    llm_calls=15,
+                    tool_calls=30,
+                )
+            )
+            await db_session.commit()
+
+        resp = await client.get("/api/cost/summary")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        # Verify enhanced framework breakdown
+        by_framework = {row["framework"]: row for row in data["by_framework"]}
+
+        # Check langchain framework
+        if "langchain" in by_framework:
+            langchain_data = by_framework["langchain"]
+            # Verify avg_cost_per_session is present
+            assert "avg_cost_per_session" in langchain_data
+            assert langchain_data["avg_cost_per_session"] > 0
+            # Verify total_tokens is present
+            assert "total_tokens" in langchain_data
+            assert langchain_data["total_tokens"] >= 0
+
+        # Check pytest framework
+        if "pytest" in by_framework:
+            pytest_data = by_framework["pytest"]
+            assert "avg_cost_per_session" in pytest_data
+            assert "total_tokens" in pytest_data

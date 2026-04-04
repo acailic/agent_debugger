@@ -10,6 +10,7 @@ import type {
   Session,
   SessionCost,
   SimilarFailuresResponse,
+  TopSession,
   TraceAnalysis,
   TraceBundle,
   TraceSearchResponse,
@@ -317,8 +318,16 @@ export async function getAnalytics(range: string): Promise<AnalyticsResponse> {
 }
 
 // Cost Dashboard API
-export async function getCostSummary() {
-  return fetchJSON<CostSummary>(`${API_BASE}/cost/summary`)
+export async function getCostSummary(range?: string): Promise<CostSummary> {
+  const params = range ? `?range=${encodeURIComponent(range)}` : ''
+  return fetchJSON<CostSummary>(`${API_BASE}/cost/summary${params}`)
+}
+
+export async function getTopSessions(range?: string, limit: number = 10): Promise<TopSession[]> {
+  const params = new URLSearchParams()
+  if (range) params.set('range', range)
+  params.set('limit', String(limit))
+  return fetchJSON<TopSession[]>(`${API_BASE}/cost/top-sessions?${params}`)
 }
 
 export async function getSessionCost(sessionId: string) {

@@ -7,7 +7,7 @@ entity-specific repositories while maintaining a unified public API.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import func, select
@@ -476,22 +476,40 @@ class TraceRepository:
     # Cost Aggregation Methods
     # ------------------------------------------------------------------
 
-    async def get_cost_summary(self) -> dict:
+    async def get_cost_summary(self, days: int | None = None) -> dict:
         """Get aggregate cost statistics across all sessions.
+
+        Args:
+            days: Optional number of days to filter. None means all-time.
 
         Returns:
             Dictionary containing:
                 - total_cost_usd: Total cost across all sessions
                 - session_count: Total number of sessions
                 - avg_cost_per_session: Average cost per session
-                - by_framework: List of dicts with framework, session_count, and total_cost_usd
+                - by_framework: List of dicts with framework, session_count, total_cost_usd,
+                  avg_cost_per_session, total_tokens
+                - period_start: Start date of period (ISO format)
+                - period_end: End date of period (ISO format)
         """
+        now = datetime.now(timezone.utc)
+        period_start = None
+        if days is not None:
+            period_start = now - timedelta(days=days)
+
+        # Build base query with optional date filter
+        base_query = select(SessionModel).where(SessionModel.tenant_id == self.tenant_id)
+        if period_start is not None:
+            base_query = base_query.where(SessionModel.started_at >= period_start)
+
         # Get overall aggregates
         result = await self.session.execute(
             select(
                 func.count(SessionModel.id).label("session_count"),
                 func.sum(SessionModel.total_cost_usd).label("total_cost"),
+                func.sum(SessionModel.total_tokens).label("total_tokens"),
             ).where(SessionModel.tenant_id == self.tenant_id)
+            .where(SessionModel.started_at >= period_start if period_start is not None else True)
         )
         row = result.one()
         session_count = row.session_count or 0
@@ -503,13 +521,21 @@ class TraceRepository:
                 SessionModel.framework,
                 func.count(SessionModel.id).label("count"),
                 func.sum(SessionModel.total_cost_usd).label("total"),
+                func.sum(SessionModel.total_tokens).label("tokens"),
             )
             .where(SessionModel.tenant_id == self.tenant_id)
+            .where(SessionModel.started_at >= period_start if period_start is not None else True)
             .group_by(SessionModel.framework)
         )
         by_framework = [
-            {"framework": fw, "session_count": cnt, "total_cost_usd": float(tot or 0)}
-            for fw, cnt, tot in fw_result.all()
+            {
+                "framework": fw,
+                "session_count": cnt,
+                "total_cost_usd": float(tot or 0),
+                "avg_cost_per_session": round(float(tot or 0) / cnt, 6) if cnt else 0.0,
+                "total_tokens": int(tokens or 0),
+            }
+            for fw, cnt, tot, tokens in fw_result.all()
         ]
 
         return {
@@ -517,7 +543,118 @@ class TraceRepository:
             "session_count": session_count,
             "avg_cost_per_session": round(total_cost / session_count, 6) if session_count else 0.0,
             "by_framework": by_framework,
+            "period_start": period_start.isoformat() if period_start else None,
+            "period_end": now.isoformat(),
         }
+
+    async def get_daily_cost_breakdown(self, days: int = 30) -> list[dict]:
+        """Get daily cost breakdown for the specified time range.
+
+        Args:
+            days: Number of days to look back (default 30).
+
+        Returns:
+            List of dicts with date, session_count, total_cost_usd, total_tokens, avg_cost_usd.
+            Missing days are filled with zeros.
+        """
+        now = datetime.now(timezone.utc)
+        period_start = now - timedelta(days=days)
+
+        # Query daily aggregates
+        result = await self.session.execute(
+            select(
+                func.date(SessionModel.started_at).label("date"),
+                func.count(SessionModel.id).label("session_count"),
+                func.sum(SessionModel.total_cost_usd).label("total_cost"),
+                func.sum(SessionModel.total_tokens).label("total_tokens"),
+                func.avg(SessionModel.total_cost_usd).label("avg_cost"),
+            )
+            .where(SessionModel.tenant_id == self.tenant_id)
+            .where(SessionModel.started_at >= period_start)
+            .group_by(func.date(SessionModel.started_at))
+            .order_by(func.date(SessionModel.started_at))
+        )
+
+        # Build dict of existing data (func.date() returns string in SQLite)
+        daily_data = {
+            str(row.date): {
+                "date": str(row.date),
+                "session_count": row.session_count,
+                "total_cost_usd": float(row.total_cost or 0),
+                "total_tokens": int(row.total_tokens or 0),
+                "avg_cost_usd": round(float(row.avg_cost or 0), 6),
+            }
+            for row in result.all()
+        }
+
+        # Fill missing days with zeros
+        breakdown = []
+        for i in range(days):
+            d = (period_start + timedelta(days=i)).date()
+            if d in daily_data:
+                breakdown.append(daily_data[d])
+            else:
+                breakdown.append({
+                    "date": d.isoformat(),
+                    "session_count": 0,
+                    "total_cost_usd": 0.0,
+                    "total_tokens": 0,
+                    "avg_cost_usd": 0.0,
+                })
+
+        return breakdown
+
+    async def get_top_sessions_by_cost(
+        self, days: int | None = None, limit: int = 10
+    ) -> list[dict]:
+        """Get top sessions by cost, optionally filtered by date range.
+
+        Args:
+            days: Optional number of days to filter. None means all-time.
+            limit: Maximum number of sessions to return (default 10).
+
+        Returns:
+            List of dicts with session_id, agent_name, framework, total_cost_usd,
+            total_tokens, llm_calls, tool_calls, started_at, status.
+        """
+        now = datetime.now(timezone.utc)
+        period_start = None
+        if days is not None:
+            period_start = now - timedelta(days=days)
+
+        query = (
+            select(
+                SessionModel.id,
+                SessionModel.agent_name,
+                SessionModel.framework,
+                SessionModel.total_cost_usd,
+                SessionModel.total_tokens,
+                SessionModel.llm_calls,
+                SessionModel.tool_calls,
+                SessionModel.started_at,
+                SessionModel.status,
+            )
+            .where(SessionModel.tenant_id == self.tenant_id)
+            .where(SessionModel.started_at >= period_start if period_start is not None else True)
+            .order_by(SessionModel.total_cost_usd.desc())
+            .limit(limit)
+        )
+
+        result = await self.session.execute(query)
+        return [
+            {
+                "session_id": row.id,
+                "agent_name": row.agent_name,
+                "framework": row.framework,
+                "total_cost_usd": float(row.total_cost_usd or 0),
+                "total_tokens": int(row.total_tokens or 0),
+                "llm_calls": row.llm_calls or 0,
+                "tool_calls": row.tool_calls or 0,
+                "started_at": row.started_at.isoformat() if row.started_at else None,
+                "status": row.status,
+            }
+            for row in result.all()
+        ]
 
     # ------------------------------------------------------------------
     # ORM Conversion Methods (exposed for testing and backward compatibility)
