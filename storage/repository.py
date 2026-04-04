@@ -590,12 +590,12 @@ class TraceRepository:
         # Fill missing days with zeros
         breakdown = []
         for i in range(days):
-            d = (period_start + timedelta(days=i)).date()
+            d = (period_start + timedelta(days=i)).strftime("%Y-%m-%d")
             if d in daily_data:
                 breakdown.append(daily_data[d])
             else:
                 breakdown.append({
-                    "date": d.isoformat(),
+                    "date": d,
                     "session_count": 0,
                     "total_cost_usd": 0.0,
                     "total_tokens": 0,
