@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "peaky-peek"
-version = "0.1.16"
+version = "0.1.17"
 description = "Lightweight tracing SDK for AI agents. Capture decisions, tool calls, and LLM events with one context manager."
 readme = "SDK_README.md"
 requires-python = ">=3.10"
@@ -99,7 +99,8 @@ branch = true
 [tool.coverage.report]
 precision = 2
 show_missing = true
-skip_covered = false
+skip_covered = true
+fail_under = 70
 sort = "Cover"
 exclude_lines = [
     "pragma: no cover",
