@@ -1,0 +1,54 @@
+"""<route_description> API routes."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from api.dependencies import get_repository
+from api.exceptions import NotFoundError
+from storage import TraceRepository
+
+router = APIRouter(tags=["<resource_tag>"])
+
+
+@router.get("/api/<resource>")
+async def list_<resource>(
+    skip: int = 0,
+    limit: int = 100,
+    repo: TraceRepository = Depends(get_repository),
+) -> dict[str, Any]:
+    """List <resource> with pagination.
+
+    Args:
+        skip: Number of items to skip
+        limit: Maximum number of items to return
+        repo: Trace repository dependency
+
+    Returns:
+        Dictionary containing list of <resource> and metadata
+    """
+    # TODO: Implement listing logic
+    raise HTTPException(status_code=501, detail="Not implemented")
+
+
+@router.get("/api/<resource>/{item_id}")
+async def get_<resource>(
+    item_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> dict[str, Any]:
+    """Get a single <resource> by ID.
+
+    Args:
+        item_id: Unique identifier for the <resource>
+        repo: Trace repository dependency
+
+    Returns:
+        Dictionary containing <resource> details
+
+    Raises:
+        NotFoundError: If <resource> not found
+    """
+    # TODO: Implement retrieval logic
+    raise HTTPException(status_code=501, detail="Not implemented")

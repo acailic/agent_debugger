@@ -1,4 +1,4 @@
-.PHONY: help server frontend demo-setup demo-seed demo-live demo-safety demo-research install install-dev test lint
+.PHONY: help server frontend demo-setup demo-seed demo-live demo-safety demo-research install install-dev test lint dead-code
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 help:
@@ -12,6 +12,7 @@ help:
 	@echo "    make frontend      Start React dev server on :5173"
 	@echo "    make test          Run test suite"
 	@echo "    make lint          Run ruff linter"
+	@echo "    make dead-code     Run dead code detection"
 	@echo ""
 	@echo "  Demo recording"
 	@echo "    make demo-setup    Seed all benchmark data, then print next steps"
@@ -42,6 +43,9 @@ test:
 
 lint:
 	ruff check .
+
+dead-code:
+	@bash scripts/check_dead_code.sh
 
 # ── Demo recording ────────────────────────────────────────────────────────────
 demo-seed:

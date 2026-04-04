@@ -23,10 +23,6 @@
 
 ---
 
-<p align="center">
-  <img src="./peek-v5-demo.gif" alt="Peaky Peek demo walkthrough" width="720" />
-</p>
-
 ## Why Peaky Peek?
 
 Traditional observability tools weren't built for agent-native debugging:
@@ -166,20 +162,25 @@ Time-travel through agent execution with checkpoint-aware playback. Play, pause,
 
 ### Trace Search
 
+<p>
+  <img src="./docs/assets/gifs/demo-trace-search.gif" alt="Trace search demo" width="720" />
+</p>
+
 Find specific events across all sessions. Search by keyword, filter by event type, and jump directly to results.
 
 ### Failure Clustering & Multi-Agent Coordination
 
 <p>
-  <img src="./docs/assets/gifs/demo-search.gif" alt="Trace search demo" width="720" />
-</p>
-<p>
-  <img src="./docs/assets/gifs/demo-analytics.gif" alt="Analytics demo" width="720" />
+  <img src="./docs/assets/gifs/demo-failure-clustering.gif" alt="Failure clustering demo" width="720" />
 </p>
 
 Adaptive analysis groups similar failures. Inspect planner/critic debates, speaker topology, and prompt policy parameters across multi-agent systems.
 
 ### Session Comparison
+
+<p>
+  <img src="./docs/assets/gifs/demo-comparison.gif" alt="Session comparison demo" width="720" />
+</p>
 
 Compare two agent runs side-by-side. See diffs in turn count, speaker topology, policies, stance shifts, and grounded decisions.
 

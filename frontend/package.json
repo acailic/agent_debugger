@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check-dead-code": "npx ts-prune 2>&1 | head -50 || echo 'ts-prune not installed - add with: npm install -D ts-prune'"
   },
   "dependencies": {
     "d3": "^7.9.0",

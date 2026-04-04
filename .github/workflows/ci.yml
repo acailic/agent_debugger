@@ -74,6 +74,9 @@ jobs:
           npm ci
           npm run test -- --run
 
+      - name: Check API contract sync
+        run: python3 scripts/hooks/check_api_contract.py
+
       - name: Security scan with bandit
         run: |
           pip install bandit

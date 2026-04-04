@@ -30,6 +30,10 @@
           {
             "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/hooks/check_layer_imports.py\" \"$CLAUDE_FILE_PATH\" 2>/dev/null; echo '{\"decision\":\"allow\"}'; exit 0"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/hooks/check_security.py\" \"$CLAUDE_FILE_PATH\" 2>/dev/null; echo '{\"decision\":\"allow\"}'; exit 0"
           }
         ]
       }

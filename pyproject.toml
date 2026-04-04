@@ -50,6 +50,7 @@ dev = [
     "pytest-cov>=4.0",
     "respx>=0.21",
     "ruff>=0.1",
+    "vulture>=2.0",
 ]
 
 [project.scripts]

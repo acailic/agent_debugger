@@ -1,0 +1,27 @@
+"""<schema_description> schemas."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ResourceSchema(BaseModel):
+    """<description>.
+
+    Attributes:
+        id: Unique identifier
+        name: Resource name
+        created_at: Creation timestamp
+        updated_at: Last update timestamp
+    """
+
+    model_config = ConfigDict(use_enum_values=True)
+
+    id: str = Field(..., description="Unique identifier")
+    name: str = Field(..., description="Resource name")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Creation timestamp")
+    updated_at: datetime | None = Field(None, description="Last update timestamp")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
