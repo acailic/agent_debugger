@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { useAlerts } from '../hooks/useAlerts'
 import { useAlertSummary } from '../hooks/useAlertSummary'
-import type { AlertStatus, ManagedAlert, RiskLevel } from '../types'
+import type { AlertStatus, RiskLevel } from '../types'
 
 interface AlertDashboardPanelProps {
   agentName: string | null
 }
 
 export function AlertDashboardPanel({ agentName }: AlertDashboardPanelProps) {
-  const { alerts, loading, error, filters, setFilter, clearFilter, clearAllFilters, updateStatus, bulkUpdate } =
+  const { alerts, loading, error, filters, setFilter, clearAllFilters, updateStatus, bulkUpdate } =
     useAlerts(agentName ? { agent_name: agentName } : {})
   const { summary, trending, loading: summaryLoading } = useAlertSummary(7)
   const [expandedAlertId, setExpandedAlertId] = useState<string | null>(null)
