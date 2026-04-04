@@ -79,8 +79,16 @@ class DriftDetector:
 
         # --- Decision / action drift ---
         if orig_type == "decision" or new_type == "decision":
-            orig_action = orig_data.get("chosen_action") or orig_data.get("action")
-            new_action = new_data.get("chosen_action") or new_data.get("action")
+            orig_action = (
+                orig_data["chosen_action"]
+                if "chosen_action" in orig_data
+                else orig_data.get("action")
+            )
+            new_action = (
+                new_data["chosen_action"]
+                if "chosen_action" in new_data
+                else new_data.get("action")
+            )
             if orig_action is not None and new_action is not None and orig_action != new_action:
                 return DriftEvent(
                     severity=DriftSeverity.CRITICAL,
@@ -105,8 +113,20 @@ class DriftDetector:
 
         # --- Tool call drift ---
         if orig_type == "tool_call" or new_type == "tool_call":
-            orig_tool = orig_data.get("tool_name") or orig_data.get("tool")
-            new_tool = new_data.get("tool_name") or new_data.get("tool")
+            orig_tool = (
+                orig_data["tool_name"]
+                if "tool_name" in orig_data
+                else orig_data["tool"]
+                if "tool" in orig_data
+                else None
+            )
+            new_tool = (
+                new_data["tool_name"]
+                if "tool_name" in new_data
+                else new_data["tool"]
+                if "tool" in new_data
+                else None
+            )
             if orig_tool is not None and new_tool is not None and orig_tool != new_tool:
                 return DriftEvent(
                     severity=DriftSeverity.WARNING,

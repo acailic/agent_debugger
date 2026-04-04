@@ -42,7 +42,7 @@ class RestoreHook(Protocol):
 
 # Registry mapping framework name → RestoreHook callable.
 # Users and adapters can register hooks at import time or at runtime.
-RESTORE_HOOK_REGISTRY: dict[str, Any] = {}
+RESTORE_HOOK_REGISTRY: dict[str, RestoreHook] = {}
 
 
 async def apply_restore_hook(
@@ -71,7 +71,14 @@ async def apply_restore_hook(
 
     if hook is not None:
         try:
-            return await hook(checkpoint_state, target)
+            restored_target = await hook(checkpoint_state, target)
+            if restored_target is None:
+                logger.warning(
+                    "Restore hook for framework %r returned None; using original target",
+                    framework,
+                )
+                return target
+            return restored_target
         except Exception:
             logger.exception(
                 "Restore hook for framework %r raised an error; skipping hook application",
