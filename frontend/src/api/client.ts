@@ -399,7 +399,7 @@ export async function updateAlertStatus(
   const response = await fetch(`${API_BASE}/alerts/${alertId}/status`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status, resolution_note: note }),
+    body: JSON.stringify({ status, note }),
   })
   if (!response.ok) {
     throw new Error(`API error: ${response.status} ${response.statusText}`)
@@ -416,7 +416,7 @@ export async function bulkUpdateAlertStatus(alertIds: string[], status: AlertSta
   if (!response.ok) {
     throw new Error(`API error: ${response.status} ${response.statusText}`)
   }
-  return response.json() as Promise<{ updated: number; failed: number }>
+  return response.json() as Promise<{ updated: number; status: AlertStatus }>
 }
 
 export async function fetchAlertSummary() {
@@ -424,7 +424,10 @@ export async function fetchAlertSummary() {
 }
 
 export async function fetchAlertTrending(days: number = 7) {
-  return fetchJSON<AlertTrendingPoint[]>(`${API_BASE}/alerts/trending?days=${days}`)
+  const data = await fetchJSON<{ trending: AlertTrendingPoint[]; days: number }>(
+    `${API_BASE}/alerts/trending?days=${days}`
+  )
+  return data.trending
 }
 
 export async function fetchAlertPolicies(agentName?: string) {

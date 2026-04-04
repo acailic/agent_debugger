@@ -494,7 +494,7 @@ export interface ManagedAlert {
   id: string
   session_id: string
   alert_type: string
-  severity: RiskLevel
+  severity: number
   signal: string
   status: AlertStatus
   event_ids: string[]
@@ -505,4 +505,12 @@ export interface ManagedAlert {
   resolved_at: string | null
   dismissed_at: string | null
   created_at: string
+}
+
+/** Map numeric severity (0.0–1.0) to a display label. */
+export function severityLabel(severity: number): RiskLevel {
+  if (severity >= 0.8) return 'critical'
+  if (severity >= 0.5) return 'high'
+  if (severity >= 0.3) return 'medium'
+  return 'low'
 }

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -16,12 +17,21 @@ class AlertDeriver(ABC):
 
         Args:
             policy_getter: Optional callable that retrieves alert policies.
-                          Should have signature: (alert_type: str, agent_name: str | None) -> dict | None
+                          May be sync or async with signature:
+                          (alert_type: str, agent_name: str | None) -> dict | None
         """
         self.policy_getter = policy_getter
 
-    def get_threshold(self, alert_type: str, agent_name: str | None = None, default_threshold: float = 0.0) -> float:
+    def get_threshold(
+        self,
+        alert_type: str,
+        agent_name: str | None = None,
+        default_threshold: float = 0.0,
+    ) -> float:
         """Get the threshold value for an alert type from policy or use default.
+
+        Supports both sync and async policy getters. For async getters, returns
+        the default immediately — use ``get_threshold_async`` in async contexts.
 
         Args:
             alert_type: Type of alert to get threshold for
@@ -33,6 +43,32 @@ class AlertDeriver(ABC):
         """
         if self.policy_getter:
             policy = self.policy_getter(alert_type, agent_name)
+            if asyncio.iscoroutine(policy):
+                return default_threshold
+            if policy and policy.get("enabled", True):
+                return policy.get("threshold_value", default_threshold)
+        return default_threshold
+
+    async def get_threshold_async(
+        self,
+        alert_type: str,
+        agent_name: str | None = None,
+        default_threshold: float = 0.0,
+    ) -> float:
+        """Async version of get_threshold that awaits async policy getters.
+
+        Args:
+            alert_type: Type of alert to get threshold for
+            agent_name: Optional agent name for agent-specific policies
+            default_threshold: Default threshold if no policy found
+
+        Returns:
+            Threshold value to use
+        """
+        if self.policy_getter:
+            policy = self.policy_getter(alert_type, agent_name)
+            if asyncio.iscoroutine(policy):
+                policy = await policy
             if policy and policy.get("enabled", True):
                 return policy.get("threshold_value", default_threshold)
         return default_threshold

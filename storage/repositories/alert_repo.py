@@ -188,7 +188,7 @@ class AnomalyAlertRepository:
         Returns:
             List of dicts with alert_type, count, and avg_severity
         """
-        cache_key = f"trending_alerts:{self.tenant_id}:{hours}h"
+        cache_key = f"trending_alerts:{self.tenant_id}:{hours}h:{limit}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
@@ -224,10 +224,11 @@ class AnomalyAlertRepository:
         return trending
 
     def _invalidate_summary_cache(self) -> None:
-        """Invalidate summary and trending cache entries for this tenant."""
-        # Invalidate all cache entries for this tenant
-        self._cache.invalidate(f"alert_summary:{self.tenant_id}:")
-        self._cache.invalidate(f"trending_alerts:{self.tenant_id}:")
+        """Invalidate summary, lifecycle, and trending cache entries for this tenant."""
+        self._cache.invalidate(f"alert_summary:{self.tenant_id}:", prefix=True)
+        self._cache.invalidate(f"trending_alerts:{self.tenant_id}:", prefix=True)
+        self._cache.invalidate(f"trending:{self.tenant_id}:", prefix=True)
+        self._cache.invalidate(f"lifecycle_summary:{self.tenant_id}")
 
     # ------------------------------------------------------------------
     # Lifecycle Management Methods

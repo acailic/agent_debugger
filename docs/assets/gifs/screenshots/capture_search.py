@@ -6,9 +6,7 @@ from playwright.async_api import async_playwright
 
 
 async def capture_screenshots():
-    screenshots_dir = Path(  # noqa: E501
-        "/home/nistrator/Documents/github/amplifier/ai_working/agent_debugger/docs/assets/gifs/screenshots"
-    )
+    screenshots_dir = Path(__file__).resolve().parent
     
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False)

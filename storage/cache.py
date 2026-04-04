@@ -53,14 +53,24 @@ class QueryCache:
         with self._lock:
             self._cache[key] = (value, expiry)
 
-    def invalidate(self, key: str) -> None:
-        """Remove a specific key from the cache.
+    def invalidate(self, key: str, *, prefix: bool = False) -> int:
+        """Remove cache entries by exact key or by key prefix.
 
         Args:
-            key: Cache key to invalidate
+            key: Exact cache key to invalidate, or prefix when ``prefix=True``
+            prefix: When True, remove all entries whose keys start with ``key``
+
+        Returns:
+            Number of entries removed
         """
         with self._lock:
-            self._cache.pop(key, None)
+            if not prefix:
+                return 1 if self._cache.pop(key, None) is not None else 0
+
+            keys_to_remove = [k for k in self._cache if k.startswith(key)]
+            for k in keys_to_remove:
+                del self._cache[k]
+            return len(keys_to_remove)
 
     def clear(self) -> None:
         """Clear all entries from the cache."""

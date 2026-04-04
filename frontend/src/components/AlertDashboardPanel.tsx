@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useAlerts } from '../hooks/useAlerts'
 import { useAlertSummary } from '../hooks/useAlertSummary'
-import type { AlertStatus, RiskLevel } from '../types'
+import type { AlertStatus } from '../types'
+import { severityLabel } from '../types'
 
 interface AlertDashboardPanelProps {
   agentName: string | null
@@ -46,8 +47,9 @@ export function AlertDashboardPanel({ agentName }: AlertDashboardPanelProps) {
     }
   }
 
-  const getSeverityColor = (severity: RiskLevel): string => {
-    switch (severity) {
+  const getSeverityColor = (severity: number): string => {
+    const label = severityLabel(severity)
+    switch (label) {
       case 'critical':
         return 'var(--danger)'
       case 'high':
@@ -130,10 +132,10 @@ export function AlertDashboardPanel({ agentName }: AlertDashboardPanelProps) {
           className="filter-select"
         >
           <option value="">All Severities</option>
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
+          <option value="0.8">Critical</option>
+          <option value="0.5">High</option>
+          <option value="0.3">Medium</option>
+          <option value="0">Low</option>
         </select>
         <select
           value={filters.status || ''}
@@ -190,7 +192,16 @@ export function AlertDashboardPanel({ agentName }: AlertDashboardPanelProps) {
             <div
               key={alert.id}
               className={`alert-row ${getStatusVariant(alert.status)}`}
+              role="button"
+              tabIndex={0}
+              aria-expanded={expandedAlertId === alert.id}
               onClick={() => setExpandedAlertId(expandedAlertId === alert.id ? null : alert.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setExpandedAlertId(expandedAlertId === alert.id ? null : alert.id)
+                }
+              }}
             >
               <div className="alert-row-header">
                 <div className="alert-row-meta">
@@ -199,7 +210,7 @@ export function AlertDashboardPanel({ agentName }: AlertDashboardPanelProps) {
                     style={{ backgroundColor: getSeverityColor(alert.severity) }}
                   />
                   <span className="alert-type">{alert.alert_type}</span>
-                  <span className="alert-severity">{alert.severity}</span>
+                  <span className="alert-severity">{severityLabel(alert.severity)}</span>
                   <span className="alert-status">{alert.status}</span>
                 </div>
                 <span className="alert-time">

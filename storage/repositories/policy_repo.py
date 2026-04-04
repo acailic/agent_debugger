@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from storage.models import AlertPolicyModel
+
+_UNSET: Any = object()  # Sentinel for "no update" to distinguish from None
 
 
 class AlertPolicyRepository:
@@ -109,21 +112,24 @@ class AlertPolicyRepository:
     async def update_policy(
         self,
         policy_id: str,
-        agent_name: str | None = None,
-        alert_type: str | None = None,
-        threshold_value: float | None = None,
-        severity_threshold: str | None = None,
-        enabled: bool | None = None,
+        agent_name: str | None | object = _UNSET,
+        alert_type: str | None | object = _UNSET,
+        threshold_value: float | None | object = _UNSET,
+        severity_threshold: str | None | object = _UNSET,
+        enabled: bool | None | object = _UNSET,
     ) -> AlertPolicyModel | None:
         """Update an existing alert policy.
 
+        Uses _UNSET sentinel so that explicitly passing None for nullable
+        fields (e.g. agent_name=None to make a policy global) works correctly.
+
         Args:
             policy_id: Unique identifier of the policy to update
-            agent_name: New agent name (None keeps existing value)
-            alert_type: New alert type (None keeps existing value)
-            threshold_value: New threshold value (None keeps existing value)
-            severity_threshold: New severity threshold (None keeps existing value)
-            enabled: New enabled state (None keeps existing value)
+            agent_name: New agent name (_UNSET keeps existing, None makes global)
+            alert_type: New alert type (_UNSET keeps existing)
+            threshold_value: New threshold value (_UNSET keeps existing)
+            severity_threshold: New severity threshold (_UNSET keeps existing, None clears)
+            enabled: New enabled state (_UNSET keeps existing)
 
         Returns:
             Updated AlertPolicyModel if found, None otherwise
@@ -132,15 +138,15 @@ class AlertPolicyRepository:
         if not policy:
             return None
 
-        if agent_name is not None:
+        if agent_name is not _UNSET:
             policy.agent_name = agent_name
-        if alert_type is not None:
+        if alert_type is not _UNSET:
             policy.alert_type = alert_type
-        if threshold_value is not None:
+        if threshold_value is not _UNSET:
             policy.threshold_value = threshold_value
-        if severity_threshold is not None:
+        if severity_threshold is not _UNSET:
             policy.severity_threshold = severity_threshold
-        if enabled is not None:
+        if enabled is not _UNSET:
             policy.enabled = enabled
 
         policy.updated_at = datetime.now(timezone.utc)

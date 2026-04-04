@@ -53,8 +53,8 @@ def upgrade() -> None:
         op.create_index("ix_patterns_pattern_type", "patterns", ["pattern_type"])
 
     # Create indexes for sessions table
-    if not index_exists("sessions", "ix_sessions_created_at"):
-        op.create_index("ix_sessions_created_at", "sessions", ["started_at"])
+    if not index_exists("sessions", "ix_sessions_started_at"):
+        op.create_index("ix_sessions_started_at", "sessions", ["started_at"])
 
     if not index_exists("sessions", "ix_sessions_agent_name"):
         op.create_index("ix_sessions_agent_name", "sessions", ["agent_name"])

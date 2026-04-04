@@ -12,6 +12,7 @@ from __future__ import annotations
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -35,16 +36,16 @@ class TestQueryCache:
         assert cache.get("key2") == {"nested": "dict"}
 
     def test_cache_ttl_expiration(self):
-        """Test that cache entries expire after TTL."""
+        """Test that cache entries expire after TTL without real sleeps."""
         cache = QueryCache()
+        base_time = time.time()
 
-        # Set with 1 second TTL
         cache.set("expiring_key", "value", ttl_seconds=1)
         assert cache.get("expiring_key") == "value"
 
-        # Wait for expiration
-        time.sleep(1.1)
-        assert cache.get("expiring_key") is None
+        # Advance time past TTL
+        with patch("storage.cache.time.time", return_value=base_time + 2):
+            assert cache.get("expiring_key") is None
 
     def test_cache_invalidation(self):
         """Test manual cache invalidation."""
@@ -77,20 +78,20 @@ class TestQueryCache:
         assert cache.get("key3") is None
 
     def test_cache_cleanup_expired(self):
-        """Test cleanup of expired entries."""
+        """Test cleanup of expired entries without real sleeps."""
         cache = QueryCache()
+        base_time = time.time()
 
         # Set entries with different TTLs
         cache.set("short", "value1", ttl_seconds=1)
         cache.set("long", "value2", ttl_seconds=10)
 
-        time.sleep(1.1)
-
-        # Cleanup should remove the expired entry
-        removed = cache.cleanup_expired()
-        assert removed == 1
-        assert cache.get("short") is None
-        assert cache.get("long") == "value2"
+        # Advance time past short TTL
+        with patch("storage.cache.time.time", return_value=base_time + 2):
+            removed = cache.cleanup_expired()
+            assert removed == 1
+            assert cache.get("short") is None
+            assert cache.get("long") == "value2"
 
     def test_cache_size(self):
         """Test cache size tracking."""
@@ -104,6 +105,20 @@ class TestQueryCache:
         cache.set("key2", "value2")
         cache.set("key3", "value3")
         assert cache.size() == 3
+
+    def test_cache_prefix_invalidation(self):
+        """Test prefix-based cache invalidation."""
+        cache = QueryCache()
+
+        cache.set("alert_summary:local:24h", {"total": 5})
+        cache.set("alert_summary:local:48h", {"total": 10})
+        cache.set("trending:local:7d", [])
+
+        removed = cache.invalidate("alert_summary:local:", prefix=True)
+        assert removed == 2
+        assert cache.get("alert_summary:local:24h") is None
+        assert cache.get("alert_summary:local:48h") is None
+        assert cache.get("trending:local:7d") is not None
 
 
 class TestModelIndexes:
