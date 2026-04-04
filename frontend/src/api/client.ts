@@ -1,10 +1,15 @@
 import type {
   AgentBaseline,
+  AlertPolicy,
+  AlertStatus,
+  AlertSummary,
+  AlertTrendingPoint,
   AnalyticsResponse,
   CostSummary,
   DriftResponse,
   FixNoteResponse,
   LiveSummary,
+  ManagedAlert,
   ReplayResponse,
   SearchResponse,
   Session,
@@ -370,4 +375,93 @@ export async function getSimilarFailures(params: {
   return fetchJSON<SimilarFailuresResponse>(
     `${API_BASE}/sessions/${params.sessionId}/similar-failures?${search.toString()}`
   )
+}
+
+// Alert Dashboard API functions
+export async function fetchAlerts(filters?: Record<string, string>) {
+  const search = new URLSearchParams()
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) search.set(key, value)
+    })
+  }
+  const queryString = search.toString() ? `?${search.toString()}` : ''
+  return fetchJSON<{ alerts: ManagedAlert[]; total: number }>(
+    `${API_BASE}/alerts${queryString}`
+  )
+}
+
+export async function updateAlertStatus(
+  alertId: string,
+  status: AlertStatus,
+  note?: string
+) {
+  const response = await fetch(`${API_BASE}/alerts/${alertId}/status`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, resolution_note: note }),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json() as Promise<ManagedAlert>
+}
+
+export async function bulkUpdateAlertStatus(alertIds: string[], status: AlertStatus) {
+  const response = await fetch(`${API_BASE}/alerts/bulk-status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ alert_ids: alertIds, status }),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json() as Promise<{ updated: number; failed: number }>
+}
+
+export async function fetchAlertSummary() {
+  return fetchJSON<AlertSummary>(`${API_BASE}/alerts/summary`)
+}
+
+export async function fetchAlertTrending(days: number = 7) {
+  return fetchJSON<AlertTrendingPoint[]>(`${API_BASE}/alerts/trending?days=${days}`)
+}
+
+export async function fetchAlertPolicies(agentName?: string) {
+  const params = agentName ? `?agent_name=${encodeURIComponent(agentName)}` : ''
+  return fetchJSON<AlertPolicy[]>(`${API_BASE}/alert-policies${params}`)
+}
+
+export async function createAlertPolicy(policy: Partial<AlertPolicy>) {
+  const response = await fetch(`${API_BASE}/alert-policies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(policy),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json() as Promise<AlertPolicy>
+}
+
+export async function updateAlertPolicy(id: string, policy: Partial<AlertPolicy>) {
+  const response = await fetch(`${API_BASE}/alert-policies/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(policy),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json() as Promise<AlertPolicy>
+}
+
+export async function deleteAlertPolicy(id: string) {
+  const response = await fetch(`${API_BASE}/alert-policies/${id}`, {
+    method: 'DELETE',
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json() as Promise<{ deleted: boolean }>
 }

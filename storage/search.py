@@ -174,6 +174,12 @@ class SessionSearchService:
         Uses bag-of-words cosine similarity against session event embeddings.
         Searches across event_type, name, error_type, error_message, tool_name, and model fields.
 
+        Indexes used:
+        - ix_sessions_agent_name: for agent_name filtering
+        - ix_sessions_created_at: for time range filtering (started_at column)
+        - ix_events_event_type: for event_type subquery filtering
+        - ix_events_tenant_session: for tenant-scoped event lookups
+
         Args:
             query: Search query text (supports natural language like "sessions with tool failures")
             status: Optional session status to filter by (e.g., "error", "completed")
@@ -220,6 +226,11 @@ class SessionSearchService:
         limit: int = 100,
     ) -> list[TraceEvent]:
         """Search events by name or data content.
+
+        Indexes used:
+        - ix_events_session_id_created_at: for session filtering and timestamp ordering
+        - ix_events_event_type: for event_type filtering
+        - ix_events_tenant_session: for tenant-scoped lookups
 
         Args:
             query: Search string to match against event name

@@ -5,6 +5,7 @@ using SQLAlchemy async ORM.
 """
 
 from .models import (
+    AlertPolicyModel,
     AnomalyAlertModel,
     Base,
     CheckpointModel,
@@ -12,7 +13,13 @@ from .models import (
     FailureClusterModel,
     SessionModel,
 )
-from .repositories import AnomalyAlertRepository, CheckpointRepository, EventRepository, SessionRepository
+from .repositories import (
+    AlertPolicyRepository,
+    AnomalyAlertRepository,
+    CheckpointRepository,
+    EventRepository,
+    SessionRepository,
+)
 from .repository import AnomalyAlertCreate, TraceRepository
 from .search import SessionSearchService
 
@@ -25,6 +32,7 @@ __all__ = [
     "EventRepository",
     "CheckpointRepository",
     "AnomalyAlertRepository",
+    "AlertPolicyRepository",
     # Search service
     "SessionSearchService",
     # Models
@@ -34,4 +42,5 @@ __all__ = [
     "CheckpointModel",
     "AnomalyAlertModel",
     "FailureClusterModel",
+    "AlertPolicyModel",
 ]

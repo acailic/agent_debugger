@@ -19,6 +19,14 @@ from api.dependencies import get_repository
 from api.exceptions import NotFoundError
 from api.schemas import (
     AgentBaselineSchema,
+    AlertBulkUpdate,
+    AlertFilters,
+    AlertListFilteredResponse,
+    AlertSeverityCount,
+    AlertStatusUpdate,
+    AlertSummarySchema,
+    AlertTrendingPointSchema,
+    AlertTrendingSchema,
     AnalysisResponse,
     AnomalyAlertListResponse,
     AnomalyAlertSchema,
@@ -315,10 +323,166 @@ async def get_session_alerts(
                 detection_source=alert.detection_source,
                 detection_config=alert.detection_config or {},
                 created_at=alert.created_at,
+                status=alert.status,
+                acknowledged_at=alert.acknowledged_at,
+                resolved_at=alert.resolved_at,
+                dismissed_at=alert.dismissed_at,
+                resolution_note=alert.resolution_note,
             )
             for alert in alerts
         ],
         total=len(alerts),
+    )
+
+
+# ------------------------------------------------------------------
+# Alert Lifecycle Management Endpoints (must come before /api/alerts/{alert_id})
+# ------------------------------------------------------------------
+
+
+@router.get("/api/alerts/summary", response_model=AlertSummarySchema)
+async def get_alert_summary(
+    repo: TraceRepository = Depends(get_repository),
+) -> AlertSummarySchema:
+    """Get alert summary statistics grouped by severity, type, and status.
+
+    Args:
+        repo: TraceRepository instance
+
+    Returns:
+        AlertSummarySchema with counts by severity, type, and status
+    """
+    summary = await repo._alert_repo.get_alert_lifecycle_summary()
+
+    return AlertSummarySchema(
+        by_status=summary["by_status"],
+        by_type=summary["by_type"],
+        by_severity=AlertSeverityCount(**summary["by_severity"]),
+        total=summary["total"],
+    )
+
+
+@router.get("/api/alerts/trending", response_model=AlertTrendingSchema)
+async def get_alert_trending(
+    days: int = Query(default=7, ge=1, le=90),
+    repo: TraceRepository = Depends(get_repository),
+) -> AlertTrendingSchema:
+    """Get alert volume trend grouped by day.
+
+    Args:
+        days: Number of days to look back (default 7, max 90)
+        repo: TraceRepository instance
+
+    Returns:
+        AlertTrendingSchema with list of daily counts
+    """
+    trending = await repo._alert_repo.get_alert_trending(days=days)
+
+    return AlertTrendingSchema(
+        trending=[AlertTrendingPointSchema(**point) for point in trending],
+        days=days,
+    )
+
+
+@router.post("/api/alerts/bulk-status")
+async def bulk_update_alert_status(
+    update: AlertBulkUpdate,
+    repo: TraceRepository = Depends(get_repository),
+) -> dict[str, Any]:
+    """Bulk update status for multiple alerts.
+
+    Args:
+        update: Bulk update request with alert_ids and status
+        repo: TraceRepository instance
+
+    Returns:
+        Dictionary with updated count
+
+    Raises:
+        ValueError: if status is invalid
+    """
+    updated_count = await repo._alert_repo.bulk_update_status(update.alert_ids, update.status)
+
+    try:
+        await repo.commit()
+    except Exception:
+        await repo.rollback()
+        raise
+
+    return {
+        "updated": updated_count,
+        "status": update.status,
+    }
+
+
+@router.get("/api/alerts", response_model=AlertListFilteredResponse)
+async def list_alerts_filtered(
+    agent_name: str | None = Query(default=None),
+    severity: float | None = Query(default=None, ge=0.0, le=1.0),
+    alert_type: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    from_date: datetime | None = Query(default=None),
+    to_date: datetime | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=500),
+    repo: TraceRepository = Depends(get_repository),
+) -> AlertListFilteredResponse:
+    """List alerts with rich filtering options.
+
+    Args:
+        agent_name: Optional agent name to filter by
+        severity: Optional minimum severity to filter by
+        alert_type: Optional alert type to filter by
+        status: Optional status to filter by
+        from_date: Optional start date for created_at filter
+        to_date: Optional end date for created_at filter
+        limit: Maximum number of alerts to return
+        repo: TraceRepository instance
+
+    Returns:
+        AlertListFilteredResponse with filtered alerts
+    """
+    alerts = await repo._alert_repo.list_alerts_filtered(
+        agent_name=agent_name,
+        severity=severity,
+        alert_type=alert_type,
+        status=status,
+        from_date=from_date,
+        to_date=to_date,
+        limit=limit,
+    )
+
+    filters = AlertFilters(
+        agent_name=agent_name,
+        severity=severity,
+        alert_type=alert_type,
+        status=status,
+        from_date=from_date,
+        to_date=to_date,
+        limit=limit,
+    )
+
+    return AlertListFilteredResponse(
+        alerts=[
+            AnomalyAlertSchema(
+                id=alert.id,
+                session_id=alert.session_id,
+                alert_type=alert.alert_type,
+                severity=alert.severity,
+                signal=alert.signal,
+                event_ids=alert.event_ids or [],
+                detection_source=alert.detection_source,
+                detection_config=alert.detection_config or {},
+                created_at=alert.created_at,
+                status=alert.status,
+                acknowledged_at=alert.acknowledged_at,
+                resolved_at=alert.resolved_at,
+                dismissed_at=alert.dismissed_at,
+                resolution_note=alert.resolution_note,
+            )
+            for alert in alerts
+        ],
+        total=len(alerts),
+        filters=filters,
     )
 
 
@@ -353,4 +517,57 @@ async def get_alert(
         detection_source=alert.detection_source,
         detection_config=alert.detection_config or {},
         created_at=alert.created_at,
+        status=alert.status,
+        acknowledged_at=alert.acknowledged_at,
+        resolved_at=alert.resolved_at,
+        dismissed_at=alert.dismissed_at,
+        resolution_note=alert.resolution_note,
+    )
+
+
+@router.put("/api/alerts/{alert_id}/status", response_model=AnomalyAlertSchema)
+async def update_alert_status(
+    alert_id: str,
+    update: AlertStatusUpdate,
+    repo: TraceRepository = Depends(get_repository),
+) -> AnomalyAlertSchema:
+    """Update the status of a single alert.
+
+    Args:
+        alert_id: Unique identifier of the alert
+        update: Status update request with status and optional note
+        repo: TraceRepository instance
+
+    Returns:
+        Updated AnomalyAlertSchema
+
+    Raises:
+        NotFoundError: if alert not found
+        ValueError: if status is invalid
+    """
+    alert = await repo._alert_repo.update_alert_status(alert_id, update.status, update.note)
+    if not alert:
+        raise NotFoundError(f"Alert {alert_id} not found")
+
+    try:
+        await repo.commit()
+    except Exception:
+        await repo.rollback()
+        raise
+
+    return AnomalyAlertSchema(
+        id=alert.id,
+        session_id=alert.session_id,
+        alert_type=alert.alert_type,
+        severity=alert.severity,
+        signal=alert.signal,
+        event_ids=alert.event_ids or [],
+        detection_source=alert.detection_source,
+        detection_config=alert.detection_config or {},
+        created_at=alert.created_at,
+        status=alert.status,
+        acknowledged_at=alert.acknowledged_at,
+        resolved_at=alert.resolved_at,
+        dismissed_at=alert.dismissed_at,
+        resolution_note=alert.resolution_note,
     )

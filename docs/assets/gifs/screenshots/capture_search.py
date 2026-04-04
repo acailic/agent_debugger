@@ -1,10 +1,14 @@
 
 import asyncio
-from playwright.async_api import async_playwright
 from pathlib import Path
 
+from playwright.async_api import async_playwright
+
+
 async def capture_screenshots():
-    screenshots_dir = Path("/home/nistrator/Documents/github/amplifier/ai_working/agent_debugger/docs/assets/gifs/screenshots")
+    screenshots_dir = Path(  # noqa: E501
+        "/home/nistrator/Documents/github/amplifier/ai_working/agent_debugger/docs/assets/gifs/screenshots"
+    )
     
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False)
@@ -20,7 +24,8 @@ async def capture_screenshots():
         await page.screenshot(path=str(screenshots_dir / "search_01_initial.png"))
         
         # Find and click on search box
-        search_input = page.locator("input[placeholder*='search' i], input[aria-label*='search' i], .search input, #search").first
+        selector = "input[placeholder*='search' i], input[aria-label*='search' i], .search input, #search"
+        search_input = page.locator(selector).first
         if await search_input.count() > 0:
             await search_input.click()
             await asyncio.sleep(0.5)
