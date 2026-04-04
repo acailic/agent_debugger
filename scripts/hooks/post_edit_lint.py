@@ -10,8 +10,8 @@ Runs targeted linters after file edits.
 This is informational only (exit 0 always) - just prints warnings.
 """
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 

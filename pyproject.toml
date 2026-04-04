@@ -82,9 +82,34 @@ markers = [
     "integration: End-to-end tests requiring API keys (deselected by default)",
 ]
 
-[tool.coverage.report]
+[tool.coverage.run]
+source = ["agent_debugger_sdk", "api", "storage", "collector", "auth", "redaction"]
 omit = [
     "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+    "*/dist/*",
+    "*/build/*",
+    "*/.venv*",
+    "*/migrations/*",
+]
+branch = true
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+sort = "Cover"
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
 ]
 
 [tool.ruff]

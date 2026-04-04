@@ -9,9 +9,8 @@ Forbidden patterns:
   - auth/ files should NOT import from api or collector
 """
 
-import sys
 import json
-import re
+import sys
 from pathlib import Path
 
 
@@ -43,7 +42,10 @@ def check_file_for_violations(file_path: str) -> dict:
             "forbidden_imports": ["from api ", "import api", "from storage ", "import storage",
                                   "from collector ", "import collector", "from auth ", "import auth",
                                   "from redaction ", "import redaction"],
-            "reason": "SDK layer (agent_debugger_sdk/) should not import from server/runtime layers (api, storage, collector, auth, redaction)"
+            "reason": (
+                "SDK layer (agent_debugger_sdk/) should not import from "
+                "server/runtime layers (api, storage, collector, auth, redaction)"
+            )
         },
         # Storage layer should not import from API or collector
         {
@@ -67,7 +69,11 @@ def check_file_for_violations(file_path: str) -> dict:
                 if forbidden in content:
                     return {
                         "decision": "deny",
-                        "reason": f"Architecture violation in {file_path.relative_to(Path.cwd())}: {rule['reason']}. Found forbidden import pattern: '{forbidden}'"
+                        "reason": (
+                            f"Architecture violation in "
+                            f"{file_path.relative_to(Path.cwd())}: {rule['reason']}. "
+                            f"Found forbidden import pattern: '{forbidden}'"
+                        )
                     }
 
     return {"decision": "allow"}
