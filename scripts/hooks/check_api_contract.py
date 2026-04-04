@@ -7,10 +7,8 @@ frontend/src/types/index.ts to detect contract drift.
 
 import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
-
 
 # Type mapping from Python to TypeScript
 PYTHON_TO_TS_TYPES = {
@@ -56,7 +54,11 @@ def extract_pydantic_models(content: str) -> dict[str, dict[str, str]]:
 
         # Extract field definitions
         # Pattern: field_name: type or field_name: type = Field(...) or field_name: type = None
-        field_pattern = re.compile(r"^(\w+)\s*:\s*([^=#\n]+?)(?:\s*=\s*(?:Field\([^)]*\)|None|True|False|\[.*?\]|\{.*?\}|\"[^\"]*\"|'[^']*'))?\s*(?:#.*)?$", re.MULTILINE)
+        _default = r"(?:Field\([^)]*\)|None|True|False|\[.*?\]|\{.*?\}|\"[^\"]*\"|'[^']*')"
+        field_pattern = re.compile(
+            rf"^(\w+)\s*:\s*([^=#\n]+?)(?:\s*=\s*(?:{_default}))?\s*(?:#.*)?$",
+            re.MULTILINE,
+        )
 
         fields: dict[str, str] = {}
         for field_match in field_pattern.finditer(class_body):

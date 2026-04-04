@@ -14,9 +14,7 @@ Output: {"decision":"allow"} on pass, {"decision":"deny","reason":"..."} on viol
 import argparse
 import json
 import re
-import sys
 from pathlib import Path
-
 
 # Security patterns to detect
 SECURITY_PATTERNS = {
@@ -146,7 +144,7 @@ def main() -> None:
                 reason += f" (and {len(issues) - 3} more)"
             print(json.dumps({"decision": "deny", "reason": reason}))
 
-    except (OSError, IOError) as e:
+    except (OSError, IOError):
         # On read errors, allow the operation
         print('{"decision":"allow"}')
         return
