@@ -7,6 +7,25 @@ from enum import Enum
 from typing import Any
 
 
+def _get_field(event: dict[str, Any], *keys: str) -> Any:
+    """Return the first matching key found at the top level, then within 'data'.
+
+    Real SDK events serialized via ``to_dict()`` place typed fields (e.g.
+    ``chosen_action``, ``tool_name``) at the top level as dataclass fields.
+    Raw/legacy events may nest them under ``data``. This helper checks both
+    locations so drift detection works regardless of serialization path.
+    """
+    data = event.get("data") or {}
+    for key in keys:
+        val = event.get(key)
+        if val is not None:
+            return val
+        val = data.get(key)
+        if val is not None:
+            return val
+    return None
+
+
 class DriftSeverity(Enum):
     """Severity levels for detected state drift."""
 
@@ -83,8 +102,6 @@ class DriftDetector:
             return None
 
         original = self._original_events[index]
-        orig_data = original.get("data") or {}
-        new_data = new_event.get("data") or {}
 
         orig_type = original.get("event_type")
         new_type = new_event.get("event_type")
@@ -100,24 +117,25 @@ class DriftDetector:
                 field="event_type",
             )
 
-        # Decision drift: chosen_action or action
+        # Decision drift: resolve action from chosen_action OR action alias so
+        # that mixed/legacy payloads (one side uses chosen_action, the other
+        # uses action) are still compared correctly.
         if orig_type == "decision" or new_type == "decision":
-            for action_field in ("chosen_action", "action"):
-                orig_val = orig_data.get(action_field)
-                new_val = new_data.get(action_field)
-                if orig_val is not None and new_val is not None and orig_val != new_val:
-                    return DriftEvent(
-                        severity=DriftSeverity.WARNING,
-                        description=f"Decision action drifted: {orig_val!r} -> {new_val!r}",
-                        original_value=orig_val,
-                        restored_value=new_val,
-                        event_index=index,
-                        field=action_field,
-                    )
+            orig_action = _get_field(original, "chosen_action", "action")
+            new_action = _get_field(new_event, "chosen_action", "action")
+            if orig_action is not None and new_action is not None and orig_action != new_action:
+                return DriftEvent(
+                    severity=DriftSeverity.WARNING,
+                    description=f"Decision action drifted: {orig_action!r} -> {new_action!r}",
+                    original_value=orig_action,
+                    restored_value=new_action,
+                    event_index=index,
+                    field="chosen_action",
+                )
 
             # Confidence drift
-            orig_conf = orig_data.get("confidence")
-            new_conf = new_data.get("confidence")
+            orig_conf = _get_field(original, "confidence")
+            new_conf = _get_field(new_event, "confidence")
             if orig_conf is not None and new_conf is not None:
                 try:
                     delta = abs(float(orig_conf) - float(new_conf))
@@ -134,10 +152,10 @@ class DriftDetector:
                         field="confidence",
                     )
 
-        # Tool call drift: tool_name
+        # Tool call drift: resolve tool from tool_name OR tool alias.
         if orig_type == "tool_call" or new_type == "tool_call":
-            orig_tool = orig_data.get("tool_name")
-            new_tool = new_data.get("tool_name")
+            orig_tool = _get_field(original, "tool_name", "tool")
+            new_tool = _get_field(new_event, "tool_name", "tool")
             if orig_tool is not None and new_tool is not None and orig_tool != new_tool:
                 return DriftEvent(
                     severity=DriftSeverity.WARNING,

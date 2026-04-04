@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import inspect
 import logging
 from collections.abc import Awaitable, Callable
@@ -46,11 +47,13 @@ async def _langchain_restore_hook(state: Any, target: Any) -> Any:
     """Default LangChain restore hook.
 
     Restores messages and intermediate_steps from checkpoint state.
+    Shallow-copies mutable containers so later mutations on the restored
+    target do not corrupt the checkpoint snapshot.
     """
     if hasattr(state, "messages") and hasattr(target, "messages"):
-        target.messages = state.messages
+        target.messages = copy.copy(state.messages)
     if hasattr(state, "intermediate_steps") and hasattr(target, "intermediate_steps"):
-        target.intermediate_steps = state.intermediate_steps
+        target.intermediate_steps = copy.copy(state.intermediate_steps)
     return target
 
 
@@ -58,11 +61,13 @@ async def _generic_restore_hook(state: Any, target: Any) -> Any:
     """Generic fallback restore hook for unknown frameworks.
 
     Copies well-known attributes (messages, intermediate_steps, data) from
-    state to target when both objects carry the attribute.
+    state to target when both objects carry the attribute. Mutable containers
+    are shallow-copied so the checkpoint snapshot is not aliased.
     """
     for attr in ("messages", "intermediate_steps", "data"):
         if hasattr(state, attr) and hasattr(target, attr):
-            setattr(target, attr, getattr(state, attr))
+            val = getattr(state, attr)
+            setattr(target, attr, copy.copy(val) if isinstance(val, (list, dict)) else val)
     return target
 
 
