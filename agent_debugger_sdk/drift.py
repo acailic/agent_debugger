@@ -89,6 +89,17 @@ class DriftDetector:
         orig_type = original.get("event_type")
         new_type = new_event.get("event_type")
 
+        # Event type mismatch is itself a critical drift
+        if orig_type and new_type and orig_type != new_type:
+            return DriftEvent(
+                severity=DriftSeverity.CRITICAL,
+                description=f"Event type mismatch: expected '{orig_type}', got '{new_type}'",
+                original_value=orig_type,
+                restored_value=new_type,
+                event_index=index,
+                field="event_type",
+            )
+
         # Decision drift: chosen_action or action
         if orig_type == "decision" or new_type == "decision":
             for action_field in ("chosen_action", "action"):
@@ -108,7 +119,10 @@ class DriftDetector:
             orig_conf = orig_data.get("confidence")
             new_conf = new_data.get("confidence")
             if orig_conf is not None and new_conf is not None:
-                delta = abs(float(orig_conf) - float(new_conf))
+                try:
+                    delta = abs(float(orig_conf) - float(new_conf))
+                except (ValueError, TypeError):
+                    delta = 0.0
                 if delta >= _CONFIDENCE_DRIFT_THRESHOLD:
                     severity = DriftSeverity.CRITICAL if delta >= 0.5 else DriftSeverity.WARNING
                     return DriftEvent(

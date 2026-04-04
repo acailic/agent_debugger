@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol, runtime_checkable
@@ -54,7 +55,14 @@ async def _langchain_restore_hook(state: Any, target: Any) -> Any:
 
 
 async def _generic_restore_hook(state: Any, target: Any) -> Any:
-    """Generic fallback restore hook for unknown frameworks."""
+    """Generic fallback restore hook for unknown frameworks.
+
+    Copies well-known attributes (messages, intermediate_steps, data) from
+    state to target when both objects carry the attribute.
+    """
+    for attr in ("messages", "intermediate_steps", "data"):
+        if hasattr(state, attr) and hasattr(target, attr):
+            setattr(target, attr, getattr(state, attr))
     return target
 
 
@@ -82,24 +90,30 @@ async def apply_restore_hook(framework: str, state: Any, target: Any) -> Any:
             hook = _generic_restore_hook
 
     try:
-        return await hook(state, target)
+        result = await hook(state, target)
     except Exception:
         logger.exception("Restore hook for framework %r raised an error", framework)
         return target
+    if result is None:
+        logger.warning("Restore hook for framework %r returned None; using original target", framework)
+        return target
+    return result
 
 
 class AutoReplayManager:
-    """Orchestrates automatic event replay after checkpoint restoration.
+    """Replays a filtered slice of events after checkpoint restoration.
 
-    After restoring from a checkpoint, AutoReplayManager fetches the events
-    that occurred after the checkpoint and replays them in sequence, optionally
-    applying restore hooks and filtering by importance.
+    Filters the provided event list to those after ``checkpoint_sequence``
+    that meet the importance threshold, then invokes ``on_event`` for each
+    one in order. Return ``False`` from ``on_event`` to stop early.
 
     Args:
-        events: List of events to replay (post-checkpoint events).
+        events: Full list of events (pre- and post-checkpoint).
         checkpoint_sequence: Sequence number of the restored checkpoint.
+            Events at or below this sequence are skipped.
         importance_threshold: Minimum importance score for events to replay.
-        on_event: Optional callback called for each event. Return False to stop.
+        on_event: Optional sync or async callback called for each event.
+            Return ``False`` to stop replay after the current event.
     """
 
     def __init__(
@@ -119,7 +133,9 @@ class AutoReplayManager:
         """Return events after checkpoint_sequence meeting importance threshold."""
         result = []
         for event in self._all_events:
-            seq = event.get("sequence", self._checkpoint_sequence + 1)
+            # Sequence may live under metadata (SDK emitter) or at the top level.
+            metadata_seq = event.get("metadata", {}).get("sequence")
+            seq = metadata_seq if metadata_seq is not None else event.get("sequence", self._checkpoint_sequence + 1)
             if seq <= self._checkpoint_sequence:
                 continue
             importance = event.get("importance", 1.0)
@@ -138,6 +154,8 @@ class AutoReplayManager:
         for event in filtered:
             if self._on_event is not None:
                 result = self._on_event(event)
+                if inspect.isawaitable(result):
+                    result = await result
                 if result is False:
                     self.replayed_events.append(event)
                     break
