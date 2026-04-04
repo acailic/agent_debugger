@@ -1,6 +1,6 @@
 """Checkpoint schemas for execution restoration."""
 
-from .hooks import RESTORE_HOOK_REGISTRY, RestoreHook, apply_restore_hook
+from .hooks import RESTORE_HOOK_REGISTRY, AutoReplayManager, RestoreHook, apply_restore_hook
 from .schemas import (
     SCHEMA_REGISTRY,
     BaseCheckpointState,
@@ -19,4 +19,5 @@ __all__ = [
     "RestoreHook",
     "RESTORE_HOOK_REGISTRY",
     "apply_restore_hook",
+    "AutoReplayManager",
 ]

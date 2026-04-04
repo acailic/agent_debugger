@@ -27,6 +27,82 @@ from typing import Any, Protocol, runtime_checkable
 logger = logging.getLogger(__name__)
 
 
+class AutoReplayManager:
+    """Orchestrates automatic event replay after checkpoint restoration.
+
+    Fetches post-checkpoint events from the server, applies sequence and
+    importance filters, and makes them available for the restored context.
+
+    Usage::
+
+        manager = AutoReplayManager(
+            server_url="http://localhost:8000",
+            original_session_id="sess-abc",
+            checkpoint_sequence=5,
+            importance_threshold=0.5,
+        )
+        events = await manager.fetch_and_filter()
+    """
+
+    def __init__(
+        self,
+        server_url: str,
+        original_session_id: str,
+        checkpoint_sequence: int,
+        importance_threshold: float | None = None,
+    ) -> None:
+        self._server_url = server_url
+        self._original_session_id = original_session_id
+        self._checkpoint_sequence = checkpoint_sequence
+        self._importance_threshold = importance_threshold
+
+    async def fetch_and_filter(self) -> list[dict[str, Any]]:
+        """Fetch post-checkpoint events and apply sequence/importance filters.
+
+        Returns events with sequence > checkpoint_sequence, optionally
+        filtered by importance_threshold. Network errors are logged and
+        an empty list is returned so callers are not crashed.
+        """
+        if not self._original_session_id:
+            return []
+
+        import httpx
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self._server_url}/api/sessions/{self._original_session_id}/events"
+                )
+                response.raise_for_status()
+                payload = response.json()
+                events: list[dict[str, Any]] = (
+                    payload.get("events", [payload])
+                    if isinstance(payload, dict)
+                    else list(payload)
+                )
+        except Exception:
+            logger.warning(
+                "Failed to fetch replay events for session %r; continuing without replay",
+                self._original_session_id,
+            )
+            return []
+
+        # Keep only events recorded after the checkpoint
+        threshold_seq = self._checkpoint_sequence
+        events = [
+            e
+            for e in events
+            if e.get("sequence", threshold_seq + 1) > threshold_seq
+        ]
+
+        # Optionally filter by importance
+        if self._importance_threshold is not None:
+            min_importance = self._importance_threshold
+            events = [e for e in events if e.get("importance", 1.0) >= min_importance]
+
+        return events
+
+
 @runtime_checkable
 class RestoreHook(Protocol):
     """Protocol for callables that reconstruct agent state from a checkpoint.
