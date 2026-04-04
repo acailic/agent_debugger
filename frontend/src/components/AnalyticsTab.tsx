@@ -1,5 +1,6 @@
 import CostSummary from './CostSummary'
 import { AnalyticsPanel } from './AnalyticsPanel'
+import { AlertDashboardPanel } from './AlertDashboardPanel'
 import './AnalyticsTab.css'
 
 export function AnalyticsTab() {
@@ -7,6 +8,7 @@ export function AnalyticsTab() {
     <div className="analytics-view fade-in">
       <CostSummary />
       <AnalyticsPanel />
+      <AlertDashboardPanel agentName={null} />
     </div>
   )
 }
