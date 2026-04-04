@@ -462,3 +462,55 @@ export interface SimilarFailuresResponse {
   similar_failures: SimilarFailure[]
   total: number
 }
+
+// Alert Dashboard types
+export type AlertStatus = 'active' | 'acknowledged' | 'resolved' | 'dismissed'
+
+export interface AlertPolicy {
+  id: string
+  agent_name: string | null
+  alert_type: string
+  threshold_value: number
+  severity_threshold: string | null
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface AlertSummary {
+  by_severity: Record<string, number>
+  by_status: Record<string, number>
+  by_type: Record<string, number>
+  total: number
+}
+
+export interface AlertTrendingPoint {
+  date: string
+  count: number
+}
+
+// Extended alert with lifecycle management
+export interface ManagedAlert {
+  id: string
+  session_id: string
+  alert_type: string
+  severity: number
+  signal: string
+  status: AlertStatus
+  event_ids: string[]
+  detection_source: string
+  detection_config: Record<string, unknown>
+  resolution_note: string | null
+  acknowledged_at: string | null
+  resolved_at: string | null
+  dismissed_at: string | null
+  created_at: string
+}
+
+/** Map numeric severity (0.0–1.0) to a display label. */
+export function severityLabel(severity: number): RiskLevel {
+  if (severity >= 0.8) return 'critical'
+  if (severity >= 0.5) return 'high'
+  if (severity >= 0.3) return 'medium'
+  return 'low'
+}

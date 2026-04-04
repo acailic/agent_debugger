@@ -24,6 +24,7 @@ from api.cost_routes import router as cost_router
 from api.entity_routes import router as entity_router
 from api.exceptions import AppError
 from api.middleware import ContentTypeValidationMiddleware, LoggingMiddleware, RequestIDMiddleware
+from api.policy_routes import router as policy_router
 from api.replay_routes import router as replay_router
 from api.search_routes import router as search_router
 from api.session_routes import router as session_router
@@ -133,6 +134,7 @@ def create_app() -> FastAPI:
     app.include_router(cost_router)
     app.include_router(search_router)
     app.include_router(entity_router)
+    app.include_router(policy_router)
     app.include_router(system_router)
     app.include_router(ui_router)
 

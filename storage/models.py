@@ -104,6 +104,12 @@ class AnomalyAlertModel(Base):
     detection_source: Mapped[str] = mapped_column(String(32))
     detection_config: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    # Lifecycle fields
+    status: Mapped[str] = mapped_column(String(32), default="active", index=True)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    dismissed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    resolution_note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class FailureClusterModel(Base):
@@ -158,4 +164,29 @@ class PatternModel(Base):
         Index("ix_patterns_tenant_agent", "tenant_id", "agent_name"),
         Index("ix_patterns_tenant_severity", "tenant_id", "severity"),
         Index("ix_patterns_tenant_status", "tenant_id", "status"),
+    )
+
+
+class AlertPolicyModel(Base):
+    """SQLAlchemy ORM model for configurable alert policies."""
+
+    __tablename__ = "alert_policies"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), nullable=False, default="local", index=True)
+    agent_name: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)  # null = global policy
+    alert_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    threshold_value: Mapped[float] = mapped_column(Float, nullable=False)
+    severity_threshold: Mapped[str | None] = mapped_column(String(16), nullable=True)  # warning, critical, etc.
+    enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        Index("ix_alert_policies_tenant_agent", "tenant_id", "agent_name"),
+        Index("ix_alert_policies_tenant_type", "tenant_id", "alert_type"),
+        Index("ix_alert_policies_tenant_agent_type", "tenant_id", "agent_name", "alert_type"),
     )
