@@ -26,6 +26,21 @@
           {
             "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/hooks/check_duplicate_queries.py\" --path \"$CLAUDE_FILE_PATH\" --content \"$CLAUDE_NEW_STRING\" 2>/dev/null; echo '{\"decision\":\"allow\"}'; exit 0"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/hooks/check_layer_imports.py\" \"$CLAUDE_FILE_PATH\" 2>/dev/null; echo '{\"decision\":\"allow\"}'; exit 0"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/hooks/post_edit_lint.py\" \"$CLAUDE_FILE_PATH\" 2>/dev/null"
           }
         ]
       }

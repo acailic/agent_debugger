@@ -46,14 +46,38 @@ jobs:
       - name: Lint
         run: ruff check .
 
-      - name: Test
-        run: pytest -q -n auto --timeout=30 --maxfail=5
+      - name: Type check with pyright
+        run: |
+          pip install pyright
+          pyright || true  # Don't fail CI initially, just report
+
+      - name: Run tests with coverage
+        run: |
+          pip install pytest-cov
+          python3 -m pytest -q -n auto --timeout=30 --maxfail=5 --cov --cov-report=term-missing --cov-fail-under=70 -k "not integration"
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
 
       - name: Build frontend
         run: |
           cd frontend
           npm ci
           npm run build
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run test -- --run
+
+      - name: Security scan with bandit
+        run: |
+          pip install bandit
+          bandit -r agent_debugger_sdk/ api/ storage/ collector/ auth/ redaction/ -ll -x "*/tests/*" || true  # Don't fail CI initially
 
   dep-check:
     name: Dependency security

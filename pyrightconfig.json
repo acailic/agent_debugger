@@ -1,0 +1,24 @@
+{
+  "include": [
+    "agent_debugger_sdk",
+    "api",
+    "storage",
+    "collector",
+    "auth",
+    "redaction"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/.venv*",
+    "tests",
+    "examples",
+    "scripts",
+    "frontend"
+  ],
+  "pythonVersion": "3.10",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false
+}
+
+// Baseline: 237 errors as of 2026-04-04

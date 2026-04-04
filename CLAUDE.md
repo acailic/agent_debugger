@@ -198,3 +198,7 @@ cd frontend && npm run build
 make server
 make frontend
 ```
+
+## Pre-Commit Hooks
+
+Install hooks with `pre-commit install` after setting up the dev environment.
