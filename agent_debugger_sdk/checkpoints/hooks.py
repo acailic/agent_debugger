@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import logging
 from typing import Any, Protocol, runtime_checkable
 
@@ -21,24 +22,28 @@ class RestoreHook(Protocol):
         ...
 
 
-RESTORE_HOOK_REGISTRY: dict[str, Any] = {}
+RESTORE_HOOK_REGISTRY: dict[str, RestoreHook] = {}
 
 
 async def _langchain_restore_hook(state: Any, target: Any) -> Any:
     """Built-in LangChain restore hook."""
     if hasattr(state, "messages") and hasattr(target, "messages"):
-        target.messages = state.messages
+        target.messages = copy.deepcopy(state.messages)
     elif hasattr(state, "messages"):
-        target.messages = state.messages
+        target.messages = copy.deepcopy(state.messages)
     if hasattr(state, "intermediate_steps") and hasattr(target, "intermediate_steps"):
-        target.intermediate_steps = state.intermediate_steps
+        target.intermediate_steps = copy.deepcopy(state.intermediate_steps)
     elif hasattr(state, "intermediate_steps"):
-        target.intermediate_steps = state.intermediate_steps
+        target.intermediate_steps = copy.deepcopy(state.intermediate_steps)
     return target
 
 
 async def _generic_restore_hook(state: Any, target: Any) -> Any:
-    """Generic fallback restore hook — returns target unchanged."""
+    """Generic fallback restore hook — copies common attributes from state to target."""
+    # Copy common mutable attributes when both state and target have them
+    for attr in ("messages", "intermediate_steps", "data"):
+        if hasattr(state, attr) and hasattr(target, attr):
+            setattr(target, attr, copy.deepcopy(getattr(state, attr)))
     return target
 
 
@@ -60,14 +65,21 @@ async def apply_restore_hook(framework: str, checkpoint_state: Any, target: Any)
         The updated target object.
     """
     hook = RESTORE_HOOK_REGISTRY.get(framework, _generic_restore_hook)
-    return await hook(checkpoint_state, target)
+    result = await hook(checkpoint_state, target)
+    if result is None:
+        logger.warning(
+            "Restore hook for framework %r returned None; returning original target unchanged",
+            framework,
+        )
+        return target
+    return result
 
 
 class AutoReplayManager:
     """Orchestrates automatic event replay after checkpoint restoration.
 
-    Fetches events recorded after the checkpoint was taken and replays
-    them in sequence, optionally applying importance filters.
+    Provides filter + callback orchestration for post-checkpoint events.
+    Use fetch_post_checkpoint_events() to retrieve events after restoration.
     """
 
     def __init__(
@@ -98,7 +110,7 @@ class AutoReplayManager:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{self.server_url}/api/sessions/{self.session_id}/events"
+                    f"{self.server_url}/api/sessions/{self.session_id}/traces"
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -106,9 +118,14 @@ class AutoReplayManager:
             logger.warning("Failed to fetch post-checkpoint events: %s", exc)
             return []
 
-        events: list[dict[str, Any]] = data.get("events", []) if isinstance(data, dict) else []
+        events: list[dict[str, Any]] = data.get("traces", []) if isinstance(data, dict) else []
 
-        events = [e for e in events if e.get("sequence", 0) > self.checkpoint_sequence]
+        events = [
+            e
+            for e in events
+            if e.get("metadata", {}).get("sequence", 0) > self.checkpoint_sequence
+            or e.get("sequence", 0) > self.checkpoint_sequence
+        ]
 
         if importance_threshold is not None:
             events = [e for e in events if e.get("importance", 1.0) >= importance_threshold]

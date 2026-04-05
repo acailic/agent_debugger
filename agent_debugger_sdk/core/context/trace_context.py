@@ -21,7 +21,7 @@ from agent_debugger_sdk.core.events import (
 from agent_debugger_sdk.core.recorders import RecordingMixin
 
 from .pipeline import _get_default_event_buffer
-from .session_manager import SessionManager
+from .session_manager import SessionManager, _resolve_restore_server_url
 from .vars import (
     _current_context,
     _current_parent_id,
@@ -182,6 +182,7 @@ class TraceContext(RecordingMixin):
         )
         ctx._restored_state = restored_state
         ctx._hook_errors: list[str] = []
+        ctx.drift_events: list[Any] = []
 
         if track_drift:
             from agent_debugger_sdk.drift import DriftDetector
@@ -190,11 +191,25 @@ class TraceContext(RecordingMixin):
         else:
             ctx._drift_detector = None
 
-        if replay_events:
+        # Apply framework restore hook on the initial checkpoint state
+        # (moved outside replay_events block so hooks are applied whenever restored_state exists)
+        if restored_state is not None:
+            import types as _types
+
             from agent_debugger_sdk.checkpoints import apply_restore_hook
+
+            framework = getattr(restored_state, "framework", "custom")
+            target = _types.SimpleNamespace()
+            try:
+                await apply_restore_hook(framework, restored_state, target)
+            except Exception as exc:
+                _logger.warning("Restore hook failed for %r: %s", framework, exc)
+                ctx._hook_errors.append(str(exc))
+
+        if replay_events:
             from agent_debugger_sdk.checkpoints.hooks import AutoReplayManager
 
-            resolved_server_url = server_url or "http://localhost:8000"
+            resolved_server_url = _resolve_restore_server_url(server_url)
             checkpoint_sequence: int = session.config.get("_checkpoint_sequence", 0)
             replay_session_id = (
                 original_session_id
@@ -213,16 +228,6 @@ class TraceContext(RecordingMixin):
                     ctx.replayed_events: list[Any] = []
                     return ctx
 
-            # Apply framework restore hook on the initial checkpoint state
-            if restored_state is not None:
-                framework = getattr(restored_state, "framework", "custom")
-                target = _types.SimpleNamespace()
-                try:
-                    await apply_restore_hook(framework, restored_state, target)
-                except Exception as exc:
-                    _logger.warning("Restore hook failed for %r: %s", framework, exc)
-                    ctx._hook_errors.append(str(exc))
-
             # Fetch post-checkpoint events
             manager = AutoReplayManager(
                 checkpoint_sequence=checkpoint_sequence,
@@ -234,11 +239,20 @@ class TraceContext(RecordingMixin):
             )
 
             replayed: list[Any] = []
+            drift_results: list[Any] = []
             for event in events:
                 if on_replay_event is not None:
                     if on_replay_event(event) is False:
                         break
                 replayed.append(event)
+
+                # Run drift comparison inside replay loop
+                if ctx._drift_detector is not None:
+                    drift_event = ctx._drift_detector.compare(event, index=len(replayed) - 1)
+                    if drift_event is not None:
+                        drift_results.append(drift_event)
+
+            ctx.drift_events = drift_results
 
             ctx.replayed_events = replayed
 

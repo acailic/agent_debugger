@@ -22,10 +22,8 @@ const { existsSync, mkdirSync, readdirSync, unlinkSync } = require("fs");
 const { join } = require("path");
 
 const ROOT = join(__dirname, "..");
-const CHROME =
-  process.env.CHROME_PATH ||
-  "/home/nistrator/.cache/ms-playwright/chromium-1217/chrome-linux64/chrome";
-const UI = "http://localhost:8000/ui/";
+const CHROME = process.env.CHROME_PATH;
+const UI = process.env.UI_URL || "http://localhost:5173";
 const VP = { width: 1440, height: 900 };
 const VIDEOS = "/tmp/pw-demo-videos";
 const GIF_OUT = join(ROOT, "docs", "assets", "gifs");
@@ -101,14 +99,9 @@ async function clickTab(page, name) {
 }
 
 async function main() {
-  if (!existsSync(CHROME)) {
-    console.error(`Chrome not found at ${CHROME}`);
-    process.exit(1);
-  }
-
   console.log("Launching Chromium...");
   const browser = await chromium.launch({
-    executablePath: CHROME,
+    ...(CHROME && { executablePath: CHROME }),
     headless: true,
   });
   const results = [];
