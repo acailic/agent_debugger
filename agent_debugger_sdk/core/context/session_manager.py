@@ -85,6 +85,13 @@ def _build_restored_session(
         config={
             "restored_from_checkpoint": checkpoint_id,
             "original_session_id": original_session_id,
+            # Checkpoint's own sequence counter (not per-event sequence).
+            "_checkpoint_sequence": checkpoint_data.get("sequence", 0),
+            # Checkpoint creation timestamp (ISO 8601 string).
+            # Use this as the authoritative cursor for filtering post-checkpoint
+            # events — timestamp comparison is scale-independent and avoids
+            # conflating the checkpoint counter with per-event metadata.sequence.
+            "_checkpoint_timestamp": checkpoint_data.get("timestamp", ""),
         },
     )
 
