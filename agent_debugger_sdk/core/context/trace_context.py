@@ -192,7 +192,8 @@ class TraceContext(RecordingMixin):
             ctx._drift_detector = None
 
         # Apply framework restore hook on the initial checkpoint state
-        # (moved outside replay_events block so hooks are applied whenever restored_state exists)
+        # (outside replay_events block so hooks are applied whenever restored_state exists)
+        ctx.restored_target = None
         if restored_state is not None:
             import types as _types
 
@@ -201,7 +202,7 @@ class TraceContext(RecordingMixin):
             framework = getattr(restored_state, "framework", "custom")
             target = _types.SimpleNamespace()
             try:
-                await apply_restore_hook(framework, restored_state, target)
+                ctx.restored_target = await apply_restore_hook(framework, restored_state, target)
             except Exception as exc:
                 _logger.warning("Restore hook failed for %r: %s", framework, exc)
                 ctx._hook_errors.append(str(exc))
@@ -244,9 +245,15 @@ class TraceContext(RecordingMixin):
             # meaningful baseline. Without this, DriftDetector([]) always returns
             # None because index >= len([]) is always True.
             if ctx._drift_detector is not None:
-                original_session = original_session_id or session.config.get(
+                # Prioritise the checkpoint's stored original session as the drift
+                # baseline. The caller-supplied original_session_id typically refers
+                # to a NEW re-run being compared, so it becomes replay_session_id
+                # while session.config["original_session_id"] remains the baseline.
+                # This prevents the two variables resolving identically (which would
+                # make the condition below always False and force self-comparison).
+                original_session = session.config.get(
                     "original_session_id"
-                )
+                ) or original_session_id
                 if original_session and original_session != replay_session_id:
                     orig_manager = AutoReplayManager(
                         checkpoint_sequence=checkpoint_sequence,

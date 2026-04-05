@@ -76,8 +76,10 @@ class DriftDetector:
             The field value if found, None otherwise.
         """
         for key in keys:
-            # Check top-level first (where TraceEvent.to_dict() puts typed fields)
-            if key in event:
+            # Check top-level first (where TraceEvent.to_dict() puts typed fields).
+            # Skip None values so we fall back to the nested data dict for API
+            # events where optional fields are present but null by default.
+            if key in event and event[key] is not None:
                 return event[key]
             # Fall back to nested data dict
             data = event.get("data") or {}
