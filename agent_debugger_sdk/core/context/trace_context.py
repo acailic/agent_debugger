@@ -191,21 +191,19 @@ class TraceContext(RecordingMixin):
         ctx._hook_errors: list[Exception] = []
         ctx._restored_target: Any = None
 
-        # Apply restore hook for the checkpoint's framework
+        # Apply restore hook for the checkpoint's framework (falls back to generic hook)
         if restored_state is not None:
-            framework = getattr(restored_state, "framework", "custom")
-            from agent_debugger_sdk.checkpoints import RESTORE_HOOK_REGISTRY
+            import types
 
-            hook = RESTORE_HOOK_REGISTRY.get(framework)
-            if hook is not None:
-                try:
-                    import types
-                    restore_target = types.SimpleNamespace()
-                    result = await hook(restored_state, restore_target)
-                    ctx._restored_target = result if result is not None else restore_target
-                except Exception as exc:
-                    ctx._hook_errors.append(exc)
-                    logger.warning("Restore hook for %r failed: %s", framework, exc)
+            from agent_debugger_sdk.checkpoints.hooks import apply_restore_hook
+
+            restore_target = types.SimpleNamespace()
+            result = await apply_restore_hook(
+                getattr(restored_state, "framework", "custom"),
+                restored_state,
+                restore_target,
+            )
+            ctx._restored_target = result if result is not None else restore_target
 
         # Note: DriftDetector will be seeded inside replay_events block if track_drift is True
 
@@ -218,7 +216,7 @@ class TraceContext(RecordingMixin):
                 original_session_id
                 or session.config.get("original_session_id", "")
             )
-            checkpoint_sequence: int = session.config.get("checkpoint_sequence", 0)
+            checkpoint_ts: str = session.config.get("checkpoint_timestamp", "")
 
             # Emit a synthetic restore-start event so callers (e.g. cancellation
             # callbacks) receive at least one notification even when there are no
@@ -262,10 +260,11 @@ class TraceContext(RecordingMixin):
                 from agent_debugger_sdk.drift import DriftDetector
                 ctx._drift_detector = DriftDetector(raw_events)
 
-            # Filter: only events after the checkpoint sequence
+            # Filter: only events after the checkpoint timestamp
+            # (TraceEventSchema carries a 'timestamp' field; ISO strings sort lexicographically)
             post_events = [
                 e for e in raw_events
-                if e.get("sequence", checkpoint_sequence + 1) > checkpoint_sequence
+                if not checkpoint_ts or e.get("timestamp", "") > checkpoint_ts
             ]
 
             # Filter by importance threshold
