@@ -82,13 +82,17 @@ class AutoReplayManager:
     Use fetch_post_checkpoint_events() to retrieve events after restoration.
     """
 
+    _PAGE_SIZE = 100
+
     def __init__(
         self,
         checkpoint_sequence: int,
         session_id: str,
         server_url: str,
+        checkpoint_timestamp: str = "",
     ) -> None:
         self.checkpoint_sequence = checkpoint_sequence
+        self.checkpoint_timestamp = checkpoint_timestamp
         self.session_id = session_id
         self.server_url = server_url
 
@@ -99,6 +103,9 @@ class AutoReplayManager:
     ) -> list[dict[str, Any]]:
         """Fetch and filter events recorded after the checkpoint.
 
+        Paginates through all pages so sessions with more than 100 events are
+        fully covered.
+
         Args:
             importance_threshold: Only return events at or above this importance.
 
@@ -107,25 +114,41 @@ class AutoReplayManager:
         """
         import httpx
 
+        all_events: list[dict[str, Any]] = []
+        offset = 0
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{self.server_url}/api/sessions/{self.session_id}/traces"
-                )
-                response.raise_for_status()
-                data = response.json()
+                while True:
+                    response = await client.get(
+                        f"{self.server_url}/api/sessions/{self.session_id}/traces",
+                        params={"limit": self._PAGE_SIZE, "offset": offset},
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    page: list[dict[str, Any]] = (
+                        data.get("traces", []) if isinstance(data, dict) else []
+                    )
+                    all_events.extend(page)
+                    if len(page) < self._PAGE_SIZE:
+                        break
+                    offset += self._PAGE_SIZE
         except Exception as exc:
             logger.warning("Failed to fetch post-checkpoint events: %s", exc)
             return []
 
-        events: list[dict[str, Any]] = data.get("traces", []) if isinstance(data, dict) else []
-
-        events = [
-            e
-            for e in events
-            if e.get("metadata", {}).get("sequence", 0) > self.checkpoint_sequence
-            or e.get("sequence", 0) > self.checkpoint_sequence
-        ]
+        # Filter to events that occurred after the checkpoint.
+        # Prefer timestamp comparison (scale-independent) over sequence counter.
+        if self.checkpoint_timestamp:
+            events = [
+                e for e in all_events if e.get("timestamp", "") > self.checkpoint_timestamp
+            ]
+        else:
+            events = [
+                e
+                for e in all_events
+                if e.get("metadata", {}).get("sequence", 0) > self.checkpoint_sequence
+                or e.get("sequence", 0) > self.checkpoint_sequence
+            ]
 
         if importance_threshold is not None:
             events = [e for e in events if e.get("importance", 1.0) >= importance_threshold]

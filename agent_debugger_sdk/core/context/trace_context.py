@@ -211,6 +211,7 @@ class TraceContext(RecordingMixin):
 
             resolved_server_url = _resolve_restore_server_url(server_url)
             checkpoint_sequence: int = session.config.get("_checkpoint_sequence", 0)
+            checkpoint_timestamp: str = session.config.get("_checkpoint_timestamp", "")
             replay_session_id = (
                 original_session_id
                 or session.config.get("original_session_id")
@@ -233,10 +234,37 @@ class TraceContext(RecordingMixin):
                 checkpoint_sequence=checkpoint_sequence,
                 session_id=replay_session_id,
                 server_url=resolved_server_url,
+                checkpoint_timestamp=checkpoint_timestamp,
             )
             events = await manager.fetch_post_checkpoint_events(
                 importance_threshold=importance_threshold,
             )
+
+            # Seed DriftDetector with the original events so compare() has a
+            # meaningful baseline. Without this, DriftDetector([]) always returns
+            # None because index >= len([]) is always True.
+            if ctx._drift_detector is not None:
+                original_session = original_session_id or session.config.get(
+                    "original_session_id"
+                )
+                if original_session and original_session != replay_session_id:
+                    orig_manager = AutoReplayManager(
+                        checkpoint_sequence=checkpoint_sequence,
+                        session_id=original_session,
+                        server_url=resolved_server_url,
+                        checkpoint_timestamp=checkpoint_timestamp,
+                    )
+                    try:
+                        original_events = await orig_manager.fetch_post_checkpoint_events()
+                    except Exception as _exc:
+                        _logger.warning("Could not fetch original events for drift: %s", _exc)
+                        original_events = []
+                else:
+                    # replay_session_id IS the original — use fetched events as baseline
+                    original_events = list(events)
+                from agent_debugger_sdk.drift import DriftDetector
+
+                ctx._drift_detector = DriftDetector(original_events)
 
             replayed: list[Any] = []
             drift_results: list[Any] = []
