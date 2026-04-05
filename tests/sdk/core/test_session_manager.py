@@ -152,6 +152,7 @@ class TestRestoreHelpers:
         assert session.config == {
             "restored_from_checkpoint": "cp-123",
             "original_session_id": "original-session",
+            "_checkpoint_sequence": 0,
         }
         assert isinstance(state, CustomCheckpointState)
         assert state.data["custom_key"] == "value"

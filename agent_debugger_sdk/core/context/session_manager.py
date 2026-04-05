@@ -85,6 +85,7 @@ def _build_restored_session(
         config={
             "restored_from_checkpoint": checkpoint_id,
             "original_session_id": original_session_id,
+            "_checkpoint_sequence": checkpoint_data.get("sequence", 0),
         },
     )
 
