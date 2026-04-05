@@ -262,7 +262,9 @@ class TraceContext(RecordingMixin):
                         checkpoint_timestamp=checkpoint_timestamp,
                     )
                     try:
-                        original_events = await orig_manager.fetch_post_checkpoint_events()
+                        original_events = await orig_manager.fetch_post_checkpoint_events(
+                            importance_threshold=importance_threshold,
+                        )
                     except Exception as _exc:
                         _logger.warning("Could not fetch original events for drift: %s", _exc)
                         original_events = []

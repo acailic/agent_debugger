@@ -40,9 +40,11 @@ async def _langchain_restore_hook(state: Any, target: Any) -> Any:
 
 async def _generic_restore_hook(state: Any, target: Any) -> Any:
     """Generic fallback restore hook — copies common attributes from state to target."""
-    # Copy common mutable attributes when both state and target have them
+    # Copy common mutable attributes from state onto target unconditionally so
+    # that fresh SimpleNamespace targets (which have no pre-existing attributes)
+    # still receive the restored state.
     for attr in ("messages", "intermediate_steps", "data"):
-        if hasattr(state, attr) and hasattr(target, attr):
+        if hasattr(state, attr):
             setattr(target, attr, copy.deepcopy(getattr(state, attr)))
     return target
 
