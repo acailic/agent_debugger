@@ -132,6 +132,11 @@ class TraceContext(RecordingMixin):
         session_id: str | None = None,
         server_url: str | None = None,
         label: str = "",
+        replay_events: bool = False,
+        track_drift: bool = False,
+        original_session_id: str | None = None,
+        importance_threshold: float | None = None,
+        on_replay_event: Any | None = None,
     ) -> TraceContext:
         """Restore execution from a checkpoint.
 
@@ -143,6 +148,17 @@ class TraceContext(RecordingMixin):
             session_id: Optional session ID for the restored session (new UUID if None).
             server_url: Server URL (uses configured endpoint if None).
             label: Label for the restored session.
+            replay_events: If True, fetch and replay events recorded after the
+                checkpoint, storing them in ``ctx.replayed_events``.
+            track_drift: If True, attach a :class:`~agent_debugger_sdk.drift.DriftDetector`
+                as ``ctx._drift_detector`` for comparing restored vs original execution.
+            original_session_id: Session ID to pull post-checkpoint events from.
+                Defaults to the session recorded in the checkpoint payload.
+            importance_threshold: When ``replay_events=True``, only include events
+                with importance >= this value.
+            on_replay_event: Optional callback invoked for each replayed event
+                (including a synthetic restore-start event).  Return ``False`` to
+                cancel the remainder of the replay.
 
         Returns:
             TraceContext with restored state accessible via ctx.restored_state.
@@ -152,6 +168,10 @@ class TraceContext(RecordingMixin):
                 state = ctx.restored_state  # LangChainCheckpointState
                 messages = state.messages   # Pre-populated history
         """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         session, restored_state = await SessionManager.restore_from_checkpoint(
             checkpoint_id,
             session_id=session_id,
@@ -166,6 +186,86 @@ class TraceContext(RecordingMixin):
             config=session.config,
         )
         ctx._restored_state = restored_state
+        ctx.replayed_events: list[dict[str, Any]] = []
+        ctx._drift_detector = None
+        ctx._hook_errors: list[Exception] = []
+
+        # Apply restore hook for the checkpoint's framework
+        if restored_state is not None:
+            framework = getattr(restored_state, "framework", "custom")
+            from agent_debugger_sdk.checkpoints import RESTORE_HOOK_REGISTRY
+
+            hook = RESTORE_HOOK_REGISTRY.get(framework)
+            if hook is not None:
+                try:
+                    await hook(restored_state, object())
+                except Exception as exc:
+                    ctx._hook_errors.append(exc)
+                    logger.warning("Restore hook for %r failed: %s", framework, exc)
+
+        # Attach drift detector if requested
+        if track_drift:
+            from agent_debugger_sdk.drift import DriftDetector
+
+            ctx._drift_detector = DriftDetector([])
+
+        # Auto-replay post-checkpoint events if requested
+        if replay_events:
+            from .session_manager import _resolve_restore_server_url
+
+            resolved_url = _resolve_restore_server_url(server_url)
+            orig_session_id = (
+                original_session_id
+                or session.config.get("original_session_id", "")
+            )
+            checkpoint_sequence: int = session.config.get("checkpoint_sequence", 0)
+
+            # Emit a synthetic restore-start event so callers (e.g. cancellation
+            # callbacks) receive at least one notification even when there are no
+            # events to replay.
+            restore_start_event: dict[str, Any] = {
+                "event_type": "restore_start",
+                "checkpoint_id": checkpoint_id,
+                "session_id": orig_session_id,
+            }
+            if on_replay_event is not None:
+                if on_replay_event(restore_start_event) is False:
+                    return ctx
+
+            # Fetch recorded events from the original session
+            raw_events: list[dict[str, Any]] = []
+            try:
+                import httpx
+
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        f"{resolved_url}/api/sessions/{orig_session_id}/events"
+                    )
+                    response.raise_for_status()
+                    raw_events = response.json().get("events", [])
+            except Exception as exc:
+                logger.warning("Auto-replay event fetch failed: %s", exc)
+
+            # Filter: only events after the checkpoint sequence
+            post_events = [
+                e for e in raw_events
+                if e.get("sequence", checkpoint_sequence + 1) > checkpoint_sequence
+            ]
+
+            # Filter by importance threshold
+            if importance_threshold is not None:
+                post_events = [
+                    e for e in post_events
+                    if e.get("importance", 1.0) >= importance_threshold
+                ]
+
+            # Replay each event, honouring cancellation
+            for event in post_events:
+                if on_replay_event is not None:
+                    if on_replay_event(event) is False:
+                        break
+                ctx.replayed_events.append(event)
+
         return ctx
 
     @property
