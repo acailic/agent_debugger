@@ -103,38 +103,43 @@ class DriftDetector:
                         index=index,
                     )
 
-        # Check tool_name drift
-        if "tool_name" in orig_data and "tool_name" in new_data:
-            if orig_data["tool_name"] != new_data["tool_name"]:
-                return DriftEvent(
-                    severity=DriftSeverity.WARNING,
-                    description=(
-                        f"Tool call drift at index {index}: "
-                        f"expected tool {orig_data['tool_name']!r}, "
-                        f"got {new_data['tool_name']!r}"
-                    ),
-                    original_value=orig_data["tool_name"],
-                    restored_value=new_data["tool_name"],
-                    event_type=event_type,
-                    index=index,
-                )
+        # Check tool_name / tool drift (some payloads use 'tool' instead of 'tool_name')
+        orig_tool = orig_data.get("tool_name") or orig_data.get("tool")
+        new_tool = new_data.get("tool_name") or new_data.get("tool")
+        if orig_tool is not None and new_tool is not None and orig_tool != new_tool:
+            return DriftEvent(
+                severity=DriftSeverity.WARNING,
+                description=(
+                    f"Tool call drift at index {index}: "
+                    f"expected tool {orig_tool!r}, "
+                    f"got {new_tool!r}"
+                ),
+                original_value=orig_tool,
+                restored_value=new_tool,
+                event_type=event_type,
+                index=index,
+            )
 
-        # Check confidence drift
+        # Check confidence drift (with guarded float conversion)
         if "confidence" in orig_data and "confidence" in new_data:
-            delta = abs(float(orig_data["confidence"]) - float(new_data["confidence"]))
-            if delta >= _CONFIDENCE_DRIFT_THRESHOLD:
-                severity = DriftSeverity.CRITICAL if delta >= 0.5 else DriftSeverity.WARNING
-                return DriftEvent(
-                    severity=severity,
-                    description=(
-                        f"Confidence drift at index {index}: "
-                        f"expected {orig_data['confidence']}, got {new_data['confidence']} "
-                        f"(delta={delta:.2f})"
-                    ),
-                    original_value=orig_data["confidence"],
-                    restored_value=new_data["confidence"],
-                    event_type=event_type,
-                    index=index,
-                )
+            try:
+                delta = abs(float(orig_data["confidence"]) - float(new_data["confidence"]))
+                if delta >= _CONFIDENCE_DRIFT_THRESHOLD:
+                    severity = DriftSeverity.CRITICAL if delta >= 0.5 else DriftSeverity.WARNING
+                    return DriftEvent(
+                        severity=severity,
+                        description=(
+                            f"Confidence drift at index {index}: "
+                            f"expected {orig_data['confidence']}, got {new_data['confidence']} "
+                            f"(delta={delta:.2f})"
+                        ),
+                        original_value=orig_data["confidence"],
+                        restored_value=new_data["confidence"],
+                        event_type=event_type,
+                        index=index,
+                    )
+            except (ValueError, TypeError):
+                # Confidence values are not comparable as floats; skip this check
+                pass
 
         return None

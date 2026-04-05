@@ -189,6 +189,7 @@ class TraceContext(RecordingMixin):
         ctx.replayed_events: list[dict[str, Any]] = []
         ctx._drift_detector = None
         ctx._hook_errors: list[Exception] = []
+        ctx._restored_target: Any = None
 
         # Apply restore hook for the checkpoint's framework
         if restored_state is not None:
@@ -198,16 +199,15 @@ class TraceContext(RecordingMixin):
             hook = RESTORE_HOOK_REGISTRY.get(framework)
             if hook is not None:
                 try:
-                    await hook(restored_state, object())
+                    import types
+                    restore_target = types.SimpleNamespace()
+                    result = await hook(restored_state, restore_target)
+                    ctx._restored_target = result if result is not None else restore_target
                 except Exception as exc:
                     ctx._hook_errors.append(exc)
                     logger.warning("Restore hook for %r failed: %s", framework, exc)
 
-        # Attach drift detector if requested
-        if track_drift:
-            from agent_debugger_sdk.drift import DriftDetector
-
-            ctx._drift_detector = DriftDetector([])
+        # Note: DriftDetector will be seeded inside replay_events block if track_drift is True
 
         # Auto-replay post-checkpoint events if requested
         if replay_events:
@@ -237,14 +237,30 @@ class TraceContext(RecordingMixin):
             try:
                 import httpx
 
-                async with httpx.AsyncClient() as client:
-                    response = await client.get(
-                        f"{resolved_url}/api/sessions/{orig_session_id}/events"
-                    )
-                    response.raise_for_status()
-                    raw_events = response.json().get("events", [])
+                # Strip trailing slash to avoid double slashes
+                base_url = resolved_url.rstrip("/")
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    # Fetch with pagination (limit=100, paginate until partial page)
+                    limit = 100
+                    offset = 0
+                    while True:
+                        response = await client.get(
+                            f"{base_url}/api/sessions/{orig_session_id}/traces",
+                            params={"limit": limit, "offset": offset}
+                        )
+                        response.raise_for_status()
+                        page_traces = response.json().get("traces", [])
+                        raw_events.extend(page_traces)
+                        if len(page_traces) < limit:
+                            break
+                        offset += limit
             except Exception as exc:
                 logger.warning("Auto-replay event fetch failed: %s", exc)
+
+            # Seed drift detector with baseline events for comparison
+            if track_drift:
+                from agent_debugger_sdk.drift import DriftDetector
+                ctx._drift_detector = DriftDetector(raw_events)
 
             # Filter: only events after the checkpoint sequence
             post_events = [
@@ -259,6 +275,10 @@ class TraceContext(RecordingMixin):
                     if e.get("importance", 1.0) >= importance_threshold
                 ]
 
+            # Seed drift detector with post-checkpoint events as baseline
+            if ctx._drift_detector is not None:
+                ctx._drift_detector.original_events = post_events.copy()
+
             # Replay each event, honouring cancellation
             for event in post_events:
                 if on_replay_event is not None:
@@ -272,6 +292,11 @@ class TraceContext(RecordingMixin):
     def restored_state(self) -> BaseCheckpointState | None:
         """The checkpoint state this context was restored from, if any."""
         return self._restored_state
+
+    @property
+    def restored_target(self) -> Any:
+        """The reconstructed framework target from the restore hook, if any."""
+        return self._restored_target
 
     async def __aenter__(self) -> TraceContext:
         """Enter the tracing context.

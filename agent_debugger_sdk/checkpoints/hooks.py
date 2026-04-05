@@ -61,7 +61,7 @@ async def _generic_hook(state: BaseCheckpointState, target: Any) -> Any:
 
 
 # Registry mapping framework name to restore hook callable
-RESTORE_HOOK_REGISTRY: dict[str, Any] = {
+RESTORE_HOOK_REGISTRY: dict[str, RestoreHook] = {
     "langchain": _langchain_hook,
 }
 
@@ -95,8 +95,8 @@ async def apply_restore_hook(
 class AutoReplayManager:
     """Orchestrates automatic event replay after checkpoint restoration.
 
-    Manages the lifecycle of replaying recorded events from a session,
-    applying restore hooks and optionally tracking drift.
+    Filters events by sequence/importance and invokes a per-event callback during
+    replay, allowing early termination via the callback's return value.
 
     Args:
         events: List of events to replay (already filtered by sequence/importance).
