@@ -6,23 +6,26 @@ enabling identification of recurring issues and patterns.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api import app_context
 from api.schemas import SessionSchema
-from collector.clustering.cross_session import CrossSessionClusterAnalyzer
-from collector.intelligence.compute import compute_event_ranking
-from storage.repository import TraceRepository
+
+if TYPE_CHECKING:
+    from storage.repository import TraceRepository
 
 router = APIRouter(prefix="/api", tags=["clusters"])
 
 
 async def get_repository() -> TraceRepository:
     """Dependency to get a repository instance."""
-    session: AsyncSession = await app_context.get_session_maker().__aenter__()
+    from storage.repository import TraceRepository
+
+    session_maker = app_context.require_session_maker()
+    session: AsyncSession = await session_maker().__aenter__()
     return TraceRepository(session, tenant_id="local")
 
 
@@ -46,6 +49,9 @@ async def get_cross_session_clusters(
     sessions = await repo.list_sessions(limit=500)
 
     # Compute rankings for each session
+    from collector.clustering.cross_session import CrossSessionClusterAnalyzer
+    from collector.intelligence.compute import compute_event_ranking
+
     analyzer = CrossSessionClusterAnalyzer()
     session_rankings: dict[str, dict[str, Any]] = {}
 

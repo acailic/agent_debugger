@@ -100,8 +100,8 @@ class TestBenchmarkScenarioGeneration:
         decisions = [e for e in session.events if e.event_type == EventType.DECISION]
         assert len(decisions) == 1
         decision = decisions[0]
-        assert hasattr(decision, "evidence") and decision.evidence
-        assert hasattr(decision, "evidence_event_ids") and decision.evidence_event_ids
+        assert hasattr(decision, "evidence") and decision.evidence  # type: ignore[attr-defined]
+        assert hasattr(decision, "evidence_event_ids") and decision.evidence_event_ids  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
     async def test_multi_agent_dialogue_session_produces_valid_session(self):
@@ -406,7 +406,7 @@ class TestCIRegressionAssertions:
         assert len(errors) == 3
 
         for error in errors:
-            msg = error.error_message or error.error_type or ""
+            msg = error.error_message or error.error_type or ""  # type: ignore[attr-defined]
             assert "not found" in msg.lower() or "failed" in msg.lower()
 
     @pytest.mark.asyncio
@@ -442,7 +442,7 @@ class TestCIRegressionAssertions:
         tool_result = tool_results[0]
 
         # Decision should reference the tool result in evidence_event_ids
-        assert tool_result.id in decision.evidence_event_ids
+        assert tool_result.id in decision.evidence_event_ids  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
     async def test_replay_determinism_creates_high_importance_checkpoint(self):
@@ -481,7 +481,7 @@ class TestCIRegressionAssertions:
 
         recent_failure = next(event for event in recent.events if event.event_type == EventType.TOOL_RESULT)
         stale_failure = next(event for event in stale.events if event.event_type == EventType.TOOL_RESULT)
-        assert recent_failure.error == stale_failure.error
+        assert recent_failure.error == stale_failure.error  # type: ignore[attr-defined]
         assert stale_failure.timestamp < recent_failure.timestamp
 
     @pytest.mark.asyncio

@@ -39,7 +39,7 @@ def _extract_event_key(event: TraceEvent) -> str:
 def _build_oscillation_sequence(events: list[TraceEvent]) -> tuple[list[tuple[str, str]], list[TraceEvent]]:
     """Build sequence of (event_type, key) tuples from relevant events."""
     sequence: list[tuple[str, str]] = []
-    event_map: list[TraceEvent] = []
+    _event_map: list[TraceEvent] = []
 
     for event in events:
         if event.event_type not in {EventType.TOOL_CALL, EventType.DECISION, EventType.AGENT_TURN}:
@@ -47,9 +47,9 @@ def _build_oscillation_sequence(events: list[TraceEvent]) -> tuple[list[tuple[st
 
         key = _extract_event_key(event)
         sequence.append((str(event.event_type), key))
-        event_map.append(event)
+        _event_map.append(event)
 
-    return sequence, event_map
+    return sequence, _event_map
 
 
 def _detect_pattern_repeats(sequence: list[tuple[str, str]], pattern_len: int) -> tuple[int, list[int]] | None:

@@ -8,7 +8,7 @@ from typing import Any
 
 from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
 
-from .event_utils import retention_tier
+from .event_utils import retention_tier as _retention_tier
 from .helpers import event_value
 
 # Time-decay constants (in days)
@@ -357,7 +357,7 @@ def compute_checkpoint_rankings(
                 "importance": round(checkpoint.importance, 4),
                 "replay_value": round(event_replay, 4),
                 "restore_value": round(restore_value, 4),
-                "retention_tier": retention_tier(
+                "retention_tier": _retention_tier(
                     replay_value=restore_value,
                     high_severity_count=high_severity_indicator,
                     failure_cluster_count=failure_cluster_indicator,
