@@ -57,7 +57,7 @@ jobs:
           python3 -m pytest -q -n auto --timeout=30 --maxfail=5 --cov --cov-report=term-missing --cov-fail-under=70 -k "not integration"
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
