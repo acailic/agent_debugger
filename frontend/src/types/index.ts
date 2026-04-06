@@ -463,6 +463,96 @@ export interface SimilarFailuresResponse {
   total: number
 }
 
+// Comparison types
+export interface PolicyShift {
+  shift_magnitude: number
+  from_template: string | null
+  to_template: string | null
+  turn_index: number
+  rationale: string
+}
+
+export interface PolicyAnalysis {
+  shift_count: number
+  avg_shift_magnitude: number
+  shifts: PolicyShift[]
+}
+
+export interface EscalationSignal {
+  signal_type: string
+  magnitude: number
+  description: string
+  turn_index: number | null
+  event_id: string | null
+}
+
+export interface EscalationAnalysis {
+  score: number
+  signal_count: number
+  dominant_signal_type: string | null
+  signals: EscalationSignal[]
+}
+
+export interface SessionComparisonData {
+  session: Session
+  policy_analysis: PolicyAnalysis
+  escalation_analysis: EscalationAnalysis
+}
+
+export interface ComparisonDeltas {
+  turn_count: {
+    primary: number
+    secondary: number
+    delta: number
+  }
+  policy_count: {
+    primary: number
+    secondary: number
+    delta: number
+  }
+  speaker_count: {
+    primary: number
+    secondary: number
+    delta: number
+  }
+  stance_shift_count: {
+    primary: number
+    secondary: number
+    delta: number
+  }
+  escalation_count: {
+    primary: number
+    secondary: number
+    delta: number
+  }
+  escalation_score: {
+    primary: number
+    secondary: number
+    delta: number
+  }
+  grounded_decision_count: {
+    primary: number
+    secondary: number
+    delta: number
+  }
+  grounding_rate: {
+    primary: number
+    secondary: number
+    delta: number
+  }
+  avg_shift_magnitude: {
+    primary: number
+    secondary: number
+    delta: number
+  }
+}
+
+export interface ComparisonResponse {
+  primary: SessionComparisonData
+  secondary: SessionComparisonData
+  comparison_deltas: ComparisonDeltas
+}
+
 // Alert Dashboard types
 export type AlertStatus = 'active' | 'acknowledged' | 'resolved' | 'dismissed'
 

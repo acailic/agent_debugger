@@ -5,6 +5,7 @@ import type {
   AlertSummary,
   AlertTrendingPoint,
   AnalyticsResponse,
+  ComparisonResponse,
   CostSummary,
   DriftResponse,
   FixNoteResponse,
@@ -467,4 +468,27 @@ export async function deleteAlertPolicy(id: string) {
     throw new Error(`API error: ${response.status} ${response.statusText}`)
   }
   return response.json() as Promise<{ deleted: boolean }>
+}
+
+// Comparison API
+export async function getComparison(primaryId: string, secondaryId: string) {
+  return fetchJSON<ComparisonResponse>(
+    `${API_BASE}/compare/${primaryId}/${secondaryId}`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return (
+          'primary' in v &&
+          'secondary' in v &&
+          'comparison_deltas' in v &&
+          typeof v.primary === 'object' &&
+          v.primary !== null &&
+          typeof v.secondary === 'object' &&
+          v.secondary !== null
+        )
+      },
+      endpoint: '/compare/{primary_id}/{secondary_id}',
+    }
+  )
 }

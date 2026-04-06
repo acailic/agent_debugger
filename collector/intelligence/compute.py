@@ -104,6 +104,7 @@ def compute_event_ranking(
     total_events: int,
     checkpoint_event_ids: set[str],
     severity_fn: callable,
+    all_events: list[TraceEvent] | None = None,
 ) -> dict[str, Any]:
     """Compute ranking metrics for a single event.
 
@@ -114,6 +115,7 @@ def compute_event_ranking(
         total_events: Total number of events
         checkpoint_event_ids: Set of checkpoint event IDs
         severity_fn: Function to compute event severity
+        all_events: Optional list of all events for computing bonus signals (retry churn, latency)
 
     Returns:
         Dictionary with ranking metrics
@@ -134,6 +136,25 @@ def compute_event_ranking(
     )
     replay_value += 0.1 if bool(event_value(event, "evidence_event_ids", [])) else 0.0
 
+    # Add optional bonus signals if all events provided
+    bonus = 0.0
+    if all_events:
+        # Retry churn bonus (cap at +0.05)
+        try:
+            retry_score = compute_retry_churn_score(all_events)
+            bonus += retry_score * 0.05
+        except Exception:
+            pass  # Skip if computation fails
+
+        # Latency spike bonus (cap at +0.05)
+        try:
+            latency_score = compute_latency_spike_score(all_events)
+            bonus += latency_score * 0.05
+        except Exception:
+            pass  # Skip if computation fails
+
+    replay_value = min(replay_value + bonus, 1.0)
+
     composite = min(1.0, severity * 0.45 + novelty * 0.2 + recurrence * 0.15 + replay_value * 0.2)
 
     return {
@@ -143,7 +164,7 @@ def compute_event_ranking(
         "severity": round(severity, 4),
         "novelty": round(novelty, 4),
         "recurrence": round(recurrence, 4),
-        "replay_value": round(min(replay_value, 1.0), 4),
+        "replay_value": round(replay_value, 4),
         "composite": round(composite, 4),
     }
 
@@ -190,6 +211,100 @@ def detect_tool_loop(
         )
 
     return consecutive_tool_loop, tool_name, new_alerts
+
+
+def compute_retry_churn_score(events: list[TraceEvent]) -> float:
+    """Compute retry churn score based on consecutive tool calls with similar arguments.
+
+    Detects patterns where the same tool is called repeatedly with minor argument changes,
+    indicating retry behavior that may signal problems.
+
+    Args:
+        events: List of events to analyze
+
+    Returns:
+        Score from 0.0 (no retry churn) to 1.0 (high retry churn)
+    """
+    tool_calls = [e for e in events if e.event_type == EventType.TOOL_CALL]
+    if len(tool_calls) < 2:
+        return 0.0
+
+    retry_count = 0
+    consecutive_window = 5  # Check last 5 tool calls for patterns
+
+    for i in range(len(tool_calls) - 1):
+        current = tool_calls[i]
+        next_event = tool_calls[i + 1]
+
+        current_tool = event_value(current, "tool_name", "")
+        next_tool = event_value(next_event, "tool_name", "")
+
+        if not current_tool or not next_tool:
+            continue
+
+        # Same tool called consecutively
+        if current_tool == next_tool:
+            retry_count += 1
+        # Similar tool names (e.g., search_file, search_files)
+        elif _tools_are_similar(current_tool, next_tool):
+            retry_count += 1
+
+    # Score based on retry density in the window
+    window_size = min(consecutive_window, len(tool_calls))
+    retry_density = retry_count / max(window_size, 1)
+
+    return min(1.0, retry_density * 0.5)  # Cap at 0.5 for this signal alone
+
+
+def compute_latency_spike_score(events: list[TraceEvent]) -> float:
+    """Compute latency spike score based on duration anomalies.
+
+    Compares event durations to a running baseline and detects significant spikes.
+
+    Args:
+        events: List of events to analyze
+
+    Returns:
+        Score from 0.0 (no latency spikes) to 1.0 (significant latency anomalies)
+    """
+    durations = []
+    for event in events:
+        duration = event_value(event, "duration_ms", None)
+        if duration is not None and isinstance(duration, (int, float)) and duration > 0:
+            durations.append(duration)
+
+    if len(durations) < 3:
+        return 0.0
+
+    # Compute baseline (median) and detect spikes
+    sorted_durations = sorted(durations)
+    median = sorted_durations[len(sorted_durations) // 2]
+
+    if median <= 0:
+        return 0.0
+
+    # Count significant spikes (>3x median)
+    spike_count = sum(1 for d in durations if d > median * 3.0)
+    spike_ratio = spike_count / len(durations)
+
+    return min(1.0, spike_ratio * 2.0)  # Cap at 1.0
+
+
+def _tools_are_similar(tool1: str, tool2: str) -> bool:
+    """Check if two tool names are similar (indicating retry variants)."""
+    if not tool1 or not tool2:
+        return False
+
+    # Remove common prefixes/suffixes and compare stems
+    t1_stem = tool1.lower().replace("_", "").replace("-", "")
+    t2_stem = tool2.lower().replace("_", "").replace("-", "")
+
+    # Check if one is a substring of the other (with minimum length)
+    min_len = 4
+    if len(t1_stem) < min_len or len(t2_stem) < min_len:
+        return False
+
+    return t1_stem in t2_stem or t2_stem in t1_stem
 
 
 def compute_checkpoint_rankings(

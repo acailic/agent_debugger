@@ -691,6 +691,72 @@ async def run_repair_memory_session(session_id: str | None = None) -> SeedSessio
     return SeedSession(session_id=session_id, events=events, checkpoints=checkpoints)
 
 
+# Expected benchmark values for CI regression assertions
+# Format: (event_type, composite_score) tuples for top-3 ranked events
+BENCHMARK_EXPECTATIONS = {
+    "prompt_injection": {
+        "top_3_ranked": [("policy_violation", 0.8), ("refusal", 0.8), ("safety_check", 0.752)],
+        "cluster_count": 3,
+        "checkpoint_count": 0,
+    },
+    "evidence_grounding": {
+        "top_3_ranked": [("decision", 0.736), ("tool_call", 0.5), ("tool_result", 0.5)],
+        "cluster_count": 1,
+        "checkpoint_count": 0,
+    },
+    "multi_agent_dialogue": {
+        "top_3_ranked": [("decision", 0.716), ("prompt_policy", 0.5), ("behavior_alert", 0.5)],
+        "cluster_count": 1,
+        "checkpoint_count": 0,
+    },
+    "prompt_policy_shift": {
+        "top_3_ranked": [("llm_request", 0.5), ("llm_response", 0.5), ("agent_start", 0.48)],
+        "cluster_count": 0,
+        "checkpoint_count": 0,
+    },
+    "safety_escalation": {
+        "top_3_ranked": [("policy_violation", 0.8), ("refusal", 0.8), ("error", 0.76)],
+        "cluster_count": 5,
+        "checkpoint_count": 1,
+    },
+    "looping_behavior": {
+        "top_3_ranked": [("behavior_alert", 0.5), ("agent_start", 0.48), ("tool_call", 0.4067)],
+        "cluster_count": 0,
+        "checkpoint_count": 0,
+    },
+    "failure_cluster": {
+        "top_3_ranked": [("policy_violation", 0.6881), ("policy_violation", 0.6881), ("policy_violation", 0.6881)],
+        "cluster_count": 2,
+        "checkpoint_count": 0,
+    },
+    "replay_determinism": {
+        "top_3_ranked": [("refusal", 0.8), ("decision", 0.736), ("tool_result", 0.5)],
+        "cluster_count": 2,
+        "checkpoint_count": 1,
+    },
+    "replay_breakpoints": {
+        "top_3_ranked": [("refusal", 0.8), ("safety_check", 0.752), ("safety_check", 0.752)],
+        "cluster_count": 4,
+        "checkpoint_count": 1,
+    },
+    "retention_recent_failure": {
+        "top_3_ranked": [("decision", 0.736), ("llm_request", 0.5), ("tool_call", 0.5)],
+        "cluster_count": 1,
+        "checkpoint_count": 0,
+    },
+    "retention_stale_failure": {
+        "top_3_ranked": [("decision", 0.736), ("llm_request", 0.5), ("tool_call", 0.5)],
+        "cluster_count": 1,
+        "checkpoint_count": 0,
+    },
+    "repair_memory": {
+        "top_3_ranked": [("error", 0.76), ("decision", 0.736), ("tool_call", 0.5)],
+        "cluster_count": 2,
+        "checkpoint_count": 1,
+    },
+}
+
+
 def iter_seed_scenarios() -> list[tuple[str, SeedRunner]]:
     """Return demo and benchmark scenarios in a stable order."""
     return [

@@ -1,5 +1,7 @@
-import type { Session, TraceBundle } from '../types'
+import type { Session, TraceBundle, ComparisonResponse } from '../types'
 import { containsEscalationSignal } from '../utils/formatting'
+import { getComparison } from '../api/client'
+import { useState, useEffect } from 'react'
 
 interface CoordinationSummary {
   turnCount: number
@@ -20,6 +22,12 @@ interface SessionComparisonPanelProps {
   secondarySessionId: string | null
   compareLoading: boolean
   onSelectSecondarySession: (sessionId: string | null) => void
+}
+
+interface ComparisonDataState {
+  comparison: ComparisonResponse | null
+  loading: boolean
+  error: string | null
 }
 
 function summarizeCoordination(bundle: TraceBundle): CoordinationSummary {
@@ -62,18 +70,20 @@ function MetricDelta({
   label,
   primary,
   secondary,
+  delta,
 }: {
   label: string
   primary: number
   secondary: number
+  delta?: number | null
 }) {
-  const delta = primary - secondary
-  const prefix = delta > 0 ? '+' : ''
+  const calculatedDelta = delta !== null && delta !== undefined ? delta : primary - secondary
+  const prefix = calculatedDelta > 0 ? '+' : ''
   return (
     <div className="compare-metric">
       <span className="metric-label">{label}</span>
       <strong>{primary}</strong>
-      <small>{prefix}{delta.toFixed(0)} vs compare</small>
+      <small>{prefix}{calculatedDelta.toFixed(0)} vs compare</small>
     </div>
   )
 }
@@ -98,6 +108,34 @@ export function SessionComparisonPanel({
   compareLoading,
   onSelectSecondarySession,
 }: SessionComparisonPanelProps) {
+  const [comparisonData, setComparisonData] = useState<ComparisonDataState>({
+    comparison: null,
+    loading: false,
+    error: null,
+  })
+
+  // Fetch comparison data from backend when both sessions are selected
+  useEffect(() => {
+    if (selectedSessionId && secondarySessionId) {
+      setComparisonData((prev) => ({ ...prev, loading: true, error: null }))
+
+      getComparison(selectedSessionId, secondarySessionId)
+        .then((data) => {
+          setComparisonData({ comparison: data, loading: false, error: null })
+        })
+        .catch((err) => {
+          console.error('Failed to fetch comparison data:', err)
+          setComparisonData((prev) => ({
+            ...prev,
+            loading: false,
+            error: err instanceof Error ? err.message : 'Failed to load comparison data'
+          }))
+        })
+    } else {
+      setComparisonData({ comparison: null, loading: false, error: null })
+    }
+  }, [selectedSessionId, secondarySessionId])
+
   if (!primaryBundle) {
     return (
       <div className="comparison-panel empty-panel">
@@ -109,6 +147,10 @@ export function SessionComparisonPanel({
   const primarySummary = summarizeCoordination(primaryBundle)
   const secondarySummary = secondaryBundle ? summarizeCoordination(secondaryBundle) : null
   const secondarySessionOptions = sessions.filter((session) => session.id !== selectedSessionId)
+
+  // Use backend comparison data if available, otherwise fall back to client-side calculation
+  const useBackendData = comparisonData.comparison !== null && comparisonData.error === null
+  const deltas = useBackendData && comparisonData.comparison ? comparisonData.comparison.comparison_deltas : null
 
   return (
     <div className="comparison-panel">
@@ -131,7 +173,11 @@ export function SessionComparisonPanel({
         </select>
       </div>
 
-      {compareLoading ? <p className="compare-loading">Loading comparison session…</p> : null}
+      {compareLoading || comparisonData.loading ? <p className="compare-loading">Loading comparison session…</p> : null}
+
+      {comparisonData.error && (
+        <p className="compare-error">Using client-side fallback: {comparisonData.error}</p>
+      )}
 
       {secondaryBundle ? (
         <>
@@ -149,12 +195,42 @@ export function SessionComparisonPanel({
           </div>
 
           <div className="compare-metric-grid">
-            <MetricDelta label="Turns" primary={primarySummary.turnCount} secondary={secondarySummary?.turnCount ?? 0} />
-            <MetricDelta label="Policies" primary={primarySummary.policyCount} secondary={secondarySummary?.policyCount ?? 0} />
-            <MetricDelta label="Speakers" primary={primarySummary.speakerCount} secondary={secondarySummary?.speakerCount ?? 0} />
-            <MetricDelta label="Stance shifts" primary={primarySummary.stanceShiftCount} secondary={secondarySummary?.stanceShiftCount ?? 0} />
-            <MetricDelta label="Escalations" primary={primarySummary.escalationCount} secondary={secondarySummary?.escalationCount ?? 0} />
-            <MetricDelta label="Grounded decisions" primary={primarySummary.evidenceLinkedDecisionCount} secondary={secondarySummary?.evidenceLinkedDecisionCount ?? 0} />
+            <MetricDelta
+              label="Turns"
+              primary={deltas?.turn_count.primary ?? primarySummary.turnCount}
+              secondary={deltas?.turn_count.secondary ?? secondarySummary?.turnCount ?? 0}
+              delta={deltas?.turn_count.delta}
+            />
+            <MetricDelta
+              label="Policies"
+              primary={deltas?.policy_count.primary ?? primarySummary.policyCount}
+              secondary={deltas?.policy_count.secondary ?? secondarySummary?.policyCount ?? 0}
+              delta={deltas?.policy_count.delta}
+            />
+            <MetricDelta
+              label="Speakers"
+              primary={deltas?.speaker_count.primary ?? primarySummary.speakerCount}
+              secondary={deltas?.speaker_count.secondary ?? secondarySummary?.speakerCount ?? 0}
+              delta={deltas?.speaker_count.delta}
+            />
+            <MetricDelta
+              label="Stance shifts"
+              primary={deltas?.stance_shift_count.primary ?? primarySummary.stanceShiftCount}
+              secondary={deltas?.stance_shift_count.secondary ?? secondarySummary?.stanceShiftCount ?? 0}
+              delta={deltas?.stance_shift_count.delta}
+            />
+            <MetricDelta
+              label="Escalations"
+              primary={deltas?.escalation_count.primary ?? primarySummary.escalationCount}
+              secondary={deltas?.escalation_count.secondary ?? secondarySummary?.escalationCount ?? 0}
+              delta={deltas?.escalation_count.delta}
+            />
+            <MetricDelta
+              label="Grounded decisions"
+              primary={deltas?.grounded_decision_count.primary ?? primarySummary.evidenceLinkedDecisionCount}
+              secondary={deltas?.grounded_decision_count.secondary ?? secondarySummary?.evidenceLinkedDecisionCount ?? 0}
+              delta={deltas?.grounded_decision_count.delta}
+            />
           </div>
 
           <div className="compare-token-grid">

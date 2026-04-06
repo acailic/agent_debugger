@@ -809,3 +809,139 @@ class TestBenchmarkEventLinkage:
         tool_calls = [e for e in session.events if e.event_type.value == "tool_call"]
         assert tool_calls[1].parent_id == tool_calls[0].id
         assert tool_calls[2].parent_id == tool_calls[1].id
+
+
+class TestBenchmarkRankingAssertions:
+    """CI regression assertions for event ranking and clustering results."""
+
+    @pytest.mark.asyncio
+    async def test_expected_rankings(self):
+        """All scenarios should produce expected top-3 ranked event types by composite score."""
+        from collections import Counter
+
+        from benchmarks.seed_data import BENCHMARK_EXPECTATIONS, iter_seed_scenarios
+        from collector.intelligence.compute import compute_event_ranking
+
+        def severity_fn(event):
+            if event.event_type in {EventType.ERROR, EventType.REFUSAL, EventType.POLICY_VIOLATION}:
+                return 1.0
+            if event.event_type == EventType.SAFETY_CHECK:
+                return 0.95
+            if event.event_type == EventType.DECISION:
+                return 0.85
+            return 0.5
+
+        for name, runner in iter_seed_scenarios():
+            session = await runner(f"rankings-{name}")
+            expectations = BENCHMARK_EXPECTATIONS[name]
+
+            # Create fingerprints
+            fingerprints = []
+            for e in session.events:
+                fp = str(e.event_type)
+                if hasattr(e, "error_message") and e.error_message:
+                    fp += f":{e.error_message[:20]}"
+                elif hasattr(e, "violation_type") and e.violation_type:
+                    fp += f":{e.violation_type}"
+                elif hasattr(e, "blocked_action") and e.blocked_action:
+                    fp += f":{e.blocked_action}"
+                elif hasattr(e, "tool_name") and e.tool_name:
+                    fp += f":{e.tool_name}"
+                fingerprints.append(fp)
+
+            fingerprint_counts = Counter(fingerprints)
+            checkpoint_event_ids = {cp.event_id for cp in session.checkpoints}
+
+            rankings = []
+            for event, fp in zip(session.events, fingerprints):
+                ranking = compute_event_ranking(
+                    event,
+                    fp,
+                    fingerprint_counts,
+                    len(session.events),
+                    checkpoint_event_ids,
+                    severity_fn,
+                )
+                rankings.append(ranking)
+
+            sorted_rankings = sorted(rankings, key=lambda r: -r["composite"])
+            actual_top_3 = [(r["event_type"], round(r["composite"], 4)) for r in sorted_rankings[:3]]
+            expected_top_3 = expectations["top_3_ranked"]
+
+            assert actual_top_3 == expected_top_3, f"{name} rankings mismatch: expected {expected_top_3}, got {actual_top_3}"
+
+    @pytest.mark.asyncio
+    async def test_expected_clusters(self):
+        """All scenarios should produce expected cluster counts."""
+        from collections import Counter
+
+        from benchmarks.seed_data import BENCHMARK_EXPECTATIONS, iter_seed_scenarios
+        from collector.clustering.failure_clusters import FailureClusterAnalyzer
+        from collector.intelligence.compute import compute_event_ranking
+
+        def severity_fn(event):
+            if event.event_type in {EventType.ERROR, EventType.REFUSAL, EventType.POLICY_VIOLATION}:
+                return 1.0
+            if event.event_type == EventType.SAFETY_CHECK:
+                return 0.95
+            if event.event_type == EventType.DECISION:
+                return 0.85
+            return 0.5
+
+        for name, runner in iter_seed_scenarios():
+            session = await runner(f"clusters-{name}")
+            expectations = BENCHMARK_EXPECTATIONS[name]
+
+            # Create fingerprints
+            fingerprints = []
+            for e in session.events:
+                fp = str(e.event_type)
+                if hasattr(e, "error_message") and e.error_message:
+                    fp += f":{e.error_message[:20]}"
+                elif hasattr(e, "violation_type") and e.violation_type:
+                    fp += f":{e.violation_type}"
+                elif hasattr(e, "blocked_action") and e.blocked_action:
+                    fp += f":{e.blocked_action}"
+                elif hasattr(e, "tool_name") and e.tool_name:
+                    fp += f":{e.tool_name}"
+                fingerprints.append(fp)
+
+            fingerprint_counts = Counter(fingerprints)
+            checkpoint_event_ids = {cp.event_id for cp in session.checkpoints}
+
+            rankings = []
+            for event, fp in zip(session.events, fingerprints):
+                ranking = compute_event_ranking(
+                    event,
+                    fp,
+                    fingerprint_counts,
+                    len(session.events),
+                    checkpoint_event_ids,
+                    severity_fn,
+                )
+                rankings.append(ranking)
+
+            analyzer = FailureClusterAnalyzer()
+            clusters = analyzer.cluster_failures(rankings, severity_threshold=0.78)
+            actual_cluster_count = len(clusters)
+            expected_cluster_count = expectations["cluster_count"]
+
+            assert actual_cluster_count == expected_cluster_count, (
+                f"{name} cluster count mismatch: expected {expected_cluster_count}, got {actual_cluster_count}"
+            )
+
+    @pytest.mark.asyncio
+    async def test_expected_breakpoints(self):
+        """Replay breakpoint scenarios should have expected checkpoint counts."""
+        from benchmarks.seed_data import BENCHMARK_EXPECTATIONS, iter_seed_scenarios
+
+        for name, runner in iter_seed_scenarios():
+            session = await runner(f"breakpoints-{name}")
+            expectations = BENCHMARK_EXPECTATIONS[name]
+
+            actual_checkpoint_count = len(session.checkpoints)
+            expected_checkpoint_count = expectations["checkpoint_count"]
+
+            assert actual_checkpoint_count == expected_checkpoint_count, (
+                f"{name} checkpoint count mismatch: expected {expected_checkpoint_count}, got {actual_checkpoint_count}"
+            )
