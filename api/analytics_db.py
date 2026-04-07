@@ -50,7 +50,7 @@ def get_analytics_db_path() -> Path:
     return _get_repository().db_path
 
 
-def _set_test_db_path(path: Path) -> None:
+def _set_test_db_path(path: Path | None) -> None:
     """Set a test database path (for testing only).
 
     This allows tests to override the database location without
