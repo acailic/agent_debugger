@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -153,7 +153,7 @@ class TestRecordEvent:
         analytics_db.record_event("session_created")
         analytics_db.record_event("session_created")
 
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         conn = sqlite3.connect(str(mock_db_path))
         cursor = conn.execute(
             "SELECT sessions_created FROM daily_aggregates WHERE date = ?",
@@ -195,7 +195,7 @@ class TestRecordEvent:
         for event_type in event_types:
             analytics_db.record_event(event_type)
 
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         conn = sqlite3.connect(str(mock_db_path))
         cursor = conn.execute(
             "SELECT * FROM daily_aggregates WHERE date = ?",
@@ -371,7 +371,7 @@ class TestGetDailyBreakdown:
         analytics_db.record_event("why_button_clicked")
 
         result = analytics_db.get_daily_breakdown(days=1)
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
         assert len(result) == 1
         assert result[0]["date"] == today
