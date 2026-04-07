@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>5 Agent Debugging Patterns Every AI Developer Should Know — Peaky Peek Blog</title>
+  <meta name="description" content="Master 5 essential agent debugging patterns: trace-based debugging, checkpoint replay, failure clustering, multi-agent tracing, and safety audit trails.">
+  <meta property="og:title" content="5 Agent Debugging Patterns Every AI Developer Should Know">
+  <meta property="og:description" content="Master 5 essential agent debugging patterns: trace-based debugging, checkpoint replay, failure clustering, multi-agent tracing, and safety audit trails.">
+  <meta property="og:url" content="https://acailic.github.io/agent_debugger/blog/agent-debugging-patterns.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --accent-hover: #79b8ff;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --code-bg: #1f2428;
+      --radius: 6px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    a:hover {
+      color: var(--accent-hover);
+      text-decoration: underline;
+    }
+
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .nav-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .nav-link {
+      color: var(--muted);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      transition: color 0.2s ease;
+    }
+
+    .nav-link:hover {
+      color: var(--accent);
+    }
+
+    article {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+    }
+
+    .post-header {
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .post-date {
+      color: var(--muted);
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    h2 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-top: 2.5rem;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      color: var(--text);
+    }
+
+    h4 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+
+    p {
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    code {
+      background: var(--code-bg);
+      color: var(--accent);
+      padding: 0.2rem 0.4rem;
+      border-radius: var(--radius);
+      font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+      font-size: 0.9em;
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      overflow-x: auto;
+      margin-bottom: 1.5rem;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      color: var(--text);
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    blockquote {
+      border-left: 4px solid var(--accent);
+      padding-left: 1rem;
+      margin: 1.5rem 0;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    ul, ol {
+      margin-bottom: 1rem;
+      padding-left: 2rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2rem 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.75rem;
+      text-align: left;
+    }
+
+    th {
+      background: var(--surface);
+      font-weight: 600;
+    }
+
+    footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 2rem 0;
+      margin-top: 4rem;
+      text-align: center;
+    }
+
+    .footer-content {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 1rem;
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
+
+    .footer-content a {
+      color: var(--accent);
+    }
+
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 1.75rem;
+      }
+
+      h2 {
+        font-size: 1.5rem;
+      }
+
+      article {
+        padding: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-container">
+      <a href="https://acailic.github.io/agent_debugger/" class="nav-link">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+        </svg>
+        Peaky Peek
+      </a>
+      <a href="index.html" class="nav-link">Blog Index</a>
+    </div>
+  </nav>
+
+  <article>
+    <div class="post-header">
+      <div class="post-date">2026-04-07</div>
+      <h1>5 Agent Debugging Patterns Every AI Developer Should Know</h1>
+    </div>
+
+    <h1>5 Agent Debugging Patterns Every AI Developer Should Know</h1>
+<p>
+<p>As AI agents become more complex, developers face a debugging gap. Traditional tools were designed for deterministic software, not reasoning systems that make probabilistic decisions, use external tools, and evolve their strategies. The gap is real: tools built for LLM tracing don't understand agent reasoning, while tools for distributed systems don't capture the nuance of AI decision-making.</p>
+<p>
+<p>These five patterns transform agent debugging from frustrating detective work to systematic analysis. Each pattern addresses a specific challenge in understanding why agents do what they do.</p>
+<p>
+<h2>The Agent Debugging Gap</h2>
+<p>
+<p>Before diving into solutions, let's understand the problem:</p>
+<p>
+<pre><code class="language-python">
+# Traditional debugging assumes:
+# 1. Deterministic execution
+# 2. Clear boundaries between components
+# 3. Direct cause-effect relationships
+# 4. State that can be inspected at any point
+
+# AI agents break these assumptions:
+def shopping_agent(user_input):
+    # Non-deterministic reasoning
+    intent = llm.classify(user_input)  # Different results each time
+    
+    # Tool interactions with external state
+    products = search_api(intent)
+    
+    # Multi-step reasoning
+    if products:
+        best = analyze_best(products)
+        return format_response(best)
+    else:
+        # Fallback logic that depends on context
+        return handle_no_results()
+</code></pre>
+<p>
+<p>When things go wrong, you need patterns that work with uncertainty, not against it.</p>
+<p>
+<h2>Pattern 1: Trace-Based Debugging</h2>
+<p>
+<p><strong>Before</strong>: Print statements and log files scattered across systems</p>
+<p><strong>After</strong>: Structured event timeline with search and visualization</p>
+<p>
+<p>Trace-based debugging captures the causal chain of agent actions. Every decision, tool call, and LLM interaction becomes a traceable event.</p>
+<p>
+<h3>Core Implementation</h3>
+<p>
+<pre><code class="language-python">
+from agent_debugger_sdk import trace, init
+
+init()
+
+@trace_agent(name=&quot;research_agent&quot;, framework=&quot;custom&quot;)
+async def research_agent(query: str):
+    # The decorator automatically captures:
+    # - Agent start/end
+    # - LLM calls and responses
+    # - Tool calls and results
+    # - Errors and retries
+    
+    documents = await search_documents(query)
+    summary = await summarize(documents)
+    return summary
+</code></pre>
+<p>
+<h3>Manual Control for Complex Scenarios</h3>
+<p>
+<pre><code class="language-python">
+from agent_debugger_sdk import TraceContext
+
+async def complex_agent(task: str):
+    async with TraceContext(agent_name=&quot;planner&quot;, framework=&quot;custom&quot;) as ctx:
+        # Record decision with reasoning
+        await ctx.record_decision(
+            reasoning=&quot;User requested complex planning&quot;,
+            confidence=0.8,
+            chosen_action=&quot;break_into_subtasks&quot;,
+            evidence=[{&quot;input&quot;: task}]
+        )
+        
+        # Tool call tracking
+        await ctx.record_tool_call(&quot;task_parser&quot;, {&quot;task&quot;: task})
+        subtasks = await parse_task(task)
+        
+        # Multi-step planning
+        for subtask in subtasks:
+            await ctx.record_decision(
+                reasoning=&quot;Planning individual subtask&quot;,
+                confidence=0.9,
+                chosen_action=&quot;execute_subtask&quot;,
+                evidence=[{&quot;subtask&quot;: subtask}]
+            )
+</code></pre>
+<p>
+<h3>Key Benefits</h3>
+<p>
+<li><strong>Causal relationships</strong>: See how decisions lead to other actions</li>
+<li><strong>Rich metadata</strong>: Confidence levels, evidence, reasoning</li>
+<li><strong>Searchable timeline</strong>: Find specific events across sessions</li>
+<li><strong>Visualization</strong>: Interactive decision trees and timelines</li>
+<p>
+<h2>Pattern 2: Checkpoint Replay</h2>
+<p>
+<p><strong>Before</strong>: Re-running the entire agent from scratch to test scenarios</p>
+<p><strong>After</strong>: Seek to any checkpoint, inspect state, understand what went wrong</p>
+<p>
+<p>Checkpoints capture agent state at critical moments, enabling time-travel debugging without re-execution.</p>
+<p>
+<h3>Creating Checkpoints</h3>
+<p>
+<pre><code class="language-python">
+async with TraceContext(agent_name=&quot;code_writer&quot;, framework=&quot;custom&quot;) as ctx:
+    # Initial state
+    await ctx.record_checkpoint(
+        name=&quot;analysis_complete&quot;,
+        metadata={&quot;files_processed&quot;: 5, &quot;complexity&quot;: &quot;high&quot;}
+    )
+    
+    # After major step
+    await ctx.record_checkpoint(
+        name=&quot;architecture_designed&quot;,
+        state={&quot;design&quot;: &quot;microservices&quot;, &quot;patterns&quot;: [&quot;cqr&quot;, &quot;cqrs&quot;]}
+    )
+    
+    # Before execution
+    await ctx.record_checkpoint(
+        name=&quot;ready_to_generate&quot;,
+        metadata={&quot;confidence&quot;: 0.9, &quot;strategy&quot;: &quot;iterative&quot;}
+    )
+</code></pre>
+<p>
+<h3>Debugging with Checkpoints</h3>
+<p>
+<p>In the Peaky Peek UI:</p>
+<li>Select a failed session</li>
+<li>Find the checkpoint before failure</li>
+<li>Click "Replay from Here"</li>
+<li>Step through execution event by event</li>
+<li>See exactly how state evolves</li>
+<p>
+<pre><code class="language-python">
+# During debugging, you can inspect checkpoint state
+checkpoint = await ctx.get_checkpoint(&quot;analysis_complete&quot;)
+if checkpoint.state[&quot;complexity&quot;] == &quot;high&quot;:
+    # Adjust strategy for complex tasks
+    strategy = &quot;break_into_smaller_steps&quot;
+</code></pre>
+<p>
+<h3>Advanced: Conditional Checkpoints</h3>
+<p>
+<pre><code class="language-python">
+if confidence &lt; 0.7:
+    # Low confidence decisions need checkpoints
+    await ctx.record_checkpoint(
+        name=&quot;uncertain_path&quot;,
+        metadata={&quot;confidence&quot;: confidence, &quot;fallback_needed&quot;: True}
+    )
+</code></pre>
+<p>
+<h2>Pattern 3: Failure Clustering</h2>
+<p>
+<p><strong>Before</strong>: Manually reviewing hundreds of failed runs to find patterns</p>
+<p><strong>After</strong>: Adaptive analysis surfaces highest-severity, highest-novelty events</p>
+<p>
+<p>AI agents fail in complex ways. Failure clustering groups similar errors to identify root causes.</p>
+<p>
+<h3>Automatic Failure Detection</h3>
+<p>
+<pre><code class="language-python">
+# The SDK automatically detects and clusters failures
+class FailureDetector:
+    def detect_patterns(self, events):
+        patterns = []
+        
+        # Group by error type
+        error_groups = self.group_by_type(events, &quot;error&quot;)
+        
+        # Find recurring patterns
+        for error_type, error_events in error_groups.items():
+            if len(error_events) &gt; 3:  # Threshold for pattern
+                patterns.append({
+                    &quot;type&quot;: &quot;recurring_error&quot;,
+                    &quot;error_type&quot;: error_type,
+                    &quot;count&quot;: len(error_events),
+                    &quot;sessions&quot;: self.get_unique_sessions(error_events)
+                })
+        
+        # Group by low confidence decisions
+        low_confidence = [e for e in events if e.get(&quot;confidence&quot;, 1) &lt; 0.5]
+        if len(low_confidence) &gt; 5:
+            patterns.append({
+                &quot;type&quot;: &quot;uncertainty_cluster&quot;,
+                &quot;events&quot;: low_confidence,
+                &quot;avg_confidence&quot;: sum(e.confidence for e in low_confidence) / len(low_confidence)
+            })
+        
+        return patterns
+</code></pre>
+<p>
+<h3>Using Failure Analysis</h3>
+<p>
+<pre><code class="language-python">
+# In your agent, use failure insights to improve
+async def agent_with_learning(user_input):
+    async with TraceContext(...) as ctx:
+        # Check if we&#x27;ve seen similar failures
+        failure_patterns = await ctx.get_failure_patterns(user_input)
+        
+        if failure_patterns:
+            # Adapt behavior based on past failures
+            for pattern in failure_patterns:
+                if pattern[&quot;type&quot;] == &quot;recurring_parse_error&quot;:
+                    # Use more robust parsing
+                    await ctx.record_decision(
+                        reasoning=&quot;Historical parsing errors detected&quot;,
+                        confidence=0.9,
+                        chosen_action=&quot;use_robust_parser&quot;
+                    )
+</code></pre>
+<p>
+<h3>Pattern-Based Debugging</h3>
+<p>
+<pre><code class="language-python">
+# Identify and fix systematic issues
+if ctx.has_pattern(&quot;timeout_errors&quot;):
+    # Implement exponential backoff
+    strategy = &quot;retry_with_backoff&quot;
+    
+if ctx.has_pattern(&quot;confidence_drops&quot;:
+    # Add more context or clarify requirements
+    strategy = &quot;request_additional_info&quot;
+</code></pre>
+<p>
+<h2>Pattern 4: Multi-Agent Coordination Tracing</h2>
+<p>
+<p><strong>Before</strong>: Scattered logs across multiple processes and agents</p>
+<p><strong>After</strong>: Unified view of handoffs, task delegation, and messages</p>
+<p>
+<p>Multi-agent systems are complex. Who talks to whom? When do they hand off tasks? What information gets lost in translation?</p>
+<p>
+<h3>Tracing Inter-Agent Communication</h3>
+<p>
+<pre><code class="language-python">
+# Agent 1: Researcher
+@trace_agent(name=&quot;research_agent&quot;)
+async def researcher(query: str):
+    async with TraceContext(agent_name=&quot;researcher&quot;, framework=&quot;custom&quot;) as ctx:
+        await ctx.record_decision(
+            reasoning=&quot;Need to research multiple sources&quot;,
+            confidence=0.9,
+            chosen_action=&quot;delegate_to_specialists&quot;
+        )
+        
+        # Delegate to specialist agents
+        await ctx.record_message(
+            to=&quot;web_agent&quot;,
+            message=f&quot;Research: {query}&quot;,
+            message_type=&quot;delegation&quot;
+        )
+        
+        web_results = await web_agent.research(query)
+        
+        await ctx.record_message(
+            to=&quot;analysis_agent&quot;,
+            message=f&quot;Web results: {web_results}&quot;,
+            message_type=&quot;data_handoff&quot;
+        )
+</code></pre>
+<p>
+<h3>Agent Handoff Tracking</h3>
+<p>
+<pre><code class="language-python">
+# Agent 2: Web Specialist
+@trace_agent(name=&quot;web_agent&quot;)
+async def web_agent(query: str):
+    async with TraceContext(agent_name=&quot;web_agent&quot;, framework=&quot;custom&quot;) as ctx:
+        await ctx.record_message(
+            from=&quot;researcher&quot;,
+            message=query,
+            message_type=&quot;received&quot;
+        )
+        
+        # Process and respond
+        results = await search_web(query)
+        
+        await ctx.record_message(
+            to=&quot;researcher&quot;,
+            message=results,
+            message_type=&quot;response&quot;
+        )
+</code></pre>
+<p>
+<h3>Visualizing Coordination</h3>
+<p>
+<p>The UI shows:</p>
+<li>Message flows between agents</li>
+<li>Handoff points with context</li>
+<li>Bottlenecks in communication</li>
+<li>Delays in responses</li>
+<p>
+<pre><code class="language-python">
+# Detect communication issues
+if ctx.message_delay(&quot;researcher&quot;, &quot;web_agent&quot;) &gt; 5:
+    # Optimize or add timeout handling
+    strategy = &quot;implement_timeout&quot;
+</code></pre>
+<p>
+<h2>Pattern 5: Safety Audit Trails</h2>
+<p>
+<p><strong>Before</strong>: No visibility into safety decisions and policy checks</p>
+<p><strong>After</strong>: Complete audit trail of every policy check and intervention</p>
+<p>
+<p>AI systems need safety guardrails. But when these trigger, you need to understand why and whether they're working correctly.</p>
+<p>
+<h3>Safety Event Tracking</h3>
+<p>
+<pre><code class="language-python">
+from agent_debugger_sdk import TraceContext
+
+async def safe_agent(user_input: str):
+    async with TraceContext(agent_name=&quot;safe_agent&quot;, framework=&quot;custom&quot;) as ctx:
+        # Safety check
+        safety_result = await safety_check(user_input)
+        
+        await ctx.record_safety_event(
+            event_type=&quot;content_scan&quot;,
+            input=user_input,
+            policy=&quot;content_policy_v1&quot;,
+            result=safety_result,
+            confidence=safety_result.confidence
+        )
+        
+        if safety_result.allowed:
+            # Proceed with normal execution
+            response = await process_input(user_input)
+        else:
+            # Intervention
+            await ctx.record_safety_event(
+                event_type=&quot;intervention&quot;,
+                reason=safety_result.reason,
+                action=&quot;blocked_content&quot;
+            )
+            
+            response = &quot;I cannot help with that request.&quot;
+        
+        return response
+</code></pre>
+<p>
+<h3>Policy and Compliance Tracking</h3>
+<p>
+<pre><code class="language-python">
+# Track regulatory compliance
+async def compliant_agent(request: str):
+    async with TraceContext(agent_name=&quot;compliant_agent&quot;, framework=&quot;custom&quot;) as ctx:
+        # GDPR compliance
+        await ctx.record_privacy_event(
+            data_type=&quot;user_data&quot;,
+            processing_purpose=&quot;response_generation&quot;,
+            legal_basis=&quot;consent&quot;
+        )
+        
+        # HIPAA check for healthcare
+        if is_healthcare_data(request):
+            await ctx.record_compliance_event(
+                regulation=&quot;hipaa&quot;,
+                action=&quot;redact_phi&quot;,
+                confidence=0.95
+            )
+</code></pre>
+<p>
+<h3>Safety Pattern Analysis</h3>
+<p>
+<pre><code class="language-python">
+# Analyze safety interventions
+safety_stats = await ctx.get_safety_statistics()
+if safety_stats.intervention_rate &gt; 0.3:
+    # Too many interventions might indicate:
+    # 1. Overly restrictive policies
+    # 2. Poor user prompts
+    # 3. Model bias
+    strategy = &quot;review_safety_policies&quot;
+</code></pre>
+<p>
+<h2>Putting It All Together: A Debugging Workflow</h2>
+<p>
+<p>Here's how these patterns work together in practice:</p>
+<p>
+<h3>Step 1: Instrument with Traces</h3>
+<p>
+<pre><code class="language-python">
+@trace_agent(name=&quot;customer_service&quot;)
+async def customer_service(query: str):
+    # Pattern 1: Basic tracing
+    async with TraceContext(...) as ctx:
+        # ... agent logic
+</code></pre>
+<p>
+<h3>Step 2: Monitor Failures</h3>
+<p>
+<pre><code class="language-python">
+# Pattern 3: Failure detection
+if confidence &lt; 0.5:
+    await ctx.record_failure(
+        category=&quot;low_confidence&quot;,
+        context={&quot;query&quot;: query, &quot;domain&quot;: intent}
+    )
+</code></pre>
+<p>
+<h3>Step 3: Checkpoint Key Decisions</h3>
+<p>
+<pre><code class="language-python">
+# Pattern 2: Checkpoints
+await ctx.record_checkpoint(&quot;understood_request&quot;)
+await ctx.record_checkpoint(&quot;search_complete&quot;)
+</code></pre>
+<p>
+<h3>Step 4: Track Multi-Agent Coordination</h3>
+<p>
+<pre><code class="language-python">
+# Pattern 4: Multi-agent
+await ctx.record_message(
+    to=&quot;knowledge_base&quot;,
+    message=query,
+    type=&quot;retrieval_request&quot;
+)
+</code></pre>
+<p>
+<h3>Step 5: Safety Compliance</h3>
+<p>
+<pre><code class="language-python">
+# Pattern 5: Safety
+await ctx.record_safety_event(
+    policy=&quot;customer_service_policy&quot;,
+    input=query,
+    result=safety_check
+)
+</code></pre>
+<p>
+<h2>Advanced Implementation Tips</h2>
+<p>
+<h3>Combining Patterns</h3>
+<p>
+<pre><code class="language-python">
+class SmartAgent:
+    def __init__(self):
+        self.ctx = TraceContext(&quot;smart_agent&quot;)
+    
+    async def process(self, task: str):
+        # Pattern 1: Start tracing
+        async with self.ctx:
+            # Pattern 2: Checkpoint initial state
+            await self.ctx.record_checkpoint(&quot;start&quot;)
+            
+            # Pattern 5: Safety first
+            safety = await self.safety_check(task)
+            if not safety.allowed:
+                await self.ctx.record_safety_intervention(safety)
+                return safety.response
+            
+            # Pattern 4: Multi-agent planning
+            plan = await self.plan_with_agents(task)
+            
+            # Pattern 3: Failure detection during execution
+            try:
+                result = await self.execute_plan(plan)
+                
+                # Check for emerging patterns
+                if self.detect_failure_pattern():
+                    await self.ctx.record_pattern(&quot;execution_issue&quot;)
+                    
+            except Exception as e:
+                # Pattern 3: Failure clustering
+                await self.ctx.record_failure(
+                    category=&quot;execution_error&quot;,
+                    error=str(e),
+                    pattern=&quot;recurring_retry_failure&quot;
+                )
+                raise
+            
+            return result
+</code></pre>
+<p>
+<h3>Context-Aware Debugging</h3>
+<p>
+<pre><code class="language-python">
+# Different debug levels for different scenarios
+def debug_level_for_agent(agent_type):
+    if agent_type == &quot;medical&quot;:
+        return &quot;full&quot;  # Maximum tracing for safety-critical
+    elif agent_type == &quot;chat&quot;:
+        return &quot;minimal&quot;  # Basic tracing for casual use
+    else:
+        return &quot;standard&quot;  # Normal debugging
+
+# Apply based on context
+async def agent_with_context_aware_debugging(task):
+    level = debug_level_for_agent(self.agent_type)
+    
+    if level == &quot;full&quot;:
+        # All patterns enabled
+        await self.enable_full_debugging()
+    else:
+        # Only critical events
+        await self.enable_minimal_debugging()
+</code></pre>
+<p>
+<h2>Performance Considerations</h2>
+<p>
+<p>While these patterns are powerful, they add overhead. Balance debugging depth with performance:</p>
+<p>
+<pre><code class="language-python">
+# Conditional tracing based on importance
+async def smart_tracing():
+    if is_important(session):
+        # Full tracing with all patterns
+        await self.trace_comprehensive()
+    else:
+        # Basic tracing only
+        await self.trace_basic()
+
+# Batch high-frequency events
+async def batch_tool_calls():
+    # Instead of tracing every single API call
+    # Batch them and trace the aggregate
+    calls = await collect_api_calls(100)  # Batch size
+    await ctx.record_batch_tool_calls(calls)
+</code></pre>
+<p>
+<h2>Conclusion</h2>
+<p>
+<p>These five patterns address the core challenges of AI agent debugging:</p>
+<p>
+<li><strong>Trace-based debugging</strong>: Captures the full causal chain</li>
+<li><strong>Checkpoint replay</strong>: Enables time-travel debugging</li>
+<li><strong>Failure clustering</strong>: Finds patterns in chaos</li>
+<li><strong>Multi-agent tracing</strong>: Unifies complex coordination</li>
+<li><strong>Safety audit trails</strong>: Ensures compliance and trust</li>
+<p>
+<p>Start with trace-based debugging as your foundation, then add the other patterns as needed. The key is to treat debugging not as an afterthought, but as an integral part of your agent architecture.</p>
+<p>
+<p>Ready to implement these patterns? <a href="https://github.com/acailic/agent_debugger">Get started with Peaky Peek</a> and see how systematic debugging can transform your AI development workflow.</p>
+<p>
+<p><!-- more --></p>
+  </article>
+
+  <footer>
+    <div class="footer-content">
+      <p>© 2026 Peaky Peek. Local-first agent debugger.</p>
+      <p style="margin-top: 0.5rem">
+        <a href="https://github.com/acailic/agent_debugger">GitHub</a> ·
+        <a href="https://acailic.github.io/agent_debugger/">Documentation</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How to Debug AI Agent Decision Trees: A Practical Guide — Peaky Peek Blog</title>
+  <meta name="description" content="Learn how to debug AI agent decision trees using trace-based debugging. Capture reasoning chains, visualize decision paths, and find failures fast.">
+  <meta property="og:title" content="How to Debug AI Agent Decision Trees: A Practical Guide">
+  <meta property="og:description" content="Learn how to debug AI agent decision trees using trace-based debugging. Capture reasoning chains, visualize decision paths, and find failures fast.">
+  <meta property="og:url" content="https://acailic.github.io/agent_debugger/blog/debug-ai-agent-decision-trees.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --accent-hover: #79b8ff;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --code-bg: #1f2428;
+      --radius: 6px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    a:hover {
+      color: var(--accent-hover);
+      text-decoration: underline;
+    }
+
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .nav-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .nav-link {
+      color: var(--muted);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      transition: color 0.2s ease;
+    }
+
+    .nav-link:hover {
+      color: var(--accent);
+    }
+
+    article {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+    }
+
+    .post-header {
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .post-date {
+      color: var(--muted);
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    h2 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-top: 2.5rem;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      color: var(--text);
+    }
+
+    h4 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+
+    p {
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    code {
+      background: var(--code-bg);
+      color: var(--accent);
+      padding: 0.2rem 0.4rem;
+      border-radius: var(--radius);
+      font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+      font-size: 0.9em;
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      overflow-x: auto;
+      margin-bottom: 1.5rem;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      color: var(--text);
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    blockquote {
+      border-left: 4px solid var(--accent);
+      padding-left: 1rem;
+      margin: 1.5rem 0;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    ul, ol {
+      margin-bottom: 1rem;
+      padding-left: 2rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2rem 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.75rem;
+      text-align: left;
+    }
+
+    th {
+      background: var(--surface);
+      font-weight: 600;
+    }
+
+    footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 2rem 0;
+      margin-top: 4rem;
+      text-align: center;
+    }
+
+    .footer-content {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 1rem;
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
+
+    .footer-content a {
+      color: var(--accent);
+    }
+
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 1.75rem;
+      }
+
+      h2 {
+        font-size: 1.5rem;
+      }
+
+      article {
+        padding: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-container">
+      <a href="https://acailic.github.io/agent_debugger/" class="nav-link">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+        </svg>
+        Peaky Peek
+      </a>
+      <a href="index.html" class="nav-link">Blog Index</a>
+    </div>
+  </nav>
+
+  <article>
+    <div class="post-header">
+      <div class="post-date">2026-04-07</div>
+      <h1>How to Debug AI Agent Decision Trees: A Practical Guide</h1>
+    </div>
+
+    <h1>How to Debug AI Agent Decision Trees: A Practical Guide</h1>
+<p>
+<p>Debugging AI agents requires a fundamentally different approach compared to traditional software. When your web application fails, you can step through code, inspect variables, and follow the execution path. But AI agents operate on different principles—they make probabilistic decisions, use external tools, and reason through natural language. Traditional debuggers fall short when faced with non-deterministic, multi-step reasoning chains.</p>
+<p>
+<p>This guide introduces trace-based debugging as a systematic solution for understanding and debugging AI agent behavior.</p>
+<p>
+<h2>Why AI Agents Break Traditional Debuggers</h2>
+<p>
+<p>Traditional debugging relies on deterministic execution:</p>
+<li>Breakpoints pause execution at specific locations</li>
+<li>Variable inspectors show state at exact moments</li>
+<li>Call stacks show the precise sequence of function calls</li>
+<p>
+<p>AI agents shatter these assumptions:</p>
+<p>
+<pre><code class="language-python">
+# Traditional debugging fails here because:
+# 1. LLM responses are non-deterministic
+# 2. Tool calls depend on probabilistic reasoning
+# 3. The &quot;decision&quot; happens in the model&#x27;s weights, not code
+async def agent_function(user_input: str):
+    # Where does the &quot;debugging&quot; happen?
+    llm_response = await llm_call(f&quot;Process: {user_input}&quot;)  # Black box
+    tool_calls = parse_tool_calls(llm_response)              # Heuristic parsing
+    result = await execute_tools(tool_calls)                  # Network calls
+    return result
+</code></pre>
+<p>
+<p>When something goes wrong, you're left with:</p>
+<li>Print statements showing partial information</li>
+<li>Log files scattered across different systems</li>
+<li>Manual reconstruction of what happened</li>
+<li>No way to replay or test hypotheses</li>
+<p>
+<h2>The Problem with Traditional Approaches</h2>
+<p>
+<h3>Print Statements and Logging</h3>
+<p>
+<pre><code class="language-python">
+# The &quot;spray and pray&quot; approach
+print(f&quot;[AGENT] Processing: {user_input}&quot;)
+print(f&quot;[LLM] Response: {llm_response}&quot;)
+print(f&quot;[TOOLS] Calling: {tool_calls}&quot;)
+print(f&quot;[RESULT] Output: {result}&quot;)
+</code></pre>
+<p>
+<p><strong>Limitations:</strong></p>
+<li>No causal relationships between events</li>
+<li>Hard to trace complex decision paths</li>
+<li>Information overload vs. underload</li>
+<li>No way to visualize the decision tree</li>
+<p>
+<h3>Existing Observability Tools</h3>
+<p>
+<p>Tools like LangSmith and Weights & Biases help, but they:</p>
+<li>Focus on LLM calls, not agent reasoning</li>
+<li>Often require complex instrumentation</li>
+<li>May send sensitive data to cloud services</li>
+<li>Don't always capture the full decision context</li>
+<p>
+<h2>Introducing Trace-Based Debugging</h2>
+<p>
+<p>Trace-based debugging captures the full causal chain of agent execution. Every decision, tool call, and LLM interaction becomes an event in a structured timeline.</p>
+<p>
+<h3>The Core Concept</h3>
+<p>
+<p>Instead of debugging through code, you debug through events. Each agent action generates a traceable event with:</p>
+<li><strong>Reasoning</strong>: Why this action was chosen</li>
+<li><strong>Confidence</strong>: How certain the agent was</li>
+<li><strong>Evidence</strong>: What information led to this decision</li>
+<li><strong>Provenance</strong>: Parent-child relationships between actions</li>
+<p>
+<h3>Getting Started with Peaky Peek</h3>
+<p>
+<p>The simplest way to begin is with the <code>@trace</code> decorator:</p>
+<p>
+<pre><code class="language-bash">
+pip install peaky-peek-server
+peaky-peek --open  # Starts API server at http://localhost:8000
+</code></pre>
+<p>
+<pre><code class="language-python">
+from agent_debugger_sdk import trace, init
+
+init()  # Initialize local tracing
+
+@trace(name=&quot;weather_agent&quot;, framework=&quot;custom&quot;)
+async def weather_agent(user_query: str) -&gt; str:
+    # Your agent logic here
+    if &quot;rain&quot; in user_query.lower():
+        decision = &quot;call_weather_api&quot;
+        confidence = 0.9
+    else:
+        decision = &quot;provide_general_info&quot;
+        confidence = 0.7
+    
+    # The trace decorator automatically captures:
+    # - Agent start/end
+    # - LLM calls
+    # - Tool calls and results
+    # - Decisions and reasoning
+    
+    return await get_weather_response()
+</code></pre>
+<p>
+<h3>Advanced: Manual Event Recording</h3>
+<p>
+<p>For more control, use <code>TraceContext</code>:</p>
+<p>
+<pre><code class="language-python">
+from agent_debugger_sdk import TraceContext, init
+
+init()
+
+async def complex_agent(user_input: str) -&gt; str:
+    async with TraceContext(agent_name=&quot;research_assistant&quot;, framework=&quot;custom&quot;) as ctx:
+        # Record the initial decision
+        await ctx.record_decision(
+            reasoning=&quot;User wants market research&quot;,
+            confidence=0.85,
+            chosen_action=&quot;search_multiple_sources&quot;,
+            evidence=[
+                {&quot;type&quot;: &quot;user_input&quot;, &quot;content&quot;: user_input},
+                {&quot;type&quot;: &quot;context&quot;, &quot;content&quot;: &quot;Market analysis requested&quot;}
+            ]
+        )
+        
+        # First tool call
+        await ctx.record_tool_call(&quot;web_search&quot;, {&quot;query&quot;: user_input})
+        web_results = await perform_web_search(user_input)
+        
+        # Record tool result
+        await ctx.record_tool_result(
+            &quot;web_search&quot;,
+            result=web_results,
+            duration_ms=1200
+        )
+        
+        # Second decision
+        await ctx.record_decision(
+            reasoning=&quot;Web search incomplete, need financial data&quot;,
+            confidence=0.75,
+            chosen_action=&quot;call_financial_api&quot;,
+            evidence=[
+                {&quot;type&quot;: &quot;tool_result&quot;, &quot;content&quot;: web_results},
+                {&quot;type&quot;: &quot;analysis&quot;, &quot;content&quot;: &quot;Missing financial metrics&quot;}
+            ]
+        )
+</code></pre>
+<p>
+<h2>Visualizing Reasoning Chains</h2>
+<p>
+<p>The real power comes from visualizing the decision tree. Peaky Peek's UI shows:</p>
+<p>
+<h3>Interactive Decision Tree</h3>
+<p>
+<pre><code class="language-text">
+┌─────────────────────────────────────────┐
+│ Weather Agent                           │
+│ Started: 2026-04-07 10:30:15           │
+└─────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ Decision: Get Weather Data              │
+│ Reasoning: User asked about weather   │
+│ Confidence: 90%                         │
+│ Evidence:                              │
+│ • &quot;What&#x27;s the weather in Seattle?&quot;      │
+└─────────────────────────────────────────┘
+    │
+    ├─→ ┌─────────────────────────────────┐
+    │   │ Tool Call: weather_api          │
+    │   │ Arguments: {city: &quot;Seattle&quot;}    │
+    │   └─────────────────────────────────┘
+    │       │
+    │       ▼
+    │   ┌─────────────────────────────────┐
+    │   │ Tool Result: Success             │
+    │   │ Response: {temp: 52, forecast:  │
+    │   │           &quot;rain&quot;}               │
+    │   │ Duration: 1.2s                  │
+    │   └─────────────────────────────────┘
+    │
+    └─→ ┌─────────────────────────────────┐
+        │ Decision: Respond to User        │
+        │ Reasoning: Weather data complete │
+        │ Confidence: 95%                  │
+        └─────────────────────────────────┘
+</code></pre>
+<p>
+<h3>Timeline View</h3>
+<p>
+<p>The timeline shows events in chronological order with rich metadata:</p>
+<p>
+<pre><code class="language-text">
+10:30:15.123 [AGENT_START] weather_agent
+10:30:15.456 [DECISION] confidence=0.9 reason=&quot;User asked about weather&quot;
+10:30:15.789 [TOOL_CALL] weather_api arguments={&quot;city&quot;: &quot;Seattle&quot;}
+10:30:17.012 [TOOL_RESULT] duration_ms=1200 result={&quot;temp&quot;: 52}
+10:30:17.345 [LLM_REQUEST] model=gpt-4o messages=[...]
+10:30:18.678 [LLM_RESPONSE] tokens=45 cost=$0.001
+10:30:18.679 [AGENT_END] success=True
+</code></pre>
+<p>
+<h2>Advanced Features</h2>
+<p>
+<h3>Checkpoint Replay</h3>
+<p>
+<p>Ever want to debug what happened at a specific moment? Checkpoints capture agent state at critical points:</p>
+<p>
+<pre><code class="language-python">
+async with TraceContext(...) as ctx:
+    await ctx.record_checkpoint(
+        name=&quot;before_search&quot;,
+        metadata={&quot;strategy&quot;: &quot;web_first&quot;, &quot;confidence&quot;: 0.8}
+    )
+    
+    # Agent continues...
+    # Later, you can replay from this checkpoint
+</code></pre>
+<p>
+<h3>Failure Detection and Clustering</h3>
+<p>
+<p>Peaky Peek automatically identifies:</p>
+<li><strong>High-severity events</strong>: Errors, refusals, low-confidence decisions</li>
+<li><strong>Failure clusters</strong>: Similar error patterns across sessions</li>
+<li><strong>Replay value</strong>: Events most likely to help understand failures</li>
+<p>
+<pre><code class="language-python">
+# Automatic failure detection
+if confidence &lt; 0.5:
+    # This gets flagged for review
+    await ctx.record_event(
+        event_type=&quot;low_confidence_decision&quot;,
+        importance=0.9
+    )
+</code></pre>
+<p>
+<h3>Loop Detection</h3>
+<p>
+<p>AI agents can get stuck in loops. The system automatically detects:</p>
+<p>
+<pre><code class="language-python">
+# Pattern: Same request → Same response → Same request
+if loop_detected:
+    await ctx.record_event(
+        event_type=&quot;potential_loop&quot;,
+        metadata={
+            &quot;cycle_length&quot;: 3,
+            &quot;similar_requests&quot;: 5
+        }
+    )
+</code></pre>
+<p>
+<h2>Practical Debugging Workflow</h2>
+<p>
+<h3>Step 1: Instrument Your Agent</h3>
+<p>
+<p>Start with minimal instrumentation:</p>
+<p>
+<pre><code class="language-python">
+@trace_agent(name=&quot;my_agent&quot;)
+async def my_agent(prompt: str):
+    # Existing agent code
+    pass
+</code></pre>
+<p>
+<h3>Step 2: Run and Identify Issues</h3>
+<p>
+<p>Execute your agent. In the Peaky Peek UI:</p>
+<li>Look for red events (errors)</li>
+<li>Check low-confidence decisions</li>
+<li>Examine long tool call durations</li>
+<p>
+<h3>Step 3: Drill Down with Provenance</h3>
+<p>
+<p>Click on any event to see:</p>
+<li>Why it was chosen</li>
+<li>What evidence led to it</li>
+<li>Parent-child relationships</li>
+<p>
+<h3>Step 4: Replay from Checkpoints</h3>
+<p>
+<p>Replay your agent's execution from any checkpoint:</p>
+<li>Step forward/backward through decisions</li>
+<li>Inspect agent state at each point</li>
+<li>Test different hypotheses</li>
+<p>
+<h3>Step 5: Analyze Patterns</h3>
+<p>
+<p>Use the analytics panel to:</p>
+<li>Find recurring failure patterns</li>
+<li>Compare successful vs. failed runs</li>
+<li>Identify high-cost operations</li>
+<p>
+<h2>Real-World Example: Debugging a Shopping Agent</h2>
+<p>
+<p>Let's debug a shopping agent that keeps failing to find products:</p>
+<p>
+<pre><code class="language-python">
+@trace(name=&quot;shopping_agent&quot;)
+async def shopping_agent(user_request: str):
+    # Original code - what&#x27;s going wrong?
+    intent = classify_intent(user_request)  # Black box
+    if intent == &quot;search&quot;:
+        query = extract_search_query(user_request)
+        results = search_products(query)
+    else:
+        results = handle_other_intent(intent)
+    
+    if not results:
+        return &quot;No products found&quot;
+    
+    return format_results(results)
+</code></pre>
+<p>
+<p><strong>Problem</strong>: Agent keeps returning "No products found"</p>
+<p>
+<p><strong>Debugging with traces</strong>:</p>
+<p>
+<li>Run with Peaky Peek enabled</li>
+<li>Discover that <code>classify_intent</code> is returning "other" for product searches</li>
+<li>See the evidence:</li>
+<p>```</p>
+<p>[DECISION] confidence=0.3</p>
+<p>reason="Unclassified intent"</p>
+<p>evidence=[{"type": "user_input", "content": "find cheap laptops"}]</p>
+<p>```</p>
+<li>Fix the intent classifier</li>
+<li>Re-run and see the improvement</li>
+<p>
+<h2>Best Practices</h2>
+<p>
+<h3>1. Capture Meaningful Decisions</h3>
+<p>
+<p>Don't trace every function call. Focus on:</p>
+<li>High-level decisions</li>
+<li>Tool usage</li>
+<li>Error conditions</li>
+<li>Confidence changes</li>
+<p>
+<pre><code class="language-python">
+# Good: Capture the business decision
+await ctx.record_decision(
+    reasoning=&quot;User wants product recommendations&quot;,
+    confidence=0.8,
+    chosen_action=&quot;recommend_products&quot;,
+    evidence=[...]
+)
+
+# Bad: Trace internal implementation details
+await ctx.record_tool_call(&quot;database_query&quot;, query=&quot;SELECT * FROM products&quot;)
+</code></pre>
+<p>
+<h3>2. Include Evidence</h3>
+<p>
+<p>Record what information led to each decision:</p>
+<p>
+<pre><code class="language-python">
+await ctx.record_decision(
+    reasoning=&quot;User compared prices&quot;,
+    confidence=0.9,
+    chosen_action=&quot;show_cheapest_option&quot;,
+    evidence=[
+        {&quot;type&quot;: &quot;tool_result&quot;, &quot;content&quot;: price_comparison},
+        {&quot;type&quot;: &quot;user_preference&quot;, &quot;content&quot;: &quot;budget-conscious&quot;}
+    ]
+)
+</code></pre>
+<p>
+<h3>3. Set Confidence Levels</h3>
+<p>
+<p>Be honest about uncertainty:</p>
+<p>
+<pre><code class="language-python">
+if confidence &lt; 0.5:
+    # This needs review
+    await ctx.record_decision(
+        reasoning=&quot;Unclear user intent&quot;,
+        confidence=0.4,
+        chosen_action=&quot;ask_for_clarification&quot;,
+        evidence=[...]
+    )
+</code></pre>
+<p>
+<h3>4. Use Checkpoints Strategically</h3>
+<p>
+<p>Mark important state transitions:</p>
+<p>
+<pre><code class="language-python">
+async with TraceContext(...) as ctx:
+    # Initial state
+    await ctx.record_checkpoint(&quot;initial_analysis&quot;)
+    
+    # After key processing
+    await ctx.record_checkpoint(&quot;search_complete&quot;)
+    
+    # Before final response
+    await ctx.record_checkpoint(&quot;response_ready&quot;)
+</code></pre>
+<p>
+<h2>Conclusion</h2>
+<p>
+<p>Debugging AI agents doesn't have to be guesswork. By capturing the full decision tree with trace-based debugging, you can:</p>
+<p>
+<li>Understand why agents make specific decisions</li>
+<li>Replay execution to test hypotheses</li>
+<li>Identify patterns in failures</li>
+<li>Build more reliable systems</li>
+<p>
+<p>Start with the <code>@trace</code> decorator for simple cases, and use <code>TraceContext</code> for more complex scenarios. The key is to treat your agent not as a black box, but as a system with observable, traceable behavior.</p>
+<p>
+<p>Ready to debug your agents with confidence? <a href="https://github.com/acailic/agent_debugger">Try Peaky Peek today</a> and see the difference trace-based debugging makes.</p>
+<p>
+<p><!-- more --></p>
+  </article>
+
+  <footer>
+    <div class="footer-content">
+      <p>© 2026 Peaky Peek. Local-first agent debugger.</p>
+      <p style="margin-top: 0.5rem">
+        <a href="https://github.com/acailic/agent_debugger">GitHub</a> ·
+        <a href="https://acailic.github.io/agent_debugger/">Documentation</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -7,19 +7,18 @@
     <link rel="stylesheet" href="../style.css">
     <style>
         :root {
-            --primary: #4f46e5;
-            --primary-dark: #4338ca;
-            --bg-dark: #0f172a;
-            --bg-darker: #020617;
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --border: #334155;
-            --accent: #06b6d4;
+            --bg: #0d1117;
+            --surface: #161b22;
+            --border: #30363d;
+            --accent: #58a6ff;
+            --accent-hover: #79b8ff;
+            --text: #e6edf3;
+            --muted: #8b949e;
         }
 
         body {
-            background-color: var(--bg-dark);
-            color: var(--text-primary);
+            background-color: var(--bg);
+            color: var(--text);
             line-height: 1.6;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
@@ -39,23 +38,23 @@
             font-size: 3rem;
             font-weight: 800;
             margin-bottom: 1rem;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, #a855f7 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
         .nav-link {
-            color: var(--text-secondary);
+            color: var(--muted);
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            transition: color 0.3s ease;
+            transition: color 0.2s ease;
         }
 
         .nav-link:hover {
-            color: var(--text-primary);
+            color: var(--accent);
         }
 
         .blog-posts {
@@ -65,20 +64,21 @@
         }
 
         .post-card {
-            background-color: var(--bg-darker);
+            background-color: var(--surface);
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 2rem;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         }
 
         .post-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+            border-color: var(--accent);
         }
 
         .post-date {
-            color: var(--text-secondary);
+            color: var(--muted);
             font-size: 0.875rem;
             margin-bottom: 0.5rem;
         }
@@ -87,10 +87,11 @@
             font-size: 1.75rem;
             font-weight: 700;
             margin-bottom: 1rem;
+            color: var(--text);
         }
 
         .post-excerpt {
-            color: var(--text-secondary);
+            color: var(--muted);
             line-height: 1.7;
             margin-bottom: 1.5rem;
         }
@@ -99,10 +100,10 @@
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            color: var(--primary);
+            color: var(--accent);
             text-decoration: none;
             font-weight: 600;
-            transition: gap 0.3s ease;
+            transition: gap 0.2s ease;
         }
 
         .read-more:hover {
@@ -114,7 +115,11 @@
             margin-top: 4rem;
             padding-top: 2rem;
             border-top: 1px solid var(--border);
-            color: var(--text-secondary);
+            color: var(--muted);
+        }
+
+        footer a {
+            color: var(--accent);
         }
     </style>
 </head>
@@ -122,7 +127,7 @@
     <div class="blog-container">
         <header>
             <h1>Peaky Peek Blog</h1>
-            <a href="/" class="nav-link">
+            <a href="https://acailic.github.io/agent_debugger/" class="nav-link">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
                 </svg>
@@ -138,7 +143,7 @@
                     <p class="post-excerpt">
                         Debugging AI agents requires a fundamentally different approach compared to traditional software. Traditional debuggers fall short when faced with non-deterministic, multi-step reasoning chains and tool usage patterns. This practical guide introduces trace-based debugging as a solution for capturing and visualizing agent decision trees.
                     </p>
-                    <a href="debug-ai-agent-decision-trees.md" class="read-more">
+                    <a href="debug-ai-agent-decision-trees.html" class="read-more">
                         Read more
                         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -152,7 +157,7 @@
                     <p class="post-excerpt">
                         As AI agents become more complex, developers need better debugging strategies to understand why agents make specific decisions. This article covers five essential patterns that transform agent debugging from frustrating detective work to systematic analysis. From trace-based debugging to checkpoint replay and failure clustering.
                     </p>
-                    <a href="agent-debugging-patterns.md" class="read-more">
+                    <a href="agent-debugging-patterns.html" class="read-more">
                         Read more
                         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -166,7 +171,7 @@
                     <p class="post-excerpt">
                         In the observability landscape for AI agents, developers face a critical choice: cloud-based platforms like LangSmith and Weights & Biases, or local-first tools like Peaky Peek. This comprehensive analysis explores the trade-offs between privacy, latency, cost, and debugging effectiveness. When does local-first observability make sense?
                     </p>
-                    <a href="local-first-vs-cloud-observability.md" class="read-more">
+                    <a href="local-first-vs-cloud-observability.html" class="read-more">
                         Read more
                         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
