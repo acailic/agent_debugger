@@ -33,6 +33,52 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 img { display: block; max-width: 100%; height: auto; }
 code, pre { font-family: var(--font-mono); }
 
+/* Part 2.5 — Navigation header */
+.nav-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.nav-header__container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+}
+.nav-header__logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+.nav-header__logo:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+.nav-header__logo img {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+}
+.nav-header__links {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+.nav-header__link {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.nav-header__link:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+
 /* Part 3 — Layout utilities */
 .container { max-width: var(--max-w); margin: 0 auto; padding: 0 24px; }
 .section { padding: 80px 0; }
@@ -560,4 +606,16 @@ code, pre { font-family: var(--font-mono); }
   /* Hides last column on mobile — intentional, keeps table readable */
   .compare-table th:last-child,
   .compare-table td:last-child { display: none; }
+
+  /* Navigation header mobile */
+  .nav-header__container {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+  .nav-header__links {
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }

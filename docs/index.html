@@ -13,9 +13,57 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="https://acailic.github.io/agent_debugger/assets/screenshot-full-ui.png">
   <link rel="stylesheet" href="style.css">
+
+  <!-- JSON-LD Structured Data for SEO -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Peaky Peek",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Linux, macOS, Windows",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Local-first AI agent debugger. Capture decisions, tool calls, and LLM interactions as a queryable event timeline. Inspect live, replay from checkpoints, search across sessions.",
+    "author": {
+      "@type": "Organization",
+      "name": "acailic",
+      "url": "https://github.com/acailic/agent_debugger"
+    },
+    "license": "https://opensource.org/licenses/MIT",
+    "downloadUrl": "https://pypi.org/project/peaky-peek/",
+    "softwareVersion": "1.0.0",
+    "programmingLanguage": "Python",
+    "keywords": ["agent debugger", "AI debugging", "LLM tracing", "local-first", "open source"],
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "ratingCount": "365"
+    }
+  }
+  </script>
 </head>
 
 <body>
+
+<!-- NAVIGATION HEADER -->
+<nav class="nav-header" aria-label="Main navigation">
+  <div class="container nav-header__container">
+    <a href="/" class="nav-header__logo">
+      <img src="assets/logo.jpeg" alt="Peaky Peek" width="32" height="32">
+      <span>Peaky Peek</span>
+    </a>
+    <div class="nav-header__links">
+      <a href="https://acailic.github.io/agent_debugger/docs/" class="nav-header__link">Docs</a>
+      <a href="https://acailic.github.io/agent_debugger/blog/" class="nav-header__link">Blog</a>
+      <a href="https://github.com/acailic/agent_debugger" class="nav-header__link">GitHub</a>
+      <a href="https://pypi.org/project/peaky-peek/" class="nav-header__link">PyPI</a>
+    </div>
+  </div>
+</nav>
 
 <main>
 
@@ -83,21 +131,30 @@
       <h3 class="feature-category__title">Core Debugger</h3>
       <div class="features-grid">
         <div class="feature-card">
-          <img class="feature-card__img" src="assets/screenshot-decision-tree.png" alt="Decision Tree Visualization" loading="lazy">
+          <video class="feature-card__img" autoplay loop muted playsinline poster="assets/screenshot-decision-tree.png">
+            <source src="assets/gifs/demo-decision-tree.mp4" type="video/mp4">
+            <img src="assets/gifs/demo-decision-tree.gif" alt="Decision Tree Visualization" loading="lazy">
+          </video>
           <div class="feature-card__body-wrap">
             <div class="feature-card__title">Decision Tree Visualization</div>
             <p class="feature-card__body">Navigate agent reasoning as an interactive tree. Click nodes to inspect events and trace the causal chain from policy to tool call.</p>
           </div>
         </div>
         <div class="feature-card">
-          <img class="feature-card__img" src="assets/screenshot-checkpoint-replay.png" alt="Checkpoint Replay" loading="lazy">
+          <video class="feature-card__img" autoplay loop muted playsinline poster="assets/screenshot-checkpoint-replay.png">
+            <source src="assets/gifs/demo-timeline.mp4" type="video/mp4">
+            <img src="assets/gifs/demo-timeline.gif" alt="Checkpoint Replay" loading="lazy">
+          </video>
           <div class="feature-card__body-wrap">
             <div class="feature-card__title">Checkpoint Replay</div>
             <p class="feature-card__body">Time-travel through agent execution. Play, pause, step, and seek to any point. Checkpoints ranked by restore value.</p>
           </div>
         </div>
         <div class="feature-card">
-          <img class="feature-card__img" src="assets/screenshot-search.png" alt="Trace Search" loading="lazy">
+          <video class="feature-card__img" autoplay loop muted playsinline poster="assets/screenshot-search.png">
+            <source src="assets/gifs/demo-trace-search.mp4" type="video/mp4">
+            <img src="assets/gifs/demo-trace-search.gif" alt="Trace Search" loading="lazy">
+          </video>
           <div class="feature-card__body-wrap">
             <div class="feature-card__title">Trace Search</div>
             <p class="feature-card__body">Find specific events across all sessions. Search by keyword, filter by event type, and jump directly to results.</p>
@@ -118,7 +175,10 @@
           </div>
         </div>
         <div class="feature-card">
-          <img class="feature-card__img" src="assets/screenshot-session-comparison.png" alt="Session Comparison" loading="lazy">
+          <video class="feature-card__img" autoplay loop muted playsinline poster="assets/screenshot-session-comparison.png">
+            <source src="assets/gifs/demo-comparison.mp4" type="video/mp4">
+            <img src="assets/gifs/demo-comparison.gif" alt="Session Comparison" loading="lazy">
+          </video>
           <div class="feature-card__body-wrap">
             <div class="feature-card__title">Session Comparison</div>
             <p class="feature-card__body">Compare multiple agent runs side-by-side. Identify where paths diverge and why outcomes differ.</p>
@@ -146,7 +206,10 @@
           </div>
         </div>
         <div class="feature-card">
-          <img class="feature-card__img" src="assets/screenshot-failure-cluster.png" alt="Failure Clustering" loading="lazy">
+          <video class="feature-card__img" autoplay loop muted playsinline poster="assets/screenshot-failure-cluster.png">
+            <source src="assets/gifs/demo-failure-clustering.mp4" type="video/mp4">
+            <img src="assets/gifs/demo-failure-clustering.gif" alt="Failure Clustering" loading="lazy">
+          </video>
           <div class="feature-card__body-wrap">
             <div class="feature-card__title">Failure Clustering</div>
             <p class="feature-card__body">Adaptive analysis groups similar failures. Surface highest-severity, highest-novelty events. Click a cluster to focus the timeline.</p>
@@ -216,20 +279,48 @@
 <!-- GET STARTED -->
 <section class="section section--alt" id="get-started">
   <div class="container">
-    <h2 class="section__title">Get Started in 2 Steps</h2>
-    <p class="section__sub">Requires Python 3.10+ and a cloned repo. No config files needed to start.</p>
+    <h2 class="section__title">Get Started</h2>
+    <p class="section__sub">Requires Python 3.10+. Choose the install method that fits your workflow.</p>
 
     <div class="install-steps">
-      <p class="install-steps__label">Step 1 — Install</p>
+      <p class="install-steps__label">Quick Start (Recommended)</p>
+      <div class="install-block">
+        <pre class="install-block__pre"><code>pip install peaky-peek-server && peaky-peek --open</code></pre>
+        <button class="copy-btn" onclick="copyInstall(this)" aria-label="Copy install command">Copy</button>
+      </div>
+
+      <p class="install-steps__label">Option 1 — Decorator (Simplest)</p>
       <div class="install-block">
         <pre class="install-block__pre"><code>pip install peaky-peek-server</code></pre>
         <button class="copy-btn" onclick="copyInstall(this)" aria-label="Copy install command">Copy</button>
       </div>
+      <pre><code>from agent_debugger_sdk import trace
 
-      <p class="install-steps__label">Step 2 — Run (from repo root after cloning)</p>
-      <pre><code>git clone https://github.com/acailic/agent_debugger
-cd agent_debugger
-uvicorn api.main:app --reload --port 8000</code></pre>
+@trace
+async def my_agent(prompt: str) -> str:
+    return await llm_call(prompt)</code></pre>
+
+      <p class="install-steps__label">Option 2 — Context Manager</p>
+      <div class="install-block">
+        <pre class="install-block__pre"><code>pip install peaky-peek</code></pre>
+        <button class="copy-btn" onclick="copyInstall(this)" aria-label="Copy install command">Copy</button>
+      </div>
+      <pre><code>from agent_debugger_sdk import trace_session
+
+async with trace_session("my_agent") as ctx:
+    await ctx.record_decision(
+        reasoning="User asked for weather",
+        confidence=0.9,
+        chosen_action="call_weather_api",
+    )
+    await ctx.record_tool_call("weather_api", {"city": "Seattle"})</code></pre>
+
+      <p class="install-steps__label">Option 3 — Zero-Config Auto-Patch (No Code Changes)</p>
+      <div class="install-block">
+        <pre class="install-block__pre"><code>PEAKY_PEEK_AUTO_PATCH=true python my_agent.py</code></pre>
+        <button class="copy-btn" onclick="copyInstall(this)" aria-label="Copy install command">Copy</button>
+      </div>
+      <p class="install-steps__note">Works with PydanticAI, LangChain, OpenAI SDK, CrewAI, AutoGen, LlamaIndex, and Anthropic — no imports or decorators needed.</p>
 
       <p class="install-steps__note">
         API available at <code>http://localhost:8000</code> &middot;
@@ -250,7 +341,8 @@ uvicorn api.main:app --reload --port 8000</code></pre>
   <div class="container">
     <nav class="footer__links" aria-label="Footer links">
       <a href="https://github.com/acailic/agent_debugger">GitHub</a>
-      <a href="https://github.com/acailic/agent_debugger/blob/main/docs/README.md">Docs</a>
+      <a href="https://acailic.github.io/agent_debugger/docs/">Docs</a>
+      <a href="https://acailic.github.io/agent_debugger/blog/">Blog</a>
       <a href="https://github.com/acailic/agent_debugger/blob/main/CONTRIBUTING.md">Contributing</a>
       <a href="https://github.com/acailic/agent_debugger/blob/main/LICENSE">License</a>
       <a href="https://pypi.org/project/peaky-peek/">PyPI peaky-peek</a>

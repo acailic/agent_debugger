@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://acailic.github.io/agent_debugger/sitemap.xml
