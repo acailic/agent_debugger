@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Download Stats — Peaky Peek</title>
+  <meta name="description" content="PyPI download statistics for peaky-peek and peaky-peek-server. Track daily, weekly, and monthly downloads, Python version breakdown, and OS distribution.">
+  <meta property="og:title" content="Download Stats — Peaky Peek">
+  <meta property="og:description" content="PyPI download statistics for Peaky Peek packages.">
+  <meta property="og:type" content="website">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    .stats-hero {
+      text-align: center;
+      padding: 48px 0 32px;
+      border-bottom: 1px solid var(--border);
+    }
+    .stats-hero h1 {
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .stats-hero p {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .stats-metrics {
+      display: flex;
+      justify-content: center;
+      gap: 48px;
+      flex-wrap: wrap;
+      padding: 32px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .stat-metric {
+      text-align: center;
+    }
+    .stat-metric-value {
+      display: block;
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1.2;
+    }
+    .stat-metric-label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .stats-section {
+      padding: 48px 0;
+    }
+    .stats-section + .stats-section {
+      border-top: 1px solid var(--border);
+    }
+    .stats-section h2 {
+      font-size: 1.125rem;
+      font-weight: 700;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .stats-section h2::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 20px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 32px;
+    }
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .chart-card h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--muted);
+    }
+    .chart-card canvas {
+      width: 100% !important;
+      max-height: 300px;
+    }
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow-x: auto;
+    }
+    .stats-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .stats-table th,
+    .stats-table td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .stats-table thead th {
+      background: var(--surface);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .stats-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .stats-table tbody tr:hover {
+      background: rgba(88, 166, 255, 0.05);
+    }
+    .stats-table--highlight td {
+      background: var(--accent-dim);
+      font-weight: 600;
+    }
+    .badge-pypi {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-decoration: none;
+    }
+    .badge-pypi:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+      text-decoration: none;
+    }
+    .loading {
+      text-align: center;
+      color: var(--muted);
+      padding: 48px 0;
+    }
+    .loading::after {
+      content: '';
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .error-msg {
+      text-align: center;
+      color: #f85149;
+      padding: 24px 0;
+    }
+    @media (max-width: 767px) {
+      .charts-grid { grid-template-columns: 1fr; }
+      .stats-metrics { gap: 32px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav-header" aria-label="Main navigation">
+  <div class="container nav-header__container">
+    <a href="/" class="nav-header__logo">
+      <img src="assets/logo.jpeg" alt="Peaky Peek" width="32" height="32">
+      <span>Peaky Peek</span>
+    </a>
+    <div class="nav-header__links">
+      <a href="/docs/" class="nav-header__link">Docs</a>
+      <a href="/blog/" class="nav-header__link">Blog</a>
+      <a href="/stats.html" class="nav-header__link" style="color: var(--accent);">Stats</a>
+      <a href="https://github.com/acailic/agent_debugger" class="nav-header__link">GitHub</a>
+      <a href="https://pypi.org/project/peaky-peek/" class="nav-header__link">PyPI</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+
+  <section class="stats-hero">
+    <h1>Download Statistics</h1>
+    <p>PyPI download stats for <code>peaky-peek</code> and <code>peaky-peek-server</code></p>
+    <div style="margin-top: 16px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+      <a href="https://pypistats.org/packages/peaky-peek" class="badge-pypi" target="_blank" rel="noopener">
+        peaky-peek on PyPI Stats
+      </a>
+      <a href="https://pypistats.org/packages/peaky-peek-server" class="badge-pypi" target="_blank" rel="noopener">
+        peaky-peek-server on PyPI Stats
+      </a>
+    </div>
+  </section>
+
+  <section id="metrics" class="loading">Loading stats&hellip;</section>
+
+  <section class="stats-section">
+    <h2>Daily Downloads (Last 30 Days)</h2>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>peaky-peek</h3>
+        <canvas id="chart-daily-sdk"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>peaky-peek-server</h3>
+        <canvas id="chart-daily-server"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-section">
+    <h2>Python Version Breakdown (Last Month)</h2>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>peaky-peek</h3>
+        <canvas id="chart-python-sdk"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>peaky-peek-server</h3>
+        <canvas id="chart-python-server"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-section">
+    <h2>Operating System Breakdown (Last Month)</h2>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>peaky-peek</h3>
+        <canvas id="chart-os-sdk"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>peaky-peek-server</h3>
+        <canvas id="chart-os-server"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-section">
+    <h2>Package Comparison (Last Month)</h2>
+    <div class="table-wrap">
+      <table class="stats-table" id="comparison-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>peaky-peek</th>
+            <th>peaky-peek-server</th>
+            <th>Combined</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="4" class="loading">Loading&hellip;</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p class="footer__legal">Stats sourced from <a href="https://pypistats.org/" target="_blank" rel="noopener">PyPI Stats</a>. Updated daily.</p>
+  </div>
+</footer>
+
+<script>
+const COLORS = {
+  accent: '#58a6ff',
+  accent2: '#3fb950',
+  accent3: '#d29922',
+  accent4: '#f85149',
+  accent5: '#bc8cff',
+  grid: '#30363d',
+  text: '#8b949e',
+  bg: '#161b22',
+};
+
+const chartDefaults = {
+  responsive: true,
+  maintainAspectRatio: true,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: '#1f2428',
+      titleColor: '#e6edf3',
+      bodyColor: '#8b949e',
+      borderColor: '#30363d',
+      borderWidth: 1,
+      cornerRadius: 6,
+      padding: 12,
+    },
+  },
+  scales: {
+    x: {
+      grid: { color: COLORS.grid, drawBorder: false },
+      ticks: { color: COLORS.text, font: { size: 11 }, maxTicksLimit: 10 },
+    },
+    y: {
+      grid: { color: COLORS.grid, drawBorder: false },
+      ticks: { color: COLORS.text, font: { size: 11 } },
+      beginAtZero: true,
+    },
+  },
+};
+
+async function fetchStats(pkg, endpoint, period = 'last_month') {
+  const res = await fetch(`https://pypistats.org/api/packages/${pkg}/${endpoint}?period=${period}`);
+  if (!res.ok) throw new Error(`Failed to fetch ${pkg} ${endpoint}`);
+  return res.json();
+}
+
+function renderMetrics(data) {
+  const el = document.getElementById('metrics');
+  if (!data) { el.innerHTML = '<div class="error-msg">Failed to load stats.</div>'; return; }
+  el.className = 'stats-metrics';
+  el.innerHTML = data.map(d =>
+    `<div class="stat-metric">
+      <span class="stat-metric-value">${d.value.toLocaleString()}</span>
+      <span class="stat-metric-label">${d.label}</span>
+    </div>`
+  ).join('');
+}
+
+function makeLineChart(canvasId, labels, values, color) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        borderColor: color,
+        backgroundColor: color + '20',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+        pointHitRadius: 10,
+      }],
+    },
+    options: chartDefaults,
+  });
+}
+
+function makeDoughnut(canvasId, labels, values, colors) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderColor: '#161b22',
+        borderWidth: 2,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: COLORS.text, padding: 16, font: { size: 12 } },
+        },
+        tooltip: {
+          backgroundColor: '#1f2428',
+          titleColor: '#e6edf3',
+          bodyColor: '#8b949e',
+          borderColor: '#30363d',
+          borderWidth: 1,
+          cornerRadius: 6,
+        },
+      },
+    },
+  });
+}
+
+function renderComparison(sdk, server) {
+  const totalSdk = sdk.total || 0;
+  const totalServer = server.total || 0;
+  const combined = totalSdk + totalServer;
+  const withoutMirrorsSdk = sdk.without_mirrors || 0;
+  const withoutMirrorsServer = server.without_mirrors || 0;
+
+  const rows = [
+    ['Total (with mirrors)', totalSdk.toLocaleString(), totalServer.toLocaleString(), combined.toLocaleString()],
+    ['Direct (without mirrors)', withoutMirrorsSdk.toLocaleString(), withoutMirrorsServer.toLocaleString(), (withoutMirrorsSdk + withoutMirrorsServer).toLocaleString()],
+    ['Mirror %', sdk.mirror_pct || '—', server.mirror_pct || '—', '—'],
+  ];
+
+  const pythonVersions = ['3.10', '3.11', '3.12', '3.13'];
+  for (const v of pythonVersions) {
+    rows.push([`Python ${v}`, (sdk.python?.[v] || 0).toLocaleString(), (server.python?.[v] || 0).toLocaleString(), ((sdk.python?.[v] || 0) + (server.python?.[v] || 0)).toLocaleString()]);
+  }
+
+  const osList = ['Linux', 'Darwin', 'Windows'];
+  for (const os of osList) {
+    rows.push([os, (sdk.os?.[os] || 0).toLocaleString(), (server.os?.[os] || 0).toLocaleString(), ((sdk.os?.[os] || 0) + (server.os?.[os] || 0)).toLocaleString()]);
+  }
+
+  const tbody = document.querySelector('#comparison-table tbody');
+  tbody.innerHTML = rows.map(r =>
+    `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`
+  ).join('');
+}
+
+async function main() {
+  try {
+    // Fetch daily data for charts
+    const [sdkDaily, serverDaily, sdkPython, serverPython, sdkOs, serverOs] = await Promise.all([
+      fetchStats('peaky-peek', 'recent'),
+      fetchStats('peaky-peek-server', 'recent'),
+      fetchStats('peaky-peek', 'python_minor'),
+      fetchStats('peaky-peek-server', 'python_minor'),
+      fetchStats('peaky-peek', 'system'),
+      fetchStats('peaky-peek-server', 'system'),
+    ]);
+
+    // Extract daily data (with_mirrors)
+    const sdkDailyData = sdkDaily.data?.find(d => d.category === 'with_mirrors') || {};
+    const serverDailyData = serverDaily.data?.find(d => d.category === 'with_mirrors') || {};
+
+    const dailyLabels = (sdkDailyData.data || []).map(r => r.date.slice(5)); // MM-DD
+    const dailySdkValues = (sdkDailyData.data || []).map(r => r.downloads);
+    const dailyServerValues = (serverDailyData.data || []).map(r => r.downloads);
+
+    // Compute summary metrics
+    const lastDaySdk = dailySdkValues.slice(-1)[0] || 0;
+    const lastDayServer = dailyServerValues.slice(-1)[0] || 0;
+    const lastWeekSdk = dailySdkValues.slice(-7).reduce((a, b) => a + b, 0);
+    const lastWeekServer = dailyServerValues.slice(-7).reduce((a, b) => a + b, 0);
+    const lastMonthSdk = dailySdkValues.reduce((a, b) => a + b, 0);
+    const lastMonthServer = dailyServerValues.reduce((a, b) => a + b, 0);
+
+    renderMetrics([
+      { label: 'Downloads today', value: lastDaySdk + lastDayServer },
+      { label: 'Downloads this week', value: lastWeekSdk + lastWeekServer },
+      { label: 'Downloads this month', value: lastMonthSdk + lastMonthServer },
+      { label: 'Combined total', value: lastMonthSdk + lastMonthServer },
+    ]);
+
+    // Daily charts
+    makeLineChart('chart-daily-sdk', dailyLabels, dailySdkValues, COLORS.accent);
+    makeLineChart('chart-daily-server', dailyLabels, dailyServerValues, COLORS.accent2);
+
+    // Python version breakdown (filter out null)
+    const pythonColors = [COLORS.accent, COLORS.accent2, COLORS.accent3, COLORS.accent4];
+    const sdkPy = (sdkPython.data || []).filter(d => d.category !== 'null');
+    const serverPy = (serverPython.data || []).filter(d => d.category !== 'null');
+
+    makeDoughnut('chart-python-sdk',
+      sdkPy.map(d => d.category), sdkPy.map(d => d.downloads), pythonColors
+    );
+    makeDoughnut('chart-python-server',
+      serverPy.map(d => d.category), serverPy.map(d => d.downloads), pythonColors
+    );
+
+    // OS breakdown (filter out null)
+    const osColors = [COLORS.accent, COLORS.accent2, COLORS.accent3];
+    const sdkOsData = (sdkOs.data || []).filter(d => d.category !== 'null');
+    const serverOsData = (serverOs.data || []).filter(d => d.category !== 'null');
+
+    makeDoughnut('chart-os-sdk',
+      sdkOsData.map(d => d.category), sdkOsData.map(d => d.downloads), osColors
+    );
+    makeDoughnut('chart-os-server',
+      serverOsData.map(d => d.category), serverOsData.map(d => d.downloads), osColors
+    );
+
+    // Comparison table
+    const sdkTotal = sdkPy.reduce((a, d) => a + d.downloads, 0);
+    const serverTotal = serverPy.reduce((a, d) => a + d.downloads, 0);
+    const sdkMirrorPct = sdkPython.data?.find(d => d.category === 'null');
+    const serverMirrorPct = serverPython.data?.find(d => d.category === 'null');
+
+    renderComparison({
+      total: lastMonthSdk,
+      without_mirrors: sdkMirrorPct ? lastMonthSdk - sdkMirrorPct.downloads : lastMonthSdk,
+      mirror_pct: sdkMirrorPct ? sdkMirrorPct.downloads.toLocaleString() + ' (' + Math.round(sdkMirrorPct.percent) + '%)' : '—',
+      python: Object.fromEntries(sdkPy.map(d => [d.category, d.downloads])),
+      os: Object.fromEntries(sdkOsData.map(d => [d.category, d.downloads])),
+    }, {
+      total: lastMonthServer,
+      without_mirrors: serverMirrorPct ? lastMonthServer - serverMirrorPct.downloads : lastMonthServer,
+      mirror_pct: serverMirrorPct ? serverMirrorPct.downloads.toLocaleString() + ' (' + Math.round(serverMirrorPct.percent) + '%)' : '—',
+      python: Object.fromEntries(serverPy.map(d => [d.category, d.downloads])),
+      os: Object.fromEntries(serverOsData.map(d => [d.category, d.downloads])),
+    });
+
+  } catch (err) {
+    console.error('Failed to load stats:', err);
+    renderMetrics(null);
+    document.querySelectorAll('.loading').forEach(el => {
+      if (el.closest('.table-wrap')) el.textContent = 'Failed to load.';
+      else el.className = 'error-msg';
+      el.innerHTML = 'Failed to load download stats. <a href="https://pypistats.org/packages/peaky-peek" style="color: var(--accent)">View on PyPI Stats &rarr;</a>';
+    });
+  }
+}
+
+main();
+</script>
+
+</body>
+</html>
