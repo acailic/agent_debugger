@@ -1,38 +1,16 @@
-import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
+import { useEffect, useMemo, lazy, Suspense } from 'react'
 import './App.css'
 import { createEventSource, getLiveSummary, getReplay, getSessions, getTraceBundle } from './api/client'
-// Lazy load heavy tab components
-const AnalyticsTab = lazy(() => import('./components/AnalyticsTab').then(m => ({ default: m.AnalyticsTab })))
-const SessionComparisonPanel = lazy(() => import('./components/SessionComparisonPanel').then(m => ({ default: m.SessionComparisonPanel })))
-import { EmptyState } from './components/EmptyState'
-import { ErrorBoundary } from './components/ErrorBoundary'
+import { InspectView } from './components/InspectView'
+import { TraceView } from './components/TraceView'
 import { Logo } from './components/Logo'
-import { ConversationPanelMemo } from './components/ConversationPanel'
-import { DecisionTreeMemo } from './components/DecisionTree'
-import { DriftAlertsPanel } from './components/DriftAlertsPanel'
-import { FailureClusterPanelMemo } from './components/FailureClusterPanel'
-import { LLMViewer } from './components/LLMViewer'
-import { LiveDashboard } from './components/LiveDashboard'
-import { MultiAgentCoordinationPanelMemo } from './components/MultiAgentCoordinationPanel'
-import { ReplayBar } from './components/ReplayBar'
-import { SearchPanel } from './components/SearchPanel'
-import { SessionReplay } from './components/SessionReplay'
-import { SessionRailMemo } from './components/SessionRail'
-import { SimilarFailuresPanelMemo } from './components/SimilarFailuresPanel'
-import { ToolInspector } from './components/ToolInspector'
-import { TraceTimelineMemo } from './components/TraceTimeline'
-import WhyButton from './components/WhyButton'
-import CostPanel from './components/CostPanel'
-import HighlightChip from './components/HighlightChip'
-import { CheckpointSnapshot } from './components/CheckpointSnapshot'
-import { EventDetailMemo } from './components/EventDetail'
-import { formatEventHeadline, formatNumber } from './utils/formatting'
 import { buildReplayBreakpointParams, useSessionStore } from './stores/sessionStore'
 import { useShallow } from 'zustand/react/shallow'
-import type { AppTab, Highlight, TraceEvent } from './types'
-import { useDriftData } from './hooks/useDriftData'
-import { useReplayBreakpoint } from './hooks/useReplayBreakpoint'
-import { useInspectEvent } from './hooks/useInspectEvent'
+import { formatNumber } from './utils/formatting'
+import type { AppTab, TraceEvent } from './types'
+
+// Lazy load analytics (heavy, rarely used)
+const AnalyticsTab = lazy(() => import('./components/AnalyticsTab').then((m) => ({ default: m.AnalyticsTab })))
 
 // Keyboard shortcuts
 const TAB_SHORTCUTS: Record<string, AppTab> = {
@@ -42,104 +20,53 @@ const TAB_SHORTCUTS: Record<string, AppTab> = {
 }
 
 function App() {
-  // Session state - minimal subscription for session list and selection
+  // ── Store subscriptions for effects ──────────────────────────────
+
   const { sessions, selectedSessionId, secondarySessionId, sessionSortMode } = useSessionStore(
     useShallow((state) => ({
       sessions: state.sessions,
       selectedSessionId: state.selectedSessionId,
       secondarySessionId: state.secondarySessionId,
       sessionSortMode: state.sessionSortMode,
-    }))
+    })),
   )
 
-  // Bundle state - trace data and analysis
-  const { bundle, secondaryBundle, replay } = useSessionStore(
+  const { bundle, replayMode, selectedEventId, focusEventId, collapseThreshold, liveEvents, activeTab, error, streamHealth, streamReconnectAttempts } = useSessionStore(
     useShallow((state) => ({
       bundle: state.bundle,
-      secondaryBundle: state.secondaryBundle,
-      replay: state.replay,
-    }))
-  )
-
-  // Replay controls
-  const {
-    replayMode,
-    currentIndex,
-    isPlaying,
-    speed,
-    collapseThreshold,
-    expandedSegments,
-    breakpointEventTypes,
-    breakpointToolNames,
-    breakpointConfidenceBelow,
-    breakpointSafetyOutcomes,
-    stopAtBreakpoint,
-  } = useSessionStore(
-    useShallow((state) => ({
       replayMode: state.replayMode,
-      currentIndex: state.currentIndex,
-      isPlaying: state.isPlaying,
-      speed: state.speed,
-      collapseThreshold: state.collapseThreshold,
-      expandedSegments: state.expandedSegments,
-      breakpointEventTypes: state.breakpointEventTypes,
-      breakpointToolNames: state.breakpointToolNames,
-      breakpointConfidenceBelow: state.breakpointConfidenceBelow,
-      breakpointSafetyOutcomes: state.breakpointSafetyOutcomes,
-      stopAtBreakpoint: state.stopAtBreakpoint,
-    }))
-  )
-
-  // Live session state
-  const { liveEvents, liveSummary, streamConnected, streamHealth, streamReconnectAttempts } = useSessionStore(
-    useShallow((state) => ({
-      liveEvents: state.liveEvents,
-      liveSummary: state.liveSummary,
-      streamConnected: state.streamConnected,
-      streamHealth: state.streamHealth,
-      streamReconnectAttempts: state.streamReconnectAttempts,
-    }))
-  )
-
-  // UI state
-  const { activeTab, selectedEventId, focusEventId, selectedCheckpointId, currentHighlightIndex, showBlockedActions, compareLoading, error, driftData, driftLoading } = useSessionStore(
-    useShallow((state) => ({
-      activeTab: state.activeTab,
       selectedEventId: state.selectedEventId,
       focusEventId: state.focusEventId,
-      selectedCheckpointId: state.selectedCheckpointId,
-      currentHighlightIndex: state.currentHighlightIndex,
-      showBlockedActions: state.showBlockedActions,
-      compareLoading: state.compareLoading,
+      collapseThreshold: state.collapseThreshold,
+      liveEvents: state.liveEvents,
+      activeTab: state.activeTab,
       error: state.error,
-      driftData: state.driftData,
-      driftLoading: state.driftLoading,
-    }))
+      streamHealth: state.streamHealth,
+      streamReconnectAttempts: state.streamReconnectAttempts,
+    })),
   )
 
-  // Actions - grouped separately to avoid re-render issues
-  const { setSessions, setSelectedSessionId, setSecondarySessionId, setBundle, setSecondaryBundle } = useSessionStore(
+  const { setSessions, setSelectedSessionId, setBundle, setSecondaryBundle } = useSessionStore(
     useShallow((state) => ({
       setSessions: state.setSessions,
       setSelectedSessionId: state.setSelectedSessionId,
-      setSecondarySessionId: state.setSecondarySessionId,
       setBundle: state.setBundle,
       setSecondaryBundle: state.setSecondaryBundle,
-    }))
+    })),
   )
 
-  const { setReplay, setReplayMode, setCurrentIndex, setIsPlaying, setSpeed, toggleExpandedSegment } = useSessionStore(
+  const { setReplay, setCurrentIndex, setIsPlaying, setLoading, setCompareLoading, setError } = useSessionStore(
     useShallow((state) => ({
       setReplay: state.setReplay,
-      setReplayMode: state.setReplayMode,
       setCurrentIndex: state.setCurrentIndex,
       setIsPlaying: state.setIsPlaying,
-      setSpeed: state.setSpeed,
-      toggleExpandedSegment: state.toggleExpandedSegment,
-    }))
+      setLoading: state.setLoading,
+      setCompareLoading: state.setCompareLoading,
+      setError: state.setError,
+    })),
   )
 
-  const { addLiveEvent, setLiveSummary, setStreamConnected, setStreamHealth, setStreamReconnectAttempts, setStreamParseFailures, clearLiveEvents } = useSessionStore(
+  const { addLiveEvent, setLiveSummary, setStreamConnected, setStreamHealth, setStreamReconnectAttempts, setStreamParseFailures, clearLiveEvents, setActiveTab, setSelectedEventId } = useSessionStore(
     useShallow((state) => ({
       addLiveEvent: state.addLiveEvent,
       setLiveSummary: state.setLiveSummary,
@@ -148,30 +75,21 @@ function App() {
       setStreamReconnectAttempts: state.setStreamReconnectAttempts,
       setStreamParseFailures: state.setStreamParseFailures,
       clearLiveEvents: state.clearLiveEvents,
-    }))
-  )
-
-  const { setActiveTab, setSelectedEventId, setFocusEventId, setSelectedCheckpointId, setCurrentHighlightIndex, setShowBlockedActions } = useSessionStore(
-    useShallow((state) => ({
       setActiveTab: state.setActiveTab,
       setSelectedEventId: state.setSelectedEventId,
-      setFocusEventId: state.setFocusEventId,
-      setSelectedCheckpointId: state.setSelectedCheckpointId,
-      setCurrentHighlightIndex: state.setCurrentHighlightIndex,
-      setShowBlockedActions: state.setShowBlockedActions,
-    }))
+    })),
   )
 
-  const { setLoading, setCompareLoading, setError } = useSessionStore(
+  // Breakpoint params for replay loading effect
+  const { breakpointEventTypes, breakpointToolNames, breakpointConfidenceBelow, breakpointSafetyOutcomes, stopAtBreakpoint } = useSessionStore(
     useShallow((state) => ({
-      setLoading: state.setLoading,
-      setCompareLoading: state.setCompareLoading,
-      setError: state.setError,
-    }))
+      breakpointEventTypes: state.breakpointEventTypes,
+      breakpointToolNames: state.breakpointToolNames,
+      breakpointConfidenceBelow: state.breakpointConfidenceBelow,
+      breakpointSafetyOutcomes: state.breakpointSafetyOutcomes,
+      stopAtBreakpoint: state.stopAtBreakpoint,
+    })),
   )
-
-  // Local state for items not yet moved to the store
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
   const replayBreakpointParams = useMemo(
     () =>
       buildReplayBreakpointParams({
@@ -181,15 +99,12 @@ function App() {
         breakpointSafetyOutcomes,
         stopAtBreakpoint,
       }),
-    [
-      breakpointEventTypes,
-      breakpointToolNames,
-      breakpointConfidenceBelow,
-      breakpointSafetyOutcomes,
-      stopAtBreakpoint,
-    ],
+    [breakpointEventTypes, breakpointToolNames, breakpointConfidenceBelow, breakpointSafetyOutcomes, stopAtBreakpoint],
   )
 
+  // ── Effects ──────────────────────────────────────────────────────
+
+  // Load sessions list
   useEffect(() => {
     let ignore = false
     async function loadSessions() {
@@ -215,6 +130,7 @@ function App() {
     }
   }, [sessionSortMode, setSessions, setSelectedSessionId, setLoading, setError])
 
+  // Load trace bundle when session changes
   useEffect(() => {
     if (!selectedSessionId) return
     const sessionId = selectedSessionId
@@ -243,6 +159,7 @@ function App() {
     }
   }, [selectedSessionId, setBundle, setLiveSummary, setSelectedEventId, setLoading, setError])
 
+  // SSE live streaming connection
   useEffect(() => {
     if (!selectedSessionId) {
       clearLiveEvents()
@@ -256,9 +173,8 @@ function App() {
     clearLiveEvents()
     setStreamReconnectAttempts(0)
 
-    // Exponential backoff reconnection logic
     const getReconnectDelay = (attempt: number): number => {
-      const delays = [1000, 2000, 4000, 8000, 16000, 30000] // Max 30s
+      const delays = [1000, 2000, 4000, 8000, 16000, 30000]
       return delays[Math.min(attempt, delays.length - 1)]
     }
 
@@ -283,13 +199,11 @@ function App() {
           const event = JSON.parse(message.data) as TraceEvent
           addLiveEvent(event)
           setStreamHealth('healthy')
-          // Reset parse failure counter on successful parse
           const currentFailures = useSessionStore.getState().streamParseFailures || 0
           if (currentFailures > 0) {
             setStreamParseFailures(0)
           }
         } catch {
-          // Track consecutive parse failures and show notification after 3+
           const currentFailures = useSessionStore.getState().streamParseFailures || 0
           const newFailures = currentFailures + 1
           setStreamParseFailures(newFailures)
@@ -309,7 +223,6 @@ function App() {
           eventSource.close()
         }
 
-        // Attempt reconnection with exponential backoff
         const currentAttempt = useSessionStore.getState().streamReconnectAttempts
         const nextAttempt = currentAttempt + 1
         setStreamReconnectAttempts(nextAttempt)
@@ -323,7 +236,6 @@ function App() {
       }
     }
 
-    // Initial connection
     connect()
 
     return () => {
@@ -339,6 +251,7 @@ function App() {
     }
   }, [selectedSessionId, clearLiveEvents, addLiveEvent, setStreamConnected, setStreamHealth, setStreamReconnectAttempts, setLiveSummary])
 
+  // Poll live summary when new live events arrive
   useEffect(() => {
     if (!selectedSessionId) return
 
@@ -362,6 +275,7 @@ function App() {
     }
   }, [selectedSessionId, liveEvents.length, setLiveSummary, setError])
 
+  // Load secondary session for comparison
   useEffect(() => {
     if (!secondarySessionId) {
       setSecondaryBundle(null)
@@ -382,7 +296,6 @@ function App() {
       if (!targetSessionId) return
       setCompareLoading(true)
 
-      // Set a 10-second timeout for loading the secondary session
       timeoutId = setTimeout(() => {
         if (!ignore) {
           setCompareLoading(false)
@@ -394,7 +307,6 @@ function App() {
         const response = await getTraceBundle(targetSessionId)
         if (ignore) return
 
-        // Clear timeout if successful
         if (timeoutId) {
           clearTimeout(timeoutId)
           timeoutId = null
@@ -403,7 +315,6 @@ function App() {
         setSecondaryBundle(response)
       } catch (err) {
         if (!ignore) {
-          // Clear timeout on error
           if (timeoutId) {
             clearTimeout(timeoutId)
             timeoutId = null
@@ -426,6 +337,7 @@ function App() {
     }
   }, [secondarySessionId, selectedSessionId, setSecondaryBundle, setCompareLoading, setError])
 
+  // Load replay data when session/mode/params change
   useEffect(() => {
     if (!selectedSessionId || !bundle) return
     const sessionId = selectedSessionId
@@ -470,166 +382,20 @@ function App() {
     setError,
   ])
 
-  // Derived state (useMemo calculations) - kept in component
-  const mergedSessionEvents = useMemo(() => {
-    const seen = new Set<string>()
-    const merged = [...(bundle?.events ?? [])]
-    for (const item of merged) seen.add(item.id)
-    for (const event of liveEvents) {
-      if (!seen.has(event.id)) {
-        merged.push(event)
-        seen.add(event.id)
-      }
-    }
-    merged.sort((left, right) => left.timestamp.localeCompare(right.timestamp))
-    return merged
-  }, [bundle?.events, liveEvents])
-
-  const activeEvents = replayMode === 'full'
-    ? mergedSessionEvents
-    : replay?.events ?? mergedSessionEvents
-
-  const highlights = useMemo(
-    () => bundle?.analysis.highlights ?? [],
-    [bundle?.analysis.highlights],
-  )
-  const highlightEventIds = useMemo(
-    () => new Set(highlights.map((h) => h.event_id)),
-    [highlights],
-  )
-  const highlightsMap = useMemo(
-    () => new Map(highlights.map((h) => [h.event_id, h])),
-    [highlights],
-  )
-  const highlightEvents = useMemo(
-    () => mergedSessionEvents.filter((event) => highlightEventIds.has(event.id)),
-    [mergedSessionEvents, highlightEventIds],
-  )
-
-  const displayEvents = replayMode === 'highlights' ? highlightEvents : activeEvents
-  const selectedEvent = useMemo(
-    () => activeEvents.find((event) => event.id === selectedEventId) ?? mergedSessionEvents.find((event) => event.id === selectedEventId) ?? null,
-    [activeEvents, mergedSessionEvents, selectedEventId],
-  )
-
-  const currentReplayEvent = activeEvents[currentIndex] ?? null
-  const activeEventForInspectors = selectedEvent ?? currentReplayEvent
-  const eventLookup = useMemo(
-    () => new Map(mergedSessionEvents.map((event) => [event.id, event])),
-    [mergedSessionEvents],
-  )
-  const checkpointLookup = useMemo(
-    () => new Map((bundle?.checkpoints ?? []).map((checkpoint) => [checkpoint.id, checkpoint])),
-    [bundle?.checkpoints],
-  )
-  const checkpointRankingLookup = useMemo(
-    () => new Map((bundle?.analysis.checkpoint_rankings ?? []).map((ranking) => [ranking.checkpoint_id, ranking])),
-    [bundle?.analysis.checkpoint_rankings],
-  )
-  const breakpointEventIds = useMemo(
-    () => replay?.breakpoints.map((event) => event.id) ?? [],
-    [replay?.breakpoints],
-  )
-  const replayRepairAttemptCount = useMemo(
-    () => activeEvents.filter((event) => event.event_type === 'repair_attempt').length,
-    [activeEvents],
-  )
-
-  const llmRequest = useMemo(() => {
-    if (!activeEventForInspectors) return null
-    if (activeEventForInspectors.event_type === 'llm_request') return activeEventForInspectors
-    if (activeEventForInspectors.event_type === 'llm_response') {
-      return bundle?.events.find((event) => event.id === activeEventForInspectors.parent_id) ?? null
-    }
-    return null
-  }, [activeEventForInspectors, bundle?.events])
-
-  const llmResponse = useMemo(() => {
-    if (!activeEventForInspectors) return null
-    if (activeEventForInspectors.event_type === 'llm_response') return activeEventForInspectors
-    if (activeEventForInspectors.event_type === 'llm_request') {
-      return bundle?.events.find((event) => event.parent_id === activeEventForInspectors.id && event.event_type === 'llm_response') ?? null
-    }
-    return null
-  }, [activeEventForInspectors, bundle?.events])
-
-  const toolEvent = useMemo(() => {
-    if (!activeEventForInspectors) return null
-    if (activeEventForInspectors.event_type === 'tool_call' || activeEventForInspectors.event_type === 'tool_result') {
-      return activeEventForInspectors
-    }
-    return null
-  }, [activeEventForInspectors])
-
-  const selectedRanking = useMemo(
-    () => bundle?.analysis.event_rankings.find((ranking) => ranking.event_id === (activeEventForInspectors?.id ?? selectedEventId ?? '')),
-    [bundle?.analysis.event_rankings, activeEventForInspectors?.id, selectedEventId],
-  )
-  const selectedDiagnosis = useMemo(() => {
-    const activeEventId = activeEventForInspectors?.id ?? selectedEventId ?? ''
-    if (!activeEventId) return undefined
-    return bundle?.analysis.failure_explanations.find((explanation) => explanation.failure_event_id === activeEventId)
-  }, [activeEventForInspectors?.id, bundle?.analysis.failure_explanations, selectedEventId])
-
-  const currentSession = sessions.find((session) => session.id === selectedSessionId) ?? bundle?.session ?? null
-  const selectedCheckpoint = (
-    (selectedCheckpointId ? checkpointLookup.get(selectedCheckpointId) : null)
-    ?? (replay?.nearest_checkpoint ? checkpointLookup.get(replay.nearest_checkpoint.id) ?? replay.nearest_checkpoint : null)
-    ?? null
-  )
-  const selectedCheckpointRanking = selectedCheckpoint ? checkpointRankingLookup.get(selectedCheckpoint.id) : null
-
-  // Use custom hooks for extracted logic
-  useDriftData()
-  const handleInspectEvent = useInspectEvent(displayEvents)
-
-  function seekReplayIndex(nextIndex: number) {
-    const clampedIndex = Math.min(Math.max(nextIndex, 0), Math.max(displayEvents.length - 1, 0))
-    setCurrentIndex(clampedIndex)
-    const event = displayEvents[clampedIndex]
-    if (event) {
-      setSelectedEventId(event.id)
-    }
-  }
-
-  function getHighlightForEvent(eventId: string | null): Highlight | null {
-    if (!eventId) return null
-    return highlights.find((h) => h.event_id === eventId) ?? null
-  }
-
-  function goToHighlight(delta: number) {
-    if (highlightEvents.length === 0) return
-    const newIndex = Math.max(0, Math.min(currentHighlightIndex + delta, highlightEvents.length - 1))
-    setCurrentHighlightIndex(newIndex)
-    const event = highlightEvents[newIndex]
-    if (event) {
-      setSelectedEventId(event.id)
-      const displayIndex = displayEvents.findIndex((e) => e.id === event.id)
-      if (displayIndex >= 0) setCurrentIndex(displayIndex)
-    }
-  }
-
-  const selectedHighlight = getHighlightForEvent(selectedEventId)
-
   // Keyboard shortcuts for tab switching and search focus
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      // Ctrl+1, Ctrl+2, Ctrl+3 for tab switching
       if (event.ctrlKey || event.metaKey) {
         const key = event.key
         if (key in TAB_SHORTCUTS) {
           event.preventDefault()
           setActiveTab(TAB_SHORTCUTS[key])
-        }
-        // Ctrl+K or / to focus search
-        else if (key === 'k' || key === 'K') {
+        } else if (key === 'k' || key === 'K') {
           event.preventDefault()
           const searchInput = document.getElementById('search-input') as HTMLInputElement | null
           searchInput?.focus()
         }
-      }
-      // / to focus search (without Ctrl)
-      else if (event.key === '/' && !event.metaKey && !event.ctrlKey) {
+      } else if (event.key === '/' && !event.metaKey && !event.ctrlKey) {
         const activeTag = document.activeElement?.tagName.toLowerCase()
         if (activeTag !== 'input' && activeTag !== 'textarea') {
           event.preventDefault()
@@ -643,22 +409,11 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [setActiveTab])
 
+  // ── Derived values for header ────────────────────────────────────
 
-  // Use custom hook for breakpoint checking
-  useReplayBreakpoint()
+  const currentSession = sessions.find((session) => session.id === selectedSessionId) ?? bundle?.session ?? null
 
-  useEffect(() => {
-    const defaultCheckpointId = bundle?.analysis.checkpoint_rankings[0]?.checkpoint_id
-      ?? replay?.nearest_checkpoint?.id
-      ?? bundle?.checkpoints[0]?.id
-      ?? null
-    const currentCheckpointId = useSessionStore.getState().selectedCheckpointId
-    if (currentCheckpointId && checkpointLookup.has(currentCheckpointId)) {
-      // Keep current selection if valid
-      return
-    }
-    setSelectedCheckpointId(defaultCheckpointId)
-  }, [bundle?.analysis.checkpoint_rankings, bundle?.checkpoints, checkpointLookup, replay?.nearest_checkpoint?.id, setSelectedCheckpointId])
+  // ── Render ───────────────────────────────────────────────────────
 
   return (
     <div className="app-shell">
@@ -682,7 +437,6 @@ function App() {
             <span className="metric-label" title="A metric measuring how closely this trace matches expected behavior patterns">Replay value</span>
             <strong>{(bundle?.analysis.session_replay_value ?? currentSession?.replay_value ?? 0).toFixed(2)}</strong>
           </div>
-          {/* Connection health indicator */}
           {selectedSessionId && (
             <div
               className="connection-health-indicator"
@@ -717,383 +471,9 @@ function App() {
         </Suspense>
       )}
 
-      {activeTab === 'inspect' && (
-        <main className="workspace workspace--inspect slide-up">
-          <section className="main-stage">
-            {!selectedSessionId ? (
-              <EmptyState
-                icon="&#128300;"
-                title="No session selected"
-                description="Go to the Trace tab and select a session to inspect its decision tree, checkpoints, and behavior alerts."
-              />
-            ) : null}
-            <div className="trace-layout" style={selectedSessionId ? undefined : { opacity: 0.3, pointerEvents: 'none' as const }}>
-              <ErrorBoundary>
-                <div className="panel panel--primary timeline-panel">
-                  <DecisionTreeMemo tree={bundle?.tree ?? null} selectedEventId={selectedEventId} onSelectEvent={setSelectedEventId} />
-                </div>
-              </ErrorBoundary>
-            </div>
+      {activeTab === 'inspect' && <InspectView />}
 
-            <div className="inspect-grid">
-              {/* Analysis Group: Inspectors + Conversation + Comparison */}
-              <div
-                className={`inspect-section-divider ${collapsedSections['analysis'] ? 'collapsed' : ''}`}
-                onClick={() => setCollapsedSections((prev: Record<string, boolean>) => ({ ...prev, analysis: !prev.analysis }))}
-              >
-                <span className="inspect-section-label">Analysis</span>
-              </div>
-
-              <div data-section="analysis" data-section-hidden={collapsedSections['analysis'] ? 'true' : 'false'}>
-                <ErrorBoundary>
-                  <section className="panel panel--primary">
-                  <div className="inspectors-grid">
-                    <div className="inspector-wrapper">
-                      <span className="inspector-label">Tool Inspector</span>
-                      <ToolInspector event={toolEvent} />
-                    </div>
-                    <div className="inspector-separator" />
-                    <div className="inspector-wrapper">
-                      <span className="inspector-label">LLM Viewer</span>
-                      <LLMViewer request={llmRequest} response={llmResponse} />
-                    </div>
-                  </div>
-                </section>
-
-                <section className="panel panel--secondary">
-                  <ConversationPanelMemo
-                    events={mergedSessionEvents}
-                    selectedEventId={selectedEventId}
-                    onSelectEvent={handleInspectEvent}
-                  />
-                </section>
-
-                <section className="panel panel--secondary">
-                  <Suspense fallback={<div className="loading-placeholder fade-in">Loading comparison...</div>}>
-                    {compareLoading && (
-                      <div className="comparison-loading-state">
-                        <div className="loading-spinner" />
-                        <p>Loading comparison session...</p>
-                        <small>This may take a moment for large sessions</small>
-                      </div>
-                    )}
-                    <SessionComparisonPanel
-                      primaryBundle={bundle}
-                      secondaryBundle={secondaryBundle}
-                      sessions={sessions}
-                      selectedSessionId={selectedSessionId}
-                      secondarySessionId={secondarySessionId}
-                      compareLoading={compareLoading}
-                      onSelectSecondarySession={setSecondarySessionId}
-                    />
-                  </Suspense>
-                </section>
-                </ErrorBoundary>
-              </div>
-
-              {/* Monitoring Group: Live Dashboard + Checkpoints + Alerts */}
-              <div
-                className={`inspect-section-divider ${collapsedSections['monitoring'] ? 'collapsed' : ''}`}
-                onClick={() => setCollapsedSections((prev: Record<string, boolean>) => ({ ...prev, monitoring: !prev.monitoring }))}
-              >
-                <span className="inspect-section-label">Monitoring</span>
-              </div>
-
-              <div data-section="monitoring" data-section-hidden={collapsedSections['monitoring'] ? 'true' : 'false'}>
-                <ErrorBoundary>
-                  <section className="panel panel--secondary">
-                  <LiveDashboard
-                    session={currentSession}
-                    events={mergedSessionEvents}
-                    checkpoints={bundle?.checkpoints ?? []}
-                    liveSummary={liveSummary}
-                    isConnected={streamConnected}
-                    liveEventCount={liveEvents.length}
-                    onSelectEvent={handleInspectEvent}
-                  />
-                </section>
-
-              <section className="panel panel--secondary">
-                <div className="panel-head">
-                  <p className="eyebrow">Checkpoint Ranking</p>
-                  <h2>Restore candidates</h2>
-                </div>
-                <div className="checkpoint-list">
-                  {bundle?.analysis.checkpoint_rankings.slice(0, 5).map((ranking) => {
-                    const checkpoint = checkpointLookup.get(ranking.checkpoint_id)
-                    if (!checkpoint) return null
-                    return (
-                      <button
-                        key={ranking.checkpoint_id}
-                        type="button"
-                        className={`checkpoint-card ${selectedCheckpointId === checkpoint.id ? 'active' : ''}`}
-                        data-tier={ranking.retention_tier.replace('tier-', '')}
-                        onClick={() => setSelectedCheckpointId(checkpoint.id)}
-                      >
-                        <span>Sequence {checkpoint.sequence}</span>
-                        <strong>Restore {ranking.restore_value.toFixed(2)}</strong>
-                        <small>Replay {ranking.replay_value.toFixed(2)}</small>
-                        <small>{ranking.retention_tier}</small>
-                      </button>
-                    )
-                  }) ?? <p>No checkpoints captured.</p>}
-                </div>
-                {selectedCheckpoint && (
-                  <>
-                    <div className="checkpoint-actions">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleInspectEvent(selectedCheckpoint.event_id)
-                          setReplayMode('focus')
-                        }}
-                      >
-                        Focus replay
-                      </button>
-                      <button type="button" onClick={() => handleInspectEvent(selectedCheckpoint.event_id)}>
-                        Inspect event
-                      </button>
-                    </div>
-                    {selectedCheckpointRanking && (
-                      <div className="analysis-strip">
-                        <span>Restore {selectedCheckpointRanking.restore_value.toFixed(2)}</span>
-                        <span>Replay {selectedCheckpointRanking.replay_value.toFixed(2)}</span>
-                        <span>Importance {selectedCheckpointRanking.importance.toFixed(2)}</span>
-                        <span>Tier {selectedCheckpointRanking.retention_tier}</span>
-                      </div>
-                    )}
-                    <div className="checkpoint-compare-grid">
-                      <CheckpointSnapshot title="Selected checkpoint" checkpoint={selectedCheckpoint} variant="selected" />
-                      {replay?.nearest_checkpoint && replay.nearest_checkpoint.id !== selectedCheckpoint.id ? (
-                        <CheckpointSnapshot title="Replay anchor" checkpoint={replay.nearest_checkpoint} variant="anchor" />
-                      ) : null}
-                    </div>
-                  </>
-                )}
-              </section>
-
-              <section className="panel alerts-panel">
-                <div className="panel-head">
-                  <p className="eyebrow">Behavior Alerts</p>
-                  <h2>
-                    Live heuristics
-                    {bundle?.analysis?.behavior_alerts && bundle.analysis.behavior_alerts.length > 0 && (
-                      <span className="alert-badge">{bundle.analysis.behavior_alerts.length}</span>
-                    )}
-                  </h2>
-                </div>
-                <div className="alert-list">
-                  {bundle?.analysis?.behavior_alerts?.length ? (
-                    bundle.analysis.behavior_alerts.map((alert) => (
-                      <button
-                        key={`${alert.alert_type}-${alert.event_id}`}
-                        type="button"
-                        className="alert-row"
-                        data-severity={alert.severity.toLowerCase()}
-                        onClick={() => handleInspectEvent(alert.event_id)}
-                      >
-                        <span>{alert.alert_type}</span>
-                        <strong>{alert.severity}</strong>
-                        <small>{alert.signal}</small>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="empty-state">
-                      <div className="empty-state-icon">🔍</div>
-                      <h3>All clear</h3>
-                      <p>No oscillation, looping, or confidence drops detected.</p>
-                      <small>Alerts appear here when behavior patterns need attention</small>
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              <DriftAlertsPanel
-                agentName={currentSession?.agent_name ?? null}
-                driftData={driftData}
-                loading={driftLoading}
-              />
-              </ErrorBoundary>
-              </div>
-
-              {/* Intelligence Group: Drift + Policy + Failure Clusters + Coordination */}
-              <div
-                className={`inspect-section-divider ${collapsedSections['intelligence'] ? 'collapsed' : ''}`}
-                onClick={() => setCollapsedSections((prev: Record<string, boolean>) => ({ ...prev, intelligence: !prev.intelligence }))}
-              >
-                <span className="inspect-section-label">Intelligence</span>
-              </div>
-
-              <div data-section="intelligence" data-section-hidden={collapsedSections['intelligence'] ? 'true' : 'false'}>
-                <ErrorBoundary>
-                  <section className="panel panel--accent failure-cluster-panel">
-                  <FailureClusterPanelMemo
-                    clusters={[]}
-                    onSelectSession={setSelectedSessionId}
-                    selectedSessionId={selectedSessionId}
-                    analysisClusters={bundle?.analysis.failure_clusters ?? []}
-                    events={mergedSessionEvents}
-                  />
-                </section>
-
-                <section className="panel panel--accent coordination-panel">
-                  <MultiAgentCoordinationPanelMemo bundle={bundle} />
-                </section>
-                </ErrorBoundary>
-              </div>
-            </div>
-          </section>
-        </main>
-      )}
-
-      {activeTab === 'trace' && (
-      <main className="workspace slide-up">
-        <SessionRailMemo />
-
-        <section className="main-stage">
-          {!selectedSessionId ? (
-            <EmptyState
-              icon="&#128065;"
-              title="Select a session to inspect"
-              description="Choose a captured run from the sidebar to replay its trace, inspect decisions, and search events."
-            />
-          ) : null}
-
-          <ErrorBoundary>
-            <ReplayBar disabled={!selectedSessionId} />
-            <section className="panel panel--primary replay-panel">
-              <SessionReplay
-                events={activeEvents}
-                breakpointEventIds={breakpointEventIds}
-                currentIndex={currentIndex}
-                isPlaying={isPlaying}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-                onStepForward={() => seekReplayIndex(currentIndex + 1)}
-                onStepBackward={() => seekReplayIndex(currentIndex - 1)}
-                onSeek={seekReplayIndex}
-                speed={speed}
-                onSpeedChange={setSpeed}
-                showBlockedActions={showBlockedActions}
-                onToggleShowBlockedActions={setShowBlockedActions}
-              />
-              <div className="replay-summary">
-                <span>Scope events: {activeEvents.length}</span>
-                <span>Nearest checkpoint: {replay?.nearest_checkpoint?.sequence ?? 'none'}</span>
-                <span>Breakpoints hit: {replay?.breakpoints.length ?? 0}</span>
-                <span>Failures: {replay?.failure_event_ids.length ?? 0}</span>
-                {replayRepairAttemptCount > 0 && (
-                  <span>Repair attempts: {replayRepairAttemptCount}</span>
-                )}
-                {replay?.collapsed_segments && replay.collapsed_segments.length > 0 && (
-                  <span>Collapsed segments: {replay.collapsed_segments.length}</span>
-                )}
-                {replay?.highlight_indices && replay.highlight_indices.length > 0 && (
-                  <span>Highlights: {replay.highlight_indices.length}</span>
-                )}
-                {replay?.stopped_at_breakpoint && (
-                  <span className="breakpoint-stop-indicator">Stopped at breakpoint</span>
-                )}
-              </div>
-            </section>
-          </ErrorBoundary>
-
-          <ErrorBoundary>
-            <section className="panel panel--primary timeline-panel">
-            {replayMode === 'highlights' && (
-              <div className="highlight-nav">
-                <button type="button" onClick={() => goToHighlight(-1)} disabled={currentHighlightIndex === 0}>
-                  Prev
-                </button>
-                <span className="highlight-position">
-                  {highlightEvents.length > 0 ? `${currentHighlightIndex + 1} of ${highlightEvents.length} highlights` : 'No highlights in this session'}
-                </span>
-                <button type="button" onClick={() => goToHighlight(1)} disabled={currentHighlightIndex >= highlightEvents.length - 1}>
-                  Next
-                </button>
-              </div>
-            )}
-            <TraceTimelineMemo
-              events={displayEvents}
-              selectedEventId={selectedEventId}
-              onSelectEvent={handleInspectEvent}
-              highlightEventIds={highlightEventIds}
-              highlightsMap={highlightsMap}
-              showBlockedActions={showBlockedActions}
-              onToggleShowBlockedActions={setShowBlockedActions}
-            />
-            {replayMode === 'highlights' && replay?.collapsed_segments?.map((segment, index) => (
-              <HighlightChip
-                key={index}
-                segment={segment}
-                isExpanded={expandedSegments.has(index)}
-                onToggle={() => toggleExpandedSegment(index)}
-              >
-                {mergedSessionEvents
-                  .slice(segment.start_index, segment.end_index + 1)
-                  .map((event) => (
-                    <button
-                      key={event.id}
-                      type="button"
-                      className="reference-chip"
-                      onClick={() => handleInspectEvent(event.id)}
-                    >
-                      <span>{event.event_type.replaceAll('_', ' ')}</span>
-                      <strong>{formatEventHeadline(event)}</strong>
-                    </button>
-                  ))}
-              </HighlightChip>
-            ))}
-          </section>
-          </ErrorBoundary>
-
-          {currentSession && (currentSession.status === 'error' || (currentSession.failure_count ?? 0) > 0) && (
-            <WhyButton
-              sessionId={currentSession.id}
-              onSelectEvent={(eventId) => {
-                setSelectedEventId(eventId)
-                setReplayMode('focus')
-              }}
-              onFocusReplay={(eventId) => {
-                setSelectedEventId(eventId)
-                setReplayMode('focus')
-              }}
-            />
-          )}
-        </section>
-
-        <aside className="detail-rail">
-          <SearchPanel />
-          {selectedSessionId && (
-            <CostPanel sessionId={selectedSessionId} />
-          )}
-          <EventDetailMemo
-            event={activeEventForInspectors}
-            ranking={selectedRanking}
-            diagnosis={selectedDiagnosis}
-            highlight={selectedHighlight}
-            eventLookup={eventLookup}
-            onSelectEvent={handleInspectEvent}
-            onFocusReplay={(eventId) => {
-              handleInspectEvent(eventId)
-              setReplayMode('focus')
-            }}
-            onReplayFromHere={(eventId) => {
-              setFocusEventId(eventId)
-              setReplayMode('focus')
-              setSelectedEventId(eventId)
-            }}
-            onResetReplay={() => setReplayMode('full')}
-          />
-          <SimilarFailuresPanelMemo
-            sessionId={selectedSessionId}
-            failureEvent={selectedEvent}
-            onSelectSession={setSelectedSessionId}
-            selectedSessionId={selectedSessionId}
-          />
-        </aside>
-      </main>
-      )}
+      {activeTab === 'trace' && <TraceView />}
     </div>
   )
 }
