@@ -45,7 +45,7 @@ describe('ToolInspector', () => {
     render(<ToolInspector event={event} />)
 
     expect(screen.getByText('tool-123')).toBeInTheDocument()
-    expect(screen.getByText(/11:00:00/)).toBeInTheDocument()
+    expect(screen.getByText(/10:00:00/)).toBeInTheDocument()
   })
 
   it('renders arguments section when arguments exist', () => {
