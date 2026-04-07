@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
@@ -11,11 +12,27 @@ from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
 from .event_utils import retention_tier as _retention_tier
 from .helpers import event_value
 
+logger = logging.getLogger(__name__)
+
 # Time-decay constants (in days)
 RECENT_SESSION_DAYS = 7
 STALE_SESSION_DAYS = 30
 RECENT_BOOST = 0.2
 STALE_PENALTY = 0.3
+
+
+def _ensure_aware(ts: datetime) -> datetime:
+    """Ensure a datetime is timezone-aware (assume UTC if naive)."""
+    if ts.tzinfo is None:
+        return ts.replace(tzinfo=timezone.utc)
+    return ts
+
+
+def _parse_timestamp(ts: datetime | str) -> datetime:
+    """Parse a timestamp value into a timezone-aware datetime."""
+    if isinstance(ts, datetime):
+        return _ensure_aware(ts)
+    return _ensure_aware(datetime.fromisoformat(ts.replace("Z", "+00:00")))
 
 
 def compute_session_replay_value(
@@ -35,18 +52,10 @@ def compute_session_replay_value(
     """
     now = datetime.now(timezone.utc)
     started_at = session.get("started_at")
-    if isinstance(started_at, str):
-        started_at = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
-    elif isinstance(started_at, datetime):
-        pass  # already a datetime
-    elif started_at is None:
-        started_at = now
+    if isinstance(started_at, (str, datetime)):
+        started_at = _parse_timestamp(started_at)
     else:
         started_at = now
-
-    # Ensure timezone-aware for arithmetic with UTC now
-    if started_at.tzinfo is None:
-        started_at = started_at.replace(tzinfo=timezone.utc)
 
     # Calculate session age in days
     session_age = (now - started_at).total_seconds() / 86400
@@ -69,18 +78,10 @@ def compute_session_replay_value(
     failure_events = [e for e in events if e.event_type in failure_event_types]
     failure_recency_boost = 0.0
     if failure_events:
-        # Get the most recent failure timestamp
-        def _ensure_aware(ts: datetime) -> datetime:
-            if ts.tzinfo is None:
-                return ts.replace(tzinfo=timezone.utc)
-            return ts
-
-        def _parse_ts(e):
-            if isinstance(e.timestamp, datetime):
-                return _ensure_aware(e.timestamp)
-            return datetime.fromisoformat(e.timestamp.replace("Z", "+00:00"))
-
-        most_recent_failure_ts = max((_parse_ts(e) for e in failure_events if e.timestamp), default=started_at)
+        most_recent_failure_ts = max(
+            (_parse_timestamp(e.timestamp) for e in failure_events if e.timestamp),
+            default=started_at,
+        )
         days_since_failure = (now - most_recent_failure_ts).total_seconds() / 86400
         if days_since_failure <= RECENT_SESSION_DAYS:
             failure_recency_boost = 0.15
@@ -144,14 +145,14 @@ def compute_event_ranking(
             retry_score = compute_retry_churn_score(all_events)
             bonus += retry_score * 0.05
         except Exception:
-            pass  # Skip if computation fails
+            logger.debug("Retry churn computation failed, skipping bonus")
 
         # Latency spike bonus (cap at +0.05)
         try:
             latency_score = compute_latency_spike_score(all_events)
             bonus += latency_score * 0.05
         except Exception:
-            pass  # Skip if computation fails
+            logger.debug("Latency spike computation failed, skipping bonus")
 
     replay_value = min(replay_value + bonus, 1.0)
 
