@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -276,25 +276,26 @@ async def test_get_cost_summary_daily_breakdown():
         # Create sessions across multiple days
         async with app_context.require_session_maker()() as db_session:
             repo = TraceRepository(db_session)
+            now = datetime.now(timezone.utc)
             await repo.create_session(
                 _make_session(
                     "cost-daily-1",
                     total_cost_usd=1.00,
-                    started_at=datetime(2026, 4, 1, 10, 0, tzinfo=timezone.utc),
+                    started_at=(now - timedelta(days=2)).replace(hour=10, minute=0, second=0, microsecond=0),
                 )
             )
             await repo.create_session(
                 _make_session(
                     "cost-daily-2",
                     total_cost_usd=2.50,
-                    started_at=datetime(2026, 4, 2, 10, 0, tzinfo=timezone.utc),
+                    started_at=(now - timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0),
                 )
             )
             await repo.create_session(
                 _make_session(
                     "cost-daily-3",
                     total_cost_usd=1.75,
-                    started_at=datetime(2026, 4, 2, 15, 0, tzinfo=timezone.utc),
+                    started_at=(now - timedelta(days=1)).replace(hour=15, minute=0, second=0, microsecond=0),
                 )
             )
             await db_session.commit()
