@@ -70,6 +70,8 @@ describe('EventDetail', () => {
         onFocusReplay={vi.fn()}
         onReplayFromHere={vi.fn()}
         onResetReplay={vi.fn()}
+        userBreakpointIds={new Set()}
+        onToggleBreakpoint={vi.fn()}
       />,
     )
 
@@ -94,6 +96,8 @@ describe('EventDetail', () => {
         onFocusReplay={vi.fn()}
         onReplayFromHere={vi.fn()}
         onResetReplay={vi.fn()}
+        userBreakpointIds={new Set()}
+        onToggleBreakpoint={vi.fn()}
       />,
     )
 

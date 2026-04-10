@@ -45,6 +45,7 @@ export interface DerivedSessionData {
 
   // Session and checkpoint
   currentSession: import('../types').Session | null
+  currentBundle: import('../types').TraceBundle | null
   selectedCheckpoint: Checkpoint | null
   selectedCheckpointRanking: TraceAnalysis['checkpoint_rankings'][number] | undefined
 }
@@ -79,6 +80,7 @@ export function useDerivedSessionData(): DerivedSessionData {
     breakpointConfidenceBelow,
     breakpointSafetyOutcomes,
     stopAtBreakpoint,
+    userBreakpointIds,
   } = useSessionStore(
     useShallow((state) => ({
       bundle: state.bundle,
@@ -95,6 +97,7 @@ export function useDerivedSessionData(): DerivedSessionData {
       breakpointConfidenceBelow: state.breakpointConfidenceBelow,
       breakpointSafetyOutcomes: state.breakpointSafetyOutcomes,
       stopAtBreakpoint: state.stopAtBreakpoint,
+      userBreakpointIds: state.userBreakpointIds,
     })),
   )
 
@@ -166,7 +169,10 @@ export function useDerivedSessionData(): DerivedSessionData {
   )
 
   // Replay metadata
-  const breakpointEventIds = useMemo(() => replay?.breakpoints.map((event) => event.id) ?? [], [replay?.breakpoints])
+  const breakpointEventIds = useMemo(() => {
+    const replayIds = replay?.breakpoints.map((e) => e.id) ?? []
+    return [...new Set([...replayIds, ...userBreakpointIds])]
+  }, [replay?.breakpoints, userBreakpointIds])
   const replayRepairAttemptCount = useMemo(
     () => activeEvents.filter((event) => event.event_type === 'repair_attempt').length,
     [activeEvents],
@@ -255,6 +261,7 @@ export function useDerivedSessionData(): DerivedSessionData {
     selectedRanking,
     selectedDiagnosis,
     currentSession,
+    currentBundle: bundle ?? null,
     selectedCheckpoint,
     selectedCheckpointRanking,
   }

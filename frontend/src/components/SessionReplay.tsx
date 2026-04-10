@@ -18,6 +18,12 @@ interface SessionReplayProps {
   onSpeedChange: (speed: number) => void
   showBlockedActions?: boolean
   onToggleShowBlockedActions?: (show: boolean) => void
+  onStepInto?: () => void
+  onStepOver?: () => void
+  onStepOut?: () => void
+  canStepInto: boolean
+  canStepOver: boolean
+  canStepOut: boolean
 }
 
 const SPEED_OPTIONS = [0.5, 1, 2, 5]
@@ -42,6 +48,12 @@ export function SessionReplay({
   onSpeedChange,
   showBlockedActions,
   onToggleShowBlockedActions,
+  onStepInto,
+  onStepOver,
+  onStepOut,
+  canStepInto,
+  canStepOver,
+  canStepOut,
 }: SessionReplayProps) {
   const sliderRef = useRef<HTMLInputElement>(null)
   const playIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -208,6 +220,36 @@ export function SessionReplay({
             <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
           </svg>
         </button>
+
+        <div className="step-tree-controls">
+          <button
+            className="replay-btn step-into"
+            onClick={onStepInto}
+            disabled={!canStepInto}
+            title="Step into (first child)"
+            aria-label="Step into"
+          >
+            Into
+          </button>
+          <button
+            className="replay-btn step-over"
+            onClick={onStepOver}
+            disabled={!canStepOver}
+            title="Step over (next sibling)"
+            aria-label="Step over"
+          >
+            Over
+          </button>
+          <button
+            className="replay-btn step-out"
+            onClick={onStepOut}
+            disabled={!canStepOut}
+            title="Step out (parent's next sibling)"
+            aria-label="Step out"
+          >
+            Out
+          </button>
+        </div>
 
         <button
           className="replay-btn step-forward"

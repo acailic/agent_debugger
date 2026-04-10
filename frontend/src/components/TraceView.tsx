@@ -16,6 +16,7 @@ import CostPanel from './CostPanel'
 import HighlightChip from './HighlightChip'
 import { formatEventHeadline } from '../utils/formatting'
 import type { Highlight } from '../types'
+import { useMemo } from 'react'
 
 export function TraceView() {
   const derived = useDerivedSessionData()
@@ -34,6 +35,7 @@ export function TraceView() {
     expandedSegments,
     currentHighlightIndex,
     replay,
+    userBreakpointIds,
   } = useSessionStore(
     (state) => ({
       selectedSessionId: state.selectedSessionId,
@@ -46,6 +48,7 @@ export function TraceView() {
       expandedSegments: state.expandedSegments,
       currentHighlightIndex: state.currentHighlightIndex,
       replay: state.replay,
+      userBreakpointIds: state.userBreakpointIds,
     }),
   )
 
@@ -60,6 +63,7 @@ export function TraceView() {
     setShowBlockedActions,
     toggleExpandedSegment,
     setCurrentHighlightIndex,
+    toggleUserBreakpoint,
   } = useSessionStore(
     (state) => ({
       setSelectedEventId: state.setSelectedEventId,
@@ -72,6 +76,7 @@ export function TraceView() {
       setShowBlockedActions: state.setShowBlockedActions,
       toggleExpandedSegment: state.toggleExpandedSegment,
       setCurrentHighlightIndex: state.setCurrentHighlightIndex,
+      toggleUserBreakpoint: state.toggleUserBreakpoint,
     }),
   )
 
@@ -100,6 +105,82 @@ export function TraceView() {
       if (displayIndex >= 0) setCurrentIndex(displayIndex)
     }
   }
+
+  // Build event tree for tree-aware navigation
+  const eventTree = useMemo(() => {
+    const parentMap = new Map<string, string | null>()
+    const childrenMap = new Map<string, string[]>()
+
+    for (const event of derived.displayEvents) {
+      parentMap.set(event.id, event.parent_id)
+      const parentId = event.parent_id
+      if (parentId) {
+        const siblings = childrenMap.get(parentId) ?? []
+        siblings.push(event.id)
+        childrenMap.set(parentId, siblings)
+      }
+    }
+
+    const result = new Map<string, { parentId: string | null; childIds: string[]; siblingIds: string[] }>()
+    for (const event of derived.displayEvents) {
+      const parentId = parentMap.get(event.id) ?? null
+      const childIds = childrenMap.get(event.id) ?? []
+      const siblingIds = parentId ? (childrenMap.get(parentId) ?? []) : []
+      result.set(event.id, { parentId, childIds, siblingIds })
+    }
+    return result
+  }, [derived.displayEvents])
+
+  function stepInto() {
+    const current = derived.displayEvents[currentIndex]
+    if (!current) return
+    const node = eventTree.get(current.id)
+    if (node && node.childIds.length > 0) {
+      const firstChildIndex = derived.displayEvents.findIndex((e) => e.id === node.childIds[0])
+      if (firstChildIndex >= 0) seekReplayIndex(firstChildIndex)
+    }
+  }
+
+  function stepOver() {
+    const current = derived.displayEvents[currentIndex]
+    if (!current) return
+    const node = eventTree.get(current.id)
+    if (node) {
+      const myIndex = node.siblingIds.indexOf(current.id)
+      if (myIndex >= 0 && myIndex < node.siblingIds.length - 1) {
+        const nextSiblingId = node.siblingIds[myIndex + 1]
+        const nextIndex = derived.displayEvents.findIndex((e) => e.id === nextSiblingId)
+        if (nextIndex >= 0) seekReplayIndex(nextIndex)
+      }
+    }
+  }
+
+  function stepOut() {
+    const current = derived.displayEvents[currentIndex]
+    if (!current) return
+    const node = eventTree.get(current.id)
+    if (node && node.parentId) {
+      const parentNode = eventTree.get(node.parentId)
+      if (parentNode) {
+        const parentSiblingIndex = parentNode.siblingIds.indexOf(node.parentId!)
+        if (parentSiblingIndex >= 0 && parentSiblingIndex < parentNode.siblingIds.length - 1) {
+          const nextParentSiblingId = parentNode.siblingIds[parentSiblingIndex + 1]
+          const nextIndex = derived.displayEvents.findIndex((e) => e.id === nextParentSiblingId)
+          if (nextIndex >= 0) seekReplayIndex(nextIndex)
+        }
+      }
+    }
+  }
+
+  // Compute canStep* booleans
+  const currentEvent = currentIndex >= 0 && currentIndex < derived.displayEvents.length
+    ? derived.displayEvents[currentIndex]
+    : undefined
+  const currentTreeNode = currentEvent ? eventTree.get(currentEvent.id) : undefined
+  const canStepInto = !!(currentTreeNode && currentTreeNode.childIds.length > 0)
+  const canStepOver = !!(currentTreeNode && currentEvent && currentTreeNode.siblingIds.indexOf(currentEvent.id) < currentTreeNode.siblingIds.length - 1)
+  const canStepOut = !!(currentTreeNode && currentTreeNode.parentId)
+
 
   const selectedHighlight = getHighlightForEvent(selectedEventId)
 
@@ -133,6 +214,12 @@ export function TraceView() {
               onSpeedChange={setSpeed}
               showBlockedActions={showBlockedActions}
               onToggleShowBlockedActions={setShowBlockedActions}
+              onStepInto={stepInto}
+              onStepOver={stepOver}
+              onStepOut={stepOut}
+              canStepInto={canStepInto}
+              canStepOver={canStepOver}
+              canStepOut={canStepOut}
             />
             <div className="replay-summary">
               <span>Scope events: {derived.activeEvents.length}</span>
@@ -235,6 +322,7 @@ export function TraceView() {
           diagnosis={derived.selectedDiagnosis}
           highlight={selectedHighlight}
           eventLookup={derived.eventLookup}
+          checkpoints={derived.currentBundle?.checkpoints}
           onSelectEvent={handleInspectEvent}
           onFocusReplay={(eventId) => {
             handleInspectEvent(eventId)
@@ -246,6 +334,8 @@ export function TraceView() {
             setSelectedEventId(eventId)
           }}
           onResetReplay={() => setReplayMode('full')}
+          userBreakpointIds={userBreakpointIds}
+          onToggleBreakpoint={toggleUserBreakpoint}
         />
         <SimilarFailuresPanelMemo
           sessionId={selectedSessionId}

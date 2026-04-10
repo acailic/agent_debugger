@@ -86,6 +86,8 @@ const NODE_LABELS: Record<string, string> = {
  * - Evidence weakness (+0.3): decision with empty evidence array
  * - Novelty (+0.2): branch not yet inspected
  * - Low confidence (+0.1): decision with confidence below 0.5
+ * - Tool diversity (+0.1): different tool types in subtree
+ * - Checkpoint presence (+0.15): contains checkpoint event
  */
 function computeBranchPriority(
   node: d3.HierarchyNode<D3TreeNode>,
@@ -126,6 +128,25 @@ function computeBranchPriority(
   if (event.event_type === 'decision' && (event.confidence ?? 1) < 0.5) {
     score += 0.1
     reasons.push('Low confidence decision')
+  }
+
+  // Check for tool diversity - different tool types in subtree
+  const toolTypes = new Set<string>()
+  node.descendants().forEach((d) => {
+    if (d.data.event.event_type === 'tool_call' && d.data.event.tool_name) {
+      toolTypes.add(d.data.event.tool_name)
+    }
+  })
+  if (toolTypes.size >= 2) {
+    score += 0.1
+    reasons.push(`Tool diversity (${toolTypes.size} tools)`)
+  }
+
+  // Check for checkpoint - important for replay
+  const hasCheckpoint = node.descendants().some((d) => d.data.event.event_type === 'checkpoint')
+  if (hasCheckpoint) {
+    score += 0.15
+    reasons.push('Contains checkpoint')
   }
 
   return {
@@ -259,6 +280,9 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
       const displayName = name.length > 60 ? name.slice(0, 60) + '...' : name
       const importance = node.event.importance ?? 1
 
+      // Check if this is the recommended node and has priority info
+      const isRecommended = node.id === recommendedNodeId
+
       // Build rich tooltip content
       const content = JSON.stringify({
         eventType,
@@ -266,6 +290,10 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         name: displayName,
         importance,
         color: nodeColor,
+        priority: isRecommended && node._priority ? {
+          score: node._priority.score.toFixed(2),
+          reasons: node._priority.reasons.join(', ')
+        } : undefined,
       })
 
       // Calculate tooltip position relative to container to avoid clipping
@@ -286,7 +314,7 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         content,
       })
     },
-    []
+    [recommendedNodeId]
   )
 
   const handleMouseLeave = useCallback(() => {
@@ -731,6 +759,20 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
                 ⭐ Jump to Recommended
               </button>
             )}
+            <button
+              type="button"
+              className="replay-btn next-branch-btn"
+              disabled={!recommendedNodeId}
+              onClick={() => {
+                if (recommendedNodeId) {
+                  onSelectEvent(recommendedNodeId)
+                  setInspectedNodes((prev) => new Set(prev).add(recommendedNodeId))
+                }
+              }}
+              title="Navigate to the highest-priority unexplored branch"
+            >
+              Next Best Branch
+            </button>
             <span className="zoom-badge">{Math.round(zoom * 100)}%</span>
           </div>
           <div className="tree-legend" role="legend" aria-label="Decision tree legend">
@@ -804,6 +846,16 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
               <div className="tooltip-time">{data.timestamp}</div>
               {data.name && <div className="tooltip-name">{data.name}</div>}
               <div className="tooltip-importance">Importance: {data.importance.toFixed(1)}</div>
+              {data.priority && (
+                <div className="tooltip-priority">
+                  <div style={{ fontWeight: 600, fontSize: '0.7rem', color: '#22c55e', marginTop: '0.25rem' }}>
+                    ⭐ Priority: {data.priority.score}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
+                    {data.priority.reasons}
+                  </div>
+                </div>
+              )}
             </div>
           )
         } catch {

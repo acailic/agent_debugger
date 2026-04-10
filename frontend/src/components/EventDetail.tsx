@@ -1,7 +1,8 @@
-import type { TraceBundle, TraceEvent, Highlight } from '../types'
+import type { TraceBundle, TraceEvent, Highlight, Checkpoint } from '../types'
 import { formatEventHeadline } from '../utils/formatting'
 import { EventReferenceList } from './EventReferenceList'
 import { DecisionProvenancePanel } from './DecisionProvenancePanel'
+import { CheckpointStateDiff } from './CheckpointStateDiff'
 import { memo } from 'react'
 import { BLOCKED_EVENT_TYPES } from '../utils/latency'
 
@@ -11,10 +12,13 @@ interface EventDetailProps {
   diagnosis?: TraceBundle['analysis']['failure_explanations'][number]
   highlight?: Highlight | null
   eventLookup: Map<string, TraceEvent>
+  checkpoints?: Checkpoint[]
   onSelectEvent: (eventId: string) => void
   onFocusReplay: (eventId: string) => void
   onReplayFromHere: (eventId: string) => void
   onResetReplay: () => void
+  userBreakpointIds: Set<string>
+  onToggleBreakpoint: (eventId: string) => void
 }
 
 export function EventDetail({
@@ -23,10 +27,13 @@ export function EventDetail({
   diagnosis,
   highlight,
   eventLookup,
+  checkpoints,
   onSelectEvent,
   onFocusReplay,
   onReplayFromHere,
   onResetReplay,
+  userBreakpointIds,
+  onToggleBreakpoint,
 }: EventDetailProps) {
   if (!event) {
     return (
@@ -75,6 +82,14 @@ export function EventDetail({
         </button>
         <button type="button" onClick={onResetReplay}>
           Full session
+        </button>
+        <button
+          type="button"
+          className={`replay-btn breakpoint-toggle-btn ${userBreakpointIds.has(event.id) ? 'has-breakpoint' : ''}`}
+          onClick={() => onToggleBreakpoint(event.id)}
+          title={userBreakpointIds.has(event.id) ? 'Clear breakpoint' : 'Set breakpoint on this event'}
+        >
+          {userBreakpointIds.has(event.id) ? 'Clear Breakpoint' : 'Set Breakpoint'}
         </button>
       </div>
 
@@ -166,6 +181,19 @@ export function EventDetail({
           eventLookup={eventLookup}
           onSelectEvent={onSelectEvent}
         />
+
+        {event.event_type === 'checkpoint' && checkpoints && checkpoints.length > 0 && (() => {
+          const currentCp = checkpoints.find(cp => cp.event_id === event.id)
+          if (!currentCp) return null
+          const cpIndex = checkpoints.indexOf(currentCp)
+          const nextCp = cpIndex < checkpoints.length - 1 ? checkpoints[cpIndex + 1] : null
+          return (
+            <CheckpointStateDiff
+              currentCheckpoint={currentCp}
+              nextCheckpoint={nextCp}
+            />
+          )
+        })()}
 
         {event.reasoning && (
           <div>
@@ -283,7 +311,9 @@ function arePropsEqual(
     prevProps.ranking === nextProps.ranking &&
     prevProps.diagnosis === nextProps.diagnosis &&
     prevProps.highlight === nextProps.highlight &&
-    prevProps.eventLookup === nextProps.eventLookup
+    prevProps.eventLookup === nextProps.eventLookup &&
+    prevProps.checkpoints === nextProps.checkpoints &&
+    prevProps.userBreakpointIds === nextProps.userBreakpointIds
   )
 }
 

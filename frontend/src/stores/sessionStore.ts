@@ -158,6 +158,9 @@ interface SessionStore {
   breakpointSafetyOutcomes: string
   stopAtBreakpoint: boolean
 
+  // User-defined breakpoints (set from EventDetail)
+  userBreakpointIds: Set<string>
+
   // Loading/error states
   loading: boolean
   compareLoading: boolean
@@ -219,6 +222,10 @@ interface SessionStore {
   setBreakpointConfidenceBelow: (value: string) => void
   setBreakpointSafetyOutcomes: (outcomes: string) => void
   setStopAtBreakpoint: (stop: boolean) => void
+
+  // User breakpoint actions
+  toggleUserBreakpoint: (eventId: string) => void
+  clearUserBreakpoints: () => void
 
   // Loading/error actions
   setLoading: (loading: boolean) => void
@@ -334,6 +341,9 @@ const initialState = {
   breakpointSafetyOutcomes: loadStringPreference(BREAKPOINT_SAFETY_STORAGE_KEY, 'warn,block'),
   stopAtBreakpoint: loadBooleanPreference(STOP_AT_BREAKPOINT_STORAGE_KEY, true),
 
+  // User-defined breakpoints
+  userBreakpointIds: new Set<string>(),
+
   // Loading/error states
   loading: true,
   compareLoading: false,
@@ -428,6 +438,18 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set({ stopAtBreakpoint })
   },
 
+  // User breakpoint actions
+  toggleUserBreakpoint: (eventId) => set((state) => {
+    const next = new Set(state.userBreakpointIds)
+    if (next.has(eventId)) {
+      next.delete(eventId)
+    } else {
+      next.add(eventId)
+    }
+    return { userBreakpointIds: next }
+  }),
+  clearUserBreakpoints: () => set({ userBreakpointIds: new Set() }),
+
   // Loading/error actions
   setLoading: (loading) => set({ loading }),
   setCompareLoading: (compareLoading) => set({ compareLoading }),
@@ -474,6 +496,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     selectedCheckpointId: null,
     currentIndex: 0,
     isPlaying: false,
+    userBreakpointIds: new Set(),
   }),
 
   reset: () => set({
@@ -484,5 +507,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     breakpointConfidenceBelow: loadStringPreference(BREAKPOINT_CONFIDENCE_STORAGE_KEY, '0.45'),
     breakpointSafetyOutcomes: loadStringPreference(BREAKPOINT_SAFETY_STORAGE_KEY, 'warn,block'),
     stopAtBreakpoint: loadBooleanPreference(STOP_AT_BREAKPOINT_STORAGE_KEY, true),
+    userBreakpointIds: new Set(),
   }),
 }))

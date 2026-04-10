@@ -36,6 +36,9 @@ function renderReplay(events: TraceEvent[], overrides: Partial<ComponentProps<ty
       onSeek={vi.fn()}
       speed={1}
       onSpeedChange={vi.fn()}
+      canStepInto={false}
+      canStepOver={false}
+      canStepOut={false}
       {...overrides}
     />,
   )
@@ -98,6 +101,9 @@ describe('SessionReplay', () => {
         onSeek={vi.fn()}
         speed={1}
         onSpeedChange={vi.fn()}
+        canStepInto={false}
+        canStepOver={false}
+        canStepOut={false}
       />,
     )
 
