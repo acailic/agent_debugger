@@ -27,7 +27,7 @@ def _make_session(
         agent_name="test_agent",
         framework=framework,
         started_at=_started,
-        ended_at=_started.replace(hour=11),
+        ended_at=_started + timedelta(hours=1),
         status=SessionStatus.COMPLETED,
         total_cost_usd=total_cost_usd,
         total_tokens=total_tokens,
