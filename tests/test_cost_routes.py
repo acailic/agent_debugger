@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -27,7 +27,7 @@ def _make_session(
         agent_name="test_agent",
         framework=framework,
         started_at=_started,
-        ended_at=_started.replace(hour=11),
+        ended_at=_started + timedelta(hours=1),
         status=SessionStatus.COMPLETED,
         total_cost_usd=total_cost_usd,
         total_tokens=total_tokens,
@@ -240,7 +240,7 @@ async def test_get_cost_summary_with_range():
                 _make_session(
                     "cost-range-recent",
                     total_cost_usd=2.00,
-                    started_at=datetime(2026, 4, 1, 10, 0, tzinfo=timezone.utc),
+                    started_at=datetime.now(timezone.utc) - timedelta(days=3),
                 )
             )
             # Old session (more than 7 days ago)
@@ -248,7 +248,7 @@ async def test_get_cost_summary_with_range():
                 _make_session(
                     "cost-range-old",
                     total_cost_usd=5.00,
-                    started_at=datetime(2026, 3, 20, 10, 0, tzinfo=timezone.utc),
+                    started_at=datetime.now(timezone.utc) - timedelta(days=30),
                 )
             )
             await db_session.commit()
@@ -276,25 +276,26 @@ async def test_get_cost_summary_daily_breakdown():
         # Create sessions across multiple days
         async with app_context.require_session_maker()() as db_session:
             repo = TraceRepository(db_session)
+            _now = datetime.now(timezone.utc)
             await repo.create_session(
                 _make_session(
                     "cost-daily-1",
                     total_cost_usd=1.00,
-                    started_at=datetime(2026, 4, 1, 10, 0, tzinfo=timezone.utc),
+                    started_at=_now - timedelta(days=3),
                 )
             )
             await repo.create_session(
                 _make_session(
                     "cost-daily-2",
                     total_cost_usd=2.50,
-                    started_at=datetime(2026, 4, 2, 10, 0, tzinfo=timezone.utc),
+                    started_at=_now - timedelta(days=2),
                 )
             )
             await repo.create_session(
                 _make_session(
                     "cost-daily-3",
                     total_cost_usd=1.75,
-                    started_at=datetime(2026, 4, 2, 15, 0, tzinfo=timezone.utc),
+                    started_at=(_now - timedelta(days=2)).replace(hour=15),
                 )
             )
             await db_session.commit()
