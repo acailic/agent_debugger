@@ -27,7 +27,7 @@ install:
 	pip install -e ".[server]"
 
 install-dev:
-	pip install -e ".[server,langchain,pydantic-ai,crewai,dev]"
+	pip install -e ".[langchain,pydantic-ai,crewai,dev]"
 
 API_PORT ?= 8000
 
