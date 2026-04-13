@@ -27,8 +27,7 @@ install:
 	pip install -e ".[server]"
 
 install-dev:
-	pip install -e ".[server,langchain,pydantic-ai,crewai]"
-	pip install pytest pytest-asyncio ruff
+	pip install -e ".[server,langchain,pydantic-ai,crewai,dev]"
 
 API_PORT ?= 8000
 
