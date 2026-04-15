@@ -34,6 +34,15 @@ dependencies = [
 langchain = ["langchain-core>=0.2"]
 crewai = ["crewai>=0.40"]
 pydantic-ai = ["pydantic-ai>=0.0.10"]
+server = [
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.20",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.19",
+    "alembic>=1.12",
+    "aiofiles>=23.0",
+    "bcrypt>=4.0",
+]
 all = [
     "langchain-core>=0.2",
     "crewai>=0.40",
