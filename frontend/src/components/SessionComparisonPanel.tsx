@@ -24,9 +24,8 @@ interface SessionComparisonPanelProps {
   onSelectSecondarySession: (sessionId: string | null) => void
 }
 
-interface ComparisonDataState {
+interface ComparisonResult {
   comparison: ComparisonResponse | null
-  loading: boolean
   error: string | null
 }
 
@@ -108,33 +107,35 @@ export function SessionComparisonPanel({
   compareLoading,
   onSelectSecondarySession,
 }: SessionComparisonPanelProps) {
-  const [comparisonData, setComparisonData] = useState<ComparisonDataState>({
+  const [comparisonResult, setComparisonResult] = useState<ComparisonResult>({
     comparison: null,
-    loading: false,
     error: null,
   })
+  const [lastFetchedKey, setLastFetchedKey] = useState('')
 
-  // Fetch comparison data from backend when both sessions are selected
+  const fetchKey = selectedSessionId && secondarySessionId
+    ? `${selectedSessionId}:${secondarySessionId}`
+    : ''
+  const comparisonLoading = fetchKey !== '' && lastFetchedKey !== fetchKey && comparisonResult.error === null
+
   useEffect(() => {
-    if (selectedSessionId && secondarySessionId) {
-      setComparisonData((prev) => ({ ...prev, loading: true, error: null }))
+    if (!selectedSessionId || !secondarySessionId) return
 
-      getComparison(selectedSessionId, secondarySessionId)
-        .then((data) => {
-          setComparisonData({ comparison: data, loading: false, error: null })
+    const key = fetchKey
+    getComparison(selectedSessionId, secondarySessionId)
+      .then((data) => {
+        setLastFetchedKey(key)
+        setComparisonResult({ comparison: data, error: null })
+      })
+      .catch((err) => {
+        console.error('Failed to fetch comparison data:', err)
+        setLastFetchedKey(key)
+        setComparisonResult({
+          comparison: null,
+          error: err instanceof Error ? err.message : 'Failed to load comparison data',
         })
-        .catch((err) => {
-          console.error('Failed to fetch comparison data:', err)
-          setComparisonData((prev) => ({
-            ...prev,
-            loading: false,
-            error: err instanceof Error ? err.message : 'Failed to load comparison data'
-          }))
-        })
-    } else {
-      setComparisonData({ comparison: null, loading: false, error: null })
-    }
-  }, [selectedSessionId, secondarySessionId])
+      })
+  }, [fetchKey, selectedSessionId, secondarySessionId])
 
   if (!primaryBundle) {
     return (
@@ -149,8 +150,8 @@ export function SessionComparisonPanel({
   const secondarySessionOptions = sessions.filter((session) => session.id !== selectedSessionId)
 
   // Use backend comparison data if available, otherwise fall back to client-side calculation
-  const useBackendData = comparisonData.comparison !== null && comparisonData.error === null
-  const deltas = useBackendData && comparisonData.comparison ? comparisonData.comparison.comparison_deltas : null
+  const useBackendData = comparisonResult.comparison !== null && comparisonResult.error === null
+  const deltas = useBackendData && comparisonResult.comparison ? comparisonResult.comparison.comparison_deltas : null
 
   return (
     <div className="comparison-panel">
@@ -173,10 +174,10 @@ export function SessionComparisonPanel({
         </select>
       </div>
 
-      {compareLoading || comparisonData.loading ? <p className="compare-loading">Loading comparison session…</p> : null}
+      {compareLoading || comparisonLoading ? <p className="compare-loading">Loading comparison session…</p> : null}
 
-      {comparisonData.error && (
-        <p className="compare-error">Using client-side fallback: {comparisonData.error}</p>
+      {comparisonResult.error && (
+        <p className="compare-error">Using client-side fallback: {comparisonResult.error}</p>
       )}
 
       {secondaryBundle ? (
