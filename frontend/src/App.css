@@ -3258,6 +3258,18 @@ pre {
 }
 
 /* ============================================
+   Enhanced Reasoning Graph Panel Styles
+   ============================================ */
+
+/* Import component-specific styles */
+@import url('./components/ReasoningGraphPanel.css');
+
+/* Additional integration styles if needed */
+.reasoning-graph-panel.panel--primary {
+  min-height: 500px;
+}
+
+/* ============================================
    Failure Cluster Panel Styles
    ============================================ */
 

@@ -18,16 +18,20 @@ from api.schemas import (
     DeleteResponse,
     FixNoteRequest,
     FixNoteResponse,
+    RedundancyAnalysisResponse,
     SessionDetailResponse,
     SessionListResponse,
     SessionUpdateRequest,
     SimilarFailuresResponse,
     TraceListResponse,
+    WorkflowGraphResponse,
 )
 from api.services import (
+    analyze_redundancy,
     compute_checkpoint_deltas,
     enrich_sessions_for_listing,
     event_generator,
+    extract_workflow_graph,
     find_similar_failures,
     normalize_checkpoint,
     normalize_event,
@@ -263,3 +267,36 @@ async def get_similar_failures(
         similar_failures=similar_failures,
         total=len(similar_failures),
     )
+
+
+@router.get("/api/sessions/{session_id}/workflow-graph", response_model=WorkflowGraphResponse)
+async def get_workflow_graph(
+    session_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> WorkflowGraphResponse:
+    """Get the workflow graph for a session.
+
+    Returns a directed graph representation of the workflow with nodes
+    representing decisions, tool calls, and LLM requests, and edges
+    representing data flow and dependencies.
+    """
+    await require_session(repo, session_id)
+    events = await repo.get_event_tree(session_id)
+
+    workflow_data = extract_workflow_graph(events, session_id)
+    return WorkflowGraphResponse(**workflow_data)
+
+
+@router.get("/api/sessions/{session_id}/redundancy", response_model=RedundancyAnalysisResponse)
+async def get_redundancy_analysis(
+    session_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> RedundancyAnalysisResponse:
+    """Get redundancy analysis for a session.
+
+    Analyzes each step in the session to identify redundant, harmful,
+    and essential steps based on RedundancyBench methodology.
+    """
+    await require_session(repo, session_id)
+    redundancy_data = await analyze_redundancy(repo, session_id)
+    return RedundancyAnalysisResponse(**redundancy_data)

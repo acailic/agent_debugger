@@ -5,13 +5,16 @@ import type {
   AlertSummary,
   AlertTrendingPoint,
   AnalyticsResponse,
+  CausalAnalysisResponse,
   ComparisonResponse,
   CostSummary,
   DriftResponse,
   FixNoteResponse,
   LiveSummary,
   ManagedAlert,
+  RedundancyAnalysisResponse,
   ReplayResponse,
+  SafetyAnalysisResponse,
   SearchResponse,
   Session,
   SessionCost,
@@ -20,6 +23,7 @@ import type {
   TraceAnalysis,
   TraceBundle,
   TraceSearchResponse,
+  WorkflowGraphResponse,
 } from '../types'
 import { validateResponse, logValidationFailure, validators, ValidationError } from './validation'
 
@@ -250,6 +254,20 @@ export async function getAnalysis(sessionId: string) {
         'analysis' in value &&
         validators.AnalysisResult((value as Record<string, unknown>).analysis),
       endpoint: `/sessions/${sessionId}/analysis`,
+    }
+  )
+}
+
+export async function getSafetyAnalysis(sessionId: string) {
+  return fetchJSON<SafetyAnalysisResponse>(
+    `${API_BASE}/sessions/${sessionId}/safety`,
+    {
+      validator: (value: unknown) =>
+        typeof value === 'object' &&
+        value !== null &&
+        'session_id' in value &&
+        'safety_report' in value,
+      endpoint: `/sessions/${sessionId}/safety`,
     }
   )
 }
@@ -489,6 +507,74 @@ export async function getComparison(primaryId: string, secondaryId: string) {
         )
       },
       endpoint: '/compare/{primary_id}/{secondary_id}',
+    }
+  )
+}
+
+// Redundancy Analysis API
+export async function getRedundancyAnalysis(sessionId: string): Promise<RedundancyAnalysisResponse> {
+  return fetchJSON<RedundancyAnalysisResponse>(
+    `${API_BASE}/sessions/${sessionId}/redundancy`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return (
+          'session_id' in v &&
+          'scores' in v &&
+          'summary' in v &&
+          Array.isArray(v.scores) &&
+          typeof v.summary === 'object' &&
+          v.summary !== null
+        )
+      },
+      endpoint: '/sessions/{session_id}/redundancy',
+    }
+  )
+}
+
+// Causal Analysis API
+export async function getCausalAnalysis(sessionId: string): Promise<CausalAnalysisResponse> {
+  return fetchJSON<CausalAnalysisResponse>(
+    `${API_BASE}/sessions/${sessionId}/causal`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return (
+          'session_id' in v &&
+          'causal_graph' in v &&
+          'critical_paths' in v &&
+          'root_causes' in v &&
+          typeof v.causal_graph === 'object' &&
+          v.causal_graph !== null
+        )
+      },
+      endpoint: '/sessions/{session_id}/causal',
+    }
+  )
+}
+
+// Workflow Graph API
+export async function getWorkflowGraph(sessionId: string): Promise<WorkflowGraphResponse> {
+  return fetchJSON<WorkflowGraphResponse>(
+    `${API_BASE}/sessions/${sessionId}/workflow-graph`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return (
+          'graph' in v &&
+          typeof v.graph === 'object' &&
+          v.graph !== null &&
+          'session_id' in v.graph &&
+          'nodes' in v.graph &&
+          'edges' in v.graph &&
+          Array.isArray((v.graph as Record<string, unknown>).nodes) &&
+          Array.isArray((v.graph as Record<string, unknown>).edges)
+        )
+      },
+      endpoint: '/sessions/{session_id}/workflow-graph',
     }
   )
 }

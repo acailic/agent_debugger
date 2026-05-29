@@ -2,6 +2,7 @@ export type AppTab = 'trace' | 'inspect' | 'analytics'
 export type ReplayMode = 'full' | 'focus' | 'failure' | 'highlights'
 export type SessionSortMode = 'started_at' | 'replay_value'
 export type SearchScope = 'current' | 'all'
+export type ViewMode = 'sequential' | 'tree' | 'graph'
 
 // Safety and risk level types from SDK
 export type SafetyOutcome = 'pass' | 'fail' | 'warn' | 'block'
@@ -603,4 +604,181 @@ export function severityLabel(severity: number): RiskLevel {
   if (severity >= 0.5) return 'high'
   if (severity >= 0.3) return 'medium'
   return 'low'
+}
+
+// Safety Monitoring types
+export type SafetyDimension = 'goal_alignment' | 'constraint_adherence' | 'reasoning_coherence'
+
+export interface SafetyScore {
+  dimension: SafetyDimension
+  score: number
+  is_safe: boolean
+  details: string
+  step_index: number | null
+  event_id: string | null
+  confidence: number
+}
+
+export interface SafetyAlert {
+  dimension: SafetyDimension
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  score: number
+  threshold: number
+  message: string
+  step_index: number | null
+  event_id: string | null
+  mitigation_suggestion: string | null
+}
+
+export interface SessionSafetyReport {
+  session_id: string
+  overall_score: number
+  is_safe: boolean
+  per_dimension_scores: Record<SafetyDimension, number>
+  per_step_scores: SafetyScore[]
+  alerts: SafetyAlert[]
+  total_steps: number
+  unsafe_steps: number
+  high_risk_dimensions: SafetyDimension[]
+}
+
+export interface SafetyAnalysisResponse {
+  session_id: string
+  safety_report: SessionSafetyReport
+}
+
+// Redundancy Analysis types
+export type StepContribution = 'essential' | 'redundant' | 'harmful' | 'unknown'
+
+export interface RedundancyScore {
+  step_id: string
+  score: number
+  contribution: StepContribution
+  reasoning: string
+}
+
+export interface RedundancySummary {
+  total_steps: number
+  essential_count: number
+  redundant_count: number
+  harmful_count: number
+  unknown_count: number
+  avg_score: number
+  redundancy_rate: number
+}
+
+export interface RedundancyAnalysisResponse {
+  session_id: string
+  scores: RedundancyScore[]
+  summary: RedundancySummary
+}
+
+// Workflow Graph Inspector types
+export interface WorkflowNode {
+  id: string
+  event_id: string
+  node_type: 'decision' | 'tool_call' | 'llm_request' | 'error' | 'checkpoint'
+  label: string
+  status: 'success' | 'failure' | 'pending'
+  duration_ms: number | null
+  token_count: number | null
+  timestamp: string
+  parent_id: string | null
+  metadata: Record<string, unknown> | null
+}
+
+export interface WorkflowEdge {
+  id: string
+  source_id: string
+  target_id: string
+  edge_type: 'data_flow' | 'control_flow' | 'dependency'
+  label: string | null
+}
+
+export interface WorkflowGraph {
+  session_id: string
+  nodes: WorkflowNode[]
+  edges: WorkflowEdge[]
+  metadata: Record<string, unknown> | null
+}
+
+export interface WorkflowGraphResponse {
+  graph: WorkflowGraph
+}
+
+// Causal Analysis types
+export type CausalRelationType =
+  | 'direct'
+  | 'temporal'
+  | 'dependency'
+  | 'failure_propagation'
+  | 'state_derivation'
+
+export interface CausalNode {
+  id: string
+  event_type: string
+  timestamp: string
+  name: string
+  parent_id: string | null
+  dependencies: string[]
+  is_failure: boolean
+  failure_type: string | null
+  causal_depth: number
+  metadata: Record<string, unknown>
+}
+
+export interface CausalEdge {
+  from_node: string
+  to_node: string
+  relation_type: CausalRelationType
+  strength: number
+  evidence: string | null
+}
+
+export interface CausalGraphStats {
+  total_nodes: number
+  total_edges: number
+  failure_count: number
+  max_depth: number
+}
+
+export interface CausalGraph {
+  nodes: CausalNode[]
+  edges: CausalEdge[]
+  root_cause_candidates: string[]
+  statistics: CausalGraphStats
+}
+
+export interface CriticalPathEvent {
+  sequence: number
+  event_id: string
+  event_type: string
+  name: string
+  is_failure: boolean
+  failure_type: string | null
+  timestamp: string
+}
+
+export interface WeakPoint {
+  event_id: string
+  weakness_type: string
+  description: string
+  position: number
+}
+
+export interface CriticalPathAnalysis {
+  failure_node_id: string
+  root_cause_found: boolean
+  root_cause_id: string | null
+  chain_length: number
+  critical_events: CriticalPathEvent[]
+  weak_points: WeakPoint[]
+  total_duration_seconds: number
+}
+
+export interface CausalAnalysisResponse {
+  session_id: string
+  causal_graph: CausalGraph
+  critical_paths: Record<string, CriticalPathAnalysis>
+  root_causes: CausalNode[]
 }

@@ -14,6 +14,8 @@ import { LiveDashboard } from './LiveDashboard'
 import { MultiAgentCoordinationPanelMemo } from './MultiAgentCoordinationPanel'
 import { ToolInspector } from './ToolInspector'
 import { CheckpointSnapshot } from './CheckpointSnapshot'
+import { ReasoningGraphPanelMemo } from './ReasoningGraphPanel'
+import { WorkflowGraphPanel } from './WorkflowGraphPanel'
 
 const SessionComparisonPanel = lazy(() =>
   import('./SessionComparisonPanel').then((m) => ({ default: m.SessionComparisonPanel })),
@@ -131,6 +133,19 @@ export function InspectView() {
 
           <div data-section="analysis" data-section-hidden={collapsedSections['analysis'] ? 'true' : 'false'}>
             <ErrorBoundary>
+              <section className="panel panel--primary">
+                <ReasoningGraphPanelMemo
+                  events={derived.mergedSessionEvents}
+                  tree={bundle?.tree ?? null}
+                  selectedEventId={selectedEventId}
+                  onSelectEvent={setSelectedEventId}
+                />
+              </section>
+
+              <section className="panel panel--primary">
+                {selectedSessionId && <WorkflowGraphPanel sessionId={selectedSessionId} />}
+              </section>
+
               <section className="panel panel--primary">
                 <div className="inspectors-grid">
                   <div className="inspector-wrapper">

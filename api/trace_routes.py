@@ -33,12 +33,15 @@ from api.schemas import (
     DriftAlertSchema,
     DriftResponseSchema,
     LiveSummaryResponse,
+    SafetyAnalysisResponse,
     TraceBundleResponse,
     TraceSearchResponse,
 )
 from api.services import (
     analyze_session,
+    analyze_session_safety_report,
     build_live_summary,
+    load_session_artifacts,
     normalize_checkpoint,
     normalize_event,
     normalize_session,
@@ -107,6 +110,34 @@ async def get_session_analysis(
     # Record analytics event (fire-and-forget)
     record_event("why_button_clicked", session_id=session_id)
     return AnalysisResponse(session_id=session_id, analysis=analysis)
+
+
+@router.get("/api/sessions/{session_id}/safety", response_model=SafetyAnalysisResponse)
+async def get_session_safety_analysis(
+    session_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> SafetyAnalysisResponse:
+    """Get predictive safety monitoring analysis for a session.
+
+    Returns a comprehensive safety report analyzing the session across
+    multiple dimensions: goal alignment, constraint adherence, and
+    reasoning coherence. Identifies potential safety violations
+    before they occur based on the SafetyDrift methodology.
+    """
+    await require_session(repo, session_id)
+    try:
+        events, _ = await load_session_artifacts(repo, session_id)
+        safety_data = analyze_session_safety_report(
+            events=events,
+            session_id=session_id,
+        )
+        await repo.commit()
+    except Exception:
+        await repo.rollback()
+        raise
+    # Record analytics event (fire-and-forget)
+    record_event("safety_analysis", session_id=session_id)
+    return SafetyAnalysisResponse(session_id=session_id, safety_report=safety_data["safety_report"])
 
 
 @router.get("/api/sessions/{session_id}/live", response_model=LiveSummaryResponse)

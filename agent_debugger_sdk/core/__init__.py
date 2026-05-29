@@ -1,5 +1,11 @@
 """SDK Core module - data models for agent tracing."""
 
+from agent_debugger_sdk.core.causal_tracer import (
+    CausalEdge,
+    CausalGraph,
+    CausalNode,
+    CausalRelationType,
+)
 from agent_debugger_sdk.core.context import TraceContext, get_current_context
 from agent_debugger_sdk.core.decorators import trace_agent, trace_llm, trace_tool
 from agent_debugger_sdk.core.events import (
@@ -19,6 +25,19 @@ from agent_debugger_sdk.core.events import (
     ToolCallEvent,
     ToolResultEvent,
     TraceEvent,
+)
+from agent_debugger_sdk.core.redundancy_scorer import (
+    RedundancyScore,
+    StepContribution,
+    calculate_session_redundancy_summary,
+    score_session,
+)
+from agent_debugger_sdk.core.safety_monitor import (
+    SafetyAlert,
+    SafetyDimension,
+    SafetyScore,
+    SessionSafetyReport,
+    analyze_session_safety,
 )
 from agent_debugger_sdk.core.scorer import ImportanceScorer, get_importance_scorer
 
@@ -46,4 +65,19 @@ __all__ = [
     "trace_agent",
     "trace_tool",
     "trace_llm",
+    "SafetyDimension",
+    "SafetyScore",
+    "SafetyAlert",
+    "SessionSafetyReport",
+    "analyze_session_safety",
+    # Redundancy scoring
+    "StepContribution",
+    "RedundancyScore",
+    "score_session",
+    "calculate_session_redundancy_summary",
+    # Causal analysis
+    "CausalNode",
+    "CausalEdge",
+    "CausalGraph",
+    "CausalRelationType",
 ]
