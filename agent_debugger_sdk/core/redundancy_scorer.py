@@ -46,11 +46,11 @@ def _event_has_error(event: TraceEvent) -> bool:
     """Check if event indicates an error occurred."""
     if event.event_type == EventType.ERROR:
         return True
-    if event.event_type == EventType.TOOL_RESULT and event.error:
+    if event.event_type == EventType.TOOL_RESULT and getattr(event, "error", None):
         return True
     if event.event_type == EventType.SAFETY_CHECK:
         outcome = str(getattr(event, "outcome", "pass"))
-        return outcome and outcome != "pass"
+        return bool(outcome and outcome != "pass")
     if event.event_type == EventType.REFUSAL:
         return True
     if event.event_type == EventType.POLICY_VIOLATION:
@@ -91,8 +91,8 @@ def _classify_step_contribution(
     if _event_has_error(event):
         if event.event_type == EventType.ERROR:
             return StepContribution.HARMFUL, "Runtime error that disrupted execution"
-        if event.event_type == EventType.TOOL_RESULT and event.error:
-            return StepContribution.HARMFUL, f"Tool execution failed: {event.error}"
+        if event.event_type == EventType.TOOL_RESULT and getattr(event, "error", None):
+            return StepContribution.HARMFUL, f"Tool execution failed: {getattr(event, 'error', 'unknown')}"
         if event.event_type == EventType.SAFETY_CHECK:
             return StepContribution.HARMFUL, "Safety check did not pass"
         if event.event_type == EventType.REFUSAL:
@@ -124,7 +124,7 @@ def _classify_step_contribution(
     if event.event_type == EventType.TOOL_CALL:
         return StepContribution.ESSENTIAL, "Tool invocation that performed external action"
 
-    if event.event_type == EventType.TOOL_RESULT and not event.error:
+    if event.event_type == EventType.TOOL_RESULT and not getattr(event, "error", None):
         return StepContribution.ESSENTIAL, "Tool result that provided data or completed action"
 
     # Check for downstream impact
