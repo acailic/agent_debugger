@@ -2070,7 +2070,11 @@ class TestClassifyCoverageLevel:
     """Tests for _classify_coverage_level helper."""
 
     def test_well_covered_with_ground_truth(self) -> None:
-        from agent_debugger_sdk.core.conformal_scorer import CoverageLevel, _classify_coverage_level, _compute_prediction_region
+        from agent_debugger_sdk.core.conformal_scorer import (
+            CoverageLevel,
+            _classify_coverage_level,
+            _compute_prediction_region,
+        )
 
         # Use even smaller uncertainty scale to get width <= 0.3
         region = _compute_prediction_region(predicted_value=0.5, confidence_level=0.9, uncertainty_scale=0.08)
@@ -2082,7 +2086,11 @@ class TestClassifyCoverageLevel:
         assert "well-calibrated" in reasoning.lower()
 
     def test_over_covered_wide_region(self) -> None:
-        from agent_debugger_sdk.core.conformal_scorer import CoverageLevel, _classify_coverage_level, _compute_prediction_region
+        from agent_debugger_sdk.core.conformal_scorer import (
+            CoverageLevel,
+            _classify_coverage_level,
+            _compute_prediction_region,
+        )
 
         region = _compute_prediction_region(predicted_value=0.5, confidence_level=0.9, uncertainty_scale=0.3)
         region.actual_value = 0.55
@@ -2093,7 +2101,11 @@ class TestClassifyCoverageLevel:
         assert "imprecise" in reasoning.lower()
 
     def test_under_covered_missed_prediction(self) -> None:
-        from agent_debugger_sdk.core.conformal_scorer import CoverageLevel, _classify_coverage_level, _compute_prediction_region
+        from agent_debugger_sdk.core.conformal_scorer import (
+            CoverageLevel,
+            _classify_coverage_level,
+            _compute_prediction_region,
+        )
 
         region = _compute_prediction_region(predicted_value=0.5, confidence_level=0.9, uncertainty_scale=0.1)
         region.actual_value = 0.8  # Far outside region
@@ -2104,7 +2116,11 @@ class TestClassifyCoverageLevel:
         assert "missed" in reasoning.lower()
 
     def test_unknown_without_ground_truth(self) -> None:
-        from agent_debugger_sdk.core.conformal_scorer import CoverageLevel, _classify_coverage_level, _compute_prediction_region
+        from agent_debugger_sdk.core.conformal_scorer import (
+            CoverageLevel,
+            _classify_coverage_level,
+            _compute_prediction_region,
+        )
 
         region = _compute_prediction_region(predicted_value=0.5, confidence_level=0.9, uncertainty_scale=0.15)
         # No ground truth set
@@ -2118,14 +2134,14 @@ class TestCalculateCalibrationScore:
     """Tests for _calculate_calibration_score helper."""
 
     def test_well_covered_high_score(self) -> None:
-        from agent_debugger_sdk.core.conformal_scorer import _calculate_calibration_score, CoverageLevel
+        from agent_debugger_sdk.core.conformal_scorer import CoverageLevel, _calculate_calibration_score
 
         region = _compute_prediction_region_mock(0.5, 0.6, 0.9, 0.55, True, 0.1)
         score = _calculate_calibration_score(region, CoverageLevel.WELL_COVERED)
         assert score >= 0.9
 
     def test_over_covered_lower_score(self) -> None:
-        from agent_debugger_sdk.core.conformal_scorer import _calculate_calibration_score, CoverageLevel
+        from agent_debugger_sdk.core.conformal_scorer import CoverageLevel, _calculate_calibration_score
 
         region = _compute_prediction_region_mock(0.2, 0.9, 0.9, 0.5, True, 0.7)
         score = _calculate_calibration_score(region, CoverageLevel.OVER_COVERED)
@@ -2133,14 +2149,14 @@ class TestCalculateCalibrationScore:
         assert 0.19 <= score <= 0.71
 
     def test_under_covered_low_score(self) -> None:
-        from agent_debugger_sdk.core.conformal_scorer import _calculate_calibration_score, CoverageLevel
+        from agent_debugger_sdk.core.conformal_scorer import CoverageLevel, _calculate_calibration_score
 
         region = _compute_prediction_region_mock(0.4, 0.6, 0.9, 0.8, False, 0.2)
         score = _calculate_calibration_score(region, CoverageLevel.UNDER_COVERED)
         assert score == 0.2
 
     def test_unknown_neutral_score(self) -> None:
-        from agent_debugger_sdk.core.conformal_scorer import _calculate_calibration_score, CoverageLevel
+        from agent_debugger_sdk.core.conformal_scorer import CoverageLevel, _calculate_calibration_score
 
         region = _compute_prediction_region_mock(0.4, 0.6, 0.9, None, False, 0.2)
         score = _calculate_calibration_score(region, CoverageLevel.UNKNOWN)
@@ -2199,7 +2215,7 @@ class TestScorePredictionConformality:
         assert scores[0].prediction_region.confidence_level == 0.99
 
     def test_ground_truth_updates_coverage(self) -> None:
-        from agent_debugger_sdk.core.conformal_scorer import score_prediction_conformality, CoverageLevel
+        from agent_debugger_sdk.core.conformal_scorer import score_prediction_conformality
 
         # Create a decision event with confidence and ground truth
         event = DecisionEvent(
@@ -2240,7 +2256,12 @@ class TestComputeCoverageStatistics:
         assert stats["coverage_rate"] == 0.0
 
     def test_statistics_keys(self) -> None:
-        from agent_debugger_sdk.core.conformal_scorer import compute_coverage_statistics, ConformalScore, CoverageLevel, PredictionRegion
+        from agent_debugger_sdk.core.conformal_scorer import (
+            ConformalScore,
+            CoverageLevel,
+            PredictionRegion,
+            compute_coverage_statistics,
+        )
 
         region = PredictionRegion(0.4, 0.6, 0.9, 0.5, True, 0.2)
         score = ConformalScore("e1", region, CoverageLevel.WELL_COVERED, 0.9, "good")
@@ -2256,7 +2277,12 @@ class TestComputeCoverageStatistics:
         assert "avg_region_width" in stats
 
     def test_counts_match_total(self) -> None:
-        from agent_debugger_sdk.core.conformal_scorer import compute_coverage_statistics, ConformalScore, CoverageLevel, PredictionRegion
+        from agent_debugger_sdk.core.conformal_scorer import (
+            ConformalScore,
+            CoverageLevel,
+            PredictionRegion,
+            compute_coverage_statistics,
+        )
 
         scores = [
             ConformalScore(f"e{i}", PredictionRegion(0.4, 0.6, 0.9, None, False, 0.2), CoverageLevel.WELL_COVERED, 0.9, "good")
@@ -2268,7 +2294,12 @@ class TestComputeCoverageStatistics:
         assert stats["well_covered_count"] + stats["under_covered_count"] + stats["over_covered_count"] + stats["unknown_count"] == 10
 
     def test_coverage_rate_with_ground_truth(self) -> None:
-        from agent_debugger_sdk.core.conformal_scorer import compute_coverage_statistics, ConformalScore, CoverageLevel, PredictionRegion
+        from agent_debugger_sdk.core.conformal_scorer import (
+            ConformalScore,
+            CoverageLevel,
+            PredictionRegion,
+            compute_coverage_statistics,
+        )
 
         # 5 covered, 5 not covered
         scores = []
@@ -2284,7 +2315,12 @@ class TestComputeCoverageStatistics:
         assert stats["coverage_rate"] == 0.5
 
     def test_coverage_rate_ignores_missing_truth(self) -> None:
-        from agent_debugger_sdk.core.conformal_scorer import compute_coverage_statistics, ConformalScore, CoverageLevel, PredictionRegion
+        from agent_debugger_sdk.core.conformal_scorer import (
+            ConformalScore,
+            CoverageLevel,
+            PredictionRegion,
+            compute_coverage_statistics,
+        )
 
         # Only 2 of 10 have ground truth (1 covered, 1 not)
         scores = []
@@ -2303,7 +2339,12 @@ class TestComputeCoverageStatistics:
         assert stats["coverage_rate"] == 0.5
 
     def test_average_width_computed(self) -> None:
-        from agent_debugger_sdk.core.conformal_scorer import compute_coverage_statistics, ConformalScore, CoverageLevel, PredictionRegion
+        from agent_debugger_sdk.core.conformal_scorer import (
+            ConformalScore,
+            CoverageLevel,
+            PredictionRegion,
+            compute_coverage_statistics,
+        )
 
         scores = [
             ConformalScore(f"e{i}", PredictionRegion(0.4, 0.6, 0.9, None, False, 0.2), CoverageLevel.WELL_COVERED, 0.9, "good")
@@ -2314,7 +2355,12 @@ class TestComputeCoverageStatistics:
         assert stats["avg_region_width"] == 0.2
 
     def test_mixed_coverage_levels(self) -> None:
-        from agent_debugger_sdk.core.conformal_scorer import compute_coverage_statistics, ConformalScore, CoverageLevel, PredictionRegion
+        from agent_debugger_sdk.core.conformal_scorer import (
+            ConformalScore,
+            CoverageLevel,
+            PredictionRegion,
+            compute_coverage_statistics,
+        )
 
         scores = [
             ConformalScore("e1", PredictionRegion(0.45, 0.55, 0.9, None, False, 0.1), CoverageLevel.WELL_COVERED, 0.95, "good"),
@@ -2379,9 +2425,9 @@ class TestErrorAttribution:
 
     def test_to_dict_fields(self) -> None:
         from agent_debugger_sdk.core.error_attribution import (
+            AttributionStrength,
             ErrorAttribution,
             FailureCategory,
-            AttributionStrength,
         )
 
         attr = ErrorAttribution(
@@ -2401,9 +2447,9 @@ class TestErrorAttribution:
 
     def test_to_dict_with_contributing_factors(self) -> None:
         from agent_debugger_sdk.core.error_attribution import (
+            AttributionStrength,
             ErrorAttribution,
             FailureCategory,
-            AttributionStrength,
         )
 
         attr = ErrorAttribution(
@@ -2427,9 +2473,9 @@ class TestFailureChain:
 
     def test_to_dict_fields(self) -> None:
         from agent_debugger_sdk.core.error_attribution import (
-            FailureChain,
-            FailureCategory,
             AttributionStrength,
+            FailureCategory,
+            FailureChain,
         )
 
         chain = FailureChain(
@@ -2501,7 +2547,7 @@ class TestClassifyFailureCategory:
         assert cat.value == "runtime_error"
 
     def test_refusal_is_guardrail_block(self) -> None:
-        from agent_debugger_sdk.core.error_attribution import _classify_failure_category, FailureCategory
+        from agent_debugger_sdk.core.error_attribution import FailureCategory, _classify_failure_category
 
         cat = _classify_failure_category(
             TraceEvent(id="ref", event_type=EventType.REFUSAL)
@@ -2509,7 +2555,7 @@ class TestClassifyFailureCategory:
         assert cat == FailureCategory.GUARDRAIL_BLOCK
 
     def test_policy_violation(self) -> None:
-        from agent_debugger_sdk.core.error_attribution import _classify_failure_category, FailureCategory
+        from agent_debugger_sdk.core.error_attribution import FailureCategory, _classify_failure_category
 
         cat = _classify_failure_category(
             TraceEvent(id="pv", event_type=EventType.POLICY_VIOLATION)
@@ -2517,7 +2563,7 @@ class TestClassifyFailureCategory:
         assert cat == FailureCategory.POLICY_VIOLATION
 
     def test_timeout_error(self) -> None:
-        from agent_debugger_sdk.core.error_attribution import _classify_failure_category, FailureCategory
+        from agent_debugger_sdk.core.error_attribution import FailureCategory, _classify_failure_category
 
         event = TraceEvent(
             id="timeout",
@@ -2528,7 +2574,7 @@ class TestClassifyFailureCategory:
         assert cat == FailureCategory.TIMEOUT
 
     def test_tool_error(self) -> None:
-        from agent_debugger_sdk.core.error_attribution import _classify_failure_category, FailureCategory
+        from agent_debugger_sdk.core.error_attribution import FailureCategory, _classify_failure_category
 
         event = TraceEvent(
             id="tool_err",
@@ -2543,7 +2589,7 @@ class TestCalculateAttributionStrength:
     """Tests for _calculate_attribution_strength helper."""
 
     def test_explicit_dependency_strong(self) -> None:
-        from agent_debugger_sdk.core.error_attribution import _calculate_attribution_strength, AttributionStrength
+        from agent_debugger_sdk.core.error_attribution import AttributionStrength, _calculate_attribution_strength
 
         chain = [
             TraceEvent(id="root", event_type=EventType.DECISION, timestamp=_NOW),
@@ -2559,7 +2605,7 @@ class TestCalculateAttributionStrength:
         assert strength in {AttributionStrength.WEAK, AttributionStrength.MODERATE}
 
     def test_no_chain_speculative(self) -> None:
-        from agent_debugger_sdk.core.error_attribution import _calculate_attribution_strength, AttributionStrength
+        from agent_debugger_sdk.core.error_attribution import AttributionStrength, _calculate_attribution_strength
 
         error = TraceEvent(id="err", event_type=EventType.ERROR, timestamp=_NOW)
         strength = _calculate_attribution_strength([], error)

@@ -15,6 +15,16 @@ from agent_debugger_sdk.core.conformal_scorer import (
 )
 from agent_debugger_sdk.core.context import TraceContext, get_current_context
 from agent_debugger_sdk.core.decorators import trace_agent, trace_llm, trace_tool
+from agent_debugger_sdk.core.error_attribution import (
+    AttributionStrength,
+    ErrorAttribution,
+    FailureCategory,
+    FailureChain,
+    analyze_failure_patterns,
+    attribute_errors,
+    build_failure_chain,
+    find_root_causes,
+)
 from agent_debugger_sdk.core.events import (
     AgentTurnEvent,
     BehaviorAlertEvent,
@@ -33,6 +43,26 @@ from agent_debugger_sdk.core.events import (
     ToolResultEvent,
     TraceEvent,
 )
+from agent_debugger_sdk.core.frame_tracer import (
+    ExceptionInfo,
+    FrameCaptureContext,
+    FrameCost,
+    FrameEvent,
+    FrameLifetimeTrace,
+    TokenUsage,
+    build_frame_tree,
+    capture_function_call,
+    filter_frames_by_name,
+    get_cost_breakdown,
+    get_frame_by_id,
+    get_frames_at_depth,
+)
+from agent_debugger_sdk.core.frame_tracer import (
+    from_dict as frame_from_dict,
+)
+from agent_debugger_sdk.core.frame_tracer import (
+    to_dict as frame_to_dict,
+)
 from agent_debugger_sdk.core.redundancy_scorer import (
     RedundancyScore,
     StepContribution,
@@ -45,32 +75,6 @@ from agent_debugger_sdk.core.safety_monitor import (
     SafetyScore,
     SessionSafetyReport,
     analyze_session_safety,
-)
-from agent_debugger_sdk.core.error_attribution import (
-    AttributionStrength,
-    ErrorAttribution,
-    FailureCategory,
-    FailureChain,
-    analyze_failure_patterns,
-    attribute_errors,
-    build_failure_chain,
-    find_root_causes,
-)
-from agent_debugger_sdk.core.frame_tracer import (
-    ExceptionInfo,
-    FrameCaptureContext,
-    FrameCost,
-    FrameEvent,
-    FrameLifetimeTrace,
-    TokenUsage,
-    build_frame_tree,
-    capture_function_call,
-    filter_frames_by_name,
-    from_dict as frame_from_dict,
-    get_cost_breakdown,
-    get_frame_by_id,
-    get_frames_at_depth,
-    to_dict as frame_to_dict,
 )
 from agent_debugger_sdk.core.scorer import ImportanceScorer, get_importance_scorer
 
