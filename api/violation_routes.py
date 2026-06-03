@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.params import Query as FastAPIQuery
 
 from agent_debugger_sdk.core.violation_detector import (
     cluster_sessions,
@@ -23,6 +24,24 @@ from api.services import (
 from storage import TraceRepository
 
 router = APIRouter(tags=["violations"])
+
+
+def _resolve_param(value: Any) -> Any:
+    """Resolve a parameter value, handling FastAPI Query objects.
+
+    When endpoints are called directly (not through HTTP), Query() defaults
+    are not resolved and remain as Query objects. This helper extracts the
+    actual default value in those cases.
+
+    Args:
+        value: The parameter value (might be a Query object)
+
+    Returns:
+        The actual value to use
+    """
+    if isinstance(value, FastAPIQuery):
+        return value.default
+    return value
 
 
 @router.post("/api/violations/cluster")
@@ -48,12 +67,16 @@ async def cluster_sessions_endpoint(
         Clustering results with session groups and outliers
     """
     # Load sessions
-    if session_ids:
-        sessions_to_load = session_ids
+    # Resolve parameters (handle Query objects from direct calls)
+    resolved_agent_name = _resolve_param(agent_name)
+    resolved_session_ids = _resolve_param(session_ids)
+
+    if resolved_session_ids is not None:
+        sessions_to_load = resolved_session_ids
     else:
         # List sessions, optionally filtered by agent
         all_sessions = await repo.list_sessions(
-            agent_name=agent_name,
+            agent_name=resolved_agent_name,
             limit=100,
         )
         sessions_to_load = [s.id for s in all_sessions]
@@ -123,12 +146,16 @@ async def search_violations_endpoint(
         Violation reports with supporting evidence from multiple traces
     """
     # Load sessions
-    if session_ids:
-        sessions_to_load = session_ids
+    # Resolve parameters (handle Query objects from direct calls)
+    resolved_agent_name = _resolve_param(agent_name)
+    resolved_session_ids = _resolve_param(session_ids)
+
+    if resolved_session_ids is not None:
+        sessions_to_load = resolved_session_ids
     else:
         # List sessions, optionally filtered by agent
         all_sessions = await repo.list_sessions(
-            agent_name=agent_name,
+            agent_name=resolved_agent_name,
             limit=100,
         )
         sessions_to_load = [s.id for s in all_sessions]
@@ -188,12 +215,16 @@ async def detect_sparse_failures_endpoint(
         Sparse failure patterns with cross-trace evidence
     """
     # Load sessions
-    if session_ids:
-        sessions_to_load = session_ids
+    # Resolve parameters (handle Query objects from direct calls)
+    resolved_agent_name = _resolve_param(agent_name)
+    resolved_session_ids = _resolve_param(session_ids)
+
+    if resolved_session_ids is not None:
+        sessions_to_load = resolved_session_ids
     else:
         # List sessions, optionally filtered by agent
         all_sessions = await repo.list_sessions(
-            agent_name=agent_name,
+            agent_name=resolved_agent_name,
             limit=100,
         )
         sessions_to_load = [s.id for s in all_sessions]
@@ -212,6 +243,8 @@ async def detect_sparse_failures_endpoint(
         return {
             "sparse_failures": [],
             "total_sessions_analyzed": 0,
+            "total_patterns_found": 0,
+            "min_occurrences": min_occurrences,
             "message": "No sessions available for analysis",
         }
 
@@ -269,9 +302,12 @@ async def get_violation_dashboard(
     Returns:
         Dashboard summary with violation statistics and trends
     """
+    # Resolve parameters
+    resolved_agent_name = _resolve_param(agent_name)
+
     # List sessions from recent time period
     all_sessions = await repo.list_sessions(
-        agent_name=agent_name,
+        agent_name=resolved_agent_name,
         limit=200,
     )
 
