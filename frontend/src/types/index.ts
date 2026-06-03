@@ -782,3 +782,244 @@ export interface CausalAnalysisResponse {
   critical_paths: Record<string, CriticalPathAnalysis>
   root_causes: CausalNode[]
 }
+
+// ============================================================================
+// Divergence Detection types (#184)
+// ============================================================================
+
+export type DivergenceType =
+  | 'structural'
+  | 'temporal'
+  | 'behavioral'
+  | 'state'
+  | 'error'
+  | 'performance'
+
+export type DivergenceSeverity = 'critical' | 'high' | 'medium' | 'low'
+
+export interface DivergencePoint {
+  divergence_type: DivergenceType
+  severity: DivergenceSeverity
+  primary_event_id: string | null
+  secondary_event_id: string | null
+  description: string
+  timestamp: string | null
+  divergence_score: number
+  metadata: Record<string, unknown>
+}
+
+export interface SessionComparison {
+  primary_session_id: string
+  secondary_session_id: string
+  divergence_points: DivergencePoint[]
+  overall_divergence_score: number
+  structural_similarity: number
+  temporal_similarity: number
+  behavioral_similarity: number
+  comparison_summary: Record<string, unknown>
+}
+
+export interface DivergenceAnalysisResponse {
+  primary_session_id: string
+  secondary_session_id: string
+  divergence_analysis: SessionComparison
+  primary_session: Session
+  secondary_session: Session
+}
+
+export interface StructuralDivergenceResponse {
+  primary_session_id: string
+  secondary_session_id: string
+  structural_comparison: {
+    primary_depth: number
+    secondary_depth: number
+    primary_branching_factor: number
+    secondary_branching_factor: number
+    event_type_distribution_primary: Record<string, number>
+    event_type_distribution_secondary: Record<string, number>
+    structural_similarity: number
+  }
+}
+
+export interface TemporalDivergenceResponse {
+  primary_session_id: string
+  secondary_session_id: string
+  temporal_analysis: {
+    primary_duration_seconds: number
+    secondary_duration_seconds: number
+    duration_difference_seconds: number
+    temporal_divergence_score: number
+    timing_differences: Array<{
+      type: string
+      time_difference_seconds: number
+      description: string
+    }>
+  }
+}
+
+export interface BehavioralDivergenceResponse {
+  primary_session_id: string
+  secondary_session_id: string
+  behavioral_analysis: {
+    primary_decision_count: number
+    secondary_decision_count: number
+    primary_tool_call_count: number
+    secondary_tool_call_count: number
+    decision_divergences: Array<{
+      index: number
+      primary_confidence: number
+      secondary_confidence: number
+      confidence_difference: number
+      description: string
+    }>
+    tool_divergences: Array<{
+      tool_name: string
+      tool_only_in_one: boolean
+      description: string
+    }>
+    behavioral_divergence_score: number
+  }
+}
+
+export interface BaselineDivergenceResponse {
+  session_id: string
+  baseline_session_id: string | null
+  divergence_analysis: SessionComparison | null
+  session: Session
+  baseline_session: Session | null
+  error?: string
+}
+
+export interface DivergenceSummaryResponse {
+  session_id: string
+  similar_sessions_count: number
+  divergence_summary: {
+    comparisons: Array<{
+      session_id: string
+      divergence_score: number
+      total_divergences: number
+      critical_divergences: number
+      similarity_scores: {
+        structural: number
+        temporal: number
+        behavioral: number
+      }
+    }>
+    average_divergence_score: number
+    most_similar_session: {
+      session_id: string
+      divergence_score: number
+      total_divergences: number
+      critical_divergences: number
+      similarity_scores: {
+        structural: number
+        temporal: number
+        behavioral: number
+      }
+    } | null
+    least_similar_session: {
+      session_id: string
+      divergence_score: number
+      total_divergences: number
+      critical_divergences: number
+      similarity_scores: {
+        structural: number
+        temporal: number
+        behavioral: number
+      }
+    } | null
+  } | null
+  message?: string
+}
+
+// ============================================================================
+// Reasoning Editor types (#192)
+// ============================================================================
+
+export type EditOperation = 'modify' | 'insert' | 'delete' | 'replace'
+
+export interface ReasoningEdit {
+  edit_id: string
+  operation: EditOperation
+  event_id: string
+  field_name: string
+  position: number
+  old_value: unknown
+  new_value: unknown
+  created_at: string
+}
+
+export interface ScenarioBranch {
+  branch_id: string
+  name: string
+  description: string
+  parent_event_id: string
+  edits: ReasoningEdit[]
+  original_session_id: string
+  created_at: string
+  replay_result: Record<string, unknown> | null
+}
+
+export interface HierarchicalReasoning {
+  topics: Array<{
+    title: string
+    content: string[]
+    subtopics: unknown[]
+  }>
+  raw: string
+}
+
+export interface ScenarioComparison {
+  branches: Array<{
+    id: string
+    name: string
+    description: string
+    edit_count: number
+    created_at: string
+  }>
+  differences: Array<{
+    branch_a: string
+    branch_b: string
+    edit_difference: number
+    shared_parent: boolean
+  }>
+  metrics: Record<string, unknown>
+}
+
+export interface ReasoningEditorResponse {
+  event_id: string
+  reasoning: string
+  hierarchical_reasoning: HierarchicalReasoning
+  available_edits: EditOperation[]
+  applied_edits: ReasoningEdit[]
+}
+
+export interface ScenarioResponse {
+  branch_id: string
+  name: string
+  description: string
+  parent_event_id: string
+  edits: ReasoningEdit[]
+  original_session_id: string
+  created_at: string
+  replay_result: Record<string, unknown> | null
+}
+
+export interface ScenarioListResponse {
+  session_id: string
+  scenarios: ScenarioBranch[]
+  total_scenarios: number
+}
+
+export interface EditResponse {
+  edit_id: string
+  operation: EditOperation
+  event_id: string
+  field_name: string
+  old_value: unknown
+  new_value: unknown
+  position: number
+  created_at: string
+  success: boolean
+  message?: string
+}

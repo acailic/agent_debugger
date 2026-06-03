@@ -1,7 +1,7 @@
 """Cross-session comparison API routes.
 
 Provides endpoints for comparing sessions with non-heuristic policy analysis
-and escalation detection.
+and escalation detection, plus divergence detection for #184.
 """
 
 from __future__ import annotations
@@ -11,6 +11,12 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
+from agent_debugger_sdk.core.divergence_detector import (
+    analyze_behavioral_divergence,
+    analyze_temporal_divergence,
+    compare_session_structures,
+    detect_divergences,
+)
 from agent_debugger_sdk.core.events import EventType
 from api.dependencies import get_repository
 from api.services import (
@@ -153,7 +159,8 @@ def _analyze_session_escalation(events: list[Any]) -> EscalationAnalysisResult:
         type_scores: dict[str, float] = {}
         for signal in signals:
             type_scores[signal.signal_type] = type_scores.get(signal.signal_type, 0.0) + signal.magnitude
-        dominant_type = max(type_scores, key=type_scores.get)
+        if type_scores:
+            dominant_type = max(type_scores.keys(), key=lambda k: type_scores[k])
 
     return EscalationAnalysisResult(
         signals=signals,
@@ -292,4 +299,307 @@ def _escalation_to_dict(analysis: EscalationAnalysisResult) -> dict[str, Any]:
         "signal_count": len(analysis.signals),
         "dominant_signal_type": analysis.dominant_signal_type,
         "signals": [s.to_dict() for s in analysis.signals[:10]],  # Limit to 10 for response
+    }
+
+
+# =============================================================================
+# Divergence Detection Endpoints (#184)
+# =============================================================================
+
+
+@router.get("/api/compare/{primary_id}/{secondary_id}/divergence")
+async def compare_session_divergence(
+    primary_id: str,
+    secondary_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> dict[str, Any]:
+    """Compare two sessions using divergence detection analysis.
+
+    This endpoint provides comprehensive divergence detection between sessions
+    including structural, temporal, and behavioral divergences.
+
+    Args:
+        primary_id: Primary session ID
+        secondary_id: Secondary session ID to compare against
+
+    Returns:
+        Divergence analysis with similarity scores and divergence points
+    """
+    # Load both sessions
+    primary_session = await require_session(repo, primary_id)
+    secondary_session = await require_session(repo, secondary_id)
+
+    # Load artifacts
+    primary_events, primary_checkpoints = await load_session_artifacts(repo, primary_id)
+    secondary_events, secondary_checkpoints = await load_session_artifacts(repo, secondary_id)
+
+    # Detect divergences
+    comparison = detect_divergences(
+        primary_events,
+        secondary_events,
+        primary_checkpoints,
+        secondary_checkpoints,
+    )
+
+    return {
+        "primary_session_id": primary_id,
+        "secondary_session_id": secondary_id,
+        "divergence_analysis": comparison.to_dict(),
+        "primary_session": normalize_session(primary_session).model_dump(),
+        "secondary_session": normalize_session(secondary_session).model_dump(),
+    }
+
+
+@router.get("/api/compare/{primary_id}/{secondary_id}/divergence/structural")
+async def compare_structural_divergence(
+    primary_id: str,
+    secondary_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> dict[str, Any]:
+    """Compare structural properties between two sessions.
+
+    Analyzes the structural differences including event tree depth,
+    branching factors, and event type distributions.
+
+    Args:
+        primary_id: Primary session ID
+        secondary_id: Secondary session ID to compare against
+
+    Returns:
+        Structural comparison metrics and similarity scores
+    """
+    # Load both sessions
+    await require_session(repo, primary_id)
+    await require_session(repo, secondary_id)
+
+    # Load events
+    primary_events, _ = await load_session_artifacts(repo, primary_id)
+    secondary_events, _ = await load_session_artifacts(repo, secondary_id)
+
+    # Compare structures
+    structural_comparison = compare_session_structures(primary_events, secondary_events)
+
+    return {
+        "primary_session_id": primary_id,
+        "secondary_session_id": secondary_id,
+        "structural_comparison": structural_comparison,
+    }
+
+
+@router.get("/api/compare/{primary_id}/{secondary_id}/divergence/temporal")
+async def compare_temporal_divergence(
+    primary_id: str,
+    secondary_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> dict[str, Any]:
+    """Compare temporal patterns between two sessions.
+
+    Analyzes timing differences, session duration, and temporal
+    execution patterns between sessions.
+
+    Args:
+        primary_id: Primary session ID
+        secondary_id: Secondary session ID to compare against
+
+    Returns:
+        Temporal analysis with timing differences and divergence scores
+    """
+    # Load both sessions
+    await require_session(repo, primary_id)
+    await require_session(repo, secondary_id)
+
+    # Load events
+    primary_events, _ = await load_session_artifacts(repo, primary_id)
+    secondary_events, _ = await load_session_artifacts(repo, secondary_id)
+
+    # Analyze temporal divergence
+    temporal_analysis = analyze_temporal_divergence(primary_events, secondary_events)
+
+    return {
+        "primary_session_id": primary_id,
+        "secondary_session_id": secondary_id,
+        "temporal_analysis": temporal_analysis,
+    }
+
+
+@router.get("/api/compare/{primary_id}/{secondary_id}/divergence/behavioral")
+async def compare_behavioral_divergence(
+    primary_id: str,
+    secondary_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> dict[str, Any]:
+    """Compare behavioral patterns between two sessions.
+
+    Analyzes differences in agent decisions, tool usage, and
+    behavioral patterns between sessions.
+
+    Args:
+        primary_id: Primary session ID
+        secondary_id: Secondary session ID to compare against
+
+    Returns:
+        Behavioral analysis with decision and tool usage divergences
+    """
+    # Load both sessions
+    await require_session(repo, primary_id)
+    await require_session(repo, secondary_id)
+
+    # Load events
+    primary_events, _ = await load_session_artifacts(repo, primary_id)
+    secondary_events, _ = await load_session_artifacts(repo, secondary_id)
+
+    # Analyze behavioral divergence
+    behavioral_analysis = analyze_behavioral_divergence(primary_events, secondary_events)
+
+    return {
+        "primary_session_id": primary_id,
+        "secondary_session_id": secondary_id,
+        "behavioral_analysis": behavioral_analysis,
+    }
+
+
+@router.get("/api/sessions/{session_id}/divergence/baseline")
+async def get_baseline_divergence(
+    session_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> dict[str, Any]:
+    """Get divergence analysis against a baseline session.
+
+    Compares the given session against a baseline (typically a successful
+    reference session) to identify divergences that may explain failures.
+
+    Args:
+        session_id: Session to analyze against baseline
+
+    Returns:
+        Divergence analysis comparing session to baseline
+    """
+    # Load session
+    session = await require_session(repo, session_id)
+
+    # Try to find baseline session (first successful session from same agent)
+    all_sessions = await repo.list_sessions(
+        agent_name=session.agent_name,
+        limit=100,
+    )
+    # Filter for completed sessions
+    baseline_sessions = [s for s in all_sessions if s.status.value == "completed"][:1]
+
+    if not baseline_sessions:
+        return {
+            "session_id": session_id,
+            "baseline_session_id": None,
+            "error": "No baseline session found for comparison",
+            "divergence_analysis": None,
+        }
+
+    baseline_session = baseline_sessions[0]
+    baseline_id = baseline_session.id
+
+    # Load artifacts
+    primary_events, primary_checkpoints = await load_session_artifacts(repo, session_id)
+    secondary_events, secondary_checkpoints = await load_session_artifacts(repo, baseline_id)
+
+    # Detect divergences
+    comparison = detect_divergences(
+        primary_events,
+        secondary_events,
+        primary_checkpoints,
+        secondary_checkpoints,
+    )
+
+    return {
+        "session_id": session_id,
+        "baseline_session_id": baseline_id,
+        "divergence_analysis": comparison.to_dict(),
+        "session": normalize_session(session).model_dump(),
+        "baseline_session": normalize_session(baseline_session).model_dump(),
+    }
+
+
+@router.get("/api/sessions/{session_id}/divergence/summary")
+async def get_divergence_summary(
+    session_id: str,
+    repo: TraceRepository = Depends(get_repository),
+    limit: int = 5,
+) -> dict[str, Any]:
+    """Get divergence summary comparing session to similar sessions.
+
+    Finds similar sessions and provides a summary of key divergences
+    that may explain behavioral differences.
+
+    Args:
+        session_id: Session to analyze
+        limit: Maximum number of similar sessions to compare against
+
+    Returns:
+        Summary of divergences across similar sessions
+    """
+    # Load session
+    session = await require_session(repo, session_id)
+
+    # Find similar sessions (same agent, recent)
+    similar_sessions = await repo.list_sessions(
+        agent_name=session.agent_name,
+        limit=limit + 1,  # +1 to exclude self
+    )
+
+    # Filter out the current session
+    similar_sessions = [s for s in similar_sessions if s.id != session_id][:limit]
+
+    if not similar_sessions:
+        return {
+            "session_id": session_id,
+            "similar_sessions_count": 0,
+            "divergence_summary": None,
+            "message": "No similar sessions found for comparison",
+        }
+
+    # Load current session events
+    current_events, current_checkpoints = await load_session_artifacts(repo, session_id)
+
+    # Compare with each similar session
+    divergence_comparisons = []
+    for similar_session in similar_sessions:
+        similar_events, similar_checkpoints = await load_session_artifacts(repo, similar_session.id)
+
+        comparison = detect_divergences(
+            current_events,
+            similar_events,
+            current_checkpoints,
+            similar_checkpoints,
+        )
+
+        divergence_comparisons.append({
+            "session_id": similar_session.id,
+            "divergence_score": comparison.overall_divergence_score,
+            "total_divergences": len(comparison.divergence_points),
+            "critical_divergences": len([
+                d for d in comparison.divergence_points
+                if d.severity.value == "critical"
+            ]),
+            "similarity_scores": {
+                "structural": comparison.structural_similarity,
+                "temporal": comparison.temporal_similarity,
+                "behavioral": comparison.behavioral_similarity,
+            },
+        })
+
+    return {
+        "session_id": session_id,
+        "similar_sessions_count": len(similar_sessions),
+        "divergence_summary": {
+            "comparisons": divergence_comparisons,
+            "average_divergence_score": sum(
+                c["divergence_score"] for c in divergence_comparisons
+            ) / len(divergence_comparisons) if divergence_comparisons else 0.0,
+            "most_similar_session": min(
+                divergence_comparisons,
+                key=lambda x: x["divergence_score"],
+            ) if divergence_comparisons else None,
+            "least_similar_session": max(
+                divergence_comparisons,
+                key=lambda x: x["divergence_score"],
+            ) if divergence_comparisons else None,
+        },
     }

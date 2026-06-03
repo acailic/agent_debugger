@@ -5,23 +5,35 @@ import type {
   AlertSummary,
   AlertTrendingPoint,
   AnalyticsResponse,
+  BaselineDivergenceResponse,
+  BehavioralDivergenceResponse,
   CausalAnalysisResponse,
   ComparisonResponse,
   CostSummary,
+  DivergenceAnalysisResponse,
+  DivergenceSummaryResponse,
   DriftResponse,
+  EditOperation,
   FixNoteResponse,
+  HierarchicalReasoning,
   LiveSummary,
   ManagedAlert,
+  ReasoningEdit,
   RedundancyAnalysisResponse,
   ReplayResponse,
   SafetyAnalysisResponse,
+  ScenarioBranch,
+  ScenarioComparison,
   SearchResponse,
   Session,
   SessionCost,
   SimilarFailuresResponse,
+  StructuralDivergenceResponse,
+  TemporalDivergenceResponse,
   TopSession,
   TraceAnalysis,
   TraceBundle,
+  TraceEvent,
   TraceSearchResponse,
   WorkflowGraphResponse,
 } from '../types'
@@ -577,4 +589,262 @@ export async function getWorkflowGraph(sessionId: string): Promise<WorkflowGraph
       endpoint: '/sessions/{session_id}/workflow-graph',
     }
   )
+}
+
+// ============================================================================
+// Divergence Detection API (#184)
+// ============================================================================
+
+export async function getDivergenceAnalysis(
+  primaryId: string,
+  secondaryId: string
+): Promise<DivergenceAnalysisResponse> {
+  return fetchJSON<DivergenceAnalysisResponse>(
+    `${API_BASE}/compare/${primaryId}/${secondaryId}/divergence`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return (
+          'primary_session_id' in v &&
+          'secondary_session_id' in v &&
+          'divergence_analysis' in v &&
+          typeof v.divergence_analysis === 'object' &&
+          v.divergence_analysis !== null
+        )
+      },
+      endpoint: '/compare/{primary_id}/{secondary_id}/divergence',
+    }
+  )
+}
+
+export async function getStructuralDivergence(
+  primaryId: string,
+  secondaryId: string
+): Promise<StructuralDivergenceResponse> {
+  return fetchJSON<StructuralDivergenceResponse>(
+    `${API_BASE}/compare/${primaryId}/${secondaryId}/divergence/structural`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return (
+          'primary_session_id' in v &&
+          'secondary_session_id' in v &&
+          'structural_comparison' in v &&
+          typeof v.structural_comparison === 'object' &&
+          v.structural_comparison !== null
+        )
+      },
+      endpoint: '/compare/{primary_id}/{secondary_id}/divergence/structural',
+    }
+  )
+}
+
+export async function getTemporalDivergence(
+  primaryId: string,
+  secondaryId: string
+): Promise<TemporalDivergenceResponse> {
+  return fetchJSON<TemporalDivergenceResponse>(
+    `${API_BASE}/compare/${primaryId}/${secondaryId}/divergence/temporal`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return (
+          'primary_session_id' in v &&
+          'secondary_session_id' in v &&
+          'temporal_analysis' in v &&
+          typeof v.temporal_analysis === 'object' &&
+          v.temporal_analysis !== null
+        )
+      },
+      endpoint: '/compare/{primary_id}/{secondary_id}/divergence/temporal',
+    }
+  )
+}
+
+export async function getBehavioralDivergence(
+  primaryId: string,
+  secondaryId: string
+): Promise<BehavioralDivergenceResponse> {
+  return fetchJSON<BehavioralDivergenceResponse>(
+    `${API_BASE}/compare/${primaryId}/${secondaryId}/divergence/behavioral`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return (
+          'primary_session_id' in v &&
+          'secondary_session_id' in v &&
+          'behavioral_analysis' in v &&
+          typeof v.behavioral_analysis === 'object' &&
+          v.behavioral_analysis !== null
+        )
+      },
+      endpoint: '/compare/{primary_id}/{secondary_id}/divergence/behavioral',
+    }
+  )
+}
+
+export async function getBaselineDivergence(
+  sessionId: string
+): Promise<BaselineDivergenceResponse> {
+  return fetchJSON<BaselineDivergenceResponse>(
+    `${API_BASE}/sessions/${sessionId}/divergence/baseline`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return 'session_id' in v
+      },
+      endpoint: '/sessions/{session_id}/divergence/baseline',
+    }
+  )
+}
+
+export async function getDivergenceSummary(
+  sessionId: string,
+  limit: number = 5
+): Promise<DivergenceSummaryResponse> {
+  return fetchJSON<DivergenceSummaryResponse>(
+    `${API_BASE}/sessions/${sessionId}/divergence/summary?limit=${limit}`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return 'session_id' in v
+      },
+      endpoint: '/sessions/{session_id}/divergence/summary',
+    }
+  )
+}
+
+// ============================================================================
+// Reasoning Editor API functions (#192)
+// ============================================================================
+
+export async function editReasoning(
+  sessionId: string,
+  eventId: string,
+  operation: EditOperation,
+  fieldName: string = 'reasoning',
+  newValue: unknown = null,
+  position: number = -1
+): Promise<{ session_id: string; edit: ReasoningEdit; modified_event: TraceEvent }> {
+  const url = `${API_BASE}/sessions/${sessionId}/reasoning/edit`
+  const response = await fetchWithRetry(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event_id: eventId,
+      operation,
+      field_name: fieldName,
+      new_value: newValue,
+      position
+    })
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json()
+}
+
+export async function createScenarioBranch(
+  sessionId: string,
+  name: string,
+  parentEventId: string,
+  description: string = '',
+  edits: Array<{ event_id: string; operation: EditOperation; field_name: string; new_value: unknown; position: number }> = []
+): Promise<{ session_id: string; branch: ScenarioBranch }> {
+  const url = `${API_BASE}/sessions/${sessionId}/reasoning/branch`
+  const response = await fetchWithRetry(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name,
+      parent_event_id: parentEventId,
+      description,
+      edits
+    })
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json()
+}
+
+export async function getReplayEvents(
+  sessionId: string,
+  fromEventId: string,
+  branchId: string | null = null,
+  includeBranchEdits: boolean = true
+): Promise<{ session_id: string; from_event_id: string; branch_id: string | null; replay_events: TraceEvent[]; replay_count: number }> {
+  const url = new URL(`${API_BASE}/sessions/${sessionId}/reasoning/replay`)
+  url.searchParams.append('from_event_id', fromEventId)
+  if (branchId) url.searchParams.append('branch_id', branchId)
+  url.searchParams.append('include_branch_edits', String(includeBranchEdits))
+
+  return fetchJSON(url.toString())
+}
+
+export async function getHierarchicalReasoning(
+  sessionId: string,
+  eventId: string
+): Promise<{ session_id: string; event_id: string; hierarchical_reasoning: HierarchicalReasoning }> {
+  return fetchJSON(
+    `${API_BASE}/sessions/${sessionId}/reasoning/hierarchical?event_id=${eventId}`
+  )
+}
+
+export async function listScenarios(
+  sessionId: string
+): Promise<{ session_id: string; scenarios: ScenarioBranch[]; total_count: number }> {
+  return fetchJSON(
+    `${API_BASE}/sessions/${sessionId}/reasoning/scenarios`
+  )
+}
+
+export async function getScenario(
+  sessionId: string,
+  branchId: string
+): Promise<{ session_id: string; branch: ScenarioBranch }> {
+  return fetchJSON(
+    `${API_BASE}/sessions/${sessionId}/reasoning/scenarios/${branchId}`
+  )
+}
+
+export async function compareScenarios(
+  sessionId: string,
+  branchIds: string[]
+): Promise<{ session_id: string; comparison: ScenarioComparison }> {
+  const url = new URL(`${API_BASE}/sessions/${sessionId}/reasoning/scenarios/compare`)
+  branchIds.forEach(id => url.searchParams.append('branch_ids', id))
+
+  return fetchJSON(url.toString())
+}
+
+export async function exportScenario(
+  sessionId: string,
+  branchId: string
+): Promise<{ session_id: string; exported_scenario: ScenarioBranch }> {
+  return fetchJSON(
+    `${API_BASE}/sessions/${sessionId}/reasoning/scenarios/${branchId}/export`
+  )
+}
+
+export async function importScenario(
+  sessionId: string,
+  scenarioData: Record<string, unknown>
+): Promise<{ session_id: string; imported_branch: ScenarioBranch }> {
+  const url = `${API_BASE}/sessions/${sessionId}/reasoning/scenarios/import`
+  const response = await fetchWithRetry(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(scenarioData)
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json()
 }

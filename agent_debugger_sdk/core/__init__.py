@@ -63,6 +63,13 @@ from agent_debugger_sdk.core.frame_tracer import (
 from agent_debugger_sdk.core.frame_tracer import (
     to_dict as frame_to_dict,
 )
+from agent_debugger_sdk.core.reasoning_editor import (
+    EditOperation,
+    EditableEvent,
+    ReasoningEdit,
+    ReasoningEditor,
+    ScenarioBranch,
+)
 from agent_debugger_sdk.core.redundancy_scorer import (
     RedundancyScore,
     StepContribution,
@@ -77,6 +84,16 @@ from agent_debugger_sdk.core.safety_monitor import (
     analyze_session_safety,
 )
 from agent_debugger_sdk.core.scorer import ImportanceScorer, get_importance_scorer
+from agent_debugger_sdk.core.divergence_detector import (
+    DivergencePoint,
+    DivergenceSeverity,
+    DivergenceType,
+    SessionComparison,
+    analyze_behavioral_divergence,
+    analyze_temporal_divergence,
+    compare_session_structures,
+    detect_divergences,
+)
 
 __all__ = [
     "EventType",
@@ -147,4 +164,19 @@ __all__ = [
     "get_cost_breakdown",
     "frame_to_dict",
     "frame_from_dict",
+    # Reasoning editing
+    "EditOperation",
+    "EditableEvent",
+    "ReasoningEdit",
+    "ReasoningEditor",
+    "ScenarioBranch",
+    # Divergence detection
+    "DivergenceType",
+    "DivergenceSeverity",
+    "DivergencePoint",
+    "SessionComparison",
+    "detect_divergences",
+    "compare_session_structures",
+    "analyze_temporal_divergence",
+    "analyze_behavioral_divergence",
 ]

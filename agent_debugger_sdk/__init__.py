@@ -34,6 +34,13 @@ from agent_debugger_sdk.core.events import (
     TraceEvent,
 )
 from agent_debugger_sdk.core.scorer import ImportanceScorer, get_importance_scorer
+from agent_debugger_sdk.core.reasoning_editor import (
+    EditOperation,
+    EditableEvent,
+    ReasoningEdit,
+    ReasoningEditor,
+    ScenarioBranch,
+)
 from agent_debugger_sdk.pricing import ModelPricing, calculate_cost, get_pricing
 from agent_debugger_sdk.simple import trace, trace_session
 
@@ -80,4 +87,10 @@ __all__ = [
     "ModelPricing",
     "get_pricing",
     "calculate_cost",
+    # Reasoning editing
+    "EditOperation",
+    "EditableEvent",
+    "ReasoningEdit",
+    "ReasoningEditor",
+    "ScenarioBranch",
 ]
