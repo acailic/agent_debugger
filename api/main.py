@@ -31,10 +31,13 @@ from api.replay_routes import router as replay_router
 from api.research_routes import router as research_router
 from api.search_routes import router as search_router
 from api.session_routes import router as session_router
+from api.stepper_routes import router as stepper_router
+from api.swimlane_routes import router as swimlane_router
 from api.system_routes import router as system_router
 from api.trace_routes import router as trace_router
 from api.ui_routes import DIST_PATH
 from api.ui_routes import router as ui_router
+from api.violation_routes import router as violation_router
 from collector.server import configure_storage
 from collector.server import router as collector_router
 from storage.engine import get_database_url, prepare_database
@@ -141,6 +144,9 @@ def create_app() -> FastAPI:
     app.include_router(reasoning_router)
     app.include_router(cross_session_router)
     app.include_router(research_router)
+    app.include_router(stepper_router)
+    app.include_router(swimlane_router)
+    app.include_router(violation_router)
     app.include_router(system_router)
     app.include_router(ui_router)
 

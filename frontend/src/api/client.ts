@@ -7,17 +7,27 @@ import type {
   AnalyticsResponse,
   BaselineDivergenceResponse,
   BehavioralDivergenceResponse,
+  BreakpointResponse,
+  BreakpointsResponse,
+  BreakpointType,
+  BranchResponse,
+  BranchesResponse,
   CausalAnalysisResponse,
   ComparisonResponse,
+  CoordinationAnalysisResponse,
   CostSummary,
   DivergenceAnalysisResponse,
   DivergenceSummaryResponse,
   DriftResponse,
   EditOperation,
+  EmergentBehaviorsResponse,
+  ExecutionContextResponse,
   FixNoteResponse,
   HierarchicalReasoning,
   LiveSummary,
   ManagedAlert,
+  MessageFlowsResponse,
+  MultiAgentAnalysisResponse,
   ReasoningEdit,
   RedundancyAnalysisResponse,
   ReplayResponse,
@@ -27,14 +37,24 @@ import type {
   SearchResponse,
   Session,
   SessionCost,
+  SessionEmbedding,
   SimilarFailuresResponse,
+  SimilarSession,
+  SparseFailurePattern,
+  StepAction,
+  StepperResponse,
+  StepperState,
+  StepperStateResponse,
   StructuralDivergenceResponse,
+  SwimlaneVisualizationResponse,
   TemporalDivergenceResponse,
   TopSession,
   TraceAnalysis,
   TraceBundle,
+  TraceCluster,
   TraceEvent,
   TraceSearchResponse,
+  ViolationReport,
   WorkflowGraphResponse,
 } from '../types'
 import { validateResponse, logValidationFailure, validators, ValidationError } from './validation'
@@ -847,4 +867,374 @@ export async function importScenario(
     throw new Error(`API error: ${response.status} ${response.statusText}`)
   }
   return response.json()
+}
+
+// =============================================================================
+// Agent Stepper API functions
+// =============================================================================
+
+export async function setBreakpoint(
+  sessionId: string,
+  breakpointType: BreakpointType,
+  conditionValue: unknown = null,
+  description: string = ''
+): Promise<BreakpointResponse> {
+  const url = new URL(`${API_BASE}/sessions/${sessionId}/breakpoints`)
+  url.searchParams.append('breakpoint_type', breakpointType)
+  if (conditionValue !== null) {
+    url.searchParams.append('condition_value', String(conditionValue))
+  }
+  if (description) {
+    url.searchParams.append('description', description)
+  }
+
+  const response = await fetchWithRetry(url.toString(), {
+    method: 'POST'
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json()
+}
+
+export async function clearBreakpoint(
+  sessionId: string,
+  breakpointId: string
+): Promise<{ session_id: string; success: boolean; stepper_state: StepperState }> {
+  const response = await fetchWithRetry(
+    `${API_BASE}/sessions/${sessionId}/breakpoints/${breakpointId}`,
+    { method: 'DELETE' }
+  )
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json()
+}
+
+export async function clearAllBreakpoints(
+  sessionId: string
+): Promise<{ session_id: string; success: boolean; breakpoints_cleared: number; stepper_state: StepperState }> {
+  const response = await fetchWithRetry(
+    `${API_BASE}/sessions/${sessionId}/breakpoints`,
+    { method: 'DELETE' }
+  )
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json()
+}
+
+export async function listBreakpoints(
+  sessionId: string
+): Promise<BreakpointsResponse> {
+  return fetchJSON(`${API_BASE}/sessions/${sessionId}/breakpoints`)
+}
+
+export async function stepExecution(
+  sessionId: string,
+  action: StepAction,
+  targetEventId: string | null = null
+): Promise<StepperResponse> {
+  const url = new URL(`${API_BASE}/sessions/${sessionId}/step`)
+  url.searchParams.append('action', action)
+  if (targetEventId) {
+    url.searchParams.append('target_event_id', targetEventId)
+  }
+
+  const response = await fetchWithRetry(url.toString(), {
+    method: 'POST'
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json()
+}
+
+export async function getStepperState(
+  sessionId: string
+): Promise<StepperStateResponse> {
+  return fetchJSON(`${API_BASE}/sessions/${sessionId}/state`)
+}
+
+export async function createBranch(
+  sessionId: string,
+  name: string,
+  parentEventId: string,
+  description: string = ''
+): Promise<BranchResponse> {
+  const url = new URL(`${API_BASE}/sessions/${sessionId}/branch`)
+  url.searchParams.append('name', name)
+  url.searchParams.append('parent_event_id', parentEventId)
+  if (description) {
+    url.searchParams.append('description', description)
+  }
+
+  const response = await fetchWithRetry(url.toString(), {
+    method: 'POST'
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json()
+}
+
+export async function listBranches(
+  sessionId: string
+): Promise<BranchesResponse> {
+  return fetchJSON(`${API_BASE}/sessions/${sessionId}/branches`)
+}
+
+export async function getBranch(
+  sessionId: string,
+  branchId: string
+): Promise<BranchResponse> {
+  return fetchJSON(`${API_BASE}/sessions/${sessionId}/branches/${branchId}`)
+}
+
+export async function deleteBranch(
+  sessionId: string,
+  branchId: string
+): Promise<{ session_id: string; branch_id: string; success: boolean }> {
+  const response = await fetchWithRetry(
+    `${API_BASE}/sessions/${sessionId}/branches/${branchId}`,
+    { method: 'DELETE' }
+  )
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json()
+}
+
+export async function resetStepper(
+  sessionId: string
+): Promise<{ session_id: string; success: boolean; stepper_state: StepperState }> {
+  const response = await fetchWithRetry(
+    `${API_BASE}/sessions/${sessionId}/stepper/reset`,
+    { method: 'POST' }
+  )
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json()
+}
+
+export async function getExecutionContext(
+  sessionId: string
+): Promise<ExecutionContextResponse> {
+  return fetchJSON(`${API_BASE}/sessions/${sessionId}/stepper/context`)
+}
+
+// ============================================================================
+// Multi-agent Swimlane Debugger API functions (#193)
+// ============================================================================
+
+export async function getSwimlaneVisualization(
+  sessionId: string
+): Promise<SwimlaneVisualizationResponse> {
+  return fetchJSON<SwimlaneVisualizationResponse>(
+    `${API_BASE}/sessions/${sessionId}/swimlane`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return (
+          'session_id' in v &&
+          'swimlane_data' in v &&
+          typeof v.swimlane_data === 'object' &&
+          v.swimlane_data !== null
+        )
+      },
+      endpoint: '/sessions/{session_id}/swimlane',
+    }
+  )
+}
+
+export async function getMessageFlows(
+  sessionId: string
+): Promise<MessageFlowsResponse> {
+  return fetchJSON<MessageFlowsResponse>(
+    `${API_BASE}/sessions/${sessionId}/messages`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return (
+          'session_id' in v &&
+          'message_flows' in v &&
+          'flow_summary' in v &&
+          Array.isArray(v.message_flows)
+        )
+      },
+      endpoint: '/sessions/{session_id}/messages',
+    }
+  )
+}
+
+export async function getCoordinationAnalysis(
+  sessionId: string
+): Promise<CoordinationAnalysisResponse> {
+  const response = await fetchWithRetry(
+    `${API_BASE}/sessions/${sessionId}/coordination-analysis`,
+    { method: 'POST' }
+  )
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json() as Promise<CoordinationAnalysisResponse>
+}
+
+export async function getEmergentBehaviors(
+  sessionId: string
+): Promise<EmergentBehaviorsResponse> {
+  const response = await fetchWithRetry(
+    `${API_BASE}/sessions/${sessionId}/emergent-behaviors`,
+    { method: 'POST' }
+  )
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json() as Promise<EmergentBehaviorsResponse>
+}
+
+export async function getMultiAgentAnalysis(
+  sessionId: string
+): Promise<MultiAgentAnalysisResponse> {
+  return fetchJSON<MultiAgentAnalysisResponse>(
+    `${API_BASE}/sessions/${sessionId}/multi-agent-analysis`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return (
+          'session_id' in v &&
+          'swimlane_data' in v &&
+          'coordination_analysis' in v &&
+          'emergent_behavior_analysis' in v
+        )
+      },
+      endpoint: '/sessions/{session_id}/multi-agent-analysis',
+    }
+  )
+}
+
+// ============================================================================
+// Violation Detection API functions (#194)
+// ============================================================================
+
+export async function clusterSessions(params: {
+  agentName?: string | null
+  sessionIds?: string[] | null
+  similarityThreshold?: number
+  minClusterSize?: number
+}): Promise<{
+  clusters: TraceCluster[]
+  global_outliers: string[]
+  total_sessions_analyzed: number
+  clustering_params: { similarity_threshold: number; min_cluster_size: number }
+}> {
+  const searchParams = new URLSearchParams()
+  if (params.agentName) searchParams.append('agent_name', params.agentName)
+  if (params.similarityThreshold !== undefined) searchParams.append('similarity_threshold', String(params.similarityThreshold))
+  if (params.minClusterSize !== undefined) searchParams.append('min_cluster_size', String(params.minClusterSize))
+  if (params.sessionIds) {
+    params.sessionIds.forEach(id => searchParams.append('session_ids', id))
+  }
+
+  const url = `${API_BASE}/violations/cluster${searchParams.toString() ? '?' + searchParams.toString() : ''}`
+  return fetchJSON(url)
+}
+
+export async function searchViolations(params: {
+  nlQuery: string
+  agentName?: string | null
+  sessionIds?: string[] | null
+  maxResults?: number
+}): Promise<{
+  violations: ViolationReport[]
+  query: string
+  total_sessions_searched: number
+  total_violations_found: number
+}> {
+  const searchParams = new URLSearchParams()
+  searchParams.append('nl_query', params.nlQuery)
+  if (params.agentName) searchParams.append('agent_name', params.agentName)
+  if (params.maxResults !== undefined) searchParams.append('max_results', String(params.maxResults))
+  if (params.sessionIds) {
+    params.sessionIds.forEach(id => searchParams.append('session_ids', id))
+  }
+
+  const url = `${API_BASE}/violations/search?${searchParams.toString()}`
+  return fetchJSON(url)
+}
+
+export async function detectSparseFailures(params: {
+  agentName?: string | null
+  sessionIds?: string[] | null
+  minOccurrences?: number
+}): Promise<{
+  sparse_failures: SparseFailurePattern[]
+  total_sessions_analyzed: number
+  total_patterns_found: number
+  min_occurrences: number
+}> {
+  const searchParams = new URLSearchParams()
+  if (params.agentName) searchParams.append('agent_name', params.agentName)
+  if (params.minOccurrences !== undefined) searchParams.append('min_occurrences', String(params.minOccurrences))
+  if (params.sessionIds) {
+    params.sessionIds.forEach(id => searchParams.append('session_ids', id))
+  }
+
+  const url = `${API_BASE}/violations/sparse${searchParams.toString() ? '?' + searchParams.toString() : ''}`
+  return fetchJSON(url)
+}
+
+export async function getViolationDashboard(params: {
+  agentName?: string | null
+  days?: number
+}): Promise<{
+  total_sessions_analyzed: number
+  violation_summary: {
+    by_type: Record<string, number>
+    by_severity: Record<string, number>
+    total_violations: number
+  }
+  cluster_summary: {
+    total_clusters: number
+    total_outliers: number
+    average_cluster_size: number
+  }
+  sparse_failure_summary: {
+    total_patterns: number
+    most_common_failure_types: Array<{ failure_type: string; occurrence_count: number }>
+  }
+  time_range_days: number
+}> {
+  const searchParams = new URLSearchParams()
+  if (params.agentName) searchParams.append('agent_name', params.agentName)
+  if (params.days !== undefined) searchParams.append('days', String(params.days))
+
+  const url = `${API_BASE}/violations/dashboard${searchParams.toString() ? '?' + searchParams.toString() : ''}`
+  return fetchJSON(url)
+}
+
+export async function getSessionEmbedding(sessionId: string): Promise<{
+  session_id: string
+  embedding: SessionEmbedding
+}> {
+  return fetchJSON(`${API_BASE}/violations/session/${sessionId}/embedding`)
+}
+
+export async function findSimilarSessions(params: {
+  sessionId: string
+  limit?: number
+}): Promise<{
+  reference_session_id: string
+  similar_sessions: SimilarSession[]
+  total_compared: number
+}> {
+  const searchParams = new URLSearchParams()
+  if (params.limit !== undefined) searchParams.append('limit', String(params.limit))
+
+  const url = `${API_BASE}/violations/session/${params.sessionId}/similar${searchParams.toString() ? '?' + searchParams.toString() : ''}`
+  return fetchJSON(url)
 }

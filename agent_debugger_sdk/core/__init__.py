@@ -15,6 +15,16 @@ from agent_debugger_sdk.core.conformal_scorer import (
 )
 from agent_debugger_sdk.core.context import TraceContext, get_current_context
 from agent_debugger_sdk.core.decorators import trace_agent, trace_llm, trace_tool
+from agent_debugger_sdk.core.divergence_detector import (
+    DivergencePoint,
+    DivergenceSeverity,
+    DivergenceType,
+    SessionComparison,
+    analyze_behavioral_divergence,
+    analyze_temporal_divergence,
+    compare_session_structures,
+    detect_divergences,
+)
 from agent_debugger_sdk.core.error_attribution import (
     AttributionStrength,
     ErrorAttribution,
@@ -64,8 +74,8 @@ from agent_debugger_sdk.core.frame_tracer import (
     to_dict as frame_to_dict,
 )
 from agent_debugger_sdk.core.reasoning_editor import (
-    EditOperation,
     EditableEvent,
+    EditOperation,
     ReasoningEdit,
     ReasoningEditor,
     ScenarioBranch,
@@ -84,15 +94,45 @@ from agent_debugger_sdk.core.safety_monitor import (
     analyze_session_safety,
 )
 from agent_debugger_sdk.core.scorer import ImportanceScorer, get_importance_scorer
-from agent_debugger_sdk.core.divergence_detector import (
-    DivergencePoint,
-    DivergenceSeverity,
-    DivergenceType,
-    SessionComparison,
-    analyze_behavioral_divergence,
-    analyze_temporal_divergence,
-    compare_session_structures,
-    detect_divergences,
+from agent_debugger_sdk.core.stepper import (
+    AgentStepper,
+    BranchPoint,
+    Breakpoint,
+    BreakpointType,
+    StepAction,
+    StepperState,
+    StepResult,
+)
+from agent_debugger_sdk.core.swimlane import (
+    CoordinationIssue,
+    CoordinationSeverity,
+    EmergentBehavior,
+    EmergentBehaviorType,
+    MessageFlow,
+    MessageFlowType,
+    MultiAgentSession,
+    SwimlaneLane,
+    analyze_multi_agent_session,
+    detect_coordination_issues,
+    detect_emergent_behaviors,
+    get_message_flows,
+    get_swimlane_data,
+)
+from agent_debugger_sdk.core.violation_detector import (
+    CrossTraceSearch,
+    SessionEmbedding,
+    SparseFailureDetector,
+    SparseFailurePattern,
+    TraceCluster,
+    TraceClusterer,
+    ViolationEvidence,
+    ViolationReport,
+    ViolationSeverity,
+    ViolationType,
+    cluster_sessions,
+    compute_session_embedding,
+    detect_sparse_failures,
+    search_violations_across_traces,
 )
 
 __all__ = [
@@ -179,4 +219,42 @@ __all__ = [
     "compare_session_structures",
     "analyze_temporal_divergence",
     "analyze_behavioral_divergence",
+    # Agent stepper
+    "BreakpointType",
+    "StepAction",
+    "Breakpoint",
+    "StepperState",
+    "StepResult",
+    "BranchPoint",
+    "AgentStepper",
+    # Multi-agent swimlane
+    "MessageFlowType",
+    "CoordinationIssue",
+    "CoordinationSeverity",
+    "EmergentBehaviorType",
+    "SwimlaneLane",
+    "MessageFlow",
+    "CoordinationIssue",
+    "EmergentBehavior",
+    "MultiAgentSession",
+    "analyze_multi_agent_session",
+    "detect_coordination_issues",
+    "detect_emergent_behaviors",
+    "get_swimlane_data",
+    "get_message_flows",
+    # Violation detection
+    "ViolationType",
+    "ViolationSeverity",
+    "ViolationEvidence",
+    "ViolationReport",
+    "TraceCluster",
+    "SessionEmbedding",
+    "SparseFailurePattern",
+    "TraceClusterer",
+    "CrossTraceSearch",
+    "SparseFailureDetector",
+    "cluster_sessions",
+    "search_violations_across_traces",
+    "detect_sparse_failures",
+    "compute_session_embedding",
 ]

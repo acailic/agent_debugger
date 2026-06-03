@@ -933,6 +933,132 @@ export interface DivergenceSummaryResponse {
 }
 
 // ============================================================================
+// Violation Detection types (#194)
+// ============================================================================
+
+export type ViolationType =
+  | 'outlier_behavior'
+  | 'sparse_failure'
+  | 'pattern_deviation'
+  | 'temporal_anomaly'
+  | 'resource_anomaly'
+  | 'safety_violation'
+
+export type ViolationSeverity = 'critical' | 'high' | 'medium' | 'low'
+
+export interface ViolationEvidence {
+  session_id: string
+  event_id: string | null
+  evidence_type: string
+  description: string
+  timestamp: string | null
+  confidence: number
+  metadata: Record<string, unknown>
+}
+
+export interface ViolationReport {
+  violation_id: string
+  violation_type: ViolationType
+  severity: ViolationSeverity
+  title: string
+  description: string
+  affected_sessions: string[]
+  evidence: ViolationEvidence[]
+  detected_at: string
+  metadata: Record<string, unknown>
+}
+
+export interface SessionEmbedding {
+  session_id: string
+  embedding_vector: number[]
+  feature_weights: Record<string, number>
+  summary_hash: string
+}
+
+export interface TraceCluster {
+  cluster_id: string
+  session_ids: string[]
+  centroid_embedding: SessionEmbedding | null
+  cluster_characteristics: Record<string, unknown>
+  outlier_session_ids: string[]
+}
+
+export interface SparseFailurePattern {
+  pattern_id: string
+  failure_type: string
+  description: string
+  required_sessions: number
+  session_ids: string[]
+  failure_points: Array<{
+    session_id: string
+    event_id: string | null
+    timestamp: string | null
+    error_type: string
+    error_message: string
+  }>
+  confidence: number
+}
+
+export interface ViolationClusterResponse {
+  clusters: TraceCluster[]
+  global_outliers: string[]
+  total_sessions_analyzed: number
+  clustering_params: {
+    similarity_threshold: number
+    min_cluster_size: number
+  }
+}
+
+export interface ViolationSearchResponse {
+  violations: ViolationReport[]
+  query: string
+  total_sessions_searched: number
+  total_violations_found: number
+}
+
+export interface SparseFailureResponse {
+  sparse_failures: SparseFailurePattern[]
+  total_sessions_analyzed: number
+  total_patterns_found: number
+  min_occurrences: number
+}
+
+export interface ViolationDashboardSummary {
+  total_sessions_analyzed: number
+  violation_summary: {
+    by_type: Record<string, number>
+    by_severity: Record<string, number>
+    total_violations: number
+  }
+  cluster_summary: {
+    total_clusters: number
+    total_outliers: number
+    average_cluster_size: number
+  }
+  sparse_failure_summary: {
+    total_patterns: number
+    most_common_failure_types: Array<{
+      failure_type: string
+      occurrence_count: number
+    }>
+  }
+  time_range_days: number
+}
+
+export interface SimilarSession {
+  session_id: string
+  agent_name: string
+  started_at: string | null
+  similarity_score: number
+}
+
+export interface SimilarSessionsResponse {
+  reference_session_id: string
+  similar_sessions: SimilarSession[]
+  total_compared: number
+}
+
+// ============================================================================
 // Reasoning Editor types (#192)
 // ============================================================================
 
@@ -1022,4 +1148,284 @@ export interface EditResponse {
   created_at: string
   success: boolean
   message?: string
+}
+
+// Agent Stepper types
+export type BreakpointType =
+  | 'event_type'
+  | 'tool_name'
+  | 'confidence_threshold'
+  | 'safety_outcome'
+  | 'custom_condition'
+  | 'event_id'
+
+export type StepAction =
+  | 'step_into'
+  | 'step_over'
+  | 'step_out'
+  | 'continue'
+  | 'run_to'
+
+export interface Breakpoint {
+  breakpoint_id: string
+  breakpoint_type: BreakpointType
+  condition_value: unknown
+  description: string
+  enabled: boolean
+  hit_count: number
+  created_at: string
+}
+
+export interface StepperState {
+  current_event_index: number
+  current_event_id: string
+  breakpoints: Breakpoint[]
+  step_history: Array<{
+    action: string
+    event_index: number
+    event_id: string
+    timestamp: string
+  }>
+  paused: boolean
+  completed: boolean
+}
+
+export interface StepResult {
+  success: boolean
+  current_event: TraceEvent | null
+  next_event: TraceEvent | null
+  breakpoint_hit: Breakpoint | null
+  state: StepperState | null
+  message: string
+}
+
+export interface BranchPoint {
+  branch_id: string
+  parent_event_id: string
+  name: string
+  description: string
+  created_at: string
+  replay_events_count: number
+  branch_result: Record<string, unknown> | null
+}
+
+export interface AgentState {
+  completed: boolean
+  current_position: number
+  total_events: number
+  current_event?: {
+    event_id: string
+    event_type: string
+    timestamp: string | null
+    name: string
+    data: Record<string, unknown>
+    parent_id: string | null
+    confidence?: number
+    reasoning?: string
+    tool_name?: string
+  }
+  events_count: number
+  breakpoints_active: number
+  paused: boolean
+}
+
+export interface StepperResponse {
+  session_id: string
+  step_result: StepResult
+}
+
+export interface StepperStateResponse {
+  session_id: string
+  agent_state: AgentState
+  stepper_state: StepperState
+}
+
+export interface BreakpointResponse {
+  session_id: string
+  breakpoint: Breakpoint
+  stepper_state: StepperState
+}
+
+export interface BreakpointsResponse {
+  session_id: string
+  breakpoints: Breakpoint[]
+}
+
+export interface BranchResponse {
+  session_id: string
+  branch: BranchPoint
+}
+
+export interface BranchesResponse {
+  session_id: string
+  branches: BranchPoint[]
+}
+
+export interface ExecutionContextResponse {
+  session_id: string
+  execution_context: {
+    state: StepperState
+    events_count: number
+    branches: BranchPoint[]
+    breakpoints: Breakpoint[]
+  }
+}
+
+// ============================================================================
+// Multi-agent Swimlane Debugger types (#193)
+// ============================================================================
+
+export type MessageFlowType =
+  | 'request'
+  | 'response'
+  | 'notification'
+  | 'synchronization'
+  | 'broadcast'
+  | 'delegation'
+
+export type CoordinationIssueType =
+  | 'deadlock'
+  | 'race_condition'
+  | 'communication_gap'
+  | 'circular_dependency'
+  | 'resource_conflict'
+  | 'inconsistent_state'
+  | 'timeout'
+
+export type CoordinationSeverity = 'critical' | 'high' | 'medium' | 'low'
+
+export type EmergentBehaviorType =
+  | 'collaborative_problem_solving'
+  | 'emergent_hierarchy'
+  | 'swarm_intelligence'
+  | 'adaptive_specialization'
+  | 'consensus_building'
+  | 'emergent_workflow'
+  | 'self_organization'
+
+export interface SwimlaneLane {
+  agent_id: string
+  agent_name: string
+  events: string[] // Event IDs for serialization
+  event_count: number
+  start_time: string | null
+  end_time: string | null
+  duration_seconds: number
+  color: string
+  metadata: Record<string, unknown>
+}
+
+export interface MessageFlow {
+  flow_id: string
+  from_agent_id: string
+  to_agent_id: string
+  flow_type: MessageFlowType
+  event_id: string
+  timestamp: string | null
+  description: string
+  metadata: Record<string, unknown>
+}
+
+export interface CoordinationIssue {
+  issue_id: string
+  issue_type: CoordinationIssueType
+  severity: CoordinationSeverity
+  involved_agents: string[]
+  event_ids: string[]
+  description: string
+  timestamp: string
+  suggestion: string
+  metadata: Record<string, unknown>
+}
+
+export interface EmergentBehavior {
+  behavior_id: string
+  behavior_type: EmergentBehaviorType
+  confidence: number
+  involved_agents: string[]
+  event_ids: string[]
+  description: string
+  timestamp: string
+  pattern_description: string
+  metadata: Record<string, unknown>
+}
+
+export interface MultiAgentSession {
+  session_id: string
+  lanes: Record<string, SwimlaneLane>
+  message_flows: MessageFlow[]
+  start_time: string | null
+  end_time: string | null
+  duration_seconds: number
+  agent_count: number
+  total_event_count: number
+  coordination_issues: CoordinationIssue[]
+  emergent_behaviors: EmergentBehavior[]
+  metadata: Record<string, unknown>
+}
+
+export interface SwimlaneVisualizationResponse {
+  session_id: string
+  swimlane_data: MultiAgentSession
+}
+
+export interface MessageFlowSummary {
+  total_flows: number
+  flow_types: Record<string, number>
+  agent_pairs: Record<string, number>
+  most_active_pair: {
+    pair: string | null
+    count: number
+  } | null
+}
+
+export interface MessageFlowsResponse {
+  session_id: string
+  message_flows: MessageFlow[]
+  flow_summary: MessageFlowSummary
+}
+
+export interface CoordinationSummary {
+  total_issues: number
+  by_severity: Record<string, number>
+  by_type: Record<string, number>
+  critical_issues: CoordinationIssue[]
+}
+
+export interface CoordinationAnalysisResponse {
+  session_id: string
+  coordination_issues: CoordinationIssue[]
+  summary: CoordinationSummary
+}
+
+export interface EmergentBehaviorSummary {
+  total_behaviors: number
+  by_type: Record<string, number>
+  high_confidence_behaviors: EmergentBehavior[]
+  avg_confidence: number
+}
+
+export interface EmergentBehaviorsResponse {
+  session_id: string
+  emergent_behaviors: EmergentBehavior[]
+  summary: EmergentBehaviorSummary
+}
+
+export interface MultiAgentAnalysisResponse {
+  session_id: string
+  session_info: {
+    agent_name: string
+    framework: string
+    started_at: string
+    status: string
+  }
+  swimlane_data: MultiAgentSession
+  coordination_analysis: {
+    issues: CoordinationIssue[]
+    summary: CoordinationSummary
+  }
+  emergent_behavior_analysis: {
+    behaviors: EmergentBehavior[]
+    summary: EmergentBehaviorSummary
+  }
 }
