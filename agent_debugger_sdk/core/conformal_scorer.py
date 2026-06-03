@@ -121,10 +121,29 @@ def _compute_prediction_region(
     """
     # Use conformal prediction approach: create interval around prediction
     # Width scales with requested confidence level
-    from scipy.stats import norm
+    try:
+        from scipy.stats import norm
 
-    # Get z-score for confidence level
-    z_score = norm.ppf(1 - (1 - confidence_level) / 2)
+        z_score = norm.ppf(1 - (1 - confidence_level) / 2)
+    except ImportError:
+        # Fallback: approximate z-scores for common confidence levels
+        _Z_SCORES: dict[float, float] = {
+            0.50: 0.674, 0.60: 0.842, 0.70: 1.036, 0.80: 1.282,
+            0.90: 1.645, 0.95: 1.960, 0.99: 2.576, 0.999: 3.291,
+        }
+        # Interpolate for intermediate values
+        if confidence_level in _Z_SCORES:
+            z_score = _Z_SCORES[confidence_level]
+        else:
+            sorted_levels = sorted(_Z_SCORES)
+            for i in range(len(sorted_levels) - 1):
+                lo, hi = sorted_levels[i], sorted_levels[i + 1]
+                if lo <= confidence_level <= hi:
+                    t = (confidence_level - lo) / (hi - lo)
+                    z_score = _Z_SCORES[lo] * (1 - t) + _Z_SCORES[hi] * t
+                    break
+            else:
+                z_score = 1.96  # default to 95%
 
     # Compute interval bounds
     margin = z_score * uncertainty_scale
