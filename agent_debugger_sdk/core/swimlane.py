@@ -35,7 +35,7 @@ __all__ = [
     "EmergentBehaviorType",
     "SwimlaneLane",
     "MessageFlow",
-    "CoordinationIssue",
+    "IssueReport",
     "EmergentBehavior",
     "MultiAgentSession",
     "CoordinationAnalyzer",
@@ -188,7 +188,7 @@ class MessageFlow:
 
 
 @dataclass(kw_only=True)
-class CoordinationIssue:
+class IssueReport:
     """Represents a coordination issue detected in multi-agent interaction.
 
     Attributes:
@@ -289,7 +289,7 @@ class MultiAgentSession:
     message_flows: list[MessageFlow] = field(default_factory=list)
     start_time: datetime | None = None
     end_time: datetime | None = None
-    coordination_issues: list[CoordinationIssue] = field(default_factory=list)
+    coordination_issues: list[IssueReport] = field(default_factory=list)
     emergent_behaviors: list[EmergentBehavior] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -356,9 +356,9 @@ class CoordinationAnalyzer:
             session: Multi-agent session to analyze
         """
         self.session = session
-        self.issues: list[CoordinationIssue] = []
+        self.issues: list[IssueReport] = []
 
-    def analyze(self) -> list[CoordinationIssue]:
+    def analyze(self) -> list[IssueReport]:
         """Run full coordination analysis.
 
         Returns:
@@ -416,7 +416,7 @@ class CoordinationAnalyzer:
                 if has_cycle(agent_id):
                     # Found deadlock
                     involved = list(agent_wait_graph.keys())
-                    issue = CoordinationIssue(
+                    issue = IssueReport(
                         issue_type=CoordinationIssue.DEADLOCK,
                         severity=CoordinationSeverity.CRITICAL,
                         involved_agents=involved,
@@ -441,7 +441,7 @@ class CoordinationAnalyzer:
 
         for agent_id, requests in pending_requests.items():
             if len(requests) > 2:  # Threshold for gap detection
-                issue = CoordinationIssue(
+                issue = IssueReport(
                     issue_type=CoordinationIssue.COMMUNICATION_GAP,
                     severity=CoordinationSeverity.HIGH,
                     involved_agents=[agent_id],
@@ -479,7 +479,7 @@ class CoordinationAnalyzer:
                 if agent_id in next_deps:
                     # Found circular dependency
                     involved = list(visited_in_path)
-                    issue = CoordinationIssue(
+                    issue = IssueReport(
                         issue_type=CoordinationIssue.CIRCULAR_DEPENDENCY,
                         severity=CoordinationSeverity.MEDIUM,
                         involved_agents=involved,
@@ -504,7 +504,7 @@ class CoordinationAnalyzer:
         for resource, agents in resource_usage.items():
             if len(agents) > 1:
                 # Multiple agents accessing same resource
-                issue = CoordinationIssue(
+                issue = IssueReport(
                     issue_type=CoordinationIssue.RESOURCE_CONFLICT,
                     severity=CoordinationSeverity.MEDIUM,
                     involved_agents=agents,
@@ -525,7 +525,7 @@ class CoordinationAnalyzer:
                         # Check if response came within threshold
                         response_time = _find_response_time(event, self.session.lanes[target_agent].events)
                         if response_time and response_time > TIMEOUT_THRESHOLD_SECONDS:
-                            issue = CoordinationIssue(
+                            issue = IssueReport(
                                 issue_type=CoordinationIssue.TIMEOUT,
                                 severity=CoordinationSeverity.HIGH,
                                 involved_agents=[lane.agent_id, target_agent],
@@ -550,7 +550,7 @@ class CoordinationAnalyzer:
                             if other_agent != lane.agent_id:
                                 conflicts = _compare_states(state, other_state)
                                 if conflicts:
-                                    issue = CoordinationIssue(
+                                    issue = IssueReport(
                                         issue_type=CoordinationIssue.INCONSISTENT_STATE,
                                         severity=CoordinationSeverity.MEDIUM,
                                         involved_agents=[lane.agent_id, other_agent],
@@ -776,7 +776,7 @@ def analyze_multi_agent_session(events: list[TraceEvent]) -> MultiAgentSession:
     return multi_session
 
 
-def detect_coordination_issues(session: MultiAgentSession) -> list[CoordinationIssue]:
+def detect_coordination_issues(session: MultiAgentSession) -> list[IssueReport]:
     """Detect coordination issues in a multi-agent session.
 
     Args:
@@ -860,13 +860,31 @@ def _extract_agent_name(event: TraceEvent) -> str | None:
 
 def _extract_target_agent(event: TraceEvent) -> str | None:
     """Extract target agent from tool call event."""
+    # First check explicit data field
+    target = event.data.get("target_agent")
+    if target:
+        return target
+
     tool_name = getattr(event, "tool_name", None) or event.data.get("tool_name")
     if tool_name:
-        # Check if tool name contains agent reference
-        for agent_id in ["agent", "bot", "worker", "specialist"]:
-            if agent_id in tool_name.lower():
+        # Try to extract agent ID from tool name using patterns
+        # Patterns like: "delegate_to_agent_2", "request_agent_1", "call_agent_X"
+        tool_lower = tool_name.lower()
+
+        # Look for agent_ID pattern (agent_ followed by number/identifier)
+        import re
+        agent_match = re.search(r'agent_(\d+|[a-z]+)', tool_lower)
+        if agent_match:
+            agent_id = f"agent_{agent_match.group(1)}"
+            return agent_id
+
+        # Check for keywords and try to extract what follows
+        for keyword in ["agent", "bot", "worker", "specialist"]:
+            if keyword in tool_lower:
+                # Return the tool_name as fallback
                 return tool_name
-    return event.data.get("target_agent")
+
+    return None
 
 
 def _extract_delegated_agent(event: TraceEvent) -> str | None:

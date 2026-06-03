@@ -1,171 +1,221 @@
 """Tests for stepper API routes."""
 
+from __future__ import annotations
+
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client():
-    """Create a test client."""
-    return TestClient(app)
+from api.main import create_app
 
 
-@pytest.fixture
-def sample_session_id():
-    """Sample session ID for testing."""
-    return "test_session_123"
-
-
-class TestStepperRoutes:
-    """Test suite for stepper API routes."""
-
-    def test_set_breakpoint(self, client, sample_session_id):
-        """Test setting a breakpoint."""
-        response = client.post(
-            f"/api/sessions/{sample_session_id}/breakpoints",
+@pytest.mark.asyncio
+async def test_set_breakpoint():
+    """Test setting a breakpoint."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/api/sessions/test_session_123/breakpoints",
             params={
                 "breakpoint_type": "event_type",
                 "condition_value": "decision",
                 "description": "Break on decisions",
             },
         )
-
         # Will return 404 if session doesn't exist, but we test the endpoint structure
         assert response.status_code in [200, 404]
 
-    def test_clear_breakpoint(self, client, sample_session_id):
-        """Test clearing a breakpoint."""
+
+@pytest.mark.asyncio
+async def test_clear_breakpoint():
+    """Test clearing a breakpoint."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        session_id = "test_session_123"
         breakpoint_id = "test_breakpoint_123"
 
-        response = client.delete(f"/api/sessions/{sample_session_id}/breakpoints/{breakpoint_id}")
-
+        response = await client.delete(f"/api/sessions/{session_id}/breakpoints/{breakpoint_id}")
         assert response.status_code in [200, 404]
 
-    def test_clear_all_breakpoints(self, client, sample_session_id):
-        """Test clearing all breakpoints."""
-        response = client.delete(f"/api/sessions/{sample_session_id}/breakpoints")
 
+@pytest.mark.asyncio
+async def test_clear_all_breakpoints():
+    """Test clearing all breakpoints."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.delete("/api/sessions/test_session_123/breakpoints")
         assert response.status_code in [200, 404]
 
-    def test_list_breakpoints(self, client, sample_session_id):
-        """Test listing breakpoints."""
-        response = client.get(f"/api/sessions/{sample_session_id}/breakpoints")
 
+@pytest.mark.asyncio
+async def test_list_breakpoints():
+    """Test listing breakpoints."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/api/sessions/test_session_123/breakpoints")
         assert response.status_code in [200, 404]
 
-    def test_step_execution(self, client, sample_session_id):
-        """Test stepping through execution."""
-        response = client.post(
-            f"/api/sessions/{sample_session_id}/step",
+
+@pytest.mark.asyncio
+async def test_step_execution():
+    """Test stepping through execution."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/api/sessions/test_session_123/step",
             params={"action": "step_into"},
         )
-
         assert response.status_code in [200, 404]
 
-    def test_step_with_target(self, client, sample_session_id):
-        """Test stepping to specific event."""
-        response = client.post(
-            f"/api/sessions/{sample_session_id}/step",
+
+@pytest.mark.asyncio
+async def test_step_with_target():
+    """Test stepping to specific event."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/api/sessions/test_session_123/step",
             params={"action": "run_to", "target_event_id": "event_123"},
         )
-
         assert response.status_code in [200, 404]
 
-    def test_get_stepper_state(self, client, sample_session_id):
-        """Test getting stepper state."""
-        response = client.get(f"/api/sessions/{sample_session_id}/state")
 
+@pytest.mark.asyncio
+async def test_get_stepper_state():
+    """Test getting stepper state."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/api/sessions/test_session_123/state")
         assert response.status_code in [200, 404]
 
-    def test_create_branch(self, client, sample_session_id):
-        """Test creating a branch."""
-        response = client.post(
-            f"/api/sessions/{sample_session_id}/branch",
+
+@pytest.mark.asyncio
+async def test_create_branch():
+    """Test creating a branch."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/api/sessions/test_session_123/branch",
             params={
                 "name": "Test Branch",
                 "parent_event_id": "event_123",
                 "description": "Test branch description",
             },
         )
-
         assert response.status_code in [200, 404]
 
-    def test_list_branches(self, client, sample_session_id):
-        """Test listing branches."""
-        response = client.get(f"/api/sessions/{sample_session_id}/branches")
 
+@pytest.mark.asyncio
+async def test_list_branches():
+    """Test listing branches."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/api/sessions/test_session_123/branches")
         assert response.status_code in [200, 404]
 
-    def test_get_branch(self, client, sample_session_id):
-        """Test getting a specific branch."""
+
+@pytest.mark.asyncio
+async def test_get_branch():
+    """Test getting a specific branch."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        session_id = "test_session_123"
         branch_id = "test_branch_123"
 
-        response = client.get(f"/api/sessions/{sample_session_id}/branches/{branch_id}")
-
+        response = await client.get(f"/api/sessions/{session_id}/branches/{branch_id}")
         assert response.status_code in [200, 404]
 
-    def test_delete_branch(self, client, sample_session_id):
-        """Test deleting a branch."""
+
+@pytest.mark.asyncio
+async def test_delete_branch():
+    """Test deleting a branch."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        session_id = "test_session_123"
         branch_id = "test_branch_123"
 
-        response = client.delete(f"/api/sessions/{sample_session_id}/branches/{branch_id}")
-
-        assert response.status_code in [200, 404]
-
-    def test_reset_stepper(self, client, sample_session_id):
-        """Test resetting stepper."""
-        response = client.post(f"/api/sessions/{sample_session_id}/stepper/reset")
-
-        assert response.status_code in [200, 404]
-
-    def test_get_execution_context(self, client, sample_session_id):
-        """Test getting execution context."""
-        response = client.get(f"/api/sessions/{sample_session_id}/stepper/context")
-
+        response = await client.delete(f"/api/sessions/{session_id}/branches/{branch_id}")
         assert response.status_code in [200, 404]
 
 
-class TestStepperRouteIntegration:
-    """Integration tests for stepper routes with sample data."""
+@pytest.mark.asyncio
+async def test_reset_stepper():
+    """Test resetting stepper."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post("/api/sessions/test_session_123/stepper/reset")
+        assert response.status_code in [200, 404]
 
-    def test_breakpoint_workflow(self, client):
-        """Test complete breakpoint workflow."""
-        # This would require actual session data to be meaningful
-        # For now, we test endpoint availability
+
+@pytest.mark.asyncio
+async def test_get_execution_context():
+    """Test getting execution context."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/api/sessions/test_session_123/stepper/context")
+        assert response.status_code in [200, 404]
+
+
+@pytest.mark.asyncio
+async def test_breakpoint_workflow():
+    """Test complete breakpoint workflow."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
         session_id = "workflow_test_session"
 
         # Set breakpoint
-        response = client.post(
+        await client.post(
             f"/api/sessions/{session_id}/breakpoints",
             params={"breakpoint_type": "event_type", "condition_value": "decision"},
         )
 
         # List breakpoints
-        response = client.get(f"/api/sessions/{session_id}/breakpoints")
+        response = await client.get(f"/api/sessions/{session_id}/breakpoints")
         assert response.status_code in [200, 404]
 
-    def test_step_workflow(self, client):
-        """Test step execution workflow."""
+
+@pytest.mark.asyncio
+async def test_step_workflow():
+    """Test step execution workflow."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
         session_id = "step_test_session"
 
         # Try different step actions
         actions = ["step_into", "step_over", "step_out", "continue"]
 
         for action in actions:
-            response = client.post(
+            response = await client.post(
                 f"/api/sessions/{session_id}/step",
                 params={"action": action},
             )
             assert response.status_code in [200, 404]
 
-    def test_branch_workflow(self, client):
-        """Test branch management workflow."""
+
+@pytest.mark.asyncio
+async def test_branch_workflow():
+    """Test branch management workflow."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
         session_id = "branch_test_session"
 
         # Create branch
-        response = client.post(
+        await client.post(
             f"/api/sessions/{session_id}/branch",
             params={
                 "name": "Test Branch",
@@ -174,11 +224,11 @@ class TestStepperRouteIntegration:
         )
 
         # List branches
-        response = client.get(f"/api/sessions/{session_id}/branches")
+        response = await client.get(f"/api/sessions/{session_id}/branches")
         assert response.status_code in [200, 404]
 
         # Delete branch (if it was created)
         # This would need the actual branch_id from creation response
         branch_id = "test_branch_123"
-        response = client.delete(f"/api/sessions/{session_id}/branches/{branch_id}")
+        response = await client.delete(f"/api/sessions/{session_id}/branches/{branch_id}")
         assert response.status_code in [200, 404]

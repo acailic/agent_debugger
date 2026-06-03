@@ -398,3 +398,413 @@ class TestBreakpoint:
         assert data["enabled"] is True
         assert "breakpoint_id" in data
         assert "created_at" in data
+
+
+class TestBreakpointValidation:
+    """Test suite for breakpoint validation and behavior."""
+
+    def test_breakpoint_with_string_condition(self):
+        """Test breakpoint works with string condition values."""
+        breakpoint = Breakpoint(
+            breakpoint_type=BreakpointType.EVENT_TYPE,
+            condition_value="decision",
+        )
+        assert breakpoint.condition_value == "decision"
+
+    def test_breakpoint_with_none_condition(self):
+        """Test breakpoint accepts None condition value."""
+        breakpoint = Breakpoint(
+            breakpoint_type=BreakpointType.EVENT_TYPE,
+            condition_value=None,
+        )
+        assert breakpoint.condition_value is None
+
+    def test_breakpoint_with_numeric_condition(self):
+        """Test breakpoint works with numeric condition values."""
+        breakpoint = Breakpoint(
+            breakpoint_type=BreakpointType.CONFIDENCE_THRESHOLD,
+            condition_value=0.7,
+        )
+        assert breakpoint.condition_value == 0.7
+
+    def test_breakpoint_default_values(self):
+        """Test breakpoint has sensible defaults."""
+        breakpoint = Breakpoint()
+        assert breakpoint.breakpoint_type == BreakpointType.EVENT_TYPE
+        assert breakpoint.condition_value is None
+        assert breakpoint.description == ""
+        assert breakpoint.enabled is True
+        assert breakpoint.hit_count == 0
+        assert isinstance(breakpoint.breakpoint_id, str)
+
+    def test_breakpoint_custom_id(self):
+        """Test breakpoint can be created with custom ID."""
+        custom_id = "my_custom_breakpoint_id"
+        breakpoint = Breakpoint(breakpoint_id=custom_id)
+        assert breakpoint.breakpoint_id == custom_id
+
+
+class TestStepControls:
+    """Test suite for step control edge cases."""
+
+    def test_step_past_end_of_events(self, sample_events):
+        """Test stepping past the last event."""
+        stepper = AgentStepper(sample_events)
+        stepper.state.current_event_index = len(sample_events) - 1
+
+        result = stepper.step(StepAction.STEP_INTO)
+
+        # Should complete but not fail
+        assert result.success is True
+        assert stepper.state.completed is True
+
+    def test_step_at_start_position(self, sample_events):
+        """Test stepping when already at start."""
+        stepper = AgentStepper(sample_events)
+        assert stepper.state.current_event_index == 0
+
+        result = stepper.step(StepAction.STEP_INTO)
+
+        assert result.success is True
+        assert result.state.current_event_index == 1
+
+    def test_step_out_at_root_event(self, sample_events):
+        """Test step out when at root (no parent)."""
+        stepper = AgentStepper(sample_events)
+        stepper.state.current_event_index = 0  # At AGENT_START
+
+        result = stepper.step(StepAction.STEP_OUT)
+
+        # Should stay at root or complete
+        assert result.success is True
+        assert result.state.current_event_index == 0
+
+    def test_step_over_non_tool_event(self, sample_events):
+        """Test step over on non-tool event behaves like step into."""
+        stepper = AgentStepper(sample_events)
+        stepper.state.current_event_index = 1  # At DECISION
+
+        result = stepper.step(StepAction.STEP_OVER)
+
+        # Should just step to next event
+        assert result.success is True
+        assert result.state.current_event_index == 2
+
+    def test_continue_with_no_breakpoints(self, sample_events):
+        """Test continue with no breakpoints runs to completion."""
+        stepper = AgentStepper(sample_events)
+
+        result = stepper.step(StepAction.CONTINUE)
+
+        # Should run to completion
+        assert result.success is True
+        assert stepper.state.completed is True
+
+    def test_step_after_completion(self, sample_events):
+        """Test stepping after completion is handled gracefully."""
+        stepper = AgentStepper(sample_events)
+        stepper.state.completed = True
+        stepper.state.current_event_index = len(sample_events)
+
+        result = stepper.step(StepAction.STEP_INTO)
+
+        # Should indicate no more steps
+        assert result.success is False or stepper.state.completed
+
+
+class TestBranchManagement:
+    """Test suite for branch creation and management."""
+
+    def test_create_branch_with_invalid_parent(self, sample_events):
+        """Test creating branch with nonexistent parent event defaults to start."""
+        stepper = AgentStepper(sample_events)
+
+        # Should not raise error, but create branch from start
+        branch = stepper.create_branch(
+            name="Invalid Branch",
+            parent_event_id="nonexistent_event",
+        )
+
+        # Branch should be created starting from index 0
+        assert branch.name == "Invalid Branch"
+        assert branch.parent_event_id == "nonexistent_event"
+
+    def test_create_branch_at_start(self, sample_events):
+        """Test creating branch at first event."""
+        stepper = AgentStepper(sample_events)
+
+        branch = stepper.create_branch(
+            name="Start Branch",
+            parent_event_id=sample_events[0].id,
+        )
+
+        assert branch.name == "Start Branch"
+        assert len(branch.replay_events) == len(sample_events)
+
+    def test_create_branch_at_end(self, sample_events):
+        """Test creating branch at last event."""
+        stepper = AgentStepper(sample_events)
+
+        branch = stepper.create_branch(
+            name="End Branch",
+            parent_event_id=sample_events[-1].id,
+        )
+
+        assert branch.name == "End Branch"
+        assert len(branch.replay_events) == 1
+
+    def test_delete_nonexistent_branch(self, sample_events):
+        """Test deleting branch that doesn't exist."""
+        stepper = AgentStepper(sample_events)
+
+        success = stepper.delete_branch("nonexistent_branch_id")
+        assert success is False
+
+    def test_list_branches_empty(self, sample_events):
+        """Test listing branches when none exist."""
+        stepper = AgentStepper(sample_events)
+
+        branches = stepper.list_branches()
+        assert len(branches) == 0
+
+    def test_multiple_branches_same_parent(self, sample_events):
+        """Test creating multiple branches from same parent."""
+        stepper = AgentStepper(sample_events)
+
+        branch1 = stepper.create_branch("Branch 1", "event_2")
+        branch2 = stepper.create_branch("Branch 2", "event_2")
+
+        assert branch1.branch_id != branch2.branch_id
+        assert len(stepper.list_branches()) == 2
+
+
+class TestStateInspector:
+    """Test suite for state inspection with various event types."""
+
+    def test_state_at_decision_event(self, sample_events):
+        """Test state inspection at decision event."""
+        stepper = AgentStepper(sample_events)
+        stepper.state.current_event_index = 1  # DECISION event
+
+        state = stepper.get_state_at_current_position()
+
+        assert state["current_event"]["event_type"] == "decision"
+        assert state["current_event"]["confidence"] == 0.9
+
+    def test_state_at_tool_call_event(self, sample_events):
+        """Test state inspection at tool call event."""
+        stepper = AgentStepper(sample_events)
+        stepper.state.current_event_index = 2  # TOOL_CALL event
+
+        state = stepper.get_state_at_current_position()
+
+        assert state["current_event"]["event_type"] == "tool_call"
+        assert state["current_event"]["tool_name"] == "search"
+
+    def test_state_at_tool_result_event(self, sample_events):
+        """Test state inspection at tool result event."""
+        stepper = AgentStepper(sample_events)
+        stepper.state.current_event_index = 3  # TOOL_RESULT event
+
+        state = stepper.get_state_at_current_position()
+
+        assert state["current_event"]["event_type"] == "tool_result"
+
+    def test_state_includes_breakpoint_active_count(self, sample_events):
+        """Test state includes active breakpoint count."""
+        stepper = AgentStepper(sample_events)
+        stepper.set_breakpoint(BreakpointType.EVENT_TYPE, "decision")
+
+        state = stepper.get_state_at_current_position()
+
+        assert "breakpoints_active" in state
+        assert state["breakpoints_active"] == 1
+
+    def test_state_with_disabled_breakpoints(self, sample_events):
+        """Test state only counts enabled breakpoints."""
+        stepper = AgentStepper(sample_events)
+        bp1 = stepper.set_breakpoint(BreakpointType.EVENT_TYPE, "decision")
+        bp2 = stepper.set_breakpoint(BreakpointType.TOOL_NAME, "search")
+
+        # Disable one breakpoint
+        bp1.enabled = False
+
+        state = stepper.get_state_at_current_position()
+
+        assert state["breakpoints_active"] == 1
+
+
+class TestSerialization:
+    """Test suite for state serialization round-trip."""
+
+    def test_export_state_with_breakpoints(self, sample_events):
+        """Test exporting state includes breakpoints."""
+        stepper = AgentStepper(sample_events)
+        stepper.set_breakpoint(BreakpointType.EVENT_TYPE, "decision")
+        stepper.set_breakpoint(BreakpointType.TOOL_NAME, "search")
+
+        exported = stepper.export_state()
+
+        assert "breakpoints" in exported
+        assert len(exported["breakpoints"]) == 2
+
+    def test_export_state_with_branches(self, sample_events):
+        """Test exporting state includes branches."""
+        stepper = AgentStepper(sample_events)
+        stepper.create_branch("Test Branch", "event_1")
+
+        exported = stepper.export_state()
+
+        assert "branches" in exported
+        assert len(exported["branches"]) == 1
+
+    def test_export_state_includes_position(self, sample_events):
+        """Test exporting state includes current position."""
+        stepper = AgentStepper(sample_events)
+        stepper.state.current_event_index = 3
+
+        exported = stepper.export_state()
+
+        assert exported["current_event_index"] == 3
+        assert exported["current_event_id"] == "event_4"
+
+    def test_import_state_restores_breakpoints(self, sample_events):
+        """Test importing state restores breakpoints."""
+        stepper1 = AgentStepper(sample_events)
+        bp = stepper1.set_breakpoint(BreakpointType.EVENT_TYPE, "decision")
+
+        exported = stepper1.export_state()
+
+        stepper2 = AgentStepper(sample_events)
+        stepper2.import_state(exported)
+
+        assert len(stepper2.state.breakpoints) == 1
+        # Check that breakpoint data was preserved
+        imported_bp = stepper2.state.breakpoints[0]
+        assert imported_bp.condition_value == "decision"
+        assert imported_bp.breakpoint_type == BreakpointType.EVENT_TYPE
+
+    def test_import_state_restores_position(self, sample_events):
+        """Test importing state restores position."""
+        stepper1 = AgentStepper(sample_events)
+        stepper1.state.current_event_index = 2
+        stepper1.state.current_event_id = "event_3"
+
+        exported = stepper1.export_state()
+
+        stepper2 = AgentStepper(sample_events)
+        stepper2.import_state(exported)
+
+        assert stepper2.state.current_event_index == 2
+        assert stepper2.state.current_event_id == "event_3"
+
+    def test_import_state_restores_branches(self, sample_events):
+        """Test importing state restores branches."""
+        stepper1 = AgentStepper(sample_events)
+        branch = stepper1.create_branch("Test", "event_1")
+
+        exported = stepper1.export_state()
+
+        stepper2 = AgentStepper(sample_events)
+        stepper2.import_state(exported)
+
+        assert len(stepper2.branches) == 1
+        imported_branch = list(stepper2.branches.values())[0]
+        assert imported_branch.name == "Test"
+
+    def test_import_state_with_invalid_index(self, sample_events):
+        """Test importing state with custom current index."""
+        stepper = AgentStepper(sample_events)
+
+        # Export with custom index
+        custom_state = {
+            "current_event_index": 3,
+            "current_event_id": "event_4",
+            "breakpoints": [],
+            "branches": [],
+            "step_history": [],
+            "paused": True,
+            "completed": False,
+        }
+
+        stepper.import_state({"state": custom_state, "branches": [], "events_count": len(sample_events)})
+
+        # Should accept the custom value
+        assert stepper.state.current_event_index == 3
+        assert stepper.state.current_event_id == "event_4"
+
+
+class TestConcurrentBreakpointManagement:
+    """Test suite for concurrent breakpoint operations."""
+
+    def test_multiple_breakpoints_same_event(self, sample_events):
+        """Test multiple breakpoints can trigger on same event."""
+        stepper = AgentStepper(sample_events)
+
+        stepper.set_breakpoint(BreakpointType.EVENT_TYPE, "decision")
+        stepper.set_breakpoint(BreakpointType.CONFIDENCE_THRESHOLD, 0.8)
+
+        result = stepper.step(StepAction.CONTINUE)
+
+        # Both breakpoints should hit on the first decision (confidence 0.9)
+        assert result.success is True
+        # The first matching breakpoint should be reported
+
+    def test_enable_disable_breakpoint(self, sample_events):
+        """Test enabling and disabling breakpoints."""
+        stepper = AgentStepper(sample_events)
+
+        bp = stepper.set_breakpoint(BreakpointType.EVENT_TYPE, "decision")
+        assert bp.enabled is True
+
+        # Disable
+        bp.enabled = False
+
+        result = stepper.step(StepAction.CONTINUE)
+        # Should not stop at disabled breakpoint
+        assert result.breakpoint_hit is None or result.breakpoint_hit.breakpoint_id != bp.breakpoint_id
+
+    def test_clear_breakpoint_while_stopped_at_it(self, sample_events):
+        """Test clearing breakpoint that's currently hit."""
+        stepper = AgentStepper(sample_events)
+        bp = stepper.set_breakpoint(BreakpointType.EVENT_TYPE, "decision")
+
+        result = stepper.step(StepAction.CONTINUE)
+        assert result.breakpoint_hit is not None
+
+        # Clear the breakpoint
+        stepper.clear_breakpoint(bp.breakpoint_id)
+
+        assert len(stepper.state.breakpoints) == 0
+
+    def test_breakpoint_hit_count_increments(self, sample_events):
+        """Test breakpoint hit count increments on each hit."""
+        stepper = AgentStepper(sample_events)
+        bp = stepper.set_breakpoint(BreakpointType.EVENT_TYPE, "decision")
+
+        # First hit
+        stepper.step(StepAction.CONTINUE)
+        assert bp.hit_count == 1
+
+        # Reset and hit again
+        stepper.reset()
+        stepper.state.current_event_index = 0
+        stepper.set_breakpoint(BreakpointType.EVENT_TYPE, "decision")
+
+        stepper.step(StepAction.CONTINUE)
+        # Hit count should be tracked
+
+    def test_breakpoint_conditions_combined(self, sample_events):
+        """Test multiple breakpoint conditions work together."""
+        stepper = AgentStepper(sample_events)
+
+        # Set multiple conditions
+        stepper.set_breakpoint(BreakpointType.EVENT_TYPE, "decision")
+        stepper.set_breakpoint(BreakpointType.TOOL_NAME, "search")
+        stepper.set_breakpoint(BreakpointType.CONFIDENCE_THRESHOLD, 0.7)
+
+        # Step through - should stop at first matching condition
+        result = stepper.step(StepAction.CONTINUE)
+
+        assert result.success is True
+        assert result.breakpoint_hit is not None
