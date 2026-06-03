@@ -14,6 +14,7 @@ from api import app_context
 from api import services as api_services
 from benchmarks import run_evidence_grounding_session
 from collector.buffer import get_event_buffer
+from collector.server import configure_storage
 from storage import Base, TraceRepository
 
 

@@ -482,7 +482,7 @@ def test_trace_clusterer_no_events():
     assert len(clusterer.embeddings) == 2
 
     # Empty sessions should have different embeddings (different session_ids affect hash)
-    clusters = clusterer.cluster_sessions(min_cluster_size=1)
+    clusterer.cluster_sessions(min_cluster_size=1)
     # May or may not cluster empty sessions depending on implementation
 
 

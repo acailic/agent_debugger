@@ -290,7 +290,7 @@ class TestAgentStepper:
 
         stepper.set_breakpoint(BreakpointType.EVENT_TYPE, "decision")
         stepper.state.current_event_index = 2
-        branch = stepper.create_branch("Test", "event_1", "Test")
+        stepper.create_branch("Test", "event_1", "Test")
 
         # Export
         exported = stepper.export_state()
@@ -624,7 +624,7 @@ class TestStateInspector:
         """Test state only counts enabled breakpoints."""
         stepper = AgentStepper(sample_events)
         bp1 = stepper.set_breakpoint(BreakpointType.EVENT_TYPE, "decision")
-        bp2 = stepper.set_breakpoint(BreakpointType.TOOL_NAME, "search")
+        stepper.set_breakpoint(BreakpointType.TOOL_NAME, "search")
 
         # Disable one breakpoint
         bp1.enabled = False
@@ -671,7 +671,7 @@ class TestSerialization:
     def test_import_state_restores_breakpoints(self, sample_events):
         """Test importing state restores breakpoints."""
         stepper1 = AgentStepper(sample_events)
-        bp = stepper1.set_breakpoint(BreakpointType.EVENT_TYPE, "decision")
+        stepper1.set_breakpoint(BreakpointType.EVENT_TYPE, "decision")
 
         exported = stepper1.export_state()
 
@@ -701,7 +701,7 @@ class TestSerialization:
     def test_import_state_restores_branches(self, sample_events):
         """Test importing state restores branches."""
         stepper1 = AgentStepper(sample_events)
-        branch = stepper1.create_branch("Test", "event_1")
+        stepper1.create_branch("Test", "event_1")
 
         exported = stepper1.export_state()
 

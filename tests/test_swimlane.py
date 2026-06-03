@@ -13,10 +13,8 @@ from agent_debugger_sdk.core.events import (
 )
 from agent_debugger_sdk.core.swimlane import (
     CoordinationAnalyzer,
-    CoordinationIssue as CoordinationIssueType,
     EmergentBehaviorDetector,
     EmergentBehaviorType,
-    IssueReport,
     MessageFlow,
     MessageFlowType,
     MultiAgentSession,
@@ -26,6 +24,9 @@ from agent_debugger_sdk.core.swimlane import (
     detect_emergent_behaviors,
     get_message_flows,
     get_swimlane_data,
+)
+from agent_debugger_sdk.core.swimlane import (
+    CoordinationIssue as CoordinationIssueType,
 )
 
 
