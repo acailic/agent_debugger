@@ -730,7 +730,7 @@ def extract_workflow_graph(events: list[TraceEvent], session_id: str) -> dict[st
         status = "pending"
         if event.event_type == EventType.ERROR:
             status = "failure"
-        elif event.error:
+        elif getattr(event, "error", None):
             status = "failure"
         elif event.event_type in (EventType.TOOL_CALL, EventType.LLM_REQUEST):
             # Check if there's a corresponding result
@@ -744,13 +744,13 @@ def extract_workflow_graph(events: list[TraceEvent], session_id: str) -> dict[st
             label = event.name or "Decision"
         elif event.event_type == EventType.TOOL_CALL:
             node_type = "tool_call"
-            label = event.tool_name or event.name or "Tool Call"
+            label = getattr(event, "tool_name", None) or event.name or "Tool Call"
         elif event.event_type == EventType.LLM_REQUEST:
             node_type = "llm_request"
-            label = f"LLM: {event.model or 'request'}"
+            label = f"LLM: {getattr(event, 'model', None) or 'request'}"
         elif event.event_type == EventType.ERROR:
             node_type = "error"
-            label = event.error_message or event.name or "Error"
+            label = getattr(event, "error_message", None) or event.name or "Error"
         elif event.event_type == EventType.CHECKPOINT:
             node_type = "checkpoint"
             label = f"Checkpoint {event.data.get('sequence', '?')}"
@@ -760,8 +760,9 @@ def extract_workflow_graph(events: list[TraceEvent], session_id: str) -> dict[st
 
         # Extract token count
         token_count = None
-        if event.usage:
-            token_count = event.usage.get("input_tokens", 0) + event.usage.get("output_tokens", 0)
+        usage = getattr(event, "usage", None)
+        if usage:
+            token_count = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
 
         node = WorkflowNodeSchema(
             id=node_id,
@@ -769,15 +770,15 @@ def extract_workflow_graph(events: list[TraceEvent], session_id: str) -> dict[st
             node_type=node_type,
             label=label,
             status=status,
-            duration_ms=event.duration_ms,
+            duration_ms=getattr(event, "duration_ms", None),
             token_count=token_count,
             timestamp=event.timestamp,
             parent_id=event.parent_id,
             metadata={
                 "event_type": str(event.event_type),
                 "importance": event.importance,
-                "tool_name": event.tool_name,
-                "model": event.model,
+                "tool_name": getattr(event, "tool_name", None),
+                "model": getattr(event, "model", None),
             }
         )
         nodes.append(node)
