@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from typing import Any
 
@@ -515,7 +515,11 @@ def _calculate_structural_similarity(
     primary_branching = _avg_branching_factor(primary_tree)
     secondary_branching = _avg_branching_factor(secondary_tree)
 
-    branching_similarity = 1.0 - abs(primary_branching - secondary_branching) / max(primary_branching, secondary_branching, 1)
+    branching_similarity = (
+        1.0
+        - abs(primary_branching - secondary_branching)
+        / max(primary_branching, secondary_branching, 1)
+    )
 
     return (depth_similarity + branching_similarity) / 2.0
 

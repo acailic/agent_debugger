@@ -1,14 +1,14 @@
 """Tests for reasoning editor primitives."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 import pytest
 
 from agent_debugger_sdk.core import (
     DecisionEvent,
-    EditOperation,
     EditableEvent,
+    EditOperation,
     EventType,
     ReasoningEdit,
     ReasoningEditor,
