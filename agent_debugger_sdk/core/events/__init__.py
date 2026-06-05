@@ -18,6 +18,7 @@ from agent_debugger_sdk.core.events.base import (
 )
 from agent_debugger_sdk.core.events.checkpoint import Checkpoint
 from agent_debugger_sdk.core.events.decisions import DecisionEvent
+from agent_debugger_sdk.core.events.drift import DriftDetectedEvent
 from agent_debugger_sdk.core.events.errors import ErrorEvent
 from agent_debugger_sdk.core.events.llm import LLMRequestEvent, LLMResponseEvent
 from agent_debugger_sdk.core.events.registry import (
@@ -54,6 +55,7 @@ update_event_type_registry(
         EventType.BEHAVIOR_ALERT: BehaviorAlertEvent,
         EventType.ERROR: ErrorEvent,
         EventType.REPAIR_ATTEMPT: RepairAttemptEvent,
+        EventType.DRIFT: DriftDetectedEvent,
     }
 )
 
@@ -81,6 +83,7 @@ __all__ = [
     "ErrorEvent",
     "RepairAttemptEvent",
     "RepairOutcome",
+    "DriftDetectedEvent",
     "Session",
     "Checkpoint",
     "EVENT_TYPE_REGISTRY",
