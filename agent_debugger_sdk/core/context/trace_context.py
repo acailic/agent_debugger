@@ -188,6 +188,8 @@ class TraceContext(RecordingMixin):
         ctx._restored_state = restored_state
         ctx.replayed_events: list[dict[str, Any]] = []
         ctx._drift_detector = None
+        ctx._drift_events: list[Any] = []
+        ctx._drift_compare_index = 0
         ctx._hook_errors: list[Exception] = []
         ctx._restored_target: Any = None
 
