@@ -99,6 +99,7 @@ class RecordingMixin(abc.ABC):
         reasoning: str,
         confidence: float,
         chosen_action: str,
+        *,
         evidence: list[dict[str, Any]] | None = None,
         evidence_event_ids: list[str] | None = None,
         upstream_event_ids: list[str] | None = None,
@@ -129,10 +130,19 @@ class RecordingMixin(abc.ABC):
             drift_index = getattr(self, "_drift_compare_index", 0)
             event_dict = {
                 "event_type": "decision",
-                "data": {"chosen_action": chosen_action, "confidence": confidence},
+                "data": {
+                    "chosen_action": chosen_action,
+                    "action": chosen_action,
+                    "confidence": event.confidence,
+                },
             }
             drift = drift_detector.compare(event_dict, drift_index)
-            self._drift_compare_index = drift_index + 1
+            # Advance to the next decision event in the baseline, skipping non-decision events
+            next_index = drift_index + 1
+            original_events = getattr(drift_detector, "original_events", [])
+            while next_index < len(original_events) and original_events[next_index].get("event_type") != "decision":
+                next_index += 1
+            self._drift_compare_index = next_index
             if drift is not None:
                 drift_events_list = getattr(self, "_drift_events", None)
                 if drift_events_list is not None:
