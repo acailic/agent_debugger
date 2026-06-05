@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 from agent_debugger_sdk.core.emitter import EventBufferLike, EventEmitter
 from agent_debugger_sdk.core.events import (
     Checkpoint,
+    DriftDetectedEvent,
     EventType,
     Session,
     SessionStatus,
@@ -188,6 +189,7 @@ class TraceContext(RecordingMixin):
         ctx._restored_state = restored_state
         ctx.replayed_events: list[dict[str, Any]] = []
         ctx._drift_detector = None
+        ctx._drift_decision_index: int = 0
         ctx._hook_errors: list[Exception] = []
         ctx._restored_target: Any = None
 
@@ -274,9 +276,13 @@ class TraceContext(RecordingMixin):
                     if e.get("importance", 1.0) >= importance_threshold
                 ]
 
-            # Seed drift detector with post-checkpoint events as baseline
+            # Seed drift detector with post-checkpoint decision events as baseline.
+            # Filtering to decisions aligns the decision-local index used in
+            # record_decision with the correct original event at each position.
             if ctx._drift_detector is not None:
-                ctx._drift_detector.original_events = post_events.copy()
+                ctx._drift_detector.original_events = [
+                    e for e in post_events if e.get("event_type") == "decision"
+                ]
 
             # Replay each event, honouring cancellation
             for event in post_events:
@@ -570,6 +576,45 @@ class TraceContext(RecordingMixin):
             raise RuntimeError(
                 "TraceContext has not been entered. Use 'async with TraceContext(...) as ctx:' to enter the context."
             )
+
+    async def record_decision(
+        self,
+        reasoning: str,
+        confidence: float,
+        chosen_action: str,
+        evidence: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> str:
+        event_id = await super().record_decision(
+            reasoning=reasoning,
+            confidence=confidence,
+            chosen_action=chosen_action,
+            evidence=evidence,
+            **kwargs,
+        )
+        drift_detector = getattr(self, "_drift_detector", None)
+        if drift_detector is not None:
+            index = getattr(self, "_drift_decision_index", 0)
+            self._drift_decision_index = index + 1
+            clamped_confidence = max(0.0, min(1.0, confidence))
+            new_event_dict = {
+                "event_type": "decision",
+                "data": {"chosen_action": chosen_action, "confidence": clamped_confidence},
+            }
+            drift = drift_detector.compare(new_event_dict, index)
+            if drift is not None:
+                drift_event = DriftDetectedEvent(
+                    session_id=self.session_id,
+                    parent_id=self.get_current_parent(),
+                    description=drift.description,
+                    original_value=str(drift.original_value),
+                    restored_value=str(drift.restored_value),
+                    drift_event_type=drift.event_type,
+                    drift_index=drift.index,
+                    severity=drift.severity.value,
+                )
+                await self._emit_event(drift_event)
+        return event_id
 
     async def _emit_event(self, event: TraceEvent) -> None:
         """Emit an event through the shared event emitter."""

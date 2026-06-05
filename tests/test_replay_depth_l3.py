@@ -774,9 +774,16 @@ class TestReplayDepthIntegration:
                 "importance": 0.5,
             }
 
-            # Original events show different action than what will be replayed
+            # Original events show different action than what will be replayed.
+            # Timestamp must be after the checkpoint timestamp so the post-checkpoint filter passes.
             mock_events = [
-                {"id": "evt-2", "sequence": 2, "event_type": "decision", "data": {"chosen_action": "tool_a"}},
+                {
+                    "id": "evt-2",
+                    "sequence": 2,
+                    "event_type": "decision",
+                    "timestamp": "2026-03-24T12:00:01Z",
+                    "data": {"chosen_action": "tool_a"},
+                },
             ]
 
             with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
@@ -785,8 +792,8 @@ class TestReplayDepthIntegration:
                     mock_response = MagicMock()
                     if "checkpoints" in url:
                         mock_response.json.return_value = mock_checkpoint_data
-                    elif "events" in url:
-                        mock_response.json.return_value = {"events": mock_events}
+                    elif "traces" in url:
+                        mock_response.json.return_value = {"traces": mock_events}
                     mock_response.raise_for_status = MagicMock()
                     return mock_response
 
@@ -805,8 +812,9 @@ class TestReplayDepthIntegration:
                         chosen_action="tool_b",  # Different from original "tool_a"
                     )
 
-                    # Drift event should have been emitted
-                    drift_events = [e for e in emitted_events if getattr(e, "event_type", None) == "drift"]
+                    # Drift event should have been emitted into the context's event store
+                    all_events = await ctx.get_events()
+                    drift_events = [e for e in all_events if getattr(e, "event_type", None) == "drift"]
                     assert len(drift_events) > 0
         except (TypeError, ImportError, AttributeError) as e:
             pytest.skip(f"Drift event emission not yet implemented: {e}")
