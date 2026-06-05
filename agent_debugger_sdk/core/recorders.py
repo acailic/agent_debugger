@@ -98,8 +98,8 @@ class RecordingMixin(abc.ABC):
         self,
         reasoning: str,
         confidence: float,
-        evidence: list[dict[str, Any]],
         chosen_action: str,
+        evidence: list[dict[str, Any]] | None = None,
         evidence_event_ids: list[str] | None = None,
         upstream_event_ids: list[str] | None = None,
         alternatives: list[dict[str, Any]] | None = None,
@@ -114,7 +114,7 @@ class RecordingMixin(abc.ABC):
             name=name,
             reasoning=reasoning,
             confidence=max(0.0, min(1.0, confidence)),
-            evidence=evidence,
+            evidence=evidence or [],
             evidence_event_ids=evidence_event_ids or [],
             alternatives=alternatives or [],
             chosen_action=chosen_action,
@@ -122,6 +122,22 @@ class RecordingMixin(abc.ABC):
             upstream_event_ids=upstream_event_ids or [],
         )
         await self._emit_event(event)
+
+        # Detect drift against the original execution if a detector is active
+        drift_detector = getattr(self, "_drift_detector", None)
+        if drift_detector is not None:
+            drift_index = getattr(self, "_drift_compare_index", 0)
+            event_dict = {
+                "event_type": "decision",
+                "data": {"chosen_action": chosen_action, "confidence": confidence},
+            }
+            drift = drift_detector.compare(event_dict, drift_index)
+            self._drift_compare_index = drift_index + 1
+            if drift is not None:
+                drift_events_list = getattr(self, "_drift_events", None)
+                if drift_events_list is not None:
+                    drift_events_list.append(drift)
+
         return event.id
 
     async def record_tool_call(
