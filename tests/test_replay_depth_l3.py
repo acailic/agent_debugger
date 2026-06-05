@@ -813,7 +813,8 @@ class TestReplayDepthIntegration:
                     )
 
                     # Drift event should have been emitted into the context's event store
-                    drift_events = [e for e in ctx._events if getattr(e, "event_type", None) == "drift"]
+                    all_events = await ctx.get_events()
+                    drift_events = [e for e in all_events if getattr(e, "event_type", None) == "drift"]
                     assert len(drift_events) > 0
         except (TypeError, ImportError, AttributeError) as e:
             pytest.skip(f"Drift event emission not yet implemented: {e}")

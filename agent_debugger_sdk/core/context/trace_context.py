@@ -276,9 +276,13 @@ class TraceContext(RecordingMixin):
                     if e.get("importance", 1.0) >= importance_threshold
                 ]
 
-            # Seed drift detector with post-checkpoint events as baseline
+            # Seed drift detector with post-checkpoint decision events as baseline.
+            # Filtering to decisions aligns the decision-local index used in
+            # record_decision with the correct original event at each position.
             if ctx._drift_detector is not None:
-                ctx._drift_detector.original_events = post_events.copy()
+                ctx._drift_detector.original_events = [
+                    e for e in post_events if e.get("event_type") == "decision"
+                ]
 
             # Replay each event, honouring cancellation
             for event in post_events:
@@ -592,9 +596,10 @@ class TraceContext(RecordingMixin):
         if drift_detector is not None:
             index = getattr(self, "_drift_decision_index", 0)
             self._drift_decision_index = index + 1
+            clamped_confidence = max(0.0, min(1.0, confidence))
             new_event_dict = {
                 "event_type": "decision",
-                "data": {"chosen_action": chosen_action, "confidence": confidence},
+                "data": {"chosen_action": chosen_action, "confidence": clamped_confidence},
             }
             drift = drift_detector.compare(new_event_dict, index)
             if drift is not None:
