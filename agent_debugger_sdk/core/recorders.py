@@ -128,6 +128,10 @@ class RecordingMixin(abc.ABC):
         drift_detector = getattr(self, "_drift_detector", None)
         if drift_detector is not None:
             drift_index = getattr(self, "_drift_compare_index", 0)
+            original_events = getattr(drift_detector, "original_events", [])
+            # Advance to the current decision event before comparing, skipping non-decision events
+            while drift_index < len(original_events) and original_events[drift_index].get("event_type") != "decision":
+                drift_index += 1
             event_dict = {
                 "event_type": "decision",
                 "data": {
@@ -139,7 +143,6 @@ class RecordingMixin(abc.ABC):
             drift = drift_detector.compare(event_dict, drift_index)
             # Advance to the next decision event in the baseline, skipping non-decision events
             next_index = drift_index + 1
-            original_events = getattr(drift_detector, "original_events", [])
             while next_index < len(original_events) and original_events[next_index].get("event_type") != "decision":
                 next_index += 1
             self._drift_compare_index = next_index
