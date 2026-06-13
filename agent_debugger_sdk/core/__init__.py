@@ -234,7 +234,6 @@ __all__ = [
     "EmergentBehaviorType",
     "SwimlaneLane",
     "MessageFlow",
-    "CoordinationIssue",
     "EmergentBehavior",
     "MultiAgentSession",
     "analyze_multi_agent_session",

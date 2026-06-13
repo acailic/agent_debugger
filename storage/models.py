@@ -47,6 +47,10 @@ class SessionModel(Base):
     events: Mapped[list[EventModel]] = relationship(back_populates="session", cascade="all, delete-orphan")
     checkpoints: Mapped[list[CheckpointModel]] = relationship(back_populates="session", cascade="all, delete-orphan")
 
+    __table_args__ = (
+        Index("ix_sessions_tenant_started", "tenant_id", "started_at"),
+    )
+
 
 class EventModel(Base):
     """SQLAlchemy ORM model for TraceEvent dataclass."""
@@ -67,7 +71,12 @@ class EventModel(Base):
 
     session: Mapped[SessionModel] = relationship(back_populates="events")
 
-    __table_args__ = (Index("ix_events_tenant_session", "tenant_id", "session_id"),)
+    __table_args__ = (
+        Index("ix_events_tenant_session", "tenant_id", "session_id"),
+        Index("ix_events_session_timestamp", "session_id", "timestamp"),
+        Index("ix_events_tenant_type", "tenant_id", "event_type"),
+        Index("ix_events_tenant_timestamp", "tenant_id", "timestamp"),
+    )
 
 
 class CheckpointModel(Base):
@@ -87,6 +96,8 @@ class CheckpointModel(Base):
 
     session: Mapped[SessionModel] = relationship(back_populates="checkpoints")
     event: Mapped[EventModel | None] = relationship()
+
+    __table_args__ = (Index("ix_checkpoints_session_sequence", "session_id", "sequence"),)
 
 
 class AnomalyAlertModel(Base):

@@ -34,7 +34,7 @@ def _make_session(
 
 
 @pytest.mark.asyncio
-async def test_search_sessions():
+async def test_search_sessions(shared_app, ):
     """Test session search endpoint."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -71,7 +71,7 @@ async def test_search_sessions():
 
 
 @pytest.mark.asyncio
-async def test_add_fix_note():
+async def test_add_fix_note(shared_app, ):
     """Test adding a fix note to a session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -105,7 +105,7 @@ async def test_add_fix_note():
 
 
 @pytest.mark.asyncio
-async def test_add_fix_note_not_found():
+async def test_add_fix_note_not_found(shared_app, ):
     """Test adding a fix note to a nonexistent session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -120,7 +120,7 @@ async def test_add_fix_note_not_found():
 
 
 @pytest.mark.asyncio
-async def test_session_detail_includes_fix_note():
+async def test_session_detail_includes_fix_note(shared_app, ):
     """Test that session detail responses include persisted fix notes."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -141,7 +141,7 @@ async def test_session_detail_includes_fix_note():
 
 
 @pytest.mark.asyncio
-async def test_search_sessions_with_status_filter():
+async def test_search_sessions_with_status_filter(shared_app, ):
     """Test session search with status filter."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -177,7 +177,7 @@ async def test_search_sessions_with_status_filter():
 
 
 @pytest.mark.asyncio
-async def test_search_no_matching_sessions():
+async def test_search_no_matching_sessions(shared_app, ):
     """Test search returns empty results when no sessions match the query."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -190,7 +190,7 @@ async def test_search_no_matching_sessions():
 
 
 @pytest.mark.asyncio
-async def test_search_query_too_short():
+async def test_search_query_too_short(shared_app, ):
     """Test search rejects queries shorter than minimum length."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -201,7 +201,7 @@ async def test_search_query_too_short():
 
 
 @pytest.mark.asyncio
-async def test_fix_note_empty_body():
+async def test_fix_note_empty_body(shared_app, ):
     """Test that empty fix note is rejected by validation."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -215,7 +215,7 @@ async def test_fix_note_empty_body():
 
 
 @pytest.mark.asyncio
-async def test_fix_note_too_long():
+async def test_fix_note_too_long(shared_app, ):
     """Test that fix note exceeding max length is rejected."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -230,7 +230,7 @@ async def test_fix_note_too_long():
 
 
 @pytest.mark.asyncio
-async def test_fix_note_update_via_api():
+async def test_fix_note_update_via_api(shared_app, ):
     """Test that updating a fix note overwrites the previous one."""
     app = create_app()
     transport = ASGITransport(app=app)

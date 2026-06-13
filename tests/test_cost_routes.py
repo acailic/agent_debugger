@@ -39,7 +39,7 @@ def _make_session(
 
 
 @pytest.mark.asyncio
-async def test_get_cost_summary():
+async def test_get_cost_summary(shared_app, ):
     """Test cost summary endpoint with multiple sessions."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -83,7 +83,7 @@ async def test_get_cost_summary():
 
 
 @pytest.mark.asyncio
-async def test_get_cost_summary_empty():
+async def test_get_cost_summary_empty(shared_app, ):
     """Test cost summary endpoint with no sessions."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -113,7 +113,7 @@ async def test_get_cost_summary_empty():
 
 
 @pytest.mark.asyncio
-async def test_get_session_cost():
+async def test_get_session_cost(shared_app, ):
     """Test session cost endpoint."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -148,7 +148,7 @@ async def test_get_session_cost():
 
 
 @pytest.mark.asyncio
-async def test_get_session_cost_not_found():
+async def test_get_session_cost_not_found(shared_app, ):
     """Test session cost endpoint with nonexistent session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -160,7 +160,7 @@ async def test_get_session_cost_not_found():
 
 
 @pytest.mark.asyncio
-async def test_get_session_cost_zero_values():
+async def test_get_session_cost_zero_values(shared_app, ):
     """Test session cost endpoint with zero token/call values."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -191,7 +191,7 @@ async def test_get_session_cost_zero_values():
 
 
 @pytest.mark.asyncio
-async def test_get_cost_summary_includes_new_sessions():
+async def test_get_cost_summary_includes_new_sessions(shared_app, ):
     """Test that cost summary reflects newly created sessions."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -225,7 +225,7 @@ async def test_get_cost_summary_includes_new_sessions():
 
 
 @pytest.mark.asyncio
-async def test_get_cost_summary_with_range():
+async def test_get_cost_summary_with_range(shared_app, ):
     """Test cost summary endpoint with time-range filtering."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -266,7 +266,7 @@ async def test_get_cost_summary_with_range():
 
 
 @pytest.mark.asyncio
-async def test_get_cost_summary_daily_breakdown():
+async def test_get_cost_summary_daily_breakdown(shared_app, ):
     """Test daily cost breakdown in cost summary."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -317,7 +317,7 @@ async def test_get_cost_summary_daily_breakdown():
 
 
 @pytest.mark.asyncio
-async def test_get_top_sessions():
+async def test_get_top_sessions(shared_app, ):
     """Test the top-sessions endpoint."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -363,7 +363,7 @@ async def test_get_top_sessions():
 
 
 @pytest.mark.asyncio
-async def test_get_cost_summary_enhanced_framework():
+async def test_get_cost_summary_enhanced_framework(shared_app, ):
     """Test enhanced framework breakdown with avg_cost_per_session and total_tokens."""
     app = create_app()
     transport = ASGITransport(app=app)

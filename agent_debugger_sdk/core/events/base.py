@@ -7,23 +7,13 @@ event can have a parent, enabling hierarchical trace analysis.
 
 from __future__ import annotations
 
-import sys
 import uuid
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-# Python 3.10 compatibility: StrEnum was added in Python 3.11
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-
-    class StrEnum(str, Enum):
-        """Compatibility shim for StrEnum in Python 3.10."""
-
-        def __str__(self) -> str:
-            return str(self.value)
+from agent_debugger_sdk.core._compat import StrEnum
 
 
 class EventType(StrEnum):
