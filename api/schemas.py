@@ -9,32 +9,6 @@ All names are re-exported here so existing imports from ``api.schemas``
 continue to work without modification.
 """
 
-from api.schemas_core import (  # noqa: F401
-    AnalysisResponse,
-    CheckpointDeltaSchema,
-    CheckpointDeltasResponse,
-    CheckpointListResponse,
-    CheckpointSchema,
-    CollapsedSegmentSchema,
-    CreateKeyRequest,
-    CreateKeyResponse,
-    DecisionTreeResponse,
-    DeleteResponse,
-    HighlightSchema,
-    KeyListItem,
-    LiveSummaryResponse,
-    ReplayResponse,
-    RestoreRequest,
-    RestoreResponse,
-    SessionDetailResponse,
-    SessionListResponse,
-    SessionSchema,
-    SessionUpdateRequest,
-    TraceBundleResponse,
-    TraceEventSchema,
-    TraceListResponse,
-    TraceSearchResponse,
-)
 from api.schemas_alerts import (  # noqa: F401
     AlertBulkUpdate,
     AlertFilters,
@@ -77,6 +51,32 @@ from api.schemas_analysis import (  # noqa: F401
     WorkflowGraphResponse,
     WorkflowGraphSchema,
     WorkflowNodeSchema,
+)
+from api.schemas_core import (  # noqa: F401
+    AnalysisResponse,
+    CheckpointDeltaSchema,
+    CheckpointDeltasResponse,
+    CheckpointListResponse,
+    CheckpointSchema,
+    CollapsedSegmentSchema,
+    CreateKeyRequest,
+    CreateKeyResponse,
+    DecisionTreeResponse,
+    DeleteResponse,
+    HighlightSchema,
+    KeyListItem,
+    LiveSummaryResponse,
+    ReplayResponse,
+    RestoreRequest,
+    RestoreResponse,
+    SessionDetailResponse,
+    SessionListResponse,
+    SessionSchema,
+    SessionUpdateRequest,
+    TraceBundleResponse,
+    TraceEventSchema,
+    TraceListResponse,
+    TraceSearchResponse,
 )
 
 __all__ = [

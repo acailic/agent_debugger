@@ -35,6 +35,22 @@ class SessionSchema(BaseModel):
 
 
 class TraceEventSchema(BaseModel):
+    """Unified event schema for all trace event types.
+
+    This schema uses a flat union pattern — all fields from every event
+    subtype (ToolCallEvent, LLMRequestEvent, DecisionEvent, etc.) are
+    present as optional fields on a single model. This is a deliberate
+    trade-off:
+
+    - **Pros**: Simple serialization, no discriminated-union complexity,
+      easy to add new event types without schema migrations.
+    - **Cons**: Every event carries empty optional fields; consumers must
+      check which fields are present to determine event type.
+
+    Consumers should use ``event_type`` (``EventType``) to determine
+    which fields are meaningful for a given event.
+    """
+
     model_config = ConfigDict(use_enum_values=True)
 
     id: str
