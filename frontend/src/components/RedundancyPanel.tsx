@@ -2,6 +2,7 @@ import { getRedundancyAnalysis } from '../api/client'
 import type { RedundancyAnalysisResponse } from '../types'
 import { useState, useEffect } from 'react'
 import './RedundancyPanel.css'
+import { logger } from '../utils/logger'
 
 interface RedundancyPanelProps {
   sessionId: string
@@ -21,7 +22,7 @@ export function RedundancyPanel({ sessionId }: RedundancyPanelProps) {
         setData(response)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load redundancy analysis')
-        console.error('Error loading redundancy analysis:', err)
+        logger.error('Error loading redundancy analysis:', {component: 'RedundancyPanel'}, err)
       } finally {
         setLoading(false)
       }

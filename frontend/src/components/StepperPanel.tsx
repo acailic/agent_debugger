@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { logger } from '../utils/logger'
 import {
   setBreakpoint,
   clearBreakpoint,
@@ -82,7 +83,7 @@ export function StepperPanel({ sessionId }: StepperPanelProps) {
         setStepperState(stateResponse.stepper_state)
         setAgentState(stateResponse.agent_state)
       } catch (err) {
-        console.error('Failed to load stepper state:', err)
+        logger.error('Failed to load stepper state:', {component: 'StepperPanel'}, err)
         setError(err instanceof Error ? err.message : 'Failed to load stepper state')
       } finally {
         setLoading(false)
@@ -104,7 +105,7 @@ export function StepperPanel({ sessionId }: StepperPanelProps) {
       setConditionValue('')
       setDescription('')
     } catch (err) {
-      console.error('Failed to set breakpoint:', err)
+      logger.error('Failed to set breakpoint:', {component: 'StepperPanel'}, err)
       setError(err instanceof Error ? err.message : 'Failed to set breakpoint')
     } finally {
       setLoading(false)
@@ -119,7 +120,7 @@ export function StepperPanel({ sessionId }: StepperPanelProps) {
       setBreakpoints(response.stepper_state.breakpoints)
       setStepperState(response.stepper_state)
     } catch (err) {
-      console.error('Failed to clear breakpoint:', err)
+      logger.error('Failed to clear breakpoint:', {component: 'StepperPanel'}, err)
       setError(err instanceof Error ? err.message : 'Failed to clear breakpoint')
     }
   }
@@ -132,7 +133,7 @@ export function StepperPanel({ sessionId }: StepperPanelProps) {
       setBreakpoints(response.stepper_state.breakpoints)
       setStepperState(response.stepper_state)
     } catch (err) {
-      console.error('Failed to clear all breakpoints:', err)
+      logger.error('Failed to clear all breakpoints:', {component: 'StepperPanel'}, err)
       setError(err instanceof Error ? err.message : 'Failed to clear all breakpoints')
     }
   }
@@ -157,7 +158,7 @@ export function StepperPanel({ sessionId }: StepperPanelProps) {
         })
       }
     } catch (err) {
-      console.error('Failed to step execution:', err)
+      logger.error('Failed to step execution:', {component: 'StepperPanel'}, err)
       setError(err instanceof Error ? err.message : 'Failed to step execution')
     } finally {
       setLoading(false)
@@ -172,7 +173,7 @@ export function StepperPanel({ sessionId }: StepperPanelProps) {
       setStepperState(response.stepper_state)
       setAgentState(response.agent_state)
     } catch (err) {
-      console.error('Failed to refresh state:', err)
+      logger.error('Failed to refresh state:', {component: 'StepperPanel'}, err)
       setError(err instanceof Error ? err.message : 'Failed to refresh state')
     }
   }
@@ -189,7 +190,7 @@ export function StepperPanel({ sessionId }: StepperPanelProps) {
       const response = await createBranch(sessionId, name, stepperState.current_event_id, description)
       setBranches([...branches, response.branch])
     } catch (err) {
-      console.error('Failed to create branch:', err)
+      logger.error('Failed to create branch:', {component: 'StepperPanel'}, err)
       setError(err instanceof Error ? err.message : 'Failed to create branch')
     }
   }
@@ -201,7 +202,7 @@ export function StepperPanel({ sessionId }: StepperPanelProps) {
       await deleteBranch(sessionId, branchId)
       setBranches(branches.filter(b => b.branch_id !== branchId))
     } catch (err) {
-      console.error('Failed to delete branch:', err)
+      logger.error('Failed to delete branch:', {component: 'StepperPanel'}, err)
       setError(err instanceof Error ? err.message : 'Failed to delete branch')
     }
   }
@@ -219,7 +220,7 @@ export function StepperPanel({ sessionId }: StepperPanelProps) {
       setBreakpoints(response.stepper_state.breakpoints)
       setBranches([])
     } catch (err) {
-      console.error('Failed to reset stepper:', err)
+      logger.error('Failed to reset stepper:', {component: 'StepperPanel'}, err)
       setError(err instanceof Error ? err.message : 'Failed to reset stepper')
     }
   }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getSafetyAnalysis } from '../api/client'
 import type { SafetyAnalysisResponse, SafetyDimension } from '../types'
+import { logger } from '../utils/logger'
 
 interface SafetyPanelProps {
   sessionId: string
@@ -20,7 +21,7 @@ export function SafetyPanel({ sessionId }: SafetyPanelProps) {
         setSafetyData(data)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load safety analysis')
-        console.error('Failed to load safety analysis:', err)
+        logger.error('Failed to load safety analysis:', {component: 'SafetyPanel'}, err)
       } finally {
         setLoading(false)
       }

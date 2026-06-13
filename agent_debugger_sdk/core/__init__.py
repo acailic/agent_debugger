@@ -1,4 +1,17 @@
-"""SDK Core module - data models for agent tracing."""
+"""SDK Core module - data models for agent tracing.
+
+.. note::
+    This barrel module re-exports all core types for convenience.
+    Prefer importing from specific submodules:
+
+    - ``agent_debugger_sdk.core.events``  for event types
+    - ``agent_debugger_sdk.core.context``    for tracing context
+    - ``agent_debugger_sdk.core.decorators`` for @trace_* decorators
+    - ``agent_debugger_sdk.core.scorer``     for importance scoring
+
+    The barrel import is provided for backward compatibility but will
+    shrink in a future release.
+"""
 
 from agent_debugger_sdk.core.causal_tracer import (
     CausalEdge,

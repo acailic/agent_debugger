@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react'
+import { logger } from '../utils/logger'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -34,7 +35,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     // Log to console in development
     if (import.meta.env.DEV) {
-      console.error('ErrorBoundary caught an error:', error, errorInfo)
+      logger.error('ErrorBoundary caught an error:', {component: 'ErrorBoundary'}, error, {component: errorInfo.componentStack})
     }
 
     // Call custom error handler if provided

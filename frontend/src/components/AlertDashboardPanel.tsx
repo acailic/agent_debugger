@@ -3,6 +3,7 @@ import { useAlerts } from '../hooks/useAlerts'
 import { useAlertSummary } from '../hooks/useAlertSummary'
 import type { AlertStatus } from '../types'
 import { severityLabel } from '../types'
+import { logger } from '../utils/logger'
 
 interface AlertDashboardPanelProps {
   agentName: string | null
@@ -24,7 +25,7 @@ export function AlertDashboardPanel({ agentName }: AlertDashboardPanelProps) {
         setResolutionNote('')
       }
     } catch (err) {
-      console.error('Failed to update alert status:', err)
+      logger.error('Failed to update alert status:', {component: 'AlertDashboardPanel'}, err)
     }
   }
 
@@ -34,7 +35,7 @@ export function AlertDashboardPanel({ agentName }: AlertDashboardPanelProps) {
     try {
       await bulkUpdate(activeAlerts, 'acknowledged')
     } catch (err) {
-      console.error('Failed to bulk acknowledge:', err)
+      logger.error('Failed to bulk acknowledge:', {component: 'AlertDashboardPanel'}, err)
     }
   }
 
