@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { logger } from '../utils/logger'
 import {
   getDivergenceAnalysis,
   getStructuralDivergence,
@@ -107,7 +108,7 @@ export function DivergenceAnalysisPanel({
         const analysis = await getDivergenceAnalysis(primarySessionId, secondarySessionId)
         setDivergenceAnalysis(analysis)
       } catch (err) {
-        console.error('Failed to load divergence analysis:', err)
+        logger.error('Failed to load divergence analysis:', {component: 'DivergenceAnalysisPanel'}, err)
         setError(err instanceof Error ? err.message : 'Failed to load divergence analysis')
         setDivergenceAnalysis(null)
       } finally {
@@ -141,7 +142,7 @@ export function DivergenceAnalysisPanel({
             break
         }
       } catch (err) {
-        console.error(`Failed to load ${activeTab} analysis:`, err)
+        logger.error(`Failed to load ${activeTab} analysis:`, {component: 'DivergenceAnalysisPanel'}, err)
       }
     }
 
@@ -160,7 +161,7 @@ export function DivergenceAnalysisPanel({
         const baseline = await getBaselineDivergence(primarySessionId)
         setBaselineAnalysis(baseline)
       } catch (err) {
-        console.error('Failed to load baseline analysis:', err)
+        logger.error('Failed to load baseline analysis:', {component: 'DivergenceAnalysisPanel'}, err)
       }
     }
 

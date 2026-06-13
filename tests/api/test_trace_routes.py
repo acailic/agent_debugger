@@ -63,7 +63,7 @@ def _make_event(
 
 
 @pytest.mark.asyncio
-async def test_get_trace_bundle():
+async def test_get_trace_bundle(shared_app, ):
     """Test retrieving a trace bundle for a session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -98,7 +98,7 @@ async def test_get_trace_bundle():
 
 
 @pytest.mark.asyncio
-async def test_get_trace_bundle_not_found():
+async def test_get_trace_bundle_not_found(shared_app, ):
     """Test retrieving trace bundle for nonexistent session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -109,7 +109,7 @@ async def test_get_trace_bundle_not_found():
 
 
 @pytest.mark.asyncio
-async def test_get_session_analysis():
+async def test_get_session_analysis(shared_app, ):
     """Test retrieving session analysis."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -133,7 +133,7 @@ async def test_get_session_analysis():
 
 
 @pytest.mark.asyncio
-async def test_get_session_analysis_not_found():
+async def test_get_session_analysis_not_found(shared_app, ):
     """Test retrieving analysis for nonexistent session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -144,7 +144,7 @@ async def test_get_session_analysis_not_found():
 
 
 @pytest.mark.asyncio
-async def test_get_session_live_summary():
+async def test_get_session_live_summary(shared_app, ):
     """Test retrieving live summary for a session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -168,7 +168,7 @@ async def test_get_session_live_summary():
 
 
 @pytest.mark.asyncio
-async def test_get_session_live_summary_not_found():
+async def test_get_session_live_summary_not_found(shared_app, ):
     """Test retrieving live summary for nonexistent session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -179,7 +179,7 @@ async def test_get_session_live_summary_not_found():
 
 
 @pytest.mark.asyncio
-async def test_search_traces_default_params():
+async def test_search_traces_default_params(shared_app, ):
     """Test searching traces with default parameters."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -207,7 +207,7 @@ async def test_search_traces_default_params():
 
 
 @pytest.mark.asyncio
-async def test_search_traces_with_session_filter():
+async def test_search_traces_with_session_filter(shared_app, ):
     """Test searching traces filtered by session ID."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -235,7 +235,7 @@ async def test_search_traces_with_session_filter():
 
 
 @pytest.mark.asyncio
-async def test_search_traces_with_event_type_filter():
+async def test_search_traces_with_event_type_filter(shared_app, ):
     """Test searching traces filtered by event type."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -257,7 +257,7 @@ async def test_search_traces_with_event_type_filter():
 
 
 @pytest.mark.asyncio
-async def test_search_traces_with_limit():
+async def test_search_traces_with_limit(shared_app, ):
     """Test searching traces with custom limit."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -270,7 +270,7 @@ async def test_search_traces_with_limit():
 
 
 @pytest.mark.asyncio
-async def test_search_traces_empty_query():
+async def test_search_traces_empty_query(shared_app, ):
     """Test that empty query is rejected."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -280,7 +280,7 @@ async def test_search_traces_empty_query():
 
 
 @pytest.mark.asyncio
-async def test_search_traces_limit_too_high():
+async def test_search_traces_limit_too_high(shared_app, ):
     """Test that limit exceeding maximum is rejected."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -290,7 +290,7 @@ async def test_search_traces_limit_too_high():
 
 
 @pytest.mark.asyncio
-async def test_get_agent_baseline_no_sessions():
+async def test_get_agent_baseline_no_sessions(shared_app, ):
     """Test getting agent baseline when no sessions exist."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -306,7 +306,7 @@ async def test_get_agent_baseline_no_sessions():
 
 
 @pytest.mark.asyncio
-async def test_get_agent_baseline_filters_by_agent_before_limit(monkeypatch):
+async def test_get_agent_baseline_filters_by_agent_before_limit(shared_app, monkeypatch):
     """Baseline queries should not lose older sessions from the target agent."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -359,7 +359,7 @@ async def test_get_agent_baseline_filters_by_agent_before_limit(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_get_agent_drift_no_sessions():
+async def test_get_agent_drift_no_sessions(shared_app, ):
     """Test getting agent drift when no sessions exist."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -375,7 +375,7 @@ async def test_get_agent_drift_no_sessions():
 
 
 @pytest.mark.asyncio
-async def test_get_agent_drift_includes_frontend_required_fields():
+async def test_get_agent_drift_includes_frontend_required_fields(shared_app, ):
     """Drift responses should expose the metrics and alert guidance used by the UI."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -434,7 +434,7 @@ async def test_get_agent_drift_includes_frontend_required_fields():
 
 
 @pytest.mark.asyncio
-async def test_get_session_alerts():
+async def test_get_session_alerts(shared_app, ):
     """Test retrieving alerts for a session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -460,7 +460,7 @@ async def test_get_session_alerts():
 
 
 @pytest.mark.asyncio
-async def test_get_session_alerts_not_found():
+async def test_get_session_alerts_not_found(shared_app, ):
     """Test retrieving alerts for nonexistent session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -471,7 +471,7 @@ async def test_get_session_alerts_not_found():
 
 
 @pytest.mark.asyncio
-async def test_get_session_alerts_with_limit():
+async def test_get_session_alerts_with_limit(shared_app, ):
     """Test retrieving alerts with custom limit."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -492,7 +492,7 @@ async def test_get_session_alerts_with_limit():
 
 
 @pytest.mark.asyncio
-async def test_get_alert_by_id_not_found():
+async def test_get_alert_by_id_not_found(shared_app, ):
     """Test retrieving a single alert that doesn't exist."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -503,7 +503,7 @@ async def test_get_alert_by_id_not_found():
 
 
 @pytest.mark.asyncio
-async def test_trace_bundle_response_schema():
+async def test_trace_bundle_response_schema(shared_app, ):
     """Test trace bundle response conforms to schema."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -543,7 +543,7 @@ async def test_trace_bundle_response_schema():
 
 
 @pytest.mark.asyncio
-async def test_search_response_schema():
+async def test_search_response_schema(shared_app, ):
     """Test search response conforms to schema."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -570,7 +570,7 @@ async def test_search_response_schema():
 
 
 @pytest.mark.asyncio
-async def test_get_trace_bundle_rollback_on_analysis_error():
+async def test_get_trace_bundle_rollback_on_analysis_error(shared_app, ):
     """Test that get_trace_bundle rolls back transaction when analyze_session raises an exception."""
     from api import app_context
 
@@ -605,7 +605,7 @@ async def test_get_trace_bundle_rollback_on_analysis_error():
 
 
 @pytest.mark.asyncio
-async def test_get_session_analysis_rollback_on_analysis_error():
+async def test_get_session_analysis_rollback_on_analysis_error(shared_app, ):
     """Test that get_session_analysis rolls back transaction when analyze_session raises an exception."""
     from api import app_context
 
@@ -640,7 +640,7 @@ async def test_get_session_analysis_rollback_on_analysis_error():
 
 
 @pytest.mark.asyncio
-async def test_get_trace_bundle_commits_on_success():
+async def test_get_trace_bundle_commits_on_success(shared_app, ):
     """Test that get_trace_bundle commits transaction when analyze_session succeeds."""
     from api import app_context
 
@@ -671,7 +671,7 @@ async def test_get_trace_bundle_commits_on_success():
 
 
 @pytest.mark.asyncio
-async def test_get_session_analysis_commits_on_success():
+async def test_get_session_analysis_commits_on_success(shared_app, ):
     """Test that get_session_analysis commits transaction when analyze_session succeeds."""
     from api import app_context
 

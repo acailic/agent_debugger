@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { logger } from '../utils/logger'
 import {
   getMultiAgentAnalysis
 } from '../api/client'
@@ -94,7 +95,7 @@ export function SwimlanePanel({ sessionId }: SwimlanePanelProps) {
         const analysis = await getMultiAgentAnalysis(sessionId)
         setMultiAgentAnalysis(analysis)
       } catch (err) {
-        console.error('Failed to load multi-agent analysis:', err)
+        logger.error('Failed to load multi-agent analysis:', {component: 'SwimlanePanel'}, err)
         setError(err instanceof Error ? err.message : 'Failed to load multi-agent analysis')
         setMultiAgentAnalysis(null)
       } finally {

@@ -7,23 +7,11 @@ and identifying root causes of failures.
 
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from typing import Any
 
-# Python 3.10 compatibility: StrEnum was added in Python 3.11
-if sys.version_info >= (3, 11):
-    from enum import StrEnum  # type: ignore[assignment]
-else:
-
-    class StrEnum(str, Enum):  # type: ignore[misc]
-        """Compatibility shim for StrEnum in Python 3.10."""
-
-        def __str__(self) -> str:
-            return str(self.value)
-
+from agent_debugger_sdk.core._compat import StrEnum
 from agent_debugger_sdk.core.events import EventType, TraceEvent
 
 

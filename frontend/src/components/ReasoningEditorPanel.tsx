@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { logger } from '../utils/logger'
 import {
   editReasoning,
   createScenarioBranch,
@@ -80,7 +81,7 @@ export function ReasoningEditorPanel({
         const result = await listScenarios(sessionId)
         setScenarios(result.scenarios)
       } catch (err) {
-        console.error('Failed to load scenarios:', err)
+        logger.error('Failed to load scenarios:', {component: 'ReasoningEditorPanel'}, err)
         setError(err instanceof Error ? err.message : 'Failed to load scenarios')
       }
     }

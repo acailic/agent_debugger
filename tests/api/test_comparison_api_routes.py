@@ -65,7 +65,7 @@ def _make_event(
 
 
 @pytest.mark.asyncio
-async def test_compare_sessions_success():
+async def test_compare_sessions_success(shared_app, ):
     """Test successful comparison of two sessions."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -127,7 +127,7 @@ async def test_compare_sessions_success():
 
 
 @pytest.mark.asyncio
-async def test_compare_sessions_primary_not_found():
+async def test_compare_sessions_primary_not_found(shared_app, ):
     """Test comparison when primary session doesn't exist."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -146,7 +146,7 @@ async def test_compare_sessions_primary_not_found():
 
 
 @pytest.mark.asyncio
-async def test_compare_sessions_secondary_not_found():
+async def test_compare_sessions_secondary_not_found(shared_app, ):
     """Test comparison when secondary session doesn't exist."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -165,7 +165,7 @@ async def test_compare_sessions_secondary_not_found():
 
 
 @pytest.mark.asyncio
-async def test_compare_sessions_both_not_found():
+async def test_compare_sessions_both_not_found(shared_app, ):
     """Test comparison when neither session exists."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -176,7 +176,7 @@ async def test_compare_sessions_both_not_found():
 
 
 @pytest.mark.asyncio
-async def test_compare_sessions_with_policy_shifts():
+async def test_compare_sessions_with_policy_shifts(shared_app, ):
     """Test comparison with policy shift analysis."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -206,7 +206,7 @@ async def test_compare_sessions_with_policy_shifts():
 
 
 @pytest.mark.asyncio
-async def test_compare_sessions_with_escalation_signals():
+async def test_compare_sessions_with_escalation_signals(shared_app, ):
     """Test comparison with escalation signal analysis."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -236,7 +236,7 @@ async def test_compare_sessions_with_escalation_signals():
 
 
 @pytest.mark.asyncio
-async def test_compare_sessions_response_schema():
+async def test_compare_sessions_response_schema(shared_app, ):
     """Test comparison response conforms to expected schema."""
     app = create_app()
     transport = ASGITransport(app=app)
