@@ -58,6 +58,7 @@ import type {
   WorkflowGraphResponse,
 } from '../types'
 import { validateResponse, logValidationFailure, validators, ValidationError } from './validation'
+import { logger } from '../utils/logger'
 
 const API_BASE = '/api'
 
@@ -186,7 +187,7 @@ async function fetchJSON<T>(url: string, config?: ValidationConfig): Promise<T> 
       logValidationFailure(config.endpoint, 'Response shape validation failed', data)
       // If fallback is provided, return it with a console warning
       if (config.fallback !== undefined) {
-        console.warn(`[API Validation] Using fallback data for endpoint: ${config.endpoint}`)
+        logger.warn('[API Validation] Using fallback data for endpoint: ${config.endpoint}', {component: 'client'})
         return config.fallback as T
       }
       // Otherwise, throw a typed error instead of returning unvalidated data

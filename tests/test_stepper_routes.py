@@ -9,7 +9,7 @@ from api.main import create_app
 
 
 @pytest.mark.asyncio
-async def test_set_breakpoint():
+async def test_set_breakpoint(shared_app, ):
     """Test setting a breakpoint."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -27,7 +27,7 @@ async def test_set_breakpoint():
 
 
 @pytest.mark.asyncio
-async def test_clear_breakpoint():
+async def test_clear_breakpoint(shared_app, ):
     """Test clearing a breakpoint."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -40,7 +40,7 @@ async def test_clear_breakpoint():
 
 
 @pytest.mark.asyncio
-async def test_clear_all_breakpoints():
+async def test_clear_all_breakpoints(shared_app, ):
     """Test clearing all breakpoints."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -50,7 +50,7 @@ async def test_clear_all_breakpoints():
 
 
 @pytest.mark.asyncio
-async def test_list_breakpoints():
+async def test_list_breakpoints(shared_app, ):
     """Test listing breakpoints."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -60,7 +60,7 @@ async def test_list_breakpoints():
 
 
 @pytest.mark.asyncio
-async def test_step_execution():
+async def test_step_execution(shared_app, ):
     """Test stepping through execution."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -73,7 +73,7 @@ async def test_step_execution():
 
 
 @pytest.mark.asyncio
-async def test_step_with_target():
+async def test_step_with_target(shared_app, ):
     """Test stepping to specific event."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -86,7 +86,7 @@ async def test_step_with_target():
 
 
 @pytest.mark.asyncio
-async def test_get_stepper_state():
+async def test_get_stepper_state(shared_app, ):
     """Test getting stepper state."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -96,7 +96,7 @@ async def test_get_stepper_state():
 
 
 @pytest.mark.asyncio
-async def test_create_branch():
+async def test_create_branch(shared_app, ):
     """Test creating a branch."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -113,7 +113,7 @@ async def test_create_branch():
 
 
 @pytest.mark.asyncio
-async def test_list_branches():
+async def test_list_branches(shared_app, ):
     """Test listing branches."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -123,7 +123,7 @@ async def test_list_branches():
 
 
 @pytest.mark.asyncio
-async def test_get_branch():
+async def test_get_branch(shared_app, ):
     """Test getting a specific branch."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -136,7 +136,7 @@ async def test_get_branch():
 
 
 @pytest.mark.asyncio
-async def test_delete_branch():
+async def test_delete_branch(shared_app, ):
     """Test deleting a branch."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -149,7 +149,7 @@ async def test_delete_branch():
 
 
 @pytest.mark.asyncio
-async def test_reset_stepper():
+async def test_reset_stepper(shared_app, ):
     """Test resetting stepper."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -159,7 +159,7 @@ async def test_reset_stepper():
 
 
 @pytest.mark.asyncio
-async def test_get_execution_context():
+async def test_get_execution_context(shared_app, ):
     """Test getting execution context."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -169,7 +169,7 @@ async def test_get_execution_context():
 
 
 @pytest.mark.asyncio
-async def test_breakpoint_workflow():
+async def test_breakpoint_workflow(shared_app, ):
     """Test complete breakpoint workflow."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -188,7 +188,7 @@ async def test_breakpoint_workflow():
 
 
 @pytest.mark.asyncio
-async def test_step_workflow():
+async def test_step_workflow(shared_app, ):
     """Test step execution workflow."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -207,7 +207,7 @@ async def test_step_workflow():
 
 
 @pytest.mark.asyncio
-async def test_branch_workflow():
+async def test_branch_workflow(shared_app, ):
     """Test branch management workflow."""
     app = create_app()
     transport = ASGITransport(app=app)

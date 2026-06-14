@@ -49,7 +49,7 @@ jobs:
       - name: Type check with pyright
         run: |
           pip install pyright
-          pyright || true  # Don't fail CI initially, just report
+          pyright --ignoreexternal
 
       - name: Run tests with coverage
         run: |

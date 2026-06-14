@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { logger } from '../utils/logger'
 import {
   getViolationDashboard,
   searchViolations,
@@ -47,7 +48,7 @@ export function ViolationPanel({ selectedSessionId }: ViolationPanelProps) {
       const data = await getViolationDashboard({ days: 7 })
       setDashboardData(data)
     } catch (err) {
-      console.error('Failed to load violation dashboard:', err)
+      logger.error('Failed to load violation dashboard:', {component: 'ViolationPanel'}, err)
       setError(err instanceof Error ? err.message : 'Failed to load dashboard')
     } finally {
       setLoading(false)
@@ -59,7 +60,7 @@ export function ViolationPanel({ selectedSessionId }: ViolationPanelProps) {
       const data = await findSimilarSessions({ sessionId, limit: 5 })
       setSimilarSessions(data.similar_sessions)
     } catch (err) {
-      console.error('Failed to load similar sessions:', err)
+      logger.error('Failed to load similar sessions:', {component: 'ViolationPanel'}, err)
     }
   }
 
@@ -76,7 +77,7 @@ export function ViolationPanel({ selectedSessionId }: ViolationPanelProps) {
       setSearchResults(data.violations)
       setActiveTab('search')
     } catch (err) {
-      console.error('Failed to search violations:', err)
+      logger.error('Failed to search violations:', {component: 'ViolationPanel'}, err)
       setError(err instanceof Error ? err.message : 'Failed to search violations')
     } finally {
       setLoading(false)
@@ -94,7 +95,7 @@ export function ViolationPanel({ selectedSessionId }: ViolationPanelProps) {
       setClusters(data.clusters)
       setActiveTab('clusters')
     } catch (err) {
-      console.error('Failed to cluster sessions:', err)
+      logger.error('Failed to cluster sessions:', {component: 'ViolationPanel'}, err)
       setError(err instanceof Error ? err.message : 'Failed to cluster sessions')
     } finally {
       setLoading(false)
@@ -111,7 +112,7 @@ export function ViolationPanel({ selectedSessionId }: ViolationPanelProps) {
       setSparseFailures(data.sparse_failures)
       setActiveTab('sparse')
     } catch (err) {
-      console.error('Failed to detect sparse failures:', err)
+      logger.error('Failed to detect sparse failures:', {component: 'ViolationPanel'}, err)
       setError(err instanceof Error ? err.message : 'Failed to detect sparse failures')
     } finally {
       setLoading(false)

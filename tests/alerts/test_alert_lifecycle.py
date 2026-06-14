@@ -44,7 +44,7 @@ def _make_alert(
 
 
 @pytest.mark.asyncio
-async def test_update_alert_status_acknowledge():
+async def test_update_alert_status_acknowledge(shared_app, ):
     """Test updating an alert status to acknowledged."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -74,7 +74,7 @@ async def test_update_alert_status_acknowledge():
 
 
 @pytest.mark.asyncio
-async def test_update_alert_status_resolve():
+async def test_update_alert_status_resolve(shared_app, ):
     """Test updating an alert status to resolved."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -104,7 +104,7 @@ async def test_update_alert_status_resolve():
 
 
 @pytest.mark.asyncio
-async def test_update_alert_status_dismiss():
+async def test_update_alert_status_dismiss(shared_app, ):
     """Test updating an alert status to dismissed."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -134,7 +134,7 @@ async def test_update_alert_status_dismiss():
 
 
 @pytest.mark.asyncio
-async def test_update_alert_status_not_found():
+async def test_update_alert_status_not_found(shared_app, ):
     """Test updating a non-existent alert."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -148,7 +148,7 @@ async def test_update_alert_status_not_found():
 
 
 @pytest.mark.asyncio
-async def test_bulk_update_alert_status():
+async def test_bulk_update_alert_status(shared_app, ):
     """Test bulk updating alert statuses."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -179,7 +179,7 @@ async def test_bulk_update_alert_status():
 
 
 @pytest.mark.asyncio
-async def test_get_alert_summary():
+async def test_get_alert_summary(shared_app, ):
     """Test getting alert summary statistics."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -213,7 +213,7 @@ async def test_get_alert_summary():
 
 
 @pytest.mark.asyncio
-async def test_get_alert_trending():
+async def test_get_alert_trending(shared_app, ):
     """Test getting alert trending data."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -229,7 +229,7 @@ async def test_get_alert_trending():
 
 
 @pytest.mark.asyncio
-async def test_list_alerts_filtered_by_status():
+async def test_list_alerts_filtered_by_status(shared_app, ):
     """Test filtering alerts by status."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -265,7 +265,7 @@ async def test_list_alerts_filtered_by_status():
 
 
 @pytest.mark.asyncio
-async def test_list_alerts_filtered_by_severity():
+async def test_list_alerts_filtered_by_severity(shared_app, ):
     """Test filtering alerts by minimum severity."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -294,7 +294,7 @@ async def test_list_alerts_filtered_by_severity():
 
 
 @pytest.mark.asyncio
-async def test_list_alerts_filtered_by_type():
+async def test_list_alerts_filtered_by_type(shared_app, ):
     """Test filtering alerts by alert type."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -325,7 +325,7 @@ async def test_list_alerts_filtered_by_type():
 
 
 @pytest.mark.asyncio
-async def test_alert_status_transitions():
+async def test_alert_status_transitions(shared_app, ):
     """Test alert status transitions: active -> acknowledged -> resolved."""
     app = create_app()
     transport = ASGITransport(app=app)
