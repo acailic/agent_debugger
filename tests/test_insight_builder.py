@@ -17,7 +17,6 @@ from agent_debugger_sdk.core.exporters.pipeline import (
 )
 from storage.entities import EntityType
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
