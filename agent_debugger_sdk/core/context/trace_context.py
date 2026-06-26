@@ -257,10 +257,12 @@ class TraceContext(RecordingMixin):
             except Exception as exc:
                 logger.warning("Auto-replay event fetch failed: %s", exc)
 
-            # Seed drift detector with baseline events for comparison
+            # Seed drift detector with decision-only baseline so _drift_decision_index
+            # aligns with original_events positions (non-decision events skipped).
             if track_drift:
                 from agent_debugger_sdk.drift import DriftDetector
-                ctx._drift_detector = DriftDetector(raw_events)
+                decision_events = [e for e in raw_events if e.get("event_type") == "decision"]
+                ctx._drift_detector = DriftDetector(decision_events)
 
             # Filter: only events after the checkpoint timestamp
             # (TraceEventSchema carries a 'timestamp' field; ISO strings sort lexicographically)
