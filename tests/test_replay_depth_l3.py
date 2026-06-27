@@ -475,7 +475,7 @@ class TestAutoReplay:
                 )
 
                 # Should have replayed events available
-                assert hasattr(ctx, "replayed_events") or len(ctx._events) > 0
+                assert hasattr(ctx, "replayed_events") or len(await ctx.get_events()) > 0
         except (TypeError, ImportError) as e:
             pytest.skip(f"Auto-replay event fetching not yet implemented: {e}")
 
