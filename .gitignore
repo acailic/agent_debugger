@@ -41,6 +41,7 @@ frontend/dist/
 
 # Worktrees
 .worktrees/
+.claude/worktrees/
 
 # Local backup folders
 old_docs/
