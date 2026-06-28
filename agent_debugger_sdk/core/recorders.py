@@ -99,7 +99,6 @@ class RecordingMixin(abc.ABC):
         reasoning: str,
         confidence: float,
         chosen_action: str,
-        *,
         evidence: list[dict[str, Any]] | None = None,
         evidence_event_ids: list[str] | None = None,
         upstream_event_ids: list[str] | None = None,

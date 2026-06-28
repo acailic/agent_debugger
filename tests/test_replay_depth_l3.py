@@ -475,7 +475,7 @@ class TestAutoReplay:
                 )
 
                 # Should have replayed events available
-                assert hasattr(ctx, "replayed_events") or len(ctx._events) > 0
+                assert hasattr(ctx, "replayed_events") or len(await ctx.get_events()) > 0
         except (TypeError, ImportError) as e:
             pytest.skip(f"Auto-replay event fetching not yet implemented: {e}")
 
@@ -770,14 +770,13 @@ class TestReplayDepthIntegration:
             }
 
             # Original events show different action than what will be replayed.
-            # Timestamp must be after the checkpoint timestamp so the event passes
-            # the post-checkpoint filter in TraceContext.restore.
+            # Timestamp must be after the checkpoint timestamp so the post-checkpoint filter passes.
             mock_events = [
                 {
                     "id": "evt-2",
                     "sequence": 2,
                     "event_type": "decision",
-                    "timestamp": "2026-03-24T13:00:00Z",
+                    "timestamp": "2026-03-24T12:00:01Z",
                     "data": {"chosen_action": "tool_a"},
                 },
             ]
@@ -808,8 +807,10 @@ class TestReplayDepthIntegration:
                         chosen_action="tool_b",  # Different from original "tool_a"
                     )
 
-                    # Drift events are collected in ctx._drift_events by record_decision
-                    assert len(ctx._drift_events) > 0
+                    # Drift event should have been emitted into the context's event store
+                    all_events = await ctx.get_events()
+                    drift_events = [e for e in all_events if getattr(e, "event_type", None) == "drift"]
+                    assert len(drift_events) > 0
         except (TypeError, ImportError, AttributeError) as e:
             pytest.skip(f"Drift event emission not yet implemented: {e}")
 

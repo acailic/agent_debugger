@@ -44,6 +44,7 @@ class EventType(StrEnum):
     AGENT_TURN = "agent_turn"
     BEHAVIOR_ALERT = "behavior_alert"
     REPAIR_ATTEMPT = "repair_attempt"
+    DRIFT = "drift"
 
 
 class SessionStatus(StrEnum):
