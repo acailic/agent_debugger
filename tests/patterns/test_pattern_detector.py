@@ -39,6 +39,123 @@ def _make_session(
 
 
 # =============================================================================
+# Test Pattern dataclass
+# =============================================================================
+
+
+class TestPatternDataclass:
+    """Tests for the Pattern dataclass and serialization."""
+
+    def test_to_dict_has_all_expected_keys(self):
+        now = datetime.now(timezone.utc)
+        pattern = Pattern(
+            pattern_type="error_trend",
+            agent_name="agent-x",
+            severity="warning",
+            description="test",
+            affected_sessions=["s1", "s2"],
+            detected_at=now,
+            baseline_value=0.1,
+            current_value=0.3,
+            threshold=0.5,
+            change_percent=2.0,
+            metadata={"key": "val"},
+        )
+        d = pattern.to_dict()
+        expected_keys = {
+            "pattern_type", "agent_name", "severity", "description",
+            "affected_sessions", "detected_at", "baseline_value",
+            "current_value", "threshold", "change_percent", "metadata",
+        }
+        assert set(d.keys()) == expected_keys
+
+    def test_to_dict_roundtrip_values(self):
+        now = datetime.now(timezone.utc)
+        pattern = Pattern(
+            pattern_type="tool_failure",
+            agent_name="agent-y",
+            severity="critical",
+            description="desc",
+            affected_sessions=["a", "b", "c"],
+            detected_at=now,
+            baseline_value=0.05,
+            current_value=0.2,
+            threshold=0.5,
+            change_percent=3.0,
+        )
+        d = pattern.to_dict()
+        assert d["pattern_type"] == "tool_failure"
+        assert d["agent_name"] == "agent-y"
+        assert d["severity"] == "critical"
+        assert d["affected_sessions"] == ["a", "b", "c"]
+        assert d["detected_at"] == now.isoformat()
+        assert d["baseline_value"] == 0.05
+        assert d["current_value"] == 0.2
+
+
+# =============================================================================
+# Test helper methods
+# =============================================================================
+
+
+class TestHelperMethods:
+    """Tests for PatternDetector private helper methods."""
+
+    def test_average_error_rate_empty_returns_zero(self):
+        detector = PatternDetector()
+        assert detector._calculate_average_error_rate([]) == 0.0
+
+    def test_average_error_rate_no_errors(self):
+        detector = PatternDetector()
+        now = datetime.now(timezone.utc)
+        sessions = [
+            _make_session("s1", errors=0, started_at=now),
+            _make_session("s2", errors=0, started_at=now),
+        ]
+        assert detector._calculate_average_error_rate(sessions) == 0.0
+
+    def test_average_error_rate_all_errors(self):
+        detector = PatternDetector()
+        now = datetime.now(timezone.utc)
+        sessions = [
+            _make_session("s1", errors=2, started_at=now),
+            _make_session("s2", errors=1, started_at=now),
+        ]
+        assert detector._calculate_average_error_rate(sessions) == 1.0
+
+    def test_average_error_rate_partial(self):
+        detector = PatternDetector()
+        now = datetime.now(timezone.utc)
+        sessions = [
+            _make_session("s1", errors=1, started_at=now),
+            _make_session("s2", errors=0, started_at=now),
+            _make_session("s3", errors=0, started_at=now),
+            _make_session("s4", errors=0, started_at=now),
+        ]
+        assert detector._calculate_average_error_rate(sessions) == 0.25
+
+    def test_tool_failure_rate_empty_returns_zero(self):
+        detector = PatternDetector()
+        assert detector._calculate_tool_failure_rate([]) == 0.0
+
+    def test_tool_failure_rate_no_tool_calls_returns_zero(self):
+        detector = PatternDetector()
+        now = datetime.now(timezone.utc)
+        sessions = [_make_session("s1", errors=5, tool_calls=0, started_at=now)]
+        assert detector._calculate_tool_failure_rate(sessions) == 0.0
+
+    def test_tool_failure_rate_calculation(self):
+        detector = PatternDetector()
+        now = datetime.now(timezone.utc)
+        # 3 total errors across 10 total tool calls = 0.3
+        sessions = [
+            _make_session("s1", errors=1, tool_calls=5, started_at=now),
+            _make_session("s2", errors=2, tool_calls=5, started_at=now),
+        ]
+        assert detector._calculate_tool_failure_rate(sessions) == pytest.approx(0.3)
+
+
+# =============================================================================
 # Test PatternDetector
 # =============================================================================
 
@@ -73,6 +190,60 @@ class TestPatternDetector:
         detector = PatternDetector()
         patterns = detector.detect_all_patterns([])
 
+        assert patterns == []
+
+    def test_detect_all_patterns_sorts_critical_before_warning(self):
+        """Test that critical patterns appear before warning patterns."""
+        detector = PatternDetector(error_rate_threshold=0.5)
+        now = datetime.now(timezone.utc)
+        baseline_time = now - timedelta(days=5)
+        recent_time = now - timedelta(hours=1)
+
+        # Two agents: one triggers warning, one triggers critical
+        sessions = [
+            # Agent-warn baseline: 0 errors
+            _make_session("w1", "agent-warn", baseline_time, errors=0),
+            _make_session("w2", "agent-warn", baseline_time, errors=0),
+            _make_session("w3", "agent-warn", baseline_time, errors=0),
+            # Agent-warn recent: 75% error (warning, ~0.75 increase > 0.5 but < 1.0)
+            _make_session("w4", "agent-warn", recent_time, errors=1),
+            _make_session("w5", "agent-warn", recent_time, errors=1),
+            _make_session("w6", "agent-warn", recent_time, errors=1),
+            _make_session("w7", "agent-warn", recent_time, errors=0),
+            # Agent-crit baseline: 0 errors
+            _make_session("c1", "agent-crit", baseline_time, errors=0),
+            _make_session("c2", "agent-crit", baseline_time, errors=0),
+            _make_session("c3", "agent-crit", baseline_time, errors=0),
+            # Agent-crit recent: 100% error (critical, 1.0 >= 2 * 0.5)
+            _make_session("c4", "agent-crit", recent_time, errors=5),
+            _make_session("c5", "agent-crit", recent_time, errors=3),
+        ]
+
+        patterns = detector.detect_all_patterns(sessions)
+        critical = [p for p in patterns if p.severity == "critical"]
+        if critical:
+            first_critical_idx = patterns.index(critical[0])
+            warnings = [p for p in patterns if p.severity == "warning"]
+            if warnings:
+                first_warning_idx = patterns.index(warnings[0])
+                assert first_critical_idx < first_warning_idx
+
+    def test_detect_all_patterns_skips_small_baseline(self):
+        """Test that detection requires at least 3 baseline sessions."""
+        detector = PatternDetector()
+        now = datetime.now(timezone.utc)
+        baseline_time = now - timedelta(days=5)
+        recent_time = now - timedelta(hours=1)
+
+        # Only 2 baseline sessions — not enough
+        sessions = [
+            _make_session("b1", "agent", baseline_time, errors=0),
+            _make_session("b2", "agent", baseline_time, errors=0),
+            _make_session("r1", "agent", recent_time, errors=10, tool_calls=10),
+            _make_session("r2", "agent", recent_time, errors=10, tool_calls=10),
+        ]
+
+        patterns = detector.detect_all_patterns(sessions)
         assert patterns == []
 
     def test_detect_all_patterns_groups_by_agent(self):
@@ -170,6 +341,58 @@ class TestErrorRateTrendDetection:
 
         assert len(patterns) == 0
 
+    def test_error_rate_critical_severity(self):
+        """Test that error rate increase >= 2x threshold yields critical severity."""
+        detector = PatternDetector(error_rate_threshold=0.5)
+
+        now = datetime.now(timezone.utc)
+        baseline_time = now - timedelta(days=5)
+        recent_time = now - timedelta(hours=1)
+
+        # Baseline: 1/4 sessions with errors = 0.25 error rate
+        baseline_sessions = [
+            _make_session("b1", "agent", baseline_time, errors=1),
+            _make_session("b2", "agent", baseline_time, errors=0),
+            _make_session("b3", "agent", baseline_time, errors=0),
+            _make_session("b4", "agent", baseline_time, errors=0),
+        ]
+
+        # Recent: 100% error rate => change = (1.0 - 0.25) / 0.25 = 3.0 >= 2 * 0.5 = 1.0 => critical
+        recent_sessions = [
+            _make_session("r1", "agent", recent_time, errors=5),
+            _make_session("r2", "agent", recent_time, errors=3),
+        ]
+
+        patterns = detector.detect_error_rate_trends("agent", baseline_sessions, recent_sessions)
+
+        assert len(patterns) == 1
+        assert patterns[0].severity == "critical"
+
+    def test_error_rate_zero_baseline(self):
+        """Test detection when baseline error rate is zero."""
+        detector = PatternDetector(error_rate_threshold=0.5)
+
+        now = datetime.now(timezone.utc)
+        baseline_time = now - timedelta(days=5)
+        recent_time = now - timedelta(hours=1)
+
+        # Baseline: no errors at all
+        baseline_sessions = [
+            _make_session("b1", "agent", baseline_time, errors=0),
+            _make_session("b2", "agent", baseline_time, errors=0),
+            _make_session("b3", "agent", baseline_time, errors=0),
+        ]
+
+        # Recent: errors present (change_percent = 1.0 > threshold)
+        recent_sessions = [
+            _make_session("r1", "agent", recent_time, errors=2),
+        ]
+
+        patterns = detector.detect_error_rate_trends("agent", baseline_sessions, recent_sessions)
+
+        assert len(patterns) == 1
+        assert patterns[0].change_percent == pytest.approx(1.0)
+
 
 class TestToolFailureDetection:
     """Test suite for tool failure frequency detection."""
@@ -206,6 +429,51 @@ class TestToolFailureDetection:
         assert pattern.change_percent > 0.5
 
 
+    def test_no_tool_failure_pattern_below_threshold(self):
+        """Test no pattern when tool failure rate increase is below threshold."""
+        detector = PatternDetector(tool_failure_threshold=0.5)
+
+        now = datetime.now(timezone.utc)
+        baseline_time = now - timedelta(days=5)
+        recent_time = now - timedelta(hours=1)
+
+        # Baseline: 10/100 = 0.1 failure rate
+        # Recent: 11/100 = 0.11 failure rate => change = (0.11-0.1)/0.1 = 0.1 < 0.5
+        baseline_sessions = [
+            _make_session("b1", "agent", baseline_time, errors=10, tool_calls=100),
+        ]
+        recent_sessions = [
+            _make_session("r1", "agent", recent_time, errors=11, tool_calls=100),
+        ]
+
+        patterns = detector.detect_tool_failure_frequency("agent", baseline_sessions, recent_sessions)
+
+        assert len(patterns) == 0
+
+    def test_tool_failure_critical_severity(self):
+        """Test severity escalates to critical when increase >= 2x threshold."""
+        detector = PatternDetector(tool_failure_threshold=0.5)
+
+        now = datetime.now(timezone.utc)
+        baseline_time = now - timedelta(days=5)
+        recent_time = now - timedelta(hours=1)
+
+        # Baseline: 1/20 = 0.05 failure rate
+        baseline_sessions = [
+            _make_session("b1", "agent", baseline_time, errors=1, tool_calls=20),
+        ]
+
+        # Recent: 9/10 = 0.9 failure rate => change = (0.9-0.05)/0.05 = 17.0 >= 2*0.5 => critical
+        recent_sessions = [
+            _make_session("r1", "agent", recent_time, errors=9, tool_calls=10),
+        ]
+
+        patterns = detector.detect_tool_failure_frequency("agent", baseline_sessions, recent_sessions)
+
+        assert len(patterns) == 1
+        assert patterns[0].severity == "critical"
+
+
 class TestConfidenceDropDetection:
     """Test suite for confidence drop detection."""
 
@@ -240,25 +508,49 @@ class TestConfidenceDropDetection:
         assert pattern.change_percent < -0.2  # Should exceed threshold
 
 
+    def test_no_confidence_drop_when_stable(self):
+        """Test no pattern when replay_value drop is below threshold."""
+        detector = PatternDetector(confidence_drop_threshold=0.2)
+
+        now = datetime.now(timezone.utc)
+        baseline_time = now - timedelta(days=5)
+        recent_time = now - timedelta(hours=1)
+
+        # Baseline avg: 0.85, recent avg: 0.8 => drop ~5.9% < 20% threshold
+        baseline_sessions = [
+            _make_session("b1", "agent", baseline_time, replay_value=0.9),
+            _make_session("b2", "agent", baseline_time, replay_value=0.8),
+        ]
+
+        recent_sessions = [
+            _make_session("r1", "agent", recent_time, replay_value=0.82),
+            _make_session("r2", "agent", recent_time, replay_value=0.78),
+        ]
+
+        patterns = detector.detect_confidence_drops("agent", baseline_sessions, recent_sessions)
+
+        assert len(patterns) == 0
+
+
 class TestNewFailureModeDetection:
     """Test suite for new failure mode detection."""
 
     def test_detect_new_failure_mode(self):
-        """Test detection of new failure modes."""
+        """Test detection of new failure modes (warning: recent > 2x but <= 3x baseline)."""
         detector = PatternDetector()
 
         now = datetime.now(timezone.utc)
         baseline_time = now - timedelta(days=5)
         recent_time = now - timedelta(hours=1)
 
-        # Baseline: few error sessions
+        # Baseline: 1 error session
         baseline_sessions = [
             _make_session("b1", "agent", baseline_time, errors=0),
             _make_session("b2", "agent", baseline_time, errors=0),
-            _make_session("b3", "agent", baseline_time, errors=1),  # Only 1 error session
+            _make_session("b3", "agent", baseline_time, errors=1),
         ]
 
-        # Recent: many error sessions (2x increase)
+        # Recent: 3 error sessions (3 > 2*1, but 3 == 3*1 so warning not critical)
         recent_sessions = [
             _make_session("r1", "agent", recent_time, errors=5),
             _make_session("r2", "agent", recent_time, errors=3),
@@ -271,7 +563,60 @@ class TestNewFailureModeDetection:
         pattern = patterns[0]
 
         assert pattern.pattern_type == "new_failure_mode"
+        assert pattern.severity == "warning"
         assert len(pattern.affected_sessions) > 0
+
+    def test_no_new_failure_mode_below_threshold(self):
+        """Test no pattern when recent error sessions <= 2x baseline."""
+        detector = PatternDetector()
+
+        now = datetime.now(timezone.utc)
+        baseline_time = now - timedelta(days=5)
+        recent_time = now - timedelta(hours=1)
+
+        # Baseline: 2 error sessions; recent: 3 (3 is not > 2*2=4)
+        baseline_sessions = [
+            _make_session("b1", "agent", baseline_time, errors=1),
+            _make_session("b2", "agent", baseline_time, errors=1),
+            _make_session("b3", "agent", baseline_time, errors=0),
+        ]
+
+        recent_sessions = [
+            _make_session("r1", "agent", recent_time, errors=1),
+            _make_session("r2", "agent", recent_time, errors=1),
+            _make_session("r3", "agent", recent_time, errors=1),
+        ]
+
+        patterns = detector.detect_new_failure_modes("agent", baseline_sessions, recent_sessions)
+
+        assert len(patterns) == 0
+
+    def test_new_failure_mode_critical_severity(self):
+        """Test critical severity when recent error sessions > 3x baseline."""
+        detector = PatternDetector()
+
+        now = datetime.now(timezone.utc)
+        baseline_time = now - timedelta(days=5)
+        recent_time = now - timedelta(hours=1)
+
+        # Baseline: 1 error session; recent: 4 (4 > 3*1 => critical)
+        baseline_sessions = [
+            _make_session("b1", "agent", baseline_time, errors=1),
+            _make_session("b2", "agent", baseline_time, errors=0),
+            _make_session("b3", "agent", baseline_time, errors=0),
+        ]
+
+        recent_sessions = [
+            _make_session("r1", "agent", recent_time, errors=3),
+            _make_session("r2", "agent", recent_time, errors=2),
+            _make_session("r3", "agent", recent_time, errors=1),
+            _make_session("r4", "agent", recent_time, errors=4),
+        ]
+
+        patterns = detector.detect_new_failure_modes("agent", baseline_sessions, recent_sessions)
+
+        assert len(patterns) == 1
+        assert patterns[0].severity == "critical"
 
 
 # =============================================================================
