@@ -287,6 +287,22 @@ def reset_event_buffer():
 # =============================================================================
 
 
+@pytest.fixture(scope="session")
+def shared_app():
+    """Session-scoped shared FastAPI app instance.
+
+    create_app() is idempotent — it returns the same FastAPI configuration
+    every time. Sharing one instance across all tests eliminates per-test
+    app construction overhead (~0.03s per test × hundreds of API tests).
+
+    Tests that need environment-specific app configuration (e.g., cloud mode)
+    should create their own app directly rather than using this fixture.
+    """
+    from api.main import create_app
+
+    return create_app()
+
+
 @pytest.fixture
 async def db_session_maker():
     """Provide an isolated session maker for tests.

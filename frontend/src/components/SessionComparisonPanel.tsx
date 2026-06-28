@@ -2,6 +2,7 @@ import type { Session, TraceBundle, ComparisonResponse } from '../types'
 import { containsEscalationSignal } from '../utils/formatting'
 import { getComparison } from '../api/client'
 import { useState, useEffect } from 'react'
+import { logger } from '../utils/logger'
 
 interface CoordinationSummary {
   turnCount: number
@@ -128,7 +129,7 @@ export function SessionComparisonPanel({
         setComparisonResult({ comparison: data, error: null })
       })
       .catch((err) => {
-        console.error('Failed to fetch comparison data:', err)
+        logger.error('Failed to fetch comparison data:', {component: 'SessionComparisonPanel'}, err)
         setLastFetchedKey(key)
         setComparisonResult({
           comparison: null,

@@ -35,7 +35,7 @@ def _make_session(
 
 
 @pytest.mark.asyncio
-async def test_list_sessions_default_params():
+async def test_list_sessions_default_params(shared_app, ):
     """Test listing sessions with default parameters."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -63,7 +63,7 @@ async def test_list_sessions_default_params():
 
 
 @pytest.mark.asyncio
-async def test_list_sessions_with_limit_and_offset():
+async def test_list_sessions_with_limit_and_offset(shared_app, ):
     """Test listing sessions with custom limit and offset."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -87,7 +87,7 @@ async def test_list_sessions_with_limit_and_offset():
 
 
 @pytest.mark.asyncio
-async def test_list_sessions_sort_by_started_at():
+async def test_list_sessions_sort_by_started_at(shared_app, ):
     """Test listing sessions sorted by started_at."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -110,7 +110,7 @@ async def test_list_sessions_sort_by_started_at():
 
 
 @pytest.mark.asyncio
-async def test_list_sessions_sort_by_replay_value():
+async def test_list_sessions_sort_by_replay_value(shared_app, ):
     """Test listing sessions sorted by replay_value."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -132,7 +132,7 @@ async def test_list_sessions_sort_by_replay_value():
 
 
 @pytest.mark.asyncio
-async def test_list_sessions_invalid_sort_by():
+async def test_list_sessions_invalid_sort_by(shared_app, ):
     """Test that invalid sort_by parameter is rejected."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -142,7 +142,7 @@ async def test_list_sessions_invalid_sort_by():
 
 
 @pytest.mark.asyncio
-async def test_list_sessions_limit_too_high():
+async def test_list_sessions_limit_too_high(shared_app, ):
     """Test that limit exceeding maximum is rejected."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -152,7 +152,7 @@ async def test_list_sessions_limit_too_high():
 
 
 @pytest.mark.asyncio
-async def test_list_sessions_negative_limit():
+async def test_list_sessions_negative_limit(shared_app, ):
     """Test that negative limit is rejected."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -162,7 +162,7 @@ async def test_list_sessions_negative_limit():
 
 
 @pytest.mark.asyncio
-async def test_list_sessions_negative_offset():
+async def test_list_sessions_negative_offset(shared_app, ):
     """Test that negative offset is rejected."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -172,7 +172,7 @@ async def test_list_sessions_negative_offset():
 
 
 @pytest.mark.asyncio
-async def test_get_session_detail():
+async def test_get_session_detail(shared_app, ):
     """Test retrieving a single session by ID."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -199,7 +199,7 @@ async def test_get_session_detail():
 
 
 @pytest.mark.asyncio
-async def test_get_session_not_found():
+async def test_get_session_not_found(shared_app, ):
     """Test retrieving a nonexistent session returns 404."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -211,7 +211,7 @@ async def test_get_session_not_found():
 
 
 @pytest.mark.asyncio
-async def test_get_session_invalid_id():
+async def test_get_session_invalid_id(shared_app, ):
     """Test retrieving a session with invalid ID format."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -222,7 +222,7 @@ async def test_get_session_invalid_id():
 
 
 @pytest.mark.asyncio
-async def test_update_session_fix_note():
+async def test_update_session_fix_note(shared_app, ):
     """Test updating a session with a fix note."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -247,7 +247,7 @@ async def test_update_session_fix_note():
 
 
 @pytest.mark.asyncio
-async def test_update_session_status():
+async def test_update_session_status(shared_app, ):
     """Test updating a session status."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -270,7 +270,7 @@ async def test_update_session_status():
 
 
 @pytest.mark.asyncio
-async def test_update_session_multiple_fields():
+async def test_update_session_multiple_fields(shared_app, ):
     """Test updating multiple session fields at once."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -297,7 +297,7 @@ async def test_update_session_multiple_fields():
 
 
 @pytest.mark.asyncio
-async def test_update_session_started_at_persists():
+async def test_update_session_started_at_persists(shared_app, ):
     """Test updating started_at applies the change instead of being silently ignored."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -320,7 +320,7 @@ async def test_update_session_started_at_persists():
 
 
 @pytest.mark.asyncio
-async def test_update_session_rejects_terminal_status_transition():
+async def test_update_session_rejects_terminal_status_transition(shared_app, ):
     """Test terminal sessions cannot transition back to running."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -341,7 +341,7 @@ async def test_update_session_rejects_terminal_status_transition():
 
 
 @pytest.mark.asyncio
-async def test_update_session_rejects_ended_at_before_existing_started_at():
+async def test_update_session_rejects_ended_at_before_existing_started_at(shared_app, ):
     """Test partial updates still validate timestamps against persisted started_at."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -362,7 +362,7 @@ async def test_update_session_rejects_ended_at_before_existing_started_at():
 
 
 @pytest.mark.asyncio
-async def test_update_session_not_found():
+async def test_update_session_not_found(shared_app, ):
     """Test updating a nonexistent session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -376,7 +376,7 @@ async def test_update_session_not_found():
 
 
 @pytest.mark.asyncio
-async def test_delete_session():
+async def test_delete_session(shared_app, ):
     """Test deleting a session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -408,7 +408,7 @@ async def test_delete_session():
 
 
 @pytest.mark.asyncio
-async def test_delete_session_not_found():
+async def test_delete_session_not_found(shared_app, ):
     """Test deleting a nonexistent session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -418,7 +418,7 @@ async def test_delete_session_not_found():
 
 
 @pytest.mark.asyncio
-async def test_get_session_traces():
+async def test_get_session_traces(shared_app, ):
     """Test retrieving traces for a session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -442,7 +442,7 @@ async def test_get_session_traces():
 
 
 @pytest.mark.asyncio
-async def test_get_session_traces_with_limit():
+async def test_get_session_traces_with_limit(shared_app, ):
     """Test retrieving traces with custom limit."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -462,7 +462,7 @@ async def test_get_session_traces_with_limit():
 
 
 @pytest.mark.asyncio
-async def test_get_session_traces_not_found():
+async def test_get_session_traces_not_found(shared_app, ):
     """Test retrieving traces for nonexistent session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -472,7 +472,7 @@ async def test_get_session_traces_not_found():
 
 
 @pytest.mark.asyncio
-async def test_get_decision_tree():
+async def test_get_decision_tree(shared_app, ):
     """Test retrieving decision tree for a session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -496,7 +496,7 @@ async def test_get_decision_tree():
 
 
 @pytest.mark.asyncio
-async def test_get_decision_tree_not_found():
+async def test_get_decision_tree_not_found(shared_app, ):
     """Test retrieving decision tree for nonexistent session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -506,7 +506,7 @@ async def test_get_decision_tree_not_found():
 
 
 @pytest.mark.asyncio
-async def test_list_checkpoints():
+async def test_list_checkpoints(shared_app, ):
     """Test listing checkpoints for a session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -530,7 +530,7 @@ async def test_list_checkpoints():
 
 
 @pytest.mark.asyncio
-async def test_list_checkpoints_not_found():
+async def test_list_checkpoints_not_found(shared_app, ):
     """Test listing checkpoints for nonexistent session."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -540,7 +540,7 @@ async def test_list_checkpoints_not_found():
 
 
 @pytest.mark.asyncio
-async def test_export_session_includes_events_and_checkpoints():
+async def test_export_session_includes_events_and_checkpoints(shared_app, ):
     """Test exporting a session succeeds and includes checkpoint data."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -585,7 +585,7 @@ async def test_export_session_includes_events_and_checkpoints():
 
 
 @pytest.mark.asyncio
-async def test_session_list_response_schema():
+async def test_session_list_response_schema(shared_app, ):
     """Test session list response conforms to schema."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -630,7 +630,7 @@ async def test_session_list_response_schema():
 
 
 @pytest.mark.asyncio
-async def test_session_detail_response_schema():
+async def test_session_detail_response_schema(shared_app, ):
     """Test session detail response conforms to schema."""
     app = create_app()
     transport = ASGITransport(app=app)
@@ -671,7 +671,7 @@ async def test_session_detail_response_schema():
 
 
 @pytest.mark.asyncio
-async def test_delete_response_schema():
+async def test_delete_response_schema(shared_app, ):
     """Test delete response conforms to schema."""
     app = create_app()
     transport = ASGITransport(app=app)

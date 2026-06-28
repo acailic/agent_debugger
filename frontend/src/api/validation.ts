@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger'
+
 export type ValidationChecker = (value: unknown) => boolean
 
 /**
@@ -195,7 +197,7 @@ export function validateResponse<T>(data: unknown, validator: ValidationChecker)
 }
 
 export function logValidationFailure(endpoint: string, reason: string, data: unknown): void {
-  console.warn(`[API Validation] Endpoint: ${endpoint} — Reason: ${reason} — Data: ${JSON.stringify(data)}`)
+  logger.warn(`[API Validation] Endpoint: ${endpoint} — Reason: ${reason} — Data: ${JSON.stringify(data)}`, {component: 'validation'})
 }
 
 // Export validators for use in client

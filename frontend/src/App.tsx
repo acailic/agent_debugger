@@ -8,6 +8,7 @@ import { buildReplayBreakpointParams, useSessionStore } from './stores/sessionSt
 import { useShallow } from 'zustand/react/shallow'
 import { formatNumber } from './utils/formatting'
 import type { AppTab, TraceEvent } from './types'
+import { logger } from './utils/logger'
 
 // Lazy load analytics (heavy, rarely used)
 const AnalyticsTab = lazy(() => import('./components/AnalyticsTab').then((m) => ({ default: m.AnalyticsTab })))
@@ -207,10 +208,10 @@ function App() {
           const currentFailures = useSessionStore.getState().streamParseFailures || 0
           const newFailures = currentFailures + 1
           setStreamParseFailures(newFailures)
-          console.warn('[SSE] Failed to parse event, skipping:', message.data)
+          logger.warn('[SSE] Failed to parse event, skipping:', {component: 'App'})
           setStreamHealth('degraded')
           if (newFailures >= 3) {
-            console.error(`[SSE] ${newFailures} consecutive parse failures - check event format`)
+            logger.error('[SSE] ${newFailures} consecutive parse failures - check event format', {component: 'App'})
           }
         }
       }
@@ -228,7 +229,7 @@ function App() {
         setStreamReconnectAttempts(nextAttempt)
 
         const delay = getReconnectDelay(nextAttempt)
-        console.log(`[SSE] Reconnection attempt ${nextAttempt} in ${delay}ms`)
+        logger.info('[SSE] Reconnection attempt ${nextAttempt} in ${delay}ms', {component: 'App'})
 
         reconnectTimeoutId = setTimeout(() => {
           connect()

@@ -758,11 +758,6 @@ class TestReplayDepthIntegration:
         try:
             from agent_debugger_sdk import TraceContext
 
-            emitted_events = []
-
-            async def capture_event(event):
-                emitted_events.append(event)
-
             mock_checkpoint_data = {
                 "id": "cp-drift-emit",
                 "session_id": "sess-original",

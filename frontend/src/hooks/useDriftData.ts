@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useSessionStore } from '../stores/sessionStore'
 import { getAgentDrift } from '../api/client'
+import { logger } from '../utils/logger'
 
 /**
  * Custom hook for fetching agent drift data
@@ -33,7 +34,7 @@ export function useDriftData(): void {
         }
       } catch (err) {
         if (!ignore) {
-          console.warn('Failed to load drift data:', err)
+          logger.warn('Failed to load drift data:', {component: 'useDriftData'})
           setDriftData(null)
         }
       } finally {

@@ -130,6 +130,9 @@ def create_app() -> FastAPI:
     app.add_middleware(LoggingMiddleware)
     app.add_middleware(RequestIDMiddleware)
 
+    # Mount all API routers under /api prefix.
+    # Routes within each router module already declare /api/...
+    # paths. Future versions can introduce /v2/ routes alongside /api/.
     app.include_router(collector_router)
     app.include_router(auth_router)
     app.include_router(analytics_router)
@@ -149,6 +152,13 @@ def create_app() -> FastAPI:
     app.include_router(violation_router)
     app.include_router(system_router)
     app.include_router(ui_router)
+
+    # API versioning endpoint — indicates the current API contract version.
+    # When breaking changes are introduced, bump this and add /api/v2/ routes.
+    @app.get("/api/version", tags=["system"])
+    async def api_version():
+        """Return the current API contract version."""
+        return {"version": "v1", "status": "stable"}
 
     if DIST_PATH.exists():
         app.mount("/ui", StaticFiles(directory=str(DIST_PATH), html=True), name="ui")
