@@ -106,20 +106,26 @@ class InsightBuilder:
             # Extract error types from events in this cluster
             event_ids = cluster.get("event_ids", [])
             error_types = set()
+            cluster_timestamps = []
             for event_id in event_ids[:10]:  # Limit to 10 events for performance
                 r = rankings_by_id.get(event_id, {})
+                if r.get("timestamp"):
+                    cluster_timestamps.append(r["timestamp"])
                 if "error" in r.get("fingerprint", "").lower():
-                    # Extract error type from fingerprint if available
                     fingerprint = r.get("fingerprint", "")
                     if "error" in fingerprint.lower():
                         error_types.add(fingerprint.split(":")[0] if ":" in fingerprint else "RuntimeError")
+
+            fallback_ts = datetime.now(timezone.utc).isoformat()
+            first_seen = min(cluster_timestamps) if cluster_timestamps else ranking.get("timestamp", fallback_ts)
+            last_seen = max(cluster_timestamps) if cluster_timestamps else ranking.get("timestamp", fallback_ts)
 
             patterns.append(
                 FailurePattern(
                     fingerprint=cluster.get("fingerprint", ""),
                     count=cluster.get("count", 1),
-                    first_seen_at=ranking.get("timestamp", datetime.now(timezone.utc).isoformat()),
-                    last_seen_at=ranking.get("timestamp", datetime.now(timezone.utc).isoformat()),
+                    first_seen_at=first_seen,
+                    last_seen_at=last_seen,
                     sample_error_types=list(error_types)[:5],
                     representative_event_id=representative_id,
                     severity=ranking.get("severity", 0.5),

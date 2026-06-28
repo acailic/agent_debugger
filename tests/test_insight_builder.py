@@ -262,6 +262,31 @@ def test_build_failure_patterns_fingerprint_and_severity(builder):
     assert patterns[0].representative_event_id == "e1"
 
 
+def test_build_failure_patterns_first_and_last_seen_differ_across_cluster_events(builder):
+    analysis = {
+        "failure_clusters": [
+            {
+                "fingerprint": "fp-multi",
+                "count": 3,
+                "representative_event_id": "e2",
+                "event_ids": ["e1", "e2", "e3"],
+            }
+        ],
+        "event_rankings": [
+            {"event_id": "e1", "fingerprint": "fp-multi", "severity": 0.5, "timestamp": "2026-01-01T00:00:00Z"},
+            {"event_id": "e2", "fingerprint": "fp-multi", "severity": 0.6, "timestamp": "2026-01-02T00:00:00Z"},
+            {"event_id": "e3", "fingerprint": "fp-multi", "severity": 0.7, "timestamp": "2026-01-03T00:00:00Z"},
+        ],
+    }
+
+    patterns = builder._build_failure_patterns(analysis)
+
+    assert len(patterns) == 1
+    assert patterns[0].first_seen_at == "2026-01-01T00:00:00Z"
+    assert patterns[0].last_seen_at == "2026-01-03T00:00:00Z"
+    assert patterns[0].first_seen_at != patterns[0].last_seen_at
+
+
 # ---------------------------------------------------------------------------
 # InsightBuilder._build_entity_summaries
 # ---------------------------------------------------------------------------
