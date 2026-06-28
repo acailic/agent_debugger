@@ -356,6 +356,27 @@ class TestEventSerialization:
         assert event.data == {"extra": "data"}
         assert event.importance == 0.8
 
+    def test_from_dict_does_not_mutate_caller_dict(self):
+        """from_dict must not modify the input dict — callers may reuse it."""
+        data = {
+            "id": "evt-999",
+            "session_id": "sess-1",
+            "event_type": "agent_start",
+            "timestamp": "2024-06-01T12:00:00+00:00",
+            "name": "",
+            "data": {},
+            "metadata": {},
+            "importance": 0.5,
+            "upstream_event_ids": [],
+        }
+        original_timestamp = data["timestamp"]
+        original_event_type = data["event_type"]
+
+        TraceEvent.from_dict(data)
+
+        assert data["timestamp"] == original_timestamp, "from_dict must not replace timestamp in caller's dict"
+        assert data["event_type"] == original_event_type, "from_dict must not replace event_type in caller's dict"
+
     def test_from_data_reconstructs_typed_event(self):
         """from_data should reconstruct typed events with their specific fields."""
         base_kwargs = {

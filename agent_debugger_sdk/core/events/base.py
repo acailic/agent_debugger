@@ -142,14 +142,11 @@ class TraceEvent:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TraceEvent:
         """Deserialize a dictionary to a TraceEvent."""
-        # Handle timestamp deserialization
+        data = dict(data)
         if isinstance(data.get("timestamp"), str):
             data["timestamp"] = datetime.fromisoformat(data["timestamp"])
-
-        # Handle EventType deserialization
         if isinstance(data.get("event_type"), str):
             data["event_type"] = EventType(data["event_type"])
-
         return cls(**data)
 
     @classmethod
