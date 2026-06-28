@@ -114,12 +114,21 @@ class InsightBuilder:
                     if "error" in fingerprint.lower():
                         error_types.add(fingerprint.split(":")[0] if ":" in fingerprint else "RuntimeError")
 
+            cluster_timestamps = [
+                r["timestamp"]
+                for event_id in event_ids
+                if (r := rankings_by_id.get(event_id)) and r.get("timestamp")
+            ]
+            fallback_ts = ranking.get("timestamp", datetime.now(timezone.utc).isoformat())
+            first_seen_at = min(cluster_timestamps) if cluster_timestamps else fallback_ts
+            last_seen_at = max(cluster_timestamps) if cluster_timestamps else fallback_ts
+
             patterns.append(
                 FailurePattern(
                     fingerprint=cluster.get("fingerprint", ""),
                     count=cluster.get("count", 1),
-                    first_seen_at=ranking.get("timestamp", datetime.now(timezone.utc).isoformat()),
-                    last_seen_at=ranking.get("timestamp", datetime.now(timezone.utc).isoformat()),
+                    first_seen_at=first_seen_at,
+                    last_seen_at=last_seen_at,
                     sample_error_types=list(error_types)[:5],
                     representative_event_id=representative_id,
                     severity=ranking.get("severity", 0.5),
