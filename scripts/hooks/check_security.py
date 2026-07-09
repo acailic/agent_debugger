@@ -144,7 +144,7 @@ def main() -> None:
                 reason += f" (and {len(issues) - 3} more)"
             print(json.dumps({"decision": "deny", "reason": reason}))
 
-    except (OSError, IOError):
+    except OSError:
         # On read errors, allow the operation
         print('{"decision":"allow"}')
         return
