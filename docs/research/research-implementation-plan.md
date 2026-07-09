@@ -40,9 +40,9 @@ This page is intentionally research-feature focused.
 
 For the current platform and cloud-readiness state, use:
 
-- [Progress](./progress.md)
-- [Architecture](./architecture.md)
-- [Improvement Roadmap](./improvement-roadmap.md)
+- [Progress](../guides/progress.md)
+- [Architecture](../guides/architecture.md)
+- [Improvement Roadmap](../plans/improvement-roadmap.md)
 
 ## Research Themes To Implement
 

@@ -39,4 +39,4 @@ As of `2026-03-23`, the accepted ADRs are at different implementation stages:
 - **ADR-008**: partially implemented. API key helpers, auth models, and redaction modules exist, but tenant enforcement and write-path integration are still pending.
 - **ADR-011**: partially underway. The local debugger, benchmark seeds, and docs structure are strong; cloud-hardening work has started but is not complete.
 
-Read [`../progress.md`](../progress.md) for the implementation snapshot that complements these decisions.
+Read [`../guides/progress.md`](../guides/progress.md) for the implementation snapshot that complements these decisions.

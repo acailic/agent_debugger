@@ -104,7 +104,7 @@ Planned in `docs/improvement-roadmap.md`:
 
 ## Decision Progress
 
-The ADR set in [`docs/decisions/`](./decisions/README.md) is visible in code:
+The ADR set in [`docs/decisions/`](../decisions/README.md) is visible in code:
 
 - ADR-006 is visible through `init()` and env-based configuration.
 - ADR-008 is visible through API key helpers, auth models, and the redaction pipeline, with tenant isolation enforced in the repository.

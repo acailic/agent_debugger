@@ -65,4 +65,4 @@ Peaky Peek automatically captures all LLM calls and tool use.
 
 - [How It Works](./how-it-works.md)
 - [Architecture](./architecture.md)
-- [Examples](../examples/)
+- [Examples](../../examples/)
