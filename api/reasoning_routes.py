@@ -137,7 +137,7 @@ async def edit_reasoning(
         raise HTTPException(
             status_code=400,
             detail=f"Invalid operation: {edit_request.operation}. Must be one of: modify, insert, delete, replace"
-        )
+        ) from None
 
     try:
         edit = editor.edit_reasoning(
@@ -148,7 +148,7 @@ async def edit_reasoning(
             position=edit_request.position,
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
     return {
         "session_id": session_id,
@@ -193,7 +193,7 @@ async def create_scenario_branch(
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid operation: {edit_request.operation}"
-            )
+            ) from None
 
         # Get old value
         event = editor.get_event_by_id(edit_request.event_id)
@@ -266,7 +266,7 @@ async def get_replay_events(
             branch_id=branch_id,
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
     return {
         "session_id": session_id,
@@ -451,7 +451,7 @@ async def export_scenario(
     try:
         exported = editor.export_scenario(branch_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
     return {
         "session_id": session_id,
@@ -486,7 +486,7 @@ async def import_scenario(
     try:
         imported_branch = editor.import_scenario(scenario_data)
     except (ValueError, KeyError) as e:
-        raise HTTPException(status_code=400, detail=f"Invalid scenario data: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Invalid scenario data: {str(e)}") from e
 
     return {
         "session_id": session_id,

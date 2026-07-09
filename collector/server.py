@@ -220,7 +220,7 @@ def _parse_event_type(event_type_str: str) -> EventType:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid event_type. Must be one of: {valid_types}",
-        )
+        ) from None
 
 
 def _parse_timestamp(timestamp: str | None) -> datetime | None:
