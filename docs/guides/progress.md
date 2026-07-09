@@ -23,7 +23,7 @@ Snapshot date: `2026-03-24`
 | Bundled UI | Implemented | Frontend built to `frontend/dist/`, served at `/ui/` by FastAPI when present. |
 | JSON export | Implemented | `GET /api/sessions/{id}/export` returns portable session bundle (session + events + checkpoints). |
 | Examples | Implemented | 8 annotated examples in `examples/` covering hello world, research agent, LangChain, PydanticAI, checkpoint replay, safety audit, loop detection, and live streaming. |
-| Getting started guide | Implemented | `docs/getting-started.md` covers install, start, first trace, UI tour, and export in 5 minutes. |
+| Getting started guide | Implemented | `docs/guides/getting-started.md` covers install, start, first trace, UI tour, and export in 5 minutes. |
 | Replay depth L1 | Implemented | Typed checkpoint schemas: `BaseCheckpointState`, `LangChainCheckpointState`, `CustomCheckpointState` with validation and serialization helpers. |
 | Replay depth L2 | Implemented | `TraceContext.restore()` classmethod fetches checkpoint from server and creates a new context with restored state. REST endpoints: `GET /api/checkpoints/{id}` and `POST /api/checkpoints/{id}/restore`. |
 

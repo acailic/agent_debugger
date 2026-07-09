@@ -4,8 +4,8 @@
 > planning phase and no longer reflects the actual codebase structure.  For
 > current implementation details, see:
 >
-> - [docs/architecture.md](./docs/architecture.md)
-> - [docs/how-it-works.md](./docs/how-it-works.md)
+> - [docs/guides/architecture.md](./docs/guides/architecture.md)
+> - [docs/guides/how-it-works.md](./docs/guides/how-it-works.md)
 > - [CLAUDE.md](./CLAUDE.md) (repo map section)
 >
 > The file maps and code examples below are retained for historical context
@@ -28,9 +28,9 @@ As of `2026-03-23`, the most important current-state corrections are:
 
 For implementation truth, prefer:
 
-- [docs/progress.md](./docs/progress.md)
-- [docs/architecture.md](./docs/architecture.md)
-- [docs/improvement-roadmap.md](./docs/improvement-roadmap.md)
+- [docs/guides/progress.md](./docs/guides/progress.md)
+- [docs/guides/architecture.md](./docs/guides/architecture.md)
+- [docs/plans/improvement-roadmap.md](./docs/plans/improvement-roadmap.md)
 
 ---
 

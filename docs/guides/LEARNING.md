@@ -1,6 +1,6 @@
 # Learning Guide
 
-The detailed learning-oriented documentation lives under [`docs/`](./docs/README.md), but the shortest useful summary is:
+The detailed learning-oriented documentation lives under [`docs/`](../README.md), but the shortest useful summary is:
 
 ## What This Repo Has Taught So Far
 
@@ -15,10 +15,10 @@ The detailed learning-oriented documentation lives under [`docs/`](./docs/README
 
 ## Best Starting Points
 
-- [Progress](./docs/progress.md)
-- [How It Works](./docs/how-it-works.md)
-- [Architecture](./docs/architecture.md)
-- [Repo Overview](./docs/repo-overview.md)
-- [Lessons Learned](./docs/lessons-learned.md)
-- [Improvement Roadmap](./docs/improvement-roadmap.md)
-- [Research Inspiration](./docs/research-inspiration.md)
+- [Progress](./progress.md)
+- [How It Works](./how-it-works.md)
+- [Architecture](./architecture.md)
+- [Repo Overview](./repo-overview.md)
+- [Lessons Learned](./lessons-learned.md)
+- [Improvement Roadmap](../plans/improvement-roadmap.md)
+- [Research Inspiration](../research/research-inspiration.md)
