@@ -148,9 +148,9 @@ Important:
 
 ## More Docs
 
-- [Intro](./docs/intro.md)
-- [Integration](./docs/integration.md)
-- [Progress](./docs/progress.md)
+- [Intro](../docs/guides/intro.md)
+- [Integration](../docs/guides/integration.md)
+- [Progress](../docs/guides/progress.md)
 
 ## License
 
