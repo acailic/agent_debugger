@@ -30,7 +30,6 @@ class InsightBuilder:
 
     def __init__(self):
         """Initialize the insight builder."""
-        pass
 
     def build_insight(
         self,

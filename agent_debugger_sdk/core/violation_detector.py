@@ -635,7 +635,7 @@ class SparseFailureDetector:
         for pattern_key, occurrences in error_patterns.items():
             if len(occurrences) >= min_occurrences:
                 # Get unique session IDs
-                session_ids = list(set(sid for sid, _ in occurrences))
+                session_ids = list({sid for sid, _ in occurrences})
 
                 if len(session_ids) >= min_occurrences:
                     pattern = SparseFailurePattern(

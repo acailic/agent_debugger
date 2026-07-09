@@ -28,13 +28,11 @@ class TransportError(Exception):
 class TransientError(TransportError):
     """Error that may be resolved by retrying (e.g., network timeout, 5xx)."""
 
-    pass
 
 
 class PermanentError(TransportError):
     """Error that will not be resolved by retrying (e.g., 4xx auth failure)."""
 
-    pass
 
 
 DeliveryFailureCallback = Callable[[TransportError], None]

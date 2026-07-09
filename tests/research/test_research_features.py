@@ -724,7 +724,7 @@ class TestScoreSession:
         assert len(scores) == len(events)
 
         contributions = {s.contribution for s in scores}
-        assert contributions.issubset({c for c in StepContribution})
+        assert contributions.issubset(set(StepContribution))
 
     def test_error_at_step_marks_harmful(self) -> None:
         from agent_debugger_sdk.core.redundancy_scorer import StepContribution, score_session

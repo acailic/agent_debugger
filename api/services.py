@@ -138,7 +138,7 @@ def compute_dict_delta(
         return current or {}
 
     if not current:
-        return {k: None for k in (previous or {})}
+        return dict.fromkeys(previous or {})
 
     all_keys = set(previous.keys()) | set(current.keys())
     delta: dict[str, Any] = {}

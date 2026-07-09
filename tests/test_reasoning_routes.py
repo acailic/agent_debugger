@@ -92,17 +92,14 @@ class TestReasoningRoutesIntegration:
         """Test the edit reasoning endpoint."""
         # This is a placeholder for actual integration testing
         # In real testing, we'd use dependency overrides to inject the mock repository
-        pass
 
     def test_create_scenario_branch_endpoint(self, test_client, mock_repository):
         """Test the create scenario branch endpoint."""
         # Placeholder for integration testing
-        pass
 
     def test_get_replay_events_endpoint(self, test_client, mock_repository):
         """Test the get replay events endpoint."""
         # Placeholder for integration testing
-        pass
 
 
 class TestReasoningRoutesUnit:

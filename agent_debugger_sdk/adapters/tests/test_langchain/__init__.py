@@ -35,7 +35,6 @@ class TestLangChainTracingHandler(
 ):
     """Combined test class for backward compatibility."""
 
-    pass
 
 
 __all__ = [

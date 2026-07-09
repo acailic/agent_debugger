@@ -110,7 +110,7 @@ def generate_health_report(
     health_score = max(0.0, health_score)
 
     # Generate agent summary
-    affected_agents = list(set(p.agent_name for p in patterns))
+    affected_agents = list({p.agent_name for p in patterns})
     critical_count = patterns_by_severity["critical"]
     warning_count = patterns_by_severity["warning"]
 
@@ -331,7 +331,7 @@ def _calculate_trend_metrics(
 
     metrics["avg_error_rate_change"] = sum(error_trends) / len(error_trends) if error_trends else 0.0
     metrics["avg_tool_failure_change"] = sum(tool_failures) / len(tool_failures) if tool_failures else 0.0
-    metrics["agents_with_issues"] = len(set(p.agent_name for p in patterns))
+    metrics["agents_with_issues"] = len({p.agent_name for p in patterns})
     metrics["total_affected_sessions"] = sum(len(p.affected_sessions) for p in patterns)
 
     return metrics

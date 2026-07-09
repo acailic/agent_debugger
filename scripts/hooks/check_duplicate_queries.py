@@ -55,7 +55,7 @@ def extract_query_shapes(content: str) -> list[str]:
             where_clause = where_match.group(1)
             conditions = re.findall(r"(\w+)\.(\w+)\s*==", where_clause)
             if conditions:
-                cond_names = sorted(set([c[1] for c in conditions]))
+                cond_names = sorted({c[1] for c in conditions})
                 shapes.append(f"{model}.where[{', '.join(cond_names)}]")
     return shapes
 

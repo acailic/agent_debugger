@@ -405,7 +405,7 @@ class AnomalyAlertRepository:
             .where(AnomalyAlertModel.tenant_id == self.tenant_id)
             .group_by(AnomalyAlertModel.status)
         )
-        by_status = {status: count for status, count in status_result.all()}
+        by_status = dict(status_result.all())
 
         # Count by alert_type
         type_result = await self.session.execute(
@@ -413,7 +413,7 @@ class AnomalyAlertRepository:
             .where(AnomalyAlertModel.tenant_id == self.tenant_id)
             .group_by(AnomalyAlertModel.alert_type)
         )
-        by_type = {alert_type: count for alert_type, count in type_result.all()}
+        by_type = dict(type_result.all())
 
         # Count by severity ranges
         critical_result = await self.session.execute(

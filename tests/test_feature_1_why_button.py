@@ -23,13 +23,11 @@ import collector.causal_analysis as _causal_analysis  # noqa: F401
 class EventNotFoundError(Exception):
     """Raised when an event ID cannot be found in the system."""
 
-    pass
 
 
 class InvalidEventDataError(Exception):
     """Raised when event data is malformed or invalid."""
 
-    pass
 
 
 # =============================================================================

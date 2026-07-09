@@ -18,7 +18,6 @@ from agent_debugger_sdk.core.events import Session, SessionStatus
 class _CheckpointRestoreError(Exception):
     """Raised when checkpoint restoration fails."""
 
-    pass
 
 
 def _resolve_restore_server_url(server_url: str | None) -> str:
