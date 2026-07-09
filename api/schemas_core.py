@@ -178,7 +178,7 @@ class SessionUpdateRequest(BaseModel):
     fix_note: str | None = Field(default=None, max_length=2000)
 
     @model_validator(mode="after")
-    def validate_session_update(self) -> "SessionUpdateRequest":
+    def validate_session_update(self) -> SessionUpdateRequest:
         """Validate cross-field constraints for session updates."""
         if self.started_at is not None and self.ended_at is not None:
             if self.ended_at < self.started_at:

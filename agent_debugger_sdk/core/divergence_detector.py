@@ -443,7 +443,7 @@ def _max_tree_depth(tree: dict[str, list[str]]) -> int:
     if not tree:
         return 0
 
-    roots = [node_id for node_id in tree.keys() if not any(node_id in children for children in tree.values())]
+    roots = [node_id for node_id in tree if not any(node_id in children for children in tree.values())]
 
     max_depth = 0
     for root in roots:

@@ -77,7 +77,7 @@ class Config:
             self.validate()
 
     @classmethod
-    def _create_unvalidated(cls, **kwargs: Any) -> "Config":
+    def _create_unvalidated(cls, **kwargs: Any) -> Config:
         """Create a Config instance without validation (for testing).
 
         Args:

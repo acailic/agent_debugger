@@ -261,7 +261,7 @@ class CausalGraph:
 
         # Find nodes with no incoming edges (potential root causes)
         nodes_with_incoming = {edge.to_node for edge in self.edges}
-        potential_roots = [node_id for node_id in self.nodes.keys()
+        potential_roots = [node_id for node_id in self.nodes
                          if node_id not in nodes_with_incoming]
 
         # BFS to calculate depths
@@ -289,7 +289,7 @@ class CausalGraph:
         """Identify potential root cause nodes (no incoming edges)."""
         nodes_with_incoming = {edge.to_node for edge in self.edges}
         self.root_cause_candidates = [
-            node_id for node_id in self.nodes.keys()
+            node_id for node_id in self.nodes
             if node_id not in nodes_with_incoming
         ]
 

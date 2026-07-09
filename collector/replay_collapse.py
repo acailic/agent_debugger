@@ -32,7 +32,7 @@ class CollapsedSegment:
         }
 
 
-def _get_high_value_indices(events: list["TraceEvent"], threshold: float) -> set[int]:
+def _get_high_value_indices(events: "list[TraceEvent]", threshold: float) -> set[int]:
     """Identify indices of events with importance >= threshold."""
     return {i for i, event in enumerate(events) if (event.importance or 0) >= threshold}
 
@@ -75,7 +75,7 @@ def _find_contiguous_low_value_runs(
     return segments
 
 
-def _build_segment_from_events(events: list["TraceEvent"], start: int, end: int) -> CollapsedSegment:
+def _build_segment_from_events(events: "list[TraceEvent]", start: int, end: int) -> CollapsedSegment:
     """Build a CollapsedSegment from a slice of events."""
     segment_events = events[start : end + 1]
     event_types = list({str(e.event_type) for e in segment_events})
@@ -102,7 +102,7 @@ def _build_segment_from_events(events: list["TraceEvent"], start: int, end: int)
 
 
 def identify_low_value_segments(
-    events: list["TraceEvent"],
+    events: "list[TraceEvent]",
     threshold: float = 0.35,
     min_segment_length: int = 3,
     context_window: int = 1,

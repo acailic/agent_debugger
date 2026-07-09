@@ -126,7 +126,7 @@ class SessionEmbedding:
     feature_weights: dict[str, float] = field(default_factory=dict)
     summary_hash: str = ""
 
-    def similarity(self, other: "SessionEmbedding") -> float:
+    def similarity(self, other: SessionEmbedding) -> float:
         """Calculate cosine similarity with another embedding."""
         if not self.embedding_vector or not other.embedding_vector:
             return 0.0
@@ -239,13 +239,13 @@ class TraceClusterer:
         visited: set[str] = set()
         clusters: list[TraceCluster] = []
 
-        for session_id in self.sessions.keys():
+        for session_id in self.sessions:
             if session_id in visited:
                 continue
 
             # Find similar sessions
             similar_sessions = [session_id]
-            for other_id in self.sessions.keys():
+            for other_id in self.sessions:
                 if other_id == session_id or other_id in visited:
                     continue
 
@@ -288,9 +288,9 @@ class TraceClusterer:
 
         # Compute average similarity for each session to all others
         similarities: dict[str, list[float]] = {}
-        for session_id in self.sessions.keys():
+        for session_id in self.sessions:
             sims: list[float] = []
-            for other_id in self.sessions.keys():
+            for other_id in self.sessions:
                 if session_id != other_id:
                     sims.append(self.embeddings[session_id].similarity(self.embeddings[other_id]))
             similarities[session_id] = sims
