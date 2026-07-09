@@ -1,5 +1,4 @@
 import type { TraceEvent } from '../types'
-import { memo } from 'react'
 
 interface FrameLifetimeTracePanelProps {
   events: TraceEvent[]
@@ -243,16 +242,3 @@ export function FrameLifetimeTracePanel({
     </section>
   )
 }
-
-// Custom comparison for FrameLifetimeTracePanel
-function arePropsEqual(
-  prevProps: Readonly<FrameLifetimeTracePanelProps>,
-  nextProps: Readonly<FrameLifetimeTracePanelProps>
-): boolean {
-  return (
-    prevProps.events === nextProps.events &&
-    prevProps.selectedEventId === nextProps.selectedEventId
-  )
-}
-
-export const FrameLifetimeTracePanelMemo = memo(FrameLifetimeTracePanel, arePropsEqual)

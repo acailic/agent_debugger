@@ -1,5 +1,4 @@
 import type { TraceEvent } from '../types'
-import { memo } from 'react'
 
 interface ConformalPredictionScoringPanelProps {
   events: TraceEvent[]
@@ -407,16 +406,3 @@ export function ConformalPredictionScoringPanel({
     </section>
   )
 }
-
-// Custom comparison for ConformalPredictionScoringPanel
-function arePropsEqual(
-  prevProps: Readonly<ConformalPredictionScoringPanelProps>,
-  nextProps: Readonly<ConformalPredictionScoringPanelProps>
-): boolean {
-  return (
-    prevProps.events === nextProps.events &&
-    prevProps.selectedEventId === nextProps.selectedEventId
-  )
-}
-
-export const ConformalPredictionScoringPanelMemo = memo(ConformalPredictionScoringPanel, arePropsEqual)

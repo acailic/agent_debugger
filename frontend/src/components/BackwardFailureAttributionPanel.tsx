@@ -1,5 +1,5 @@
 import type { TraceEvent, FailureExplanation } from '../types'
-import { memo, useState } from 'react'
+import { useState } from 'react'
 
 interface BackwardFailureAttributionPanelProps {
   events: TraceEvent[]
@@ -340,17 +340,3 @@ export function BackwardFailureAttributionPanel({
     </section>
   )
 }
-
-// Custom comparison for BackwardFailureAttributionPanel
-function arePropsEqual(
-  prevProps: Readonly<BackwardFailureAttributionPanelProps>,
-  nextProps: Readonly<BackwardFailureAttributionPanelProps>
-): boolean {
-  return (
-    prevProps.events === nextProps.events &&
-    prevProps.failureExplanations === nextProps.failureExplanations &&
-    prevProps.selectedEventId === nextProps.selectedEventId
-  )
-}
-
-export const BackwardFailureAttributionPanelMemo = memo(BackwardFailureAttributionPanel, arePropsEqual)
