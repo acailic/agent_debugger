@@ -250,7 +250,7 @@ function App() {
       setStreamHealth('disconnected')
       setStreamReconnectAttempts(0)
     }
-  }, [selectedSessionId, clearLiveEvents, addLiveEvent, setStreamConnected, setStreamHealth, setStreamReconnectAttempts, setLiveSummary])
+  }, [selectedSessionId, clearLiveEvents, addLiveEvent, setStreamConnected, setStreamHealth, setStreamReconnectAttempts, setStreamParseFailures, setLiveSummary])
 
   // Poll live summary when new live events arrive
   useEffect(() => {
