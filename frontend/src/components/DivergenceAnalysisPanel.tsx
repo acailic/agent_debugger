@@ -190,7 +190,10 @@ export function DivergenceAnalysisPanel({
   }, [primarySessionId, secondarySessionId])
 
   const currentAnalysis = divergenceAnalysis?.divergence_analysis
-  const divergencePoints = currentAnalysis?.divergence_points || []
+  const divergencePoints = useMemo(
+    () => currentAnalysis?.divergence_points || [],
+    [currentAnalysis]
+  )
   const overallScore = currentAnalysis?.overall_divergence_score || 0
 
   // Group divergences by type and severity
