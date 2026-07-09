@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { addFixNote } from '../api/client'
 
 interface FixAnnotationProps {
@@ -7,19 +7,27 @@ interface FixAnnotationProps {
 }
 
 export default function FixAnnotation({ sessionId, existingNote }: FixAnnotationProps) {
+  const [prevSessionId, setPrevSessionId] = useState(sessionId)
+  const [prevExistingNote, setPrevExistingNote] = useState(existingNote)
   const [savedNote, setSavedNote] = useState(existingNote || '')
   const [note, setNote] = useState(existingNote || '')
   const [isSaving, setIsSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(!existingNote)
   const [saveError, setSaveError] = useState<string | null>(null)
 
-  useEffect(() => {
+  // Reset the editor when the session or its existing note changes. Adjusting
+  // state during render (guarded by the previous prop values) is the
+  // React-recommended pattern for prop-driven resets and avoids the cascading
+  // render that a synchronous setState in an effect would trigger.
+  if (sessionId !== prevSessionId || existingNote !== prevExistingNote) {
+    setPrevSessionId(sessionId)
+    setPrevExistingNote(existingNote)
     const nextNote = existingNote || ''
     setSavedNote(nextNote)
     setNote(nextNote)
     setIsEditing(!nextNote)
     setSaveError(null)
-  }, [sessionId, existingNote])
+  }
 
   const handleSave = async () => {
     const trimmedNote = note.trim()

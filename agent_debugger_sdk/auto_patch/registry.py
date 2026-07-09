@@ -46,6 +46,11 @@ class AgentAdapterMixin:
     any exception during event emission is logged but does not propagate.
     """
 
+    # Attributes provided by the concrete adapter (a BaseAdapter subclass).
+    # Declared here so the mixin's wrap methods are type-safe in isolation.
+    _transport: SyncTransport | None
+    _session_id: str | None
+
     def _emit_event_safe(self, event, suffix: str = "") -> None:
         """Emit an event with error handling.
 
@@ -175,7 +180,8 @@ class BaseAdapter(ABC):
 
     name: str  # class-level attribute, must be set by subclasses
     _config: PatchConfig
-    _transport: "SyncTransport"
+    _transport: SyncTransport | None
+    _session_id: str | None
     _originals: dict
 
     @abstractmethod
@@ -270,6 +276,8 @@ class BaseAdapter(ABC):
         """
         from agent_debugger_sdk.auto_patch._transport import get_or_create_session
 
+        if self._transport is None:
+            return "", ""
         try:
             session_id = get_or_create_session(self._transport, self._config.agent_name, self.name)
             request_id = self._emit_request(kwargs, session_id)

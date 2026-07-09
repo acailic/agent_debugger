@@ -79,14 +79,21 @@ export function SwimlanePanel({ sessionId }: SwimlanePanelProps) {
   const [multiAgentAnalysis, setMultiAgentAnalysis] = useState<MultiAgentAnalysisResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [prevSessionId, setPrevSessionId] = useState(sessionId)
 
-  // Load comprehensive analysis when session is selected
-  useEffect(() => {
+  // Clear multi-agent analysis when the session is removed.
+  // setState-during-render replaces the previous synchronous setState-in-effect reset.
+  if (sessionId !== prevSessionId) {
+    setPrevSessionId(sessionId)
     if (!sessionId) {
       setMultiAgentAnalysis(null)
       setError(null)
-      return
     }
+  }
+
+  // Load comprehensive analysis when session is selected
+  useEffect(() => {
+    if (!sessionId) return
 
     const loadAnalysis = async () => {
       setLoading(true)
@@ -105,30 +112,6 @@ export function SwimlanePanel({ sessionId }: SwimlanePanelProps) {
 
     loadAnalysis()
   }, [sessionId])
-
-  if (!sessionId) {
-    return (
-      <div className="swimlane-panel empty-panel">
-        <p>Select a session to analyze multi-agent interactions.</p>
-      </div>
-    )
-  }
-
-  if (loading) {
-    return (
-      <div className="swimlane-panel loading-panel">
-        <p>Loading multi-agent analysis...</p>
-      </div>
-    )
-  }
-
-  if (error && !multiAgentAnalysis) {
-    return (
-      <div className="swimlane-panel error-panel">
-        <p className="error-message">Error: {error}</p>
-      </div>
-    )
-  }
 
   const swimlaneData = multiAgentAnalysis?.swimlane_data
   const coordinationIssues = multiAgentAnalysis?.coordination_analysis.issues || []
@@ -160,6 +143,30 @@ export function SwimlanePanel({ sessionId }: SwimlanePanelProps) {
 
     return laneMap
   }, [swimlaneData])
+
+  if (!sessionId) {
+    return (
+      <div className="swimlane-panel empty-panel">
+        <p>Select a session to analyze multi-agent interactions.</p>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="swimlane-panel loading-panel">
+        <p>Loading multi-agent analysis...</p>
+      </div>
+    )
+  }
+
+  if (error && !multiAgentAnalysis) {
+    return (
+      <div className="swimlane-panel error-panel">
+        <p className="error-message">Error: {error}</p>
+      </div>
+    )
+  }
 
   return (
     <div className="swimlane-panel">

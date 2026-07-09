@@ -239,6 +239,8 @@ class HealthReportSchema(BaseModel):
     recommendations: list[str]
     affected_agents: list[str]
     trend_metrics: dict[str, Any]
+    total_sessions: int = 0
+    total_agents: int = 0
 
 
 @router.get("/api/analytics/patterns", response_model=PatternsListResponse)
@@ -406,4 +408,6 @@ async def get_health_report(
         recommendations=report.recommendations,
         affected_agents=report.affected_agents,
         trend_metrics=report.trend_metrics,
+        total_sessions=report.total_sessions,
+        total_agents=report.total_agents,
     )

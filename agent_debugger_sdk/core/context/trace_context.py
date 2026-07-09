@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from types import TracebackType
+
     from agent_debugger_sdk.checkpoints import BaseCheckpointState
 
 from agent_debugger_sdk.core.emitter import EventBufferLike, EventEmitter
@@ -124,6 +126,15 @@ class TraceContext(RecordingMixin):
         self._entered = False
         self._transport: Any | None = None  # HttpTransport instance if in cloud mode
         self._restored_state: BaseCheckpointState | None = None
+        # Restore-only state. Populated by TraceContext.restore(), but declared
+        # here so every instance carries a well-typed default and direct
+        # attribute access (e.g. ctx.replayed_events.append) is safe without a
+        # getattr fallback on freshly constructed contexts.
+        self.replayed_events: list[dict[str, Any]] = []
+        self._drift_detector: Any | None = None
+        self._drift_decision_index: int = 0
+        self._hook_errors: list[Exception] = []
+        self._restored_target: Any = None
 
     @classmethod
     async def restore(
@@ -187,11 +198,11 @@ class TraceContext(RecordingMixin):
             config=session.config,
         )
         ctx._restored_state = restored_state
-        ctx.replayed_events: list[dict[str, Any]] = []
+        ctx.replayed_events = []
         ctx._drift_detector = None
-        ctx._drift_decision_index: int = 0
-        ctx._hook_errors: list[Exception] = []
-        ctx._restored_target: Any = None
+        ctx._drift_decision_index = 0
+        ctx._hook_errors = []
+        ctx._restored_target = None
 
         # Apply restore hook for the checkpoint's framework (falls back to generic hook)
         if restored_state is not None:
@@ -375,7 +386,7 @@ class TraceContext(RecordingMixin):
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
-        exc_tb: object,
+        exc_tb: TracebackType | None,
     ) -> None:
         """Exit the tracing context.
 

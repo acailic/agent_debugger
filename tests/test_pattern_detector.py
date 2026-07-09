@@ -9,7 +9,6 @@ import pytest
 from agent_debugger_sdk.core.events import Session
 from collector.patterns.pattern_detector import Pattern, PatternDetector
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

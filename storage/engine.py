@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 from pathlib import Path
+from typing import Any
 
 from alembic import command
 from alembic.config import Config as AlembicConfig
@@ -20,7 +21,7 @@ def get_database_url() -> str:
 
 def create_db_engine(url: str | None = None, **kwargs) -> AsyncEngine:
     db_url = url or get_database_url()
-    defaults = {"echo": False}
+    defaults: dict[str, Any] = {"echo": False}
     if "sqlite" not in db_url:
         defaults["pool_timeout"] = 10
         defaults["pool_recycle"] = 3600
@@ -54,7 +55,7 @@ def _run_migrations(db_url: str) -> None:
     command.upgrade(_create_alembic_config(db_url), "head")
 
 
-def _repair_legacy_sqlite_schema(connection) -> None:
+def _repair_legacy_sqlite_schema(connection) -> bool:
     inspector = inspect(connection)
     tables = set(inspector.get_table_names())
     repaired_legacy = False

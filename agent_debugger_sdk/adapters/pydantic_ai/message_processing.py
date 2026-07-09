@@ -7,7 +7,18 @@ into trace events.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pydantic_ai.messages import (
+        ModelMessage,
+        ModelRequest,
+        ModelResponse,
+        TextPart,
+        ToolCallPart,
+        ToolReturnPart,
+    )
+    from pydantic_ai.models import Model
 
 from agent_debugger_sdk.core.events import LLMRequestEvent, LLMResponseEvent, ToolCallEvent
 
@@ -28,13 +39,6 @@ try:
     PYDANTIC_AI_AVAILABLE = True
 except ImportError:
     PYDANTIC_AI_AVAILABLE = False
-    ModelMessage = Any
-    ModelRequest = Any
-    ModelResponse = Any
-    ToolReturnPart = Any
-    ToolCallPart = Any
-    TextPart = Any
-    Model = Any
 
 
 class MessageProcessor:

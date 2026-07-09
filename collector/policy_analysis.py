@@ -131,8 +131,9 @@ def analyze_policy_sequence(
 def _get_template_id(policy: TraceEvent) -> str:
     """Extract template identifier from policy event."""
     # Check for explicit template_id first
-    if hasattr(policy, "template_id") and policy.template_id:
-        return policy.template_id
+    template_id = getattr(policy, "template_id", None)
+    if template_id:
+        return template_id
     if hasattr(policy, "data"):
         template_id = policy.data.get("template_id")
         if template_id:
@@ -176,8 +177,9 @@ def _detect_parameter_changes(
 
 def _get_parameters(policy: TraceEvent) -> dict[str, Any]:
     """Extract parameters from policy event."""
-    if hasattr(policy, "policy_parameters") and policy.policy_parameters:
-        return policy.policy_parameters
+    policy_parameters = getattr(policy, "policy_parameters", None)
+    if policy_parameters:
+        return policy_parameters
     if hasattr(policy, "data"):
         params = policy.data.get("policy_parameters", {})
         if params:

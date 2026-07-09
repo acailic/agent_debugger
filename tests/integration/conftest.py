@@ -8,11 +8,9 @@ from __future__ import annotations
 
 import os
 import uuid
+from pathlib import Path
 
 import pytest
-
-pytestmark = pytest.mark.integration
-
 
 # ---------------------------------------------------------------------------
 # Session-scoped gate
@@ -20,12 +18,27 @@ pytestmark = pytest.mark.integration
 
 
 def pytest_collection_modifyitems(config, items):
-    """Skip integration tests if no API key is available."""
+    """Mark tests under this directory as integration tests, then skip if no API key.
+
+    ``pytestmark`` at conftest module scope is inert (pytest only honors it in
+    test modules), and this hook receives *every* collected item in the session
+    regardless of which conftest defines it — so we must (a) gate the marker on
+    the item living under this conftest's directory, and (b) add the marker
+    per-item. That makes the ``-m 'not integration'`` filter in pyproject.toml
+    actually deselect these tests in the default run, and lets the no-API-key
+    skip apply to every integration item.
+    """
     api_key = os.environ.get("ZAI_API_KEY")
-    if api_key:
-        return
+    integration_root = Path(__file__).resolve().parent
     for item in items:
-        if "integration" in item.keywords:
+        try:
+            item_path = Path(str(item.fspath)).resolve()
+        except (TypeError, ValueError):
+            continue
+        if integration_root not in item_path.parents:
+            continue
+        item.add_marker(pytest.mark.integration)
+        if not api_key:
             item.add_marker(pytest.mark.skip(reason="No ZAI_API_KEY found — skipping integration test"))
 
 
@@ -50,6 +63,7 @@ def zai_chat_model(zai_api_key):
     Uses GLM-4.6 (a reasoning model) with sufficient max_tokens for
     both reasoning and response content.
     """
+    pytest.importorskip("langchain_openai")
     from langchain_openai import ChatOpenAI
 
     return ChatOpenAI(

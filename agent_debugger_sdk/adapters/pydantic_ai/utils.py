@@ -7,11 +7,20 @@ and data extraction from PydanticAI objects.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pydantic_ai.messages import (
+        ModelResponse,
+        RetryPromptPart,
+        SystemPromptPart,
+        ToolReturnPart,
+        UserPromptPart,
+    )
+    from pydantic_ai.models import Model
 
 try:
     from pydantic_ai.messages import (
-        ModelRequest,
         ModelResponse,
         RetryPromptPart,
         SystemPromptPart,
@@ -23,13 +32,6 @@ try:
     PYDANTIC_AI_AVAILABLE = True
 except ImportError:
     PYDANTIC_AI_AVAILABLE = False
-    Model = Any
-    ModelResponse = Any
-    ModelRequest = Any
-    UserPromptPart = Any
-    SystemPromptPart = Any
-    ToolReturnPart = Any
-    RetryPromptPart = Any
 
 
 def resolve_model_name(agent: Any, requested_model: Model | str | None) -> str:

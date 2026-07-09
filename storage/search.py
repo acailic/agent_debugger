@@ -327,12 +327,11 @@ class SessionSearchService:
         # Filter by event_type in SQL using a subquery to avoid N+1 queries.
         # Previously this was done with a Python loop issuing one query per session.
         if event_type:
-            event_type_str = event_type.value if hasattr(event_type, "value") else event_type
             event_subq = (
                 select(EventModel.session_id)
                 .where(
                     EventModel.tenant_id == self.tenant_id,
-                    EventModel.event_type == event_type_str,
+                    EventModel.event_type == event_type,
                 )
                 .scalar_subquery()
             )

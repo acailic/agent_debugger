@@ -218,7 +218,8 @@ def _collect_session_event_metrics(events: list[Any]) -> dict[str, Any]:
 
     for event in events:
         event_type = getattr(event, "event_type", None)
-        data = getattr(event, "data", None) if getattr(event, "data", None) is not None else {}
+        raw_data = getattr(event, "data", None)
+        data: dict[str, Any] = raw_data if isinstance(raw_data, dict) else {}
 
         if event_type == EventType.DECISION:
             conf, lc, grnd = _process_decision(event, data)
@@ -241,7 +242,9 @@ def _collect_session_event_metrics(events: list[Any]) -> dict[str, Any]:
 
         elif event_type == EventType.AGENT_TURN:
             turn_count += 1
-            speakers |= {_get_speaker(event, data)} - {None}
+            speaker = _get_speaker(event, data)
+            if speaker:
+                speakers.add(speaker)
 
         elif event_type == EventType.PROMPT_POLICY:
             template = _get_policy_template(event, data)

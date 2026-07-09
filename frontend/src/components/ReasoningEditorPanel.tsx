@@ -68,13 +68,18 @@ export function ReasoningEditorPanel({
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [editHistory, setEditHistory] = useState<ReasoningEdit[]>([])
+  const [prevSessionId, setPrevSessionId] = useState<string | null>(sessionId)
+
+  // Reset scenarios when the session changes (including clearing when it becomes null),
+  // using the React-documented setState-during-render pattern instead of an effect.
+  if (sessionId !== prevSessionId) {
+    setPrevSessionId(sessionId)
+    setScenarios([])
+  }
 
   // Load scenarios when session is available
   useEffect(() => {
-    if (!sessionId) {
-      setScenarios([])
-      return
-    }
+    if (!sessionId) return
 
     const loadScenarios = async () => {
       try {

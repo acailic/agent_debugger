@@ -304,7 +304,7 @@ class AnomalyAlertRepository:
             raise ValueError(f"Invalid status: {status}. Must be one of {self.VALID_STATUSES}")
 
         now = datetime.now(timezone.utc)
-        updates = {"status": status}
+        updates: dict[str, Any] = {"status": status}
 
         # Set appropriate timestamp based on status
         if status == "acknowledged":

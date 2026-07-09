@@ -32,7 +32,7 @@ export function useDriftData(): void {
         if (!ignore) {
           setDriftData(data)
         }
-      } catch (err) {
+      } catch {
         if (!ignore) {
           logger.warn('Failed to load drift data:', {component: 'useDriftData'})
           setDriftData(null)

@@ -8,14 +8,19 @@ interface CostPanelProps {
 
 export default function CostPanel({ sessionId }: CostPanelProps) {
   const [data, setData] = useState<SessionCost | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!!sessionId)
   const [error, setError] = useState<string | null>(null)
+  const [prevSessionId, setPrevSessionId] = useState(sessionId)
+
+  // Drop the loading state when the session is removed.
+  // setState-during-render replaces the previous synchronous setState-in-effect reset.
+  if (sessionId !== prevSessionId) {
+    setPrevSessionId(sessionId)
+    if (!sessionId) setLoading(false)
+  }
 
   useEffect(() => {
-    if (!sessionId) {
-      setLoading(false)
-      return
-    }
+    if (!sessionId) return
 
     let ignore = false
     async function fetchData() {

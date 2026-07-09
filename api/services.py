@@ -231,7 +231,7 @@ async def enrich_sessions_for_listing(
     # but the replay_value itself may be cached from a previous analysis
     analyses = await asyncio.gather(*[analyze_session(repo, session.id) for session in capped_sessions])
 
-    enriched: list[dict[str, Any]] = [
+    enriched: list[SessionSchema] = [
         normalize_session(session, analysis_summary(analysis))
         for session, (_, _, analysis, _) in zip(capped_sessions, analyses)
     ]
@@ -506,13 +506,17 @@ async def _load_candidate_failure_events(
 
 def _is_failure_event(event: TraceEvent) -> bool:
     """Check if an event represents a failure."""
-    return (
+    return bool(
         event.event_type == EventType.ERROR
         or event.event_type == EventType.REFUSAL
         or event.event_type == EventType.POLICY_VIOLATION
         or event.event_type == EventType.BEHAVIOR_ALERT
-        or (event.event_type == EventType.TOOL_RESULT and bool(event.error))
-        or (event.event_type == EventType.SAFETY_CHECK and event.outcome and event.outcome != "pass")
+        or (event.event_type == EventType.TOOL_RESULT and bool(getattr(event, "error", None)))
+        or (
+            event.event_type == EventType.SAFETY_CHECK
+            and (outcome := getattr(event, "outcome", None))
+            and outcome != "pass"
+        )
     )
 
 
@@ -574,8 +578,10 @@ def _calculate_failure_similarity(
 
     # Tool name match for tool_result failures
     if source_event.event_type == EventType.TOOL_RESULT and candidate_event.event_type == EventType.TOOL_RESULT:
-        if source_event.tool_name and candidate_event.tool_name:
-            if source_event.tool_name == candidate_event.tool_name:
+        source_tool = getattr(source_event, "tool_name", None)
+        candidate_tool = getattr(candidate_event, "tool_name", None)
+        if source_tool and candidate_tool:
+            if source_tool == candidate_tool:
                 score += 0.2
 
     return min(score, 1.0)
@@ -584,7 +590,7 @@ def _calculate_failure_similarity(
 def _derive_failure_mode(event: TraceEvent) -> str:
     """Derive a human-readable failure mode from an event."""
     if event.event_type == EventType.BEHAVIOR_ALERT:
-        alert_type = event.alert_type or ""
+        alert_type = getattr(event, "alert_type", None) or ""
         if alert_type == "tool_loop":
             return "looping_behavior"
         return "behavior_anomaly"
@@ -592,7 +598,7 @@ def _derive_failure_mode(event: TraceEvent) -> str:
         return "guardrail_block"
     if event.event_type == EventType.POLICY_VIOLATION:
         return "policy_mismatch"
-    if event.event_type == EventType.TOOL_RESULT and event.error:
+    if event.event_type == EventType.TOOL_RESULT and getattr(event, "error", None):
         return "tool_execution_failure"
     if event.event_type == EventType.ERROR:
         return "runtime_error"
@@ -601,25 +607,25 @@ def _derive_failure_mode(event: TraceEvent) -> str:
 
 def _derive_root_cause(event: TraceEvent) -> str:
     """Derive a root cause summary from an event."""
-    if event.event_type == EventType.TOOL_RESULT and event.error:
-        tool_name = event.tool_name or "tool"
-        return f"Tool {tool_name} failed: {_truncate_text(event.error, 80)}"
+    if event.event_type == EventType.TOOL_RESULT and getattr(event, "error", None):
+        tool_name = getattr(event, "tool_name", None) or "tool"
+        return f"Tool {tool_name} failed: {_truncate_text(getattr(event, 'error', None) or '', 80)}"
     if event.event_type == EventType.ERROR:
-        error_type = event.error_type or "Error"
-        error_msg = event.error_message or event.error or "Unknown error"
+        error_type = getattr(event, "error_type", None) or "Error"
+        error_msg = getattr(event, "error_message", None) or getattr(event, "error", None) or "Unknown error"
         return f"{error_type}: {_truncate_text(error_msg, 80)}"
     if event.event_type == EventType.REFUSAL:
-        reason = event.reason or "No reason provided"
+        reason = getattr(event, "reason", None) or "No reason provided"
         return f"Request refused: {_truncate_text(reason, 80)}"
     if event.event_type == EventType.POLICY_VIOLATION:
-        vtype = event.violation_type or event.name or "Unknown violation"
+        vtype = getattr(event, "violation_type", None) or event.name or "Unknown violation"
         return f"Policy violation: {_truncate_text(vtype, 80)}"
     if event.event_type == EventType.BEHAVIOR_ALERT:
-        signal = event.signal or event.name or "Behavior anomaly"
+        signal = getattr(event, "signal", None) or event.name or "Behavior anomaly"
         return f"Behavior alert: {_truncate_text(signal, 80)}"
     if event.event_type == EventType.SAFETY_CHECK:
-        policy = event.policy_name or "policy"
-        outcome = event.outcome or "failed"
+        policy = getattr(event, "policy_name", None) or "policy"
+        outcome = getattr(event, "outcome", None) or "failed"
         return f"Safety check {policy} returned {outcome}"
     return "Unknown cause"
 

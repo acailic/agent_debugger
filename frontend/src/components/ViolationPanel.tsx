@@ -12,6 +12,7 @@ import type {
   TraceCluster,
   SparseFailurePattern,
   ViolationDashboardSummary,
+  SimilarSession,
 } from '../types'
 
 interface ViolationPanelProps {
@@ -24,45 +25,56 @@ export function ViolationPanel({ selectedSessionId }: ViolationPanelProps) {
   const [searchResults, setSearchResults] = useState<ViolationReport[] | null>(null)
   const [clusters, setClusters] = useState<TraceCluster[] | null>(null)
   const [sparseFailures, setSparseFailures] = useState<SparseFailurePattern[] | null>(null)
-  const [similarSessions, setSimilarSessions] = useState<any[] | null>(null)
+  const [similarSessions, setSimilarSessions] = useState<SimilarSession[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
   // Load dashboard data on mount
   useEffect(() => {
-    loadDashboard()
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await getViolationDashboard({ days: 7 })
+        if (!cancelled) {
+          setDashboardData(data)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          logger.error('Failed to load violation dashboard:', {component: 'ViolationPanel'}, err)
+          setError(err instanceof Error ? err.message : 'Failed to load dashboard')
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+    void load()
+    return () => { cancelled = true }
   }, [])
 
   // Load similar sessions when session is selected
   useEffect(() => {
-    if (selectedSessionId) {
-      loadSimilarSessions(selectedSessionId)
+    if (!selectedSessionId) return
+    let cancelled = false
+    async function load(sessionId: string) {
+      try {
+        const data = await findSimilarSessions({ sessionId, limit: 5 })
+        if (!cancelled) {
+          setSimilarSessions(data.similar_sessions)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          logger.error('Failed to load similar sessions:', {component: 'ViolationPanel'}, err)
+        }
+      }
     }
+    void load(selectedSessionId)
+    return () => { cancelled = true }
   }, [selectedSessionId])
-
-  const loadDashboard = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await getViolationDashboard({ days: 7 })
-      setDashboardData(data)
-    } catch (err) {
-      logger.error('Failed to load violation dashboard:', {component: 'ViolationPanel'}, err)
-      setError(err instanceof Error ? err.message : 'Failed to load dashboard')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadSimilarSessions = async (sessionId: string) => {
-    try {
-      const data = await findSimilarSessions({ sessionId, limit: 5 })
-      setSimilarSessions(data.similar_sessions)
-    } catch (err) {
-      logger.error('Failed to load similar sessions:', {component: 'ViolationPanel'}, err)
-    }
-  }
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return

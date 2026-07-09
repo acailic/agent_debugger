@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from agent_debugger_sdk.adapters.langchain_utils import (
     extract_invocation_settings,
@@ -25,6 +25,10 @@ logger = logging.getLogger("agent_debugger")
 # Use perf_counter for more accurate duration tracking
 _perf_counter = time.perf_counter
 
+if TYPE_CHECKING:
+    from langchain_core.callbacks import AsyncCallbackHandler
+    from langchain_core.outputs import LLMResult
+
 try:
     from langchain_core.callbacks import AsyncCallbackHandler
     from langchain_core.outputs import LLMResult
@@ -32,8 +36,10 @@ try:
     LANGCHAIN_AVAILABLE = True
 except ImportError:
     LANGCHAIN_AVAILABLE = False
+    # Runtime base-class fallback (the class statement below needs a value);
+    # type checking uses the TYPE_CHECKING import above so this never leaks an
+    # ``object``-variable type into annotations or the class base.
     AsyncCallbackHandler = object
-    LLMResult = Any
 
 
 # Private aliases for backward compatibility

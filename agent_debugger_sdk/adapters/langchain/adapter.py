@@ -9,8 +9,12 @@ from __future__ import annotations
 
 import uuid
 from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
 
 from agent_debugger_sdk.core.context import TraceContext
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 from .handler import LangChainTracingHandler
 
@@ -139,7 +143,7 @@ class LangChainAdapter:
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
-        exc_tb: object,
+        exc_tb: TracebackType | None,
     ) -> None:
         """Exit the tracing context.
 

@@ -117,7 +117,7 @@ def _build_frame_tree(events) -> dict:
             children_map[event.parent_id] = []
         children_map[event.parent_id].append(event)
 
-    def build_node(event_id) -> dict | None:
+    def build_node(event_id) -> dict:
         """Recursively build tree nodes."""
         children = children_map.get(event_id, [])
         node = {
@@ -237,12 +237,13 @@ async def get_uncertainty_analysis(
     # Calculate uncertainty metrics
     uncertainty_scores = []
     for event in events:
-        if hasattr(event, 'confidence') and event.confidence is not None:
+        confidence = getattr(event, 'confidence', None)
+        if confidence is not None:
             uncertainty_score = {
                 "event_id": event.id,
                 "event_type": str(event.event_type),
-                "confidence": event.confidence,
-                "uncertainty": 1.0 - event.confidence,
+                "confidence": confidence,
+                "uncertainty": 1.0 - confidence,
                 "timestamp": event.timestamp.isoformat() if event.timestamp else None,
             }
             uncertainty_scores.append(uncertainty_score)
@@ -294,14 +295,15 @@ async def get_prediction_intervals(
     # Calculate prediction intervals for decisions
     prediction_intervals = []
     for event in events:
-        if hasattr(event, 'confidence') and event.confidence is not None:
+        confidence = getattr(event, 'confidence', None)
+        if confidence is not None:
             # Calculate conformal interval
-            margin = (1.0 - event.confidence) * confidence_level
+            margin = (1.0 - confidence) * confidence_level
             interval = {
                 "event_id": event.id,
                 "event_type": str(event.event_type),
-                "lower_bound": max(0.0, event.confidence - margin),
-                "upper_bound": min(1.0, event.confidence + margin),
+                "lower_bound": max(0.0, confidence - margin),
+                "upper_bound": min(1.0, confidence + margin),
                 "confidence_level": confidence_level,
                 "timestamp": event.timestamp.isoformat() if event.timestamp else None,
             }

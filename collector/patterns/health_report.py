@@ -29,6 +29,8 @@ class HealthReport:
         recommendations: Actionable recommendations based on detected patterns
         affected_agents: List of agents with detected patterns
         trend_metrics: Summary of trending metrics
+        total_sessions: Total number of sessions analyzed
+        total_agents: Total number of agents analyzed
     """
 
     generated_at: datetime
@@ -42,6 +44,8 @@ class HealthReport:
     recommendations: list[str]
     affected_agents: list[str]
     trend_metrics: dict[str, Any] = field(default_factory=dict)
+    total_sessions: int = 0
+    total_agents: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize health report to dictionary."""
@@ -57,6 +61,8 @@ class HealthReport:
             "recommendations": self.recommendations,
             "affected_agents": self.affected_agents,
             "trend_metrics": self.trend_metrics,
+            "total_sessions": self.total_sessions,
+            "total_agents": self.total_agents,
         }
 
 
@@ -182,6 +188,8 @@ def generate_health_report(
         recommendations=recommendations,
         affected_agents=affected_agents,
         trend_metrics=trend_metrics,
+        total_sessions=total_sessions,
+        total_agents=total_agents,
     )
 
 

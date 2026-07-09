@@ -319,6 +319,12 @@ def auto_capture_function(
             if hasattr(f, "__module__"):
                 module_path = f"{f.__module__}.{f.__qualname__}"
 
+            # Apply decorator-level module filter as an additional restriction.
+            # Matches the substring semantics of session.should_capture_module
+            # so a decorated function is only captured when its own filter agrees.
+            if module_filter is not None and module_filter not in module_path:
+                return f(*args, **kwargs)
+
             if not session.should_capture_module(module_path):
                 return f(*args, **kwargs)
 

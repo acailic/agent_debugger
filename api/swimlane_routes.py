@@ -11,8 +11,8 @@ from typing import Any
 from fastapi import APIRouter, Depends
 
 from agent_debugger_sdk.core.swimlane import (
-    CoordinationIssue,
     EmergentBehavior,
+    IssueReport,
     analyze_multi_agent_session,
     detect_coordination_issues,
     detect_emergent_behaviors,
@@ -274,7 +274,7 @@ def _analyze_message_flows(message_flows: list[dict[str, Any]]) -> dict[str, Any
     }
 
 
-def _generate_coordination_summary(issues: list[CoordinationIssue]) -> dict[str, Any]:
+def _generate_coordination_summary(issues: list[IssueReport]) -> dict[str, Any]:
     """Generate coordination analysis summary.
 
     Args:

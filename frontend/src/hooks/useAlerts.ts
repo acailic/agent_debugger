@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { fetchAlerts, updateAlertStatus, bulkUpdateAlertStatus } from '../api/client'
 import type { AlertStatus, ManagedAlert } from '../types'
 
@@ -19,23 +19,43 @@ const DEFAULT_FILTERS: Record<string, string> = {}
 
 export function useAlerts(initialFilters: Record<string, string> = DEFAULT_FILTERS): UseAlertsReturn {
   const [alerts, setAlerts] = useState<ManagedAlert[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<Record<string, string>>(initialFilters)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
-  const loadAlerts = async () => {
+  // Guard: reset loading when filters change (setState-during-render pattern)
+  const [prevFilters, setPrevFilters] = useState(filters)
+  if (!Object.is(prevFilters, filters)) {
+    setPrevFilters(filters)
     setLoading(true)
     setError(null)
-    try {
-      const response = await fetchAlerts(filters)
-      setAlerts(response.alerts)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load alerts')
-      setAlerts([])
-    } finally {
-      setLoading(false)
-    }
   }
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      setError(null)
+      try {
+        const response = await fetchAlerts(filters)
+        if (!cancelled) {
+          setAlerts(response.alerts)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load alerts')
+          setAlerts([])
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [filters, refreshTrigger])
 
   const setFilter = (key: string, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
@@ -66,8 +86,7 @@ export function useAlerts(initialFilters: Record<string, string> = DEFAULT_FILTE
   const bulkUpdate = async (alertIds: string[], status: AlertStatus) => {
     try {
       await bulkUpdateAlertStatus(alertIds, status)
-      // Refresh to get updated state from server
-      await loadAlerts()
+      setRefreshTrigger(c => c + 1)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to bulk update alerts')
       throw err
@@ -75,13 +94,10 @@ export function useAlerts(initialFilters: Record<string, string> = DEFAULT_FILTE
   }
 
   const refresh = async () => {
-    await loadAlerts()
+    setLoading(true)
+    setError(null)
+    setRefreshTrigger(c => c + 1)
   }
-
-  // Auto-refresh on filter change
-  useEffect(() => {
-    void loadAlerts()
-  }, [filters])
 
   return {
     alerts,

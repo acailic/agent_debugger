@@ -52,22 +52,29 @@ export function StepperPanel({ sessionId }: StepperPanelProps) {
   const [agentState, setAgentState] = useState<AgentState | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [prevSessionId, setPrevSessionId] = useState(sessionId)
 
   // Breakpoint form state
   const [breakpointType, setBreakpointType] = useState<BreakpointType>('event_type')
   const [conditionValue, setConditionValue] = useState('')
   const [description, setDescription] = useState('')
 
-  // Load initial state when session changes
-  useEffect(() => {
+  // Clear stepper state when the session is removed.
+  // setState-during-render replaces the previous synchronous setState-in-effect reset.
+  if (sessionId !== prevSessionId) {
+    setPrevSessionId(sessionId)
     if (!sessionId) {
       setBreakpoints([])
       setBranches([])
       setStepperState(null)
       setAgentState(null)
       setError(null)
-      return
     }
+  }
+
+  // Load initial state when session changes
+  useEffect(() => {
+    if (!sessionId) return
 
     const loadState = async () => {
       setLoading(true)
@@ -151,7 +158,16 @@ export function StepperPanel({ sessionId }: StepperPanelProps) {
           completed: false,
           current_position: response.step_result.state?.current_event_index || 0,
           total_events: response.step_result.state?.current_event_index || 0,
-          current_event: response.step_result.current_event as any,
+          current_event: response.step_result.current_event ? {
+            event_id: response.step_result.current_event.id,
+            event_type: response.step_result.current_event.event_type,
+            timestamp: response.step_result.current_event.timestamp,
+            name: response.step_result.current_event.name,
+            data: response.step_result.current_event.data,
+            parent_id: response.step_result.current_event.parent_id,
+            confidence: response.step_result.current_event.confidence,
+            reasoning: response.step_result.current_event.reasoning,
+          } : undefined,
           events_count: response.step_result.state?.current_event_index || 0,
           breakpoints_active: breakpoints.filter(bp => bp.enabled).length,
           paused: response.step_result.state?.paused || true

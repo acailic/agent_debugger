@@ -737,7 +737,7 @@ class TestHttpTransportSendEvent:
         transport = HttpTransport(endpoint="http://localhost:8000")
         event = _make_event()
 
-        with patch.object(transport._client, "post") as mock_post:
+        with patch.object(transport._client, "post") as mock_post, patch("asyncio.sleep", new_callable=AsyncMock):
             # First two calls return 500, third returns 200
             mock_post.side_effect = [
                 MagicMock(status_code=500),
@@ -772,7 +772,7 @@ class TestHttpTransportSendEvent:
         transport = HttpTransport(endpoint="http://localhost:8000")
         event = _make_event()
 
-        with patch.object(transport._client, "post") as mock_post:
+        with patch.object(transport._client, "post") as mock_post, patch("asyncio.sleep", new_callable=AsyncMock):
             import httpx
 
             # First call times out, second succeeds
@@ -791,7 +791,7 @@ class TestHttpTransportSendEvent:
         transport = HttpTransport(endpoint="http://localhost:8000")
         event = _make_event()
 
-        with patch.object(transport._client, "post") as mock_post:
+        with patch.object(transport._client, "post") as mock_post, patch("asyncio.sleep", new_callable=AsyncMock):
             import httpx
 
             # First call fails with network error, second succeeds
@@ -812,7 +812,7 @@ class TestHttpTransportSendEvent:
         callback = MagicMock(spec=DeliveryFailureCallback)
         transport._on_delivery_failure = callback
 
-        with patch.object(transport._client, "post") as mock_post:
+        with patch.object(transport._client, "post") as mock_post, patch("asyncio.sleep", new_callable=AsyncMock):
             import httpx
 
             # All calls fail
@@ -1063,6 +1063,7 @@ class TestEmitterWithTransportIntegration:
 
         with (
             patch.object(transport._client, "post") as mock_post,
+            patch("asyncio.sleep", new_callable=AsyncMock),
             caplog.at_level(logging.WARNING, logger="agent_debugger"),
         ):
             import httpx

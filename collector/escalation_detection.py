@@ -331,8 +331,9 @@ def _detect_explicit_keywords(
 
 def _get_confidence(event: TraceEvent) -> float | None:
     """Extract confidence from event."""
-    if hasattr(event, "confidence") and event.confidence is not None:
-        return event.confidence
+    confidence = getattr(event, "confidence", None)
+    if confidence is not None:
+        return confidence
     if hasattr(event, "data") and event.data:
         return event.data.get("confidence")
     return None
@@ -340,10 +341,9 @@ def _get_confidence(event: TraceEvent) -> float | None:
 
 def _get_severity(event: TraceEvent) -> float:
     """Extract severity from event (0-1 scale)."""
-    if hasattr(event, "severity"):
-        sev = event.severity
-        if isinstance(sev, (int, float)):
-            return float(sev)
+    sev = getattr(event, "severity", None)
+    if isinstance(sev, (int, float)):
+        return float(sev)
     if hasattr(event, "data") and event.data:
         sev = event.data.get("severity", 0)
         if isinstance(sev, (int, float)):
@@ -353,10 +353,12 @@ def _get_severity(event: TraceEvent) -> float:
 
 def _get_speaker(event: TraceEvent) -> str:
     """Extract speaker from turn event."""
-    if hasattr(event, "speaker") and event.speaker:
-        return event.speaker
-    if hasattr(event, "agent_id") and event.agent_id:
-        return event.agent_id
+    speaker = getattr(event, "speaker", None)
+    if speaker:
+        return speaker
+    agent_id = getattr(event, "agent_id", None)
+    if agent_id:
+        return agent_id
     if hasattr(event, "data") and event.data:
         return event.data.get("speaker", event.data.get("agent_id", "unknown"))
     return "unknown"
@@ -364,8 +366,9 @@ def _get_speaker(event: TraceEvent) -> str:
 
 def _get_goal(event: TraceEvent) -> str | None:
     """Extract goal from turn event."""
-    if hasattr(event, "goal") and event.goal:
-        return event.goal
+    goal = getattr(event, "goal", None)
+    if goal:
+        return goal
     if hasattr(event, "data") and event.data:
         return event.data.get("goal")
     return None
@@ -373,8 +376,9 @@ def _get_goal(event: TraceEvent) -> str | None:
 
 def _get_content(event: TraceEvent) -> str | None:
     """Extract content from turn event."""
-    if hasattr(event, "content") and event.content:
-        return event.content
+    content = getattr(event, "content", None)
+    if content:
+        return content
     if hasattr(event, "data") and event.data:
         return event.data.get("content")
     return None
@@ -382,10 +386,12 @@ def _get_content(event: TraceEvent) -> str | None:
 
 def _get_tool_name(event: TraceEvent) -> str | None:
     """Extract tool name from tool call event."""
-    if hasattr(event, "tool_name") and event.tool_name:
-        return event.tool_name
-    if hasattr(event, "name") and event.name:
-        return event.name
+    tool_name = getattr(event, "tool_name", None)
+    if tool_name:
+        return tool_name
+    name = getattr(event, "name", None)
+    if name:
+        return name
     if hasattr(event, "data") and event.data:
         return event.data.get("tool_name", event.data.get("name"))
     return None

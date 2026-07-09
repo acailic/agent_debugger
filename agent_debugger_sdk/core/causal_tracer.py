@@ -175,7 +175,7 @@ class CausalGraph:
         # Safety checks that didn't pass
         if event.event_type == EventType.SAFETY_CHECK:
             outcome = event.data.get("outcome") or event.metadata.get("outcome")
-            return outcome and outcome != "pass"
+            return bool(outcome and outcome != "pass")
 
         return False
 

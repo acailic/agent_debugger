@@ -232,7 +232,7 @@ export function useDerivedSessionData(): DerivedSessionData {
       if (fromLookup) return fromLookup
     }
     return replay?.nearest_checkpoint ? checkpointLookup.get(replay.nearest_checkpoint.id) ?? replay.nearest_checkpoint : null
-  }, [selectedCheckpointId, checkpointLookup, replay?.nearest_checkpoint])
+  }, [selectedCheckpointId, checkpointLookup, replay])
 
   const selectedCheckpointRanking = selectedCheckpoint
     ? checkpointRankingLookup.get(selectedCheckpoint.id)

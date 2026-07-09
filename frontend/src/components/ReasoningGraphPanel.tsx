@@ -173,7 +173,7 @@ function TreeView({ steps, selectedEventId, onSelectEvent }: TreeViewProps) {
     })
   }, [])
 
-  const renderTree = useCallback((step: ReasoningStep, depth: number = 0) => {
+  function renderTree(step: ReasoningStep, depth: number = 0) {
     const isCollapsed = collapsedIds.has(step.event.id)
     const hasChildren = step.children.length > 0
 
@@ -210,7 +210,7 @@ function TreeView({ steps, selectedEventId, onSelectEvent }: TreeViewProps) {
         )}
       </div>
     )
-  }, [selectedEventId, collapsedIds, toggleCollapse, onSelectEvent])
+  }
 
   return (
     <div className="tree-view">

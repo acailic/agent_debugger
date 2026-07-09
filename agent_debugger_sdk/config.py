@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import threading
 from dataclasses import dataclass
+from typing import Any
 
 
 def _parse_bool(value: str | None, default: bool = False) -> bool:
@@ -76,7 +77,7 @@ class Config:
             self.validate()
 
     @classmethod
-    def _create_unvalidated(cls, **kwargs: object) -> "Config":
+    def _create_unvalidated(cls, **kwargs: Any) -> "Config":
         """Create a Config instance without validation (for testing).
 
         Args:

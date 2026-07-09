@@ -41,6 +41,8 @@ def run_serve() -> int:
         print("Error: uvicorn not found. Install with: pip install uvicorn", file=sys.stderr)
         return 1
 
+    return 0
+
 
 def run_demo() -> int:
     """Seed demo data and start server + frontend."""

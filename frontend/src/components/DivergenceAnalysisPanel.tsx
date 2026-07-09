@@ -84,6 +84,10 @@ export function DivergenceAnalysisPanel({
   const [temporalAnalysis, setTemporalAnalysis] = useState<TemporalDivergenceResponse | null>(null)
   const [behavioralAnalysis, setBehavioralAnalysis] = useState<BehavioralDivergenceResponse | null>(null)
   const [baselineAnalysis, setBaselineAnalysis] = useState<BaselineDivergenceResponse | null>(null)
+  const [prevPrimaryForBaseline, setPrevPrimaryForBaseline] = useState(primarySessionId)
+  const [prevSecondaryForBaseline, setPrevSecondaryForBaseline] = useState(secondarySessionId)
+  const [prevPrimaryForAnalysis, setPrevPrimaryForAnalysis] = useState(primarySessionId)
+  const [prevSecondaryForAnalysis, setPrevSecondaryForAnalysis] = useState(secondarySessionId)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -93,13 +97,20 @@ export function DivergenceAnalysisPanel({
     return sessions.filter(session => session.id !== primarySessionId)
   }, [sessions, primarySessionId])
 
-  // Load divergence analysis when both sessions are selected
-  useEffect(() => {
+  // Clear stale divergence analysis when a session is removed.
+  // setState-during-render replaces the previous synchronous setState-in-effect reset.
+  if (primarySessionId !== prevPrimaryForAnalysis || secondarySessionId !== prevSecondaryForAnalysis) {
+    setPrevPrimaryForAnalysis(primarySessionId)
+    setPrevSecondaryForAnalysis(secondarySessionId)
     if (!primarySessionId || !secondarySessionId) {
       setDivergenceAnalysis(null)
       setError(null)
-      return
     }
+  }
+
+  // Load divergence analysis when both sessions are selected
+  useEffect(() => {
+    if (!primarySessionId || !secondarySessionId) return
 
     const loadAnalysis = async () => {
       setLoading(true)
@@ -126,18 +137,21 @@ export function DivergenceAnalysisPanel({
     const loadSpecificAnalysis = async () => {
       try {
         switch (activeTab) {
-          case 'structural':
+          case 'structural': {
             const structural = await getStructuralDivergence(primarySessionId, secondarySessionId)
             setStructuralAnalysis(structural)
             break
-          case 'temporal':
+          }
+          case 'temporal': {
             const temporal = await getTemporalDivergence(primarySessionId, secondarySessionId)
             setTemporalAnalysis(temporal)
             break
-          case 'behavioral':
+          }
+          case 'behavioral': {
             const behavioral = await getBehavioralDivergence(primarySessionId, secondarySessionId)
             setBehavioralAnalysis(behavioral)
             break
+          }
           default:
             break
         }
@@ -149,12 +163,19 @@ export function DivergenceAnalysisPanel({
     loadSpecificAnalysis()
   }, [activeTab, primarySessionId, secondarySessionId])
 
-  // Load baseline analysis when only primary session is selected
-  useEffect(() => {
+  // Clear stale baseline analysis when the baseline-loading condition no longer holds.
+  // setState-during-render replaces the previous synchronous setState-in-effect reset.
+  if (primarySessionId !== prevPrimaryForBaseline || secondarySessionId !== prevSecondaryForBaseline) {
+    setPrevPrimaryForBaseline(primarySessionId)
+    setPrevSecondaryForBaseline(secondarySessionId)
     if (!primarySessionId || secondarySessionId) {
       setBaselineAnalysis(null)
-      return
     }
+  }
+
+  // Load baseline analysis when only primary session is selected
+  useEffect(() => {
+    if (!primarySessionId || secondarySessionId) return
 
     const loadBaseline = async () => {
       try {
@@ -167,30 +188,6 @@ export function DivergenceAnalysisPanel({
 
     loadBaseline()
   }, [primarySessionId, secondarySessionId])
-
-  if (!primarySessionId) {
-    return (
-      <div className="divergence-panel empty-panel">
-        <p>Select a primary session to analyze divergences.</p>
-      </div>
-    )
-  }
-
-  if (loading) {
-    return (
-      <div className="divergence-panel loading-panel">
-        <p>Loading divergence analysis...</p>
-      </div>
-    )
-  }
-
-  if (error && !divergenceAnalysis) {
-    return (
-      <div className="divergence-panel error-panel">
-        <p className="error-message">Error: {error}</p>
-      </div>
-    )
-  }
 
   const currentAnalysis = divergenceAnalysis?.divergence_analysis
   const divergencePoints = currentAnalysis?.divergence_points || []
@@ -230,6 +227,30 @@ export function DivergenceAnalysisPanel({
 
     return counts
   }, [divergencePoints])
+
+  if (!primarySessionId) {
+    return (
+      <div className="divergence-panel empty-panel">
+        <p>Select a primary session to analyze divergences.</p>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="divergence-panel loading-panel">
+        <p>Loading divergence analysis...</p>
+      </div>
+    )
+  }
+
+  if (error && !divergenceAnalysis) {
+    return (
+      <div className="divergence-panel error-panel">
+        <p className="error-message">Error: {error}</p>
+      </div>
+    )
+  }
 
   return (
     <div className="divergence-panel">

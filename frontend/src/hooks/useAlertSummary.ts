@@ -13,33 +13,51 @@ interface UseAlertSummaryReturn {
 export function useAlertSummary(days: number = 7): UseAlertSummaryReturn {
   const [summary, setSummary] = useState<AlertSummary | null>(null)
   const [trending, setTrending] = useState<AlertTrendingPoint[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
-  const loadSummary = async () => {
+  // Guard: reset loading when days changes (setState-during-render pattern)
+  const [prevDays, setPrevDays] = useState(days)
+  if (prevDays !== days) {
+    setPrevDays(days)
     setLoading(true)
     setError(null)
-    try {
-      const [summaryData, trendingData] = await Promise.all([
-        fetchAlertSummary(),
-        fetchAlertTrending(days),
-      ])
-      setSummary(summaryData)
-      setTrending(trendingData)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load alert summary')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const refresh = async () => {
-    await loadSummary()
   }
 
   useEffect(() => {
-    void loadSummary()
-  }, [days])
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      setError(null)
+      try {
+        const [summaryData, trendingData] = await Promise.all([
+          fetchAlertSummary(),
+          fetchAlertTrending(days),
+        ])
+        if (!cancelled) {
+          setSummary(summaryData)
+          setTrending(trendingData)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load alert summary')
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [days, refreshTrigger])
+
+  const refresh = async () => {
+    setLoading(true)
+    setError(null)
+    setRefreshTrigger(c => c + 1)
+  }
 
   return {
     summary,

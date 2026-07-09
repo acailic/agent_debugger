@@ -294,6 +294,9 @@ class TestHealthReportGeneration:
         assert len(report.critical_patterns) == 0
         assert len(report.top_issues) == 0
         assert len(report.affected_agents) == 0
+        # total_sessions/total_agents are carried through into the report
+        assert report.total_sessions == 100
+        assert report.total_agents == 5
 
     def test_generate_health_report_with_warnings(self):
         """Test health report with warning patterns."""
@@ -333,6 +336,9 @@ class TestHealthReportGeneration:
         assert len(report.top_issues) == 2
         # Recommendations are generated for each pattern type
         assert len(report.recommendations) == 2
+        # total_sessions/total_agents are carried through into the report
+        assert report.total_sessions == 50
+        assert report.total_agents == 2
 
     def test_generate_health_report_with_critical(self):
         """Test health report with critical patterns."""
@@ -357,6 +363,9 @@ class TestHealthReportGeneration:
         assert "critical" in report.agent_summary.lower()
         assert len(report.critical_patterns) == 1
         assert report.patterns_by_severity["critical"] == 1
+        # total_sessions/total_agents are carried through into the report
+        assert report.total_sessions == 30
+        assert report.total_agents == 1
 
     def test_health_report_includes_recommendations(self):
         """Test that health report includes actionable recommendations."""

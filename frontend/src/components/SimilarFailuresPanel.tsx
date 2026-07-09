@@ -54,12 +54,24 @@ export function SimilarFailuresPanel({
   const isFailureEvent = isFailureLikeEvent(failureEvent)
   const failureEventId = failureEvent?.id ?? null
 
-  useEffect(() => {
+  const [prevSessionId, setPrevSessionId] = useState(sessionId)
+  const [prevFailureEventId, setPrevFailureEventId] = useState(failureEventId)
+  const [prevIsFailureEvent, setPrevIsFailureEvent] = useState(isFailureEvent)
+
+  // Clear stale similar-failures when the panel is no longer viewing a failure event.
+  // setState-during-render replaces the previous synchronous setState-in-effect reset.
+  if (sessionId !== prevSessionId || failureEventId !== prevFailureEventId || isFailureEvent !== prevIsFailureEvent) {
+    setPrevSessionId(sessionId)
+    setPrevFailureEventId(failureEventId)
+    setPrevIsFailureEvent(isFailureEvent)
     if (!sessionId || !failureEventId || !isFailureEvent) {
       setSimilarFailures([])
       setError(null)
-      return
     }
+  }
+
+  useEffect(() => {
+    if (!sessionId || !failureEventId || !isFailureEvent) return
 
     const targetSessionId = sessionId
     const targetFailureEventId = failureEventId
