@@ -163,48 +163,50 @@ class TestAlertRepositoryOptimizations:
 
         # Create an in-memory SQLite engine for testing
         engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+        try:
+            # Create tables
+            from storage.models import Base
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
 
-        # Create tables
-        from storage.models import Base
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+            # Create session
+            async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+            async with async_session() as session:
+                repo = AnomalyAlertRepository(session, tenant_id="test")
 
-        # Create session
-        async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-        async with async_session() as session:
-            repo = AnomalyAlertRepository(session, tenant_id="test")
+                # Clear any existing cache
+                repo._cache.clear()
 
-            # Clear any existing cache
-            repo._cache.clear()
+                # Create test alerts
+                now = datetime.now(timezone.utc)
+                for i in range(5):
+                    alert = AnomalyAlertModel(
+                        id=str(uuid.uuid4()),
+                        tenant_id="test",
+                        session_id=str(uuid.uuid4()),
+                        alert_type=f"test_type_{i % 2}",
+                        severity=0.5 + (i * 0.1),
+                        signal=f"Test alert {i}",
+                        event_ids=[],
+                        detection_source="test",
+                        detection_config={},
+                        created_at=now - timedelta(hours=i),
+                    )
+                    session.add(alert)
+                await session.commit()
 
-            # Create test alerts
-            now = datetime.now(timezone.utc)
-            for i in range(5):
-                alert = AnomalyAlertModel(
-                    id=str(uuid.uuid4()),
-                    tenant_id="test",
-                    session_id=str(uuid.uuid4()),
-                    alert_type=f"test_type_{i % 2}",
-                    severity=0.5 + (i * 0.1),
-                    signal=f"Test alert {i}",
-                    event_ids=[],
-                    detection_source="test",
-                    detection_config={},
-                    created_at=now - timedelta(hours=i),
-                )
-                session.add(alert)
-            await session.commit()
+                # First call should query database
+                summary1 = await repo.get_alert_summary(hours=24)
+                assert summary1["total_count"] == 5
 
-            # First call should query database
-            summary1 = await repo.get_alert_summary(hours=24)
-            assert summary1["total_count"] == 5
+                # Second call should use cache
+                summary2 = await repo.get_alert_summary(hours=24)
+                assert summary2["total_count"] == 5
 
-            # Second call should use cache
-            summary2 = await repo.get_alert_summary(hours=24)
-            assert summary2["total_count"] == 5
-
-            # Verify cache was used
-            assert repo._cache.size() > 0
+                # Verify cache was used
+                assert repo._cache.size() > 0
+        finally:
+            await engine.dispose()
 
     @pytest.mark.asyncio
     async def test_alert_list_limit_default(self):
@@ -212,41 +214,43 @@ class TestAlertRepositoryOptimizations:
         from storage.repositories.alert_repo import AnomalyAlertRepository
 
         engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+        try:
+            from storage.models import Base
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
 
-        from storage.models import Base
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+            async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+            async with async_session() as session:
+                repo = AnomalyAlertRepository(session, tenant_id="test")
 
-        async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-        async with async_session() as session:
-            repo = AnomalyAlertRepository(session, tenant_id="test")
+                # Create more alerts than the default limit
+                session_id = str(uuid.uuid4())
+                now = datetime.now(timezone.utc)
+                for i in range(100):
+                    alert = AnomalyAlertModel(
+                        id=str(uuid.uuid4()),
+                        tenant_id="test",
+                        session_id=session_id,
+                        alert_type="test_type",
+                        severity=0.5,
+                        signal=f"Test alert {i}",
+                        event_ids=[],
+                        detection_source="test",
+                        detection_config={},
+                        created_at=now - timedelta(minutes=i),
+                    )
+                    session.add(alert)
+                await session.commit()
 
-            # Create more alerts than the default limit
-            session_id = str(uuid.uuid4())
-            now = datetime.now(timezone.utc)
-            for i in range(100):
-                alert = AnomalyAlertModel(
-                    id=str(uuid.uuid4()),
-                    tenant_id="test",
-                    session_id=session_id,
-                    alert_type="test_type",
-                    severity=0.5,
-                    signal=f"Test alert {i}",
-                    event_ids=[],
-                    detection_source="test",
-                    detection_config={},
-                    created_at=now - timedelta(minutes=i),
-                )
-                session.add(alert)
-            await session.commit()
+                # List should return at most 50 (default limit)
+                alerts = await repo.list_anomaly_alerts(session_id)
+                assert len(alerts) <= 50
 
-            # List should return at most 50 (default limit)
-            alerts = await repo.list_anomaly_alerts(session_id)
-            assert len(alerts) <= 50
-
-            # Verify ordering by created_at desc (newest first)
-            if len(alerts) > 1:
-                assert alerts[0].created_at >= alerts[-1].created_at
+                # Verify ordering by created_at desc (newest first)
+                if len(alerts) > 1:
+                    assert alerts[0].created_at >= alerts[-1].created_at
+        finally:
+            await engine.dispose()
 
 
 @pytest.mark.integration
