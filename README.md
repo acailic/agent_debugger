@@ -330,7 +330,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for full module breakdown.
 - **SDK** — `@trace`, `trace_session()`, auto-patch for 7 frameworks
 - **API** — 11 routers: sessions, traces, replay, search, analytics, cost, comparison
 - **Frontend** — 8 specialized panels (decision tree, replay, checkpoints, search)
-- **Tests** — 365+ passing, CI on Python 3.10/3.11/3.12
+- **Tests** — 2900+ passing, CI on Python 3.10/3.11/3.12
 
 ---
 
