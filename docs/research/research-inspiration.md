@@ -34,7 +34,7 @@ These papers are here because they push on the same problems this project is try
 - [FailureMem: A Failure-Aware Multimodal Framework for Autonomous Software Repair](https://arxiv.org/abs/2603.17826)
   Why it matters here: learning from failed repair attempts instead of treating them as disposable noise.
 
-For repo-oriented notes on each paper, see [Paper Notes](./papers/README.md).
+For repo-oriented notes on each paper, see [Paper Notes](../papers/README.md).
 
 ## How To Use These Papers In This Repo
 
