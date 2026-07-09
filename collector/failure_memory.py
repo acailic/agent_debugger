@@ -9,7 +9,6 @@ from typing import Any
 class EmbeddingGenerationError(Exception):
     """Raised when embedding generation fails."""
 
-    pass
 
 
 @dataclass

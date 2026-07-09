@@ -17,7 +17,6 @@ import pytest
 # the HTTP transport branch entirely — no env var needed.
 async def _noop_persist(event):  # noqa: ARG001
     """No-op persister to prevent HTTP transport creation in benchmark tests."""
-    pass
 
 
 from agent_debugger_sdk.core.context import configure_event_pipeline  # noqa: E402

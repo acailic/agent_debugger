@@ -10,7 +10,6 @@ import pytest
 # instances that would otherwise try to connect to localhost:8000).
 async def _noop_persist(event):  # noqa: ARG001
     """No-op persister to prevent HTTP transport creation."""
-    pass
 
 
 from agent_debugger_sdk.core.context import configure_event_pipeline  # noqa: E402

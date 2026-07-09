@@ -14,7 +14,6 @@ from agent_debugger_sdk.core.events import SessionStatus
 class Base(DeclarativeBase):
     """Base class for all ORM models."""
 
-    pass
 
 
 class SessionModel(Base):
