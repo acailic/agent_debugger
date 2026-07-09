@@ -262,7 +262,7 @@ class HttpTransport:
         """Close the HTTP client and release resources."""
         await self._client.aclose()
 
-    async def __aenter__(self) -> "HttpTransport":
+    async def __aenter__(self) -> HttpTransport:
         """Support async context manager protocol for resource cleanup."""
         return self
 

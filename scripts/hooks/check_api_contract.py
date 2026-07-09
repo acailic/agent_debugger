@@ -271,8 +271,8 @@ def check_contract_drift(
                 })
 
     # Check for unpaired models (no matching interface found)
-    py_names_normalized = {normalize_model_name(name): name for name in pydantic_models.keys()}
-    ts_names_normalized = {normalize_model_name(name): name for name in ts_interfaces.keys()}
+    py_names_normalized = {normalize_model_name(name): name for name in pydantic_models}
+    ts_names_normalized = {normalize_model_name(name): name for name in ts_interfaces}
 
     unpaired_backend = set(py_names_normalized.keys()) - set(ts_names_normalized.keys())
     if unpaired_backend:

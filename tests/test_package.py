@@ -67,7 +67,7 @@ def test_no_circular_imports():
     import sys
 
     # Remove from cache if present
-    modules_to_remove = [key for key in sys.modules.keys() if key.startswith("agent_debugger_sdk")]
+    modules_to_remove = [key for key in sys.modules if key.startswith("agent_debugger_sdk")]
     for module in modules_to_remove:
         del sys.modules[module]
 
