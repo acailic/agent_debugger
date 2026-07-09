@@ -247,7 +247,7 @@ Use [GitHub Issues](https://github.com/acailic/agent_debugger/issues) with:
 
 ## Design Philosophy
 
-From [`CLAUDE.md`](../CLAUDE.md):
+From [`CLAUDE.md`](https://github.com/acailic/agent_debugger/blob/main/CLAUDE.md):
 
 - **Ruthless simplicity** — Every abstraction must justify itself
 - **Start minimal** — Keep the core path coherent before adding depth
@@ -262,7 +262,7 @@ From [`CLAUDE.md`](../CLAUDE.md):
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [MIT License](../LICENSE).
+By contributing, you agree that your contributions will be licensed under the [MIT License](https://github.com/acailic/agent_debugger/blob/main/LICENSE).
 
 ## Code of Conduct
 

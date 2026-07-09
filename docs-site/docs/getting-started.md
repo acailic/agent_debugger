@@ -146,7 +146,7 @@ adapter = PydanticAIAdapter(agent, agent_name="support_agent")
 
 ## Next Steps
 
-- [How It Works](../docs/how-it-works.md) — Understanding the system architecture
+- [How It Works](architecture.md) — Understanding the system architecture
 - [Installation](installation.md) — Detailed installation options
 - [Integrations](integrations.md) — Framework-specific setup guides
 - [Configuration](configuration.md) — Environment variables and settings
