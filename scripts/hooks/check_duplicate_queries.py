@@ -8,6 +8,7 @@ import argparse
 import json
 import re
 import sys
+from typing import TypedDict
 
 # Pre-computed patterns loaded from existing code
 PATTERNS = {
@@ -50,7 +51,7 @@ def extract_query_shapes(content: str) -> list[str]:
         model = match.group(1)
         start = match.end()
         remaining = content[start:]
-        where_match = re.search(r"\.where\(([^)]+)\)", remaining[start:])
+        where_match = re.search(r"\.where\(([^)]+)\)", remaining)
         if where_match:
             where_clause = where_match.group(1)
             conditions = re.findall(r"(\w+)\.(\w+)\s*==", where_clause)
@@ -60,7 +61,14 @@ def extract_query_shapes(content: str) -> list[str]:
     return shapes
 
 
-def check_duplicates(content: str) -> list[dict]:
+class DuplicateCheck(TypedDict):
+    """Result of checking content against the known pattern registry."""
+
+    duplicates: list[dict[str, str]]
+    shapes_found: list[str]
+
+
+def check_duplicates(content: str) -> DuplicateCheck:
     """Check content against known patterns."""
     duplicates = []
     shapes = extract_query_shapes(content)
@@ -98,7 +106,8 @@ def main():
         sys.exit(0)
 
     # Check for duplicates
-    duplicates = check_duplicates(content)
+    result = check_duplicates(content)
+    duplicates = result["duplicates"]
     if duplicates:
         dup = duplicates[0]
         print(
