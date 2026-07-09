@@ -6,28 +6,30 @@ I did not find committed live credentials, private keys, or obvious sensitive to
 
 The main residual risks are:
 
-1. A tracked Claude settings file exposes a local absolute filesystem path and username.
+1. A tracked Claude settings file previously exposed a local absolute filesystem path and username. This has since been remediated (see LOW-01); it is documented here for history.
 2. Ignored local SQLite databases exist in the working copy and contain runtime data, including hashed API-key material and event/session records. They are not tracked by git today, but they would be sensitive if someone force-added them or shared the repository directory as an archive.
 
 ## Low Severity
 
 ### LOW-01: Tracked local path leaks workstation username
 
-**Impact:** Minor privacy leak. The repository exposes a developer-local absolute path that includes the local username.
+**Status:** Resolved. The hook command in `.claude/settings.json` no longer embeds an absolute filesystem path; it resolves the repository root at runtime via `$(git rev-parse --show-toplevel)`, so no username or local directory layout is exposed.
 
-- Evidence: [.claude/settings.json](/home/nistrator/Documents/github/amplifier/ai_working/agent_debugger/.claude/settings.json#L28)
-- Detail: The hook command embeds `/home/nistrator/Documents/github/amplifier/ai_working/agent_debugger/...`, which reveals the local username `nistrator` and local directory layout.
-- Recommendation: Replace the hardcoded absolute path with a repo-relative or environment-derived path.
+**Impact:** (Historical, now remediated) Minor privacy leak. The repository previously exposed a developer-local absolute path that included the local username.
+
+- Evidence: [.claude/settings.json](../../.claude/settings.json#L28)
+- Detail: The hook command previously embedded a hardcoded `/home/<user>/...` path that revealed the local username and directory layout. It now derives the repo root with `$(git rev-parse --show-toplevel)`.
+- Remediation: Replaced the hardcoded absolute path with an environment-derived repo-relative path (commit `7da42a8`, "security: add secret scanning and harden local config").
 
 ## Informational
 
 ### INFO-01: No committed secrets found in tracked files
 
 - Evidence reviewed:
-  - [.env.example](/home/nistrator/Documents/github/amplifier/ai_working/agent_debugger/.env.example#L13)
-  - [.env.example](/home/nistrator/Documents/github/amplifier/ai_working/agent_debugger/.env.example#L18)
-  - [tests/test_sdk_config.py](/home/nistrator/Documents/github/amplifier/ai_working/agent_debugger/tests/test_sdk_config.py#L25)
-  - [tests/test_sdk_transport.py](/home/nistrator/Documents/github/amplifier/ai_working/agent_debugger/tests/test_sdk_transport.py#L20)
+  - [.env.example](../../.env.example#L13)
+  - [.env.example](../../.env.example#L18)
+  - [tests/test_sdk_config.py](../../tests/test_sdk_config.py#L28)
+  - [tests/test_sdk_transport.py](../../tests/test_sdk_transport.py#L27)
 - Notes:
   - `.env.example` contains placeholders such as `sk-...`, not live values.
   - Test files use clearly synthetic sample keys like `ad_live_test123` and `ad_live_test`.
@@ -36,10 +38,10 @@ The main residual risks are:
 ### INFO-02: Sensitive local runtime artifacts exist but are gitignored
 
 - Evidence:
-  - [.gitignore](/home/nistrator/Documents/github/amplifier/ai_working/agent_debugger/.gitignore#L10)
-  - [.gitignore](/home/nistrator/Documents/github/amplifier/ai_working/agent_debugger/.gitignore#L24)
-  - [.gitignore](/home/nistrator/Documents/github/amplifier/ai_working/agent_debugger/.gitignore#L26)
-  - [.gitignore](/home/nistrator/Documents/github/amplifier/ai_working/agent_debugger/.gitignore#L27)
+  - [.gitignore](../../.gitignore#L20)
+  - [.gitignore](../../.gitignore#L24)
+  - [.gitignore](../../.gitignore#L26)
+  - [.gitignore](../../.gitignore#L27)
 - Notes:
   - Local ignored files currently present include `.coverage`, `traces/`, `dist/`, and SQLite databases under `data/`.
   - The local `data/agent_debugger.db` contains tables such as `api_keys`, `events`, `sessions`, and `checkpoints`.
