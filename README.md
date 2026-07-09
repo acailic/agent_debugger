@@ -351,11 +351,11 @@ Peaky Peek is informed by research on agent debugging, causal tracing, failure a
 
 ## Documentation
 
-- [5-Minute Getting Started](./docs/getting-started.md)
-- [Integration Guide](./docs/integration.md)
-- [SDK README](./SDK_README.md)
+- [5-Minute Getting Started](./docs/guides/getting-started.md)
+- [Integration Guide](./docs/guides/integration.md)
+- [SDK README](./agent_debugger_sdk/README.md)
 - [Architecture Overview](./ARCHITECTURE.md)
-- [Progress Tracker](./docs/progress.md)
+- [Progress Tracker](./docs/guides/progress.md)
 
 ---
 
