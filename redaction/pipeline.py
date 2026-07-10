@@ -251,10 +251,10 @@ class RedactionPipeline:
 
         if isinstance(obj, dict):
             for key, value in obj.items():
-                candidates.extend(self._collect_string_candidates(value, path + (key,), priority_only=priority_only))
+                candidates.extend(self._collect_string_candidates(value, (*path, key), priority_only=priority_only))
         elif isinstance(obj, list):
             for index, value in enumerate(obj):
-                candidates.extend(self._collect_string_candidates(value, path + (index,), priority_only=priority_only))
+                candidates.extend(self._collect_string_candidates(value, (*path, index), priority_only=priority_only))
 
         candidates.sort(key=lambda item: len(item[1].encode("utf-8")), reverse=True)
         return candidates
