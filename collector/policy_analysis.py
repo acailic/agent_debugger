@@ -238,7 +238,7 @@ def _compute_string_magnitude(old_val: str, new_val: str) -> float:
         return 0.0
 
     # Simple character-level comparison
-    matches = sum(1 for a, b in zip(old_val, new_val) if a == b)
+    matches = sum(1 for a, b in zip(old_val, new_val, strict=False) if a == b)
 
     # Similarity ratio
     similarity = matches / max_len if max_len > 0 else 1.0

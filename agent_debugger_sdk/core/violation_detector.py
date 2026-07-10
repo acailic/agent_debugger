@@ -137,7 +137,7 @@ class SessionEmbedding:
         v2 = other.embedding_vector[:min_len]
 
         # Cosine similarity
-        dot_product = sum(a * b for a, b in zip(v1, v2))
+        dot_product = sum(a * b for a, b in zip(v1, v2, strict=True))
         magnitude1 = math.sqrt(sum(a * a for a in v1))
         magnitude2 = math.sqrt(sum(b * b for b in v2))
 

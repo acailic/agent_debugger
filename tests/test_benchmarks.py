@@ -852,7 +852,7 @@ class TestBenchmarkRankingAssertions:
             checkpoint_event_ids = {cp.event_id for cp in session.checkpoints}
 
             rankings = []
-            for event, fp in zip(session.events, fingerprints):
+            for event, fp in zip(session.events, fingerprints, strict=True):
                 ranking = compute_event_ranking(
                     event,
                     fp,
@@ -909,7 +909,7 @@ class TestBenchmarkRankingAssertions:
             checkpoint_event_ids = {cp.event_id for cp in session.checkpoints}
 
             rankings = []
-            for event, fp in zip(session.events, fingerprints):
+            for event, fp in zip(session.events, fingerprints, strict=True):
                 ranking = compute_event_ranking(
                     event,
                     fp,

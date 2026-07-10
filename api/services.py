@@ -233,7 +233,7 @@ async def enrich_sessions_for_listing(
 
     enriched: list[SessionSchema] = [
         normalize_session(session, analysis_summary(analysis))
-        for session, (_, _, analysis, _) in zip(capped_sessions, analyses)
+        for session, (_, _, analysis, _) in zip(capped_sessions, analyses, strict=True)
     ]
 
     for session in sessions[SESSION_ANALYSIS_CAP:]:
