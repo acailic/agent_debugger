@@ -574,7 +574,7 @@ class TestRankFailureCandidates:
         causes = [_event(f"cause{i}", EventType.DECISION) for i in range(5)]
         failure = _event("fail", EventType.ERROR, parent_id="cause0")
 
-        events = causes + [failure]
+        events = [*causes, failure]
         id_lookup = {e.id: e for e in events}
         index_lookup = {e.id: i for i, e in enumerate(events)}
 
