@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar
 
 
 @dataclass
@@ -59,7 +59,7 @@ class EntityExtractor:
     """
 
     # Patterns for extracting API endpoints from tool names or arguments
-    API_ENDPOINT_PATTERNS = [
+    API_ENDPOINT_PATTERNS: ClassVar[list[re.Pattern[str]]] = [
         re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE),
         re.compile(r"/[a-z_]+/[a-z_]+", re.IGNORECASE),
         re.compile(r"[a-z]+\.[a-z]+\.[a-z]+", re.IGNORECASE),

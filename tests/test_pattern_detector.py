@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import ClassVar
 
 import pytest
 
@@ -58,7 +59,7 @@ def _pattern(
 # ---------------------------------------------------------------------------
 
 class TestPatternToDict:
-    EXPECTED_KEYS = {
+    EXPECTED_KEYS: ClassVar[set[str]] = {
         "pattern_type",
         "agent_name",
         "severity",

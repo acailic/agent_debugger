@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, ClassVar
 
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +26,7 @@ class AnomalyAlertRepository:
     - ix_anomaly_alerts_tenant_id_status: tenant + status filtering
     """
 
-    VALID_STATUSES = {"active", "acknowledged", "resolved", "dismissed"}
+    VALID_STATUSES: ClassVar[set[str]] = {"active", "acknowledged", "resolved", "dismissed"}
 
     # Class-level cache shared across instances (for summary/trending data)
     _cache = QueryCache()

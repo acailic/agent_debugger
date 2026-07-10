@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Any
+from typing import Any, ClassVar
 
 from sqlalchemy import String, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,7 +57,7 @@ class SessionSearchService:
     """
 
     # Natural language query patterns
-    NL_PATTERNS = {
+    NL_PATTERNS: ClassVar[dict[str, dict[str, str | int]]] = {
         "stuck in a loop": {"min_errors": 1, "query": "loop repeat retry again"},
         "tool execution failures": {"event_type": "tool_result", "query": "tool error failed"},
         "llm errors": {"event_type": "error", "query": "llm error api rate limit"},
@@ -73,7 +73,7 @@ class SessionSearchService:
         re.compile(r'\bagent\s+["\']([^"\']+)["\']', re.IGNORECASE),
         re.compile(r"\bagent\s+([\w-]+)\b", re.IGNORECASE),
     )
-    AGENT_NAME_STOPWORDS = {
+    AGENT_NAME_STOPWORDS: ClassVar[set[str]] = {
         "a",
         "an",
         "and",
