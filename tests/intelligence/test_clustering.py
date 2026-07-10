@@ -89,7 +89,7 @@ class TestCrossSessionClustering:
                     }
                 )
         assert len(all_failure_fingerprints) > 0, "Should have at least one failure cluster"
-        for _, cluster_data_list in all_failure_fingerprints.items():
+        for cluster_data_list in all_failure_fingerprints.values():
             for cluster_data in cluster_data_list:
                 cluster = cluster_data["cluster"]
                 assert "count" in cluster

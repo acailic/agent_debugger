@@ -243,11 +243,8 @@ def compute_retry_churn_score(events: list[TraceEvent]) -> float:
         if not current_tool or not next_tool:
             continue
 
-        # Same tool called consecutively
-        if current_tool == next_tool:
-            retry_count += 1
-        # Similar tool names (e.g., search_file, search_files)
-        elif _tools_are_similar(current_tool, next_tool):
+        # Same tool called consecutively, or similar tool names (e.g., search_file, search_files)
+        if current_tool == next_tool or _tools_are_similar(current_tool, next_tool):
             retry_count += 1
 
     # Score based on retry density in the window
