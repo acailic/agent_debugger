@@ -75,7 +75,7 @@ class EventEmitter:
             return
         try:
             if is_method:
-                await getattr(target, "publish")(*args)
+                await getattr(target, "publish")(*args)  # noqa: B009  # duck-typed dispatch on `object` target
             else:
                 await target(args)
         except Exception as e:

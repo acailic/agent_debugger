@@ -486,7 +486,7 @@ async def import_scenario(
     try:
         imported_branch = editor.import_scenario(scenario_data)
     except (ValueError, KeyError) as e:
-        raise HTTPException(status_code=400, detail=f"Invalid scenario data: {str(e)}") from e
+        raise HTTPException(status_code=400, detail=f"Invalid scenario data: {e!s}") from e
 
     return {
         "session_id": session_id,
@@ -532,10 +532,11 @@ def _event_to_dict(event: TraceEvent) -> dict[str, Any]:
     event_dict = event.to_dict()
 
     # Handle datetime serialization
-    if "timestamp" in event_dict and event_dict["timestamp"]:
-        if hasattr(event_dict["timestamp"], "isoformat"):
-            event_dict["timestamp"] = event_dict["timestamp"].isoformat()
+    timestamp = event_dict.get("timestamp")
+    if timestamp:
+        if hasattr(timestamp, "isoformat"):
+            event_dict["timestamp"] = timestamp.isoformat()
         else:
-            event_dict["timestamp"] = str(event_dict["timestamp"])
+            event_dict["timestamp"] = str(timestamp)
 
     return event_dict

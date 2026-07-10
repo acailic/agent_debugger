@@ -169,7 +169,7 @@ class TestTraceContextRestore:
         from agent_debugger_sdk import TraceContext
 
         assert hasattr(TraceContext, "restore")
-        assert callable(getattr(TraceContext, "restore"))
+        assert callable(TraceContext.restore)
 
     @pytest.mark.asyncio
     async def test_restore_creates_context_with_restored_state(self):
