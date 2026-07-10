@@ -13,6 +13,18 @@ from typing import Any
 from agent_debugger_sdk.core.events import Session
 
 
+def _to_aware_utc(ts: datetime) -> datetime:
+    """Attach UTC tzinfo to naive datetimes so they compare safely with now().
+
+    Persisted session timestamps are frequently naive UTC; mixing them with the
+    tz-aware datetime.now(timezone.utc) used throughout this module raises
+    ``TypeError`` on subtraction or min/max. Coerce once at every arithmetic site.
+    """
+    if ts.tzinfo is None:
+        return ts.replace(tzinfo=timezone.utc)
+    return ts
+
+
 @dataclass
 class CrossSessionCluster:
     """Represents a cluster of similar failures across multiple sessions.
@@ -107,7 +119,7 @@ class CrossSessionClusterAnalyzer:
                 data = fingerprint_data[fingerprint]
                 data["sessions"].append(session.id)
                 data["scores"].append(score)
-                data["timestamps"].append(session.started_at)
+                data["timestamps"].append(_to_aware_utc(session.started_at))
 
         # Build clusters with time-decay weighting
         clusters: list[CrossSessionCluster] = []
@@ -168,7 +180,7 @@ class CrossSessionClusterAnalyzer:
 
         for ts, score in zip(timestamps, scores):
             # Calculate age in days
-            age_days = (now - ts).total_seconds() / 86400.0
+            age_days = (now - _to_aware_utc(ts)).total_seconds() / 86400.0
 
             # Exponential decay weight
             decay_factor = math.exp(-age_days / self.decay_half_life_days)
@@ -185,11 +197,11 @@ class CrossSessionClusterAnalyzer:
     def _is_recent(self, timestamp: datetime) -> bool:
         """Check if a timestamp is within the recent window."""
         now = datetime.now(timezone.utc)
-        age_days = (now - timestamp).total_seconds() / 86400.0
+        age_days = (now - _to_aware_utc(timestamp)).total_seconds() / 86400.0
         return age_days <= self.RECENT_SESSION_DAYS
 
     def _is_stale(self, timestamp: datetime) -> bool:
         """Check if a timestamp is beyond the stale threshold."""
         now = datetime.now(timezone.utc)
-        age_days = (now - timestamp).total_seconds() / 86400.0
+        age_days = (now - _to_aware_utc(timestamp)).total_seconds() / 86400.0
         return age_days >= self.STALE_SESSION_DAYS
