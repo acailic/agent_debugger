@@ -341,3 +341,74 @@ def test_similar_tool_detection():
     # Edge cases
     assert _tools_are_similar("", "search") is False
     assert _tools_are_similar("abc", "def") is False
+
+
+def test_analyze_handles_naive_session_timestamps():
+    """Regression: naive (storage-loaded) started_at must not crash analyze().
+
+    Timestamps loaded from sqlite/aiosqlite are tz-naive; mixing them with the
+    tz-aware datetime.now(timezone.utc) in analyze()/min/max previously raised
+    ``TypeError: can't subtract offset-naive and offset-aware datetimes``.
+    """
+    naive_now = datetime.now(timezone.utc).replace(tzinfo=None)  # mimics storage
+    analyzer = CrossSessionClusterAnalyzer()
+
+    sessions = [
+        create_test_session("session-1", naive_now - timedelta(days=1)),
+        create_test_session("session-2", naive_now),
+    ]
+    session_rankings = {
+        "session-1": {"failure_fingerprints": [("error:timeout", 0.8)], "replay_value": 0.5},
+        "session-2": {"failure_fingerprints": [("error:timeout", 0.9)], "replay_value": 0.5},
+    }
+
+    clusters = analyzer.analyze(sessions, session_rankings)
+
+    assert len(clusters) == 1
+    cluster = clusters[0]
+    assert cluster.count == 2
+    assert cluster.score > 0.0
+    # Normalized timestamps are tz-aware UTC, so min/max and isoformat work cleanly.
+    assert cluster.first_seen.tzinfo is not None
+    assert cluster.last_seen.tzinfo is not None
+
+
+def test_analyze_handles_mixed_naive_and_aware_timestamps():
+    """Regression: a mix of naive + aware started_at must not crash min/max."""
+    analyzer = CrossSessionClusterAnalyzer()
+    sessions = [
+        create_test_session(
+            "naive", datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=1)
+        ),
+        create_test_session("aware", datetime.now(timezone.utc)),
+    ]
+    session_rankings = {
+        "naive": {"failure_fingerprints": [("error:timeout", 0.8)], "replay_value": 0.5},
+        "aware": {"failure_fingerprints": [("error:timeout", 0.9)], "replay_value": 0.5},
+    }
+
+    clusters = analyzer.analyze(sessions, session_rankings)
+
+    assert len(clusters) == 1
+    assert clusters[0].count == 2
+
+
+def test_time_decay_score_handles_naive_timestamps():
+    """Regression: _compute_time_decay_score must not crash on naive timestamps."""
+    analyzer = CrossSessionClusterAnalyzer()
+    naive_ts = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=2)
+
+    score = analyzer._compute_time_decay_score([naive_ts], [0.5])
+
+    assert 0.0 <= score <= 1.0
+
+
+def test_recent_and_stale_checks_handle_naive_timestamps():
+    """Regression: _is_recent / _is_stale must not crash on naive timestamps."""
+    analyzer = CrossSessionClusterAnalyzer()
+    naive_recent = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=1)
+    naive_stale = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=60)
+
+    assert analyzer._is_recent(naive_recent) is True
+    assert analyzer._is_stale(naive_stale) is True
+
