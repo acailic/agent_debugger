@@ -1,8 +1,11 @@
-"""Tests for bugs, edge cases, and testability in collector/baseline.py.
+"""Regression and edge-case tests for collector/baseline.py.
 
-RED phase: these tests are written FIRST to prove bugs exist and define
-the desired API for testability improvements. Every test here should
-FAIL against the current code.
+These tests were originally written RED-phase to specify bugs in the
+baseline extraction helpers. The underlying fixes have since landed
+(confidence/duration use ``is None`` checks instead of falsy ``or``
+fallbacks; all baseline divisions go through ``_safe_div``; drift
+detection guards negative values), so these now act as regression
+guards ensuring the bugs do not return.
 """
 
 from __future__ import annotations
@@ -32,8 +35,8 @@ from collector.baseline import (
 )
 
 # =============================================================================
-# CRITICAL BUG: confidence=0 recorded as 0.5 (falsy `or` fallback)
-# baseline.py:128 — `data.get("confidence") or getattr(..., 0.5)`
+# REGRESSION: confidence=0 previously defaulted to 0.5 via a falsy `or`
+# fallback. baseline.py now uses an `is None` check, so 0 is preserved.
 # =============================================================================
 
 
@@ -51,7 +54,7 @@ class TestConfidenceZeroBug:
             data={"confidence": 0},
         )
         confidence, low_flag, grounded_flag = _process_decision(event, event.data)
-        # BUG: currently returns 0.5 because `0 or 0.5` = 0.5
+        # Regression guard: 0 must round-trip, not collapse to the 0.5 default.
         assert confidence == 0.0, "confidence=0 must be preserved, not defaulted to 0.5"
 
     def test_process_decision_treats_zero_as_low_confidence(self):
@@ -91,7 +94,7 @@ class TestConfidenceZeroBug:
             sessions=[session],
             events_by_session={"s1": events},
         )
-        # BUG: currently returns 0.5 (default) instead of 0.0
+        # Regression guard: averaging zero-confidence decisions yields 0.0, not 0.5.
         assert baseline.avg_decision_confidence == 0.0
 
     def test_baseline_low_confidence_rate_with_zero(self):
@@ -125,13 +128,14 @@ class TestConfidenceZeroBug:
             sessions=[session],
             events_by_session={"s1": events},
         )
-        # BUG: confidence=0 gets recorded as 0.5 (not low), so rate is 50% not 100%
-        assert baseline.low_confidence_rate == 1.0  # both 0 and 0.3 are < 0.5
+        # Regression guard: both 0 and 0.3 are below 0.5, so low_confidence_rate is 100%.
+        assert baseline.low_confidence_rate == 1.0
 
 
 # =============================================================================
-# CRITICAL BUG: duration_ms=0 falsy fallback (same pattern)
-# baseline.py:135 — `data.get("duration_ms") or getattr(...) or 0`
+# REGRESSION: duration_ms=0 previously fell through to the event attribute
+# via a falsy `or` fallback. baseline.py now uses an `is None` check, so an
+# explicit 0 in data takes precedence.
 # =============================================================================
 
 
@@ -149,7 +153,7 @@ class TestDurationZeroBug:
             data={"duration_ms": 0, "error": None},
         )
         duration, error_flag = _process_tool_result(event, event.data)
-        # This currently returns 0 (correct by accident) but via wrong code path
+        # Regression guard: explicit 0 in data is preserved via the `is None` path.
         assert duration == 0.0
         assert error_flag == 0
 
@@ -163,13 +167,14 @@ class TestDurationZeroBug:
         event = MockEvent()
         data = {"duration_ms": 0, "error": None}
         duration, _ = _process_tool_result(event, data)
-        # BUG: `0 or 999 or 0` = 999, should be 0
+        # Regression guard: data's 0 wins; the 0.5-style fallback no longer overrides it.
         assert duration == 0.0, "data value should take precedence, not fall through to event attr"
 
 
 # =============================================================================
-# CRITICAL BUG: raw division instead of _safe_div (inconsistency)
-# baseline.py:346-350 — five `/` instead of `_safe_div`
+# REGRESSION: baseline divisions previously used raw `/`, risking
+# ZeroDivisionError. compute_baseline_from_sessions now routes every
+# baseline ratio through _safe_div.
 # =============================================================================
 
 
@@ -194,7 +199,7 @@ class TestDivisionConsistency:
         )
         # cost_per_session should be 0.05 (total_cost / 1 session)
         assert baseline.avg_cost_per_session == 0.05
-        # These should use _safe_div pattern (return 0.0 for zero denominator)
+        # Regression guard: zero-decision / zero-error sessions return 0.0 via _safe_div.
         assert baseline.avg_decision_confidence == 0.0
         assert baseline.error_rate == 0.0
 
@@ -216,8 +221,8 @@ class TestDivisionConsistency:
 
 
 # =============================================================================
-# HIGH BUG: negative values not handled in drift detection
-# baseline.py:374-387
+# REGRESSION: drift detection previously could emit misleading alerts for
+# negative metric values. detect_drift now guards against them.
 # =============================================================================
 
 
