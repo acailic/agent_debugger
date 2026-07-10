@@ -505,7 +505,7 @@ class CoordinationAnalyzer:
         TIMEOUT_THRESHOLD_SECONDS = 30.0
 
         for lane in self.session.lanes.values():
-            for i, event in enumerate(lane.events):
+            for event in lane.events:
                 if event.event_type == EventType.TOOL_CALL:
                     target_agent = _extract_target_agent(event)
                     if target_agent and target_agent in self.session.lanes:
@@ -616,7 +616,7 @@ class EmergentBehaviorDetector:
             for event in lane.events:
                 if event.event_type == EventType.DECISION:
                     directed_to = _extract_directed_agents(event)
-                    for agent in directed_to:
+                    for _ in directed_to:
                         direction_counts[lane.agent_id] = direction_counts.get(lane.agent_id, 0) + 1
 
         if direction_counts:

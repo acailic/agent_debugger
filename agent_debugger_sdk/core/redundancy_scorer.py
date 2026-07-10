@@ -55,9 +55,7 @@ def _event_has_error(event: TraceEvent) -> bool:
         return True
     if event.event_type == EventType.POLICY_VIOLATION:
         return True
-    if event.event_type == EventType.BEHAVIOR_ALERT:
-        return True
-    return False
+    return event.event_type == EventType.BEHAVIOR_ALERT
 
 
 def _event_has_downstream_impact(event: TraceEvent, all_events: list[TraceEvent]) -> bool:
@@ -71,11 +69,8 @@ def _event_has_downstream_impact(event: TraceEvent, all_events: list[TraceEvent]
             return True
 
     # Check if this is a decision or tool call that influenced later events
-    if event.event_type in {EventType.DECISION, EventType.TOOL_CALL, EventType.LLM_REQUEST}:
-        # These event types typically have downstream impact by default
-        return True
-
-    return False
+    # These event types typically have downstream impact by default
+    return event.event_type in {EventType.DECISION, EventType.TOOL_CALL, EventType.LLM_REQUEST}
 
 
 def _classify_step_contribution(

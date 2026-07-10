@@ -29,7 +29,7 @@ def _parse_ts_interface_fields(ts_source: str, interface_name: str) -> set[str]:
     for line in body.split("\n"):
         line = line.strip()
         # Skip comment lines and closing braces
-        if not line or line.startswith("//") or line.startswith("}"):
+        if not line or line.startswith(("//", "}")):
             continue
         field_match = re.match(r"^(\w+)(\??):", line)
         if field_match:

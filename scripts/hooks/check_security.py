@@ -82,10 +82,7 @@ def should_check_file(file_path: Path) -> bool:
         return False
 
     # Check file extension
-    if file_path.suffix.lower() not in CODE_EXTENSIONS:
-        return False
-
-    return True
+    return file_path.suffix.lower() in CODE_EXTENSIONS
 
 
 def check_content(content: str, file_path: Path) -> tuple[bool, list[str]]:

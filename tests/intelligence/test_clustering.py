@@ -89,7 +89,7 @@ class TestCrossSessionClustering:
                     }
                 )
         assert len(all_failure_fingerprints) > 0, "Should have at least one failure cluster"
-        for fingerprint, cluster_data_list in all_failure_fingerprints.items():
+        for _, cluster_data_list in all_failure_fingerprints.items():
             for cluster_data in cluster_data_list:
                 cluster = cluster_data["cluster"]
                 assert "count" in cluster
@@ -101,7 +101,7 @@ class TestCrossSessionClustering:
 
     def test_cluster_representative_selection(self, sample_sessions, intelligence):
         """Verify that representative traces are selected for each cluster."""
-        for session, events, checkpoints in sample_sessions:
+        for _, events, checkpoints in sample_sessions:
             analysis = intelligence.analyze_session(events, checkpoints)
             assert "representative_failure_ids" in analysis
             for cluster in analysis["failure_clusters"]:
