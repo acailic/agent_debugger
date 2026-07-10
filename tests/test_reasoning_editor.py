@@ -365,7 +365,7 @@ class TestReasoningEditor:
 
     def test_edit_nonexistent_event_raises_error(self, reasoning_editor):
         """Test that editing non-existent event raises error."""
-        with pytest.raises(ValueError, match="Event .* not found"):
+        with pytest.raises(ValueError, match=r"Event .* not found"):
             reasoning_editor.edit_reasoning(
                 event_id="nonexistent",
                 operation=EditOperation.MODIFY,
@@ -375,12 +375,12 @@ class TestReasoningEditor:
 
     def test_get_events_for_replay_nonexistent_event_raises_error(self, reasoning_editor):
         """Test that getting events for replay with nonexistent event raises error."""
-        with pytest.raises(ValueError, match="Event .* not found"):
+        with pytest.raises(ValueError, match=r"Event .* not found"):
             reasoning_editor.get_events_for_replay("nonexistent")
 
     def test_export_nonexistent_scenario_raises_error(self, reasoning_editor):
         """Test that exporting non-existent scenario raises error."""
-        with pytest.raises(ValueError, match="Branch .* not found"):
+        with pytest.raises(ValueError, match=r"Branch .* not found"):
             reasoning_editor.export_scenario("nonexistent")
 
 
