@@ -750,8 +750,10 @@ def analyze_multi_agent_session(events: list[TraceEvent]) -> MultiAgentSession:
     session_id = events[0].session_id if events else ""
     multi_session = MultiAgentSession(session_id=session_id)
 
-    # Sort events by timestamp
-    sorted_events = sorted(events, key=lambda e: e.timestamp or datetime.min(timezone.utc))
+    # Sort events by timestamp. datetime.min is a constant, not callable, so the
+    # fallback must use .replace(tzinfo=...) to yield a tz-aware sentinel that
+    # sorts correctly alongside tz-aware event timestamps without crashing.
+    sorted_events = sorted(events, key=lambda e: e.timestamp or datetime.min.replace(tzinfo=timezone.utc))
 
     # Add events to appropriate lanes
     for event in sorted_events:

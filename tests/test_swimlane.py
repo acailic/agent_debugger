@@ -198,6 +198,38 @@ def test_analyze_multi_agent_session(sample_multi_agent_events):
     assert session.get_duration_seconds() > 0
 
 
+def test_analyze_multi_agent_session_handles_none_timestamp():
+    """Regression: a None timestamp must not crash the sort key.
+
+    The previous fallback ``datetime.min(timezone.utc)`` treated the
+    ``datetime.min`` constant as callable and raised
+    ``TypeError: 'datetime.datetime' object is not callable`` whenever any
+    event had a falsy timestamp. The tz-aware ``.replace(tzinfo=...)``
+    sentinel sorts such events to the front without crashing.
+    """
+    early = TraceEvent(
+        id="event_none_ts",
+        session_id="session_none_ts",
+        timestamp=None,  # pyright: ignore[reportArgumentType]  # exercises the None-fallback at runtime
+        event_type=EventType.AGENT_TURN,
+        data={"agent_id": "agent_none"},
+    )
+    later = TraceEvent(
+        id="event_real_ts",
+        session_id="session_none_ts",
+        timestamp=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        event_type=EventType.AGENT_TURN,
+        data={"agent_id": "agent_real"},
+    )
+
+    # Must not raise; previously TypeError on the sort key.
+    session = analyze_multi_agent_session([later, early])
+
+    assert session.get_total_event_count() == 2
+    # Both events carry an agent_id, so each lands in its own lane.
+    assert session.get_agent_count() == 2
+
+
 def test_get_swimlane_data(sample_multi_agent_events):
     """Test getting swimlane visualization data."""
     data = get_swimlane_data("test_session_1", sample_multi_agent_events)
