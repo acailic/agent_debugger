@@ -79,9 +79,7 @@ def matches_breakpoint(
         return True
     if confidence_below is not None and getattr(event, "confidence", 1.0) <= confidence_below:
         return True
-    if safety_outcomes and getattr(event, "outcome", "") in safety_outcomes:
-        return True
-    return False
+    return bool(safety_outcomes and getattr(event, "outcome", "") in safety_outcomes)
 
 
 def _collect_focus_scope_ids(

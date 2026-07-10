@@ -209,7 +209,7 @@ class TestConfigConcurrency:
                 results.append(("get", config))
 
         threads = []
-        for i in range(25):
+        for _ in range(25):
             threads.append(threading.Thread(target=call_init))
             threads.append(threading.Thread(target=call_get_config))
 

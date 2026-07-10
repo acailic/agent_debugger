@@ -149,9 +149,7 @@ def test_resolve_default_storage_path_prefers_writable_path(monkeypatch):
 
     # Mock path checks - make default writable, others not checked
     def mock_is_writable(path):
-        if path == DEFAULT_STORAGE_PATH:
-            return True
-        return False
+        return path == DEFAULT_STORAGE_PATH
 
     manager = PersistenceManager(buffer=buffer)
     manager._is_writable_path = mock_is_writable
@@ -166,9 +164,7 @@ def test_resolve_default_storage_path_falls_back_to_user_path(monkeypatch):
     buffer = MagicMock(spec=EventBuffer)
 
     def mock_is_writable(path):
-        if path == USER_STORAGE_PATH:
-            return True
-        return False
+        return path == USER_STORAGE_PATH
 
     manager = PersistenceManager(buffer=buffer)
     manager._is_writable_path = mock_is_writable
@@ -183,9 +179,7 @@ def test_resolve_default_storage_path_falls_back_to_temp(monkeypatch):
     buffer = MagicMock(spec=EventBuffer)
 
     def mock_is_writable(path):
-        if path == FALLBACK_STORAGE_PATH:
-            return True
-        return False
+        return path == FALLBACK_STORAGE_PATH
 
     manager = PersistenceManager(buffer=buffer)
     manager._is_writable_path = mock_is_writable

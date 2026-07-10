@@ -108,10 +108,7 @@ class FrameCaptureSession:
 
         # Apply module filters if configured
         if self.config.module_filters:
-            for pattern in self.config.module_filters:
-                if pattern in module_path:
-                    return True
-            return False
+            return any(pattern in module_path for pattern in self.config.module_filters)
 
         return True
 

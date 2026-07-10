@@ -730,7 +730,7 @@ class TestBenchmarkSessionIntegrity:
         """All events should be serializable via to_dict()."""
         scenarios = iter_seed_scenarios()
 
-        for name, runner in scenarios:
+        for _, runner in scenarios:
             session = await runner()
 
             for event in session.events:
