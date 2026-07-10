@@ -1,7 +1,10 @@
 name: Dependency scan (scheduled)
 
 on:
-  workflow_dispatch:      # manual trigger only
+  schedule:
+    # Weekly: Mondays 06:17 UTC (off the top of the hour to spread GitHub Actions load)
+    - cron: "17 6 * * 1"
+  workflow_dispatch:      # manual trigger
 
 permissions:
   contents: read
