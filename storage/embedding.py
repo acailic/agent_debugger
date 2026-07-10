@@ -236,8 +236,9 @@ def build_session_embedding(events: list[dict[str, Any]]) -> dict[str, float]:
     text_parts = []
     for event in events:
         for field in ["event_type", "name", "error_type", "error_message", "tool_name", "model"]:
-            if field in event and event[field]:
-                text_parts.append(str(event[field]))
+            value = event.get(field)
+            if value:
+                text_parts.append(str(value))
 
     # Combine all text parts
     combined_text = " ".join(text_parts)
