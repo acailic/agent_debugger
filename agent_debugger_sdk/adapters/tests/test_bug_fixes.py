@@ -276,7 +276,7 @@ class TestBUG012ExceptionInfo:
             assert error_event.error_message == "Tool failed"
             # Check that stack_trace is populated (should contain traceback info)
             assert error_event.stack_trace is not None
-            assert "failing_tool_func" in error_event.stack_trace or "Stack trace should contain the function name"
+            assert "failing_tool_func" in error_event.stack_trace, "Stack trace should contain the function name"
 
     @pytest.mark.asyncio
     async def test_trace_llm_exception_passed(self):

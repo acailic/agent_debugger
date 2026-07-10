@@ -274,7 +274,7 @@ def test_search_violations_various_queries(api_repo_factory):
     ]
 
     for query in test_queries:
-        async def run():
+        async def run(query=query):
             async with api_repo_factory() as session:
                 repo = TraceRepository(session)
                 return await search_endpoint(
@@ -559,7 +559,7 @@ def test_get_violation_dashboard_different_time_ranges(api_repo_factory):
     time_ranges = [1, 7, 30, 90]
 
     for days in time_ranges:
-        async def run():
+        async def run(days=days):
             async with api_repo_factory() as session:
                 repo = TraceRepository(session)
                 return await dashboard_endpoint(
