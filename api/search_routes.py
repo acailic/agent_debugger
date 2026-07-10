@@ -148,9 +148,9 @@ async def search_sessions_nl(
         search_query = interpreted.pop("query", search_query)
 
         # Apply interpreted filters unless explicitly overridden
-        for key, value in interpreted.items():
-            if key not in {"query"} and value is not None:
-                filters_applied[key] = value
+        filters_applied.update(
+            {key: value for key, value in interpreted.items() if key not in {"query"} and value is not None}
+        )
 
     # Apply explicit filters from request (override interpreted ones)
     if request.status is not None:

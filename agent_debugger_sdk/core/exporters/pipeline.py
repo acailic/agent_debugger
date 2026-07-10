@@ -63,9 +63,7 @@ class MemoryExporterHook:
 
         # Check if we should export based on session status
         should_export = False
-        if self.export_on_completion and str(session.status) == "completed":
-            should_export = True
-        elif self.export_on_update:
+        if (self.export_on_completion and str(session.status) == "completed") or self.export_on_update:
             should_export = True
 
         if not should_export:

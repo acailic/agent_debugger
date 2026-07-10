@@ -734,9 +734,7 @@ def extract_workflow_graph(events: list[TraceEvent], session_id: str) -> dict[st
 
         # Determine node status
         status = "pending"
-        if event.event_type == EventType.ERROR:
-            status = "failure"
-        elif getattr(event, "error", None):
+        if event.event_type == EventType.ERROR or getattr(event, "error", None):
             status = "failure"
         elif event.event_type in (EventType.TOOL_CALL, EventType.LLM_REQUEST):
             # Check if there's a corresponding result
