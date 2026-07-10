@@ -6,6 +6,7 @@ import logging
 import uuid
 from collections.abc import Callable
 from time import perf_counter
+from typing import ClassVar
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -87,7 +88,7 @@ class ContentTypeValidationMiddleware(BaseHTTPMiddleware):
     """
 
     # Paths that require JSON Content-Type for POST/PUT
-    JSON_ENDPOINTS = {
+    JSON_ENDPOINTS: ClassVar[set[str]] = {
         "/api/sessions/{session_id}",
         "/api/checkpoints/{checkpoint_id}/restore",
         "/api/sessions/{session_id}/fix-note",
@@ -95,7 +96,7 @@ class ContentTypeValidationMiddleware(BaseHTTPMiddleware):
     }
 
     # SSE endpoints that require text/event-stream Accept header
-    SSE_ENDPOINTS = {
+    SSE_ENDPOINTS: ClassVar[set[str]] = {
         "/api/sessions/{session_id}/stream",
     }
 

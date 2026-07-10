@@ -727,7 +727,7 @@ class TestSerialization:
         stepper2.import_state(exported)
 
         assert len(stepper2.branches) == 1
-        imported_branch = list(stepper2.branches.values())[0]
+        imported_branch = next(iter(stepper2.branches.values()))
         assert imported_branch.name == "Test"
 
     def test_import_state_with_invalid_index(self, sample_events):

@@ -9,6 +9,7 @@ Covers two related but distinct CLI modules:
 
 import subprocess
 import sys
+from typing import ClassVar
 from unittest.mock import patch
 
 import pytest
@@ -77,7 +78,7 @@ def _make_fake_path(exists_return: bool):
 class _FakePopen:
     """Minimal subprocess.Popen double recording terminate()/wait() calls."""
 
-    instances: list["_FakePopen"] = []
+    instances: ClassVar[list["_FakePopen"]] = []
 
     def __init__(self, args, cwd=None, env=None, stdout=None, stderr=None):
         self.args = args
