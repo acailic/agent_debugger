@@ -178,7 +178,7 @@ class CrossSessionClusterAnalyzer:
         total_weight = 0.0
         weighted_sum = 0.0
 
-        for ts, score in zip(timestamps, scores):
+        for ts, score in zip(timestamps, scores, strict=True):
             # Calculate age in days
             age_days = (now - _to_aware_utc(ts)).total_seconds() / 86400.0
 

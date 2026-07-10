@@ -63,7 +63,7 @@ async def _load_agent_sessions_with_events(
 
     # Parallelize event loading with asyncio.gather
     events_results = await asyncio.gather(*[repo.get_events(s.id) for s in agent_sessions])
-    events_by_session = {s.id: events for s, (events, _) in zip(agent_sessions, events_results)}
+    events_by_session = {s.id: events for s, (events, _) in zip(agent_sessions, events_results, strict=True)}
 
     return agent_sessions, events_by_session
 

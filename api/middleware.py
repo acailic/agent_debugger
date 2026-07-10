@@ -153,7 +153,7 @@ class ContentTypeValidationMiddleware(BaseHTTPMiddleware):
         if len(actual_parts) != len(pattern_parts):
             return False
 
-        for actual, pattern_part in zip(actual_parts, pattern_parts):
+        for actual, pattern_part in zip(actual_parts, pattern_parts, strict=True):
             # Pattern segments in {} are wildcards
             if pattern_part.startswith("{") and pattern_part.endswith("}"):
                 continue
