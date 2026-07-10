@@ -255,8 +255,8 @@ class TestGetAggregates:
         """Test that get_aggregates sums data across multiple days."""
         analytics_db.init_analytics_db()
 
-        today = datetime.now().strftime("%Y-%m-%d")
-        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
 
         conn = sqlite3.connect(str(mock_db_path))
         conn.execute(
@@ -279,8 +279,8 @@ class TestGetAggregates:
         """Test that get_aggregates only includes data within the specified range."""
         analytics_db.init_analytics_db()
 
-        today = datetime.now().strftime("%Y-%m-%d")
-        old_date = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        old_date = (datetime.now(timezone.utc) - timedelta(days=10)).strftime("%Y-%m-%d")
 
         conn = sqlite3.connect(str(mock_db_path))
         conn.execute(
