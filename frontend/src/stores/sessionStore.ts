@@ -15,6 +15,7 @@ import type {
   SessionAuditReport,
   DecisionJustification,
   EvidenceGraph,
+  PortfolioAuditResponse,
 } from '../types'
 
 const BLOCKED_ACTIONS_STORAGE_KEY = 'peaky-peek:show-blocked-actions'
@@ -188,6 +189,11 @@ interface SessionStore {
   evidenceGraphLoading: boolean
   evidenceGraphError: string | null
 
+  // Cross-session audit portfolio (fleet-level trust/verification/failure aggregate)
+  portfolioReport: PortfolioAuditResponse | null
+  portfolioLoading: boolean
+  portfolioError: string | null
+
   // Session actions
   setSessions: (sessions: Session[]) => void
   setSelectedSessionId: (id: string | null) => void
@@ -264,6 +270,9 @@ interface SessionStore {
   setEvidenceGraph: (graph: EvidenceGraph | null) => void
   setEvidenceGraphLoading: (loading: boolean) => void
   setEvidenceGraphError: (error: string | null) => void
+  setPortfolioReport: (report: PortfolioAuditResponse | null) => void
+  setPortfolioLoading: (loading: boolean) => void
+  setPortfolioError: (error: string | null) => void
 
   // Composite actions
   inspectEvent: (eventId: string, displayEvents: TraceEvent[]) => void
@@ -396,6 +405,11 @@ const initialState = {
   evidenceGraph: null,
   evidenceGraphLoading: false,
   evidenceGraphError: null,
+
+  // Cross-session audit portfolio (not session-scoped — not cleared by resetSessionState)
+  portfolioReport: null,
+  portfolioLoading: false,
+  portfolioError: null,
 }
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
@@ -513,6 +527,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setEvidenceGraph: (evidenceGraph) => set({ evidenceGraph }),
   setEvidenceGraphLoading: (evidenceGraphLoading) => set({ evidenceGraphLoading }),
   setEvidenceGraphError: (evidenceGraphError) => set({ evidenceGraphError }),
+  setPortfolioReport: (portfolioReport) => set({ portfolioReport }),
+  setPortfolioLoading: (portfolioLoading) => set({ portfolioLoading }),
+  setPortfolioError: (portfolioError) => set({ portfolioError }),
 
   // Composite actions
   inspectEvent: (eventId, displayEvents) => {

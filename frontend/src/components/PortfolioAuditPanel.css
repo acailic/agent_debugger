@@ -1,0 +1,99 @@
+/* Fleet audit portfolio — cross-session reliability aggregate.
+   Reuses AuditPanel.css for the trust header, stats, tags, and badges. */
+
+.portfolio-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.portfolio-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.portfolio-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  border-left-width: 3px;
+  border-left-color: var(--border, rgba(255, 255, 255, 0.1));
+  font-family: inherit;
+  color: inherit;
+}
+
+.portfolio-row[data-band='high'] {
+  border-left-color: #3fb950;
+}
+
+.portfolio-row[data-band='medium'] {
+  border-left-color: #dba01d;
+}
+
+.portfolio-row[data-band='low'] {
+  border-left-color: #e5484d;
+}
+
+.portfolio-row:hover {
+  background: rgba(88, 166, 255, 0.08);
+}
+
+.portfolio-row-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.portfolio-row-score {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.portfolio-row-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portfolio-row-band {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #8a8f98);
+}
+
+.portfolio-row-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.portfolio-row-outcome {
+  margin: 0;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-tag--risk {
+  background: rgba(229, 72, 77, 0.1);
+  color: #e5484d;
+}
