@@ -18,6 +18,7 @@ from api import app_context
 from api import services as _services
 from api.analytics_db import init_analytics_db
 from api.analytics_routes import router as analytics_router
+from api.audit_routes import router as audit_router
 from api.auth_routes import router as auth_router
 from api.comparison_routes import router as comparison_router
 from api.cost_routes import router as cost_router
@@ -135,6 +136,7 @@ def create_app() -> FastAPI:
     # paths. Future versions can introduce /v2/ routes alongside /api/.
     app.include_router(collector_router)
     app.include_router(auth_router)
+    app.include_router(audit_router)
     app.include_router(analytics_router)
     app.include_router(session_router)
     app.include_router(trace_router)

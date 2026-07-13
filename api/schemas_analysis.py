@@ -300,3 +300,89 @@ class SimilarFailuresResponse(BaseModel):
     failure_event_id: str
     similar_failures: list[SimilarFailureSchema]
     total: int
+
+
+# ------------------------------------------------------------------
+# Agent audit / trust schemas
+# ------------------------------------------------------------------
+
+
+class AuditClaimSchema(BaseModel):
+    """A single agent claim (decision) with its verification status."""
+
+    event_id: str
+    event_type: str
+    headline: str
+    claim: str
+    rationale: str
+    confidence: float
+    alternatives_considered: int
+    evidence_refs: list[str]
+    evidence_sources: list[str]
+    verification_status: str  # verified | partially_verified | contradicted | unsupported | unverified | stale
+    verification_basis: str
+    contradicted: bool
+    timestamp: str
+
+
+class AuditSignalSchema(BaseModel):
+    """A deterministic risk signal derived from the trace."""
+
+    event_id: str
+    type: str  # unsupported_claim | missing_evidence | contradiction | repeated_failed_strategy | plan_drift | ...
+    severity: str  # high | medium | low
+    message: str
+
+
+class AuditFailureSchema(BaseModel):
+    """A failure with its localized root-cause suspect."""
+
+    event_id: str
+    event_type: str
+    headline: str
+    mode: str
+    symptom: str
+    likely_cause: str
+    likely_cause_event_id: str | None
+    confidence: float
+    supporting_event_ids: list[str]
+    position: int
+
+
+class AuditReviewPointSchema(BaseModel):
+    """A point in the run a human reviewer should look at."""
+
+    event_id: str
+    priority: str  # high | medium | low
+    reason: str
+
+
+class TrustScoreSchema(BaseModel):
+    """Explainable trust/reliability score for a session."""
+
+    score: float = Field(ge=0.0, le=1.0)
+    band: str  # low | medium | high
+    components: dict[str, Any]
+    explanation: str
+
+
+class SessionAuditReportSchema(BaseModel):
+    """Human-auditable session report answering the five operator questions."""
+
+    session_id: str
+    objective: str | None
+    final_outcome: str
+    questions: dict[str, Any]
+    claims: list[AuditClaimSchema]
+    signals: list[AuditSignalSchema]
+    failures: list[AuditFailureSchema]
+    critical_decisions: list[AuditClaimSchema]
+    trust: TrustScoreSchema
+    review_points: list[AuditReviewPointSchema]
+
+
+class SessionAuditResponse(BaseModel):
+    """Response schema for the session audit endpoint."""
+
+    session_id: str
+    audit: SessionAuditReportSchema
