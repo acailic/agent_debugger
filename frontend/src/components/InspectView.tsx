@@ -5,10 +5,12 @@ import { useInspectEvent } from '../hooks/useInspectEvent'
 import { useDriftData } from '../hooks/useDriftData'
 import { useAuditData } from '../hooks/useAuditData'
 import { useDecisionJustification } from '../hooks/useDecisionJustification'
+import { useEvidenceGraph } from '../hooks/useEvidenceGraph'
 import { ErrorBoundary } from './ErrorBoundary'
 import { EmptyState } from './EmptyState'
 import { AuditPanel } from './AuditPanel'
 import { DecisionJustificationPanel } from './DecisionJustificationPanel'
+import { EvidenceGraphPanel } from './EvidenceGraphPanel'
 import { DecisionTreeMemo } from './DecisionTree'
 import { ConversationPanelMemo } from './ConversationPanel'
 import { DriftAlertsPanel } from './DriftAlertsPanel'
@@ -31,6 +33,7 @@ export function InspectView() {
   useDriftData()
   useAuditData()
   useDecisionJustification()
+  useEvidenceGraph()
 
   // Local state for collapsible sections
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
@@ -57,6 +60,9 @@ export function InspectView() {
     decisionJustification,
     decisionJustificationLoading,
     decisionJustificationError,
+    evidenceGraph,
+    evidenceGraphLoading,
+    evidenceGraphError,
   } = useSessionStore(
     (state) => ({
       selectedSessionId: state.selectedSessionId,
@@ -79,6 +85,9 @@ export function InspectView() {
       decisionJustification: state.decisionJustification,
       decisionJustificationLoading: state.decisionJustificationLoading,
       decisionJustificationError: state.decisionJustificationError,
+      evidenceGraph: state.evidenceGraph,
+      evidenceGraphLoading: state.evidenceGraphLoading,
+      evidenceGraphError: state.evidenceGraphError,
     }),
   )
 
@@ -165,6 +174,15 @@ export function InspectView() {
                   justification={decisionJustification}
                   loading={decisionJustificationLoading}
                   error={decisionJustificationError}
+                  selectedEventId={selectedEventId}
+                  onSelectEvent={handleInspectEvent}
+                />
+              )}
+              {selectedSessionId && (
+                <EvidenceGraphPanel
+                  graph={evidenceGraph}
+                  loading={evidenceGraphLoading}
+                  error={evidenceGraphError}
                   selectedEventId={selectedEventId}
                   onSelectEvent={handleInspectEvent}
                 />

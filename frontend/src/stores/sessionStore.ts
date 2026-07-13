@@ -14,6 +14,7 @@ import type {
   SessionSortMode,
   SessionAuditReport,
   DecisionJustification,
+  EvidenceGraph,
 } from '../types'
 
 const BLOCKED_ACTIONS_STORAGE_KEY = 'peaky-peek:show-blocked-actions'
@@ -182,6 +183,11 @@ interface SessionStore {
   decisionJustificationLoading: boolean
   decisionJustificationError: string | null
 
+  // Evidence-provenance graph (claims + facts + evidence/causal edges)
+  evidenceGraph: EvidenceGraph | null
+  evidenceGraphLoading: boolean
+  evidenceGraphError: string | null
+
   // Session actions
   setSessions: (sessions: Session[]) => void
   setSelectedSessionId: (id: string | null) => void
@@ -255,6 +261,9 @@ interface SessionStore {
   setDecisionJustification: (justification: DecisionJustification | null) => void
   setDecisionJustificationLoading: (loading: boolean) => void
   setDecisionJustificationError: (error: string | null) => void
+  setEvidenceGraph: (graph: EvidenceGraph | null) => void
+  setEvidenceGraphLoading: (loading: boolean) => void
+  setEvidenceGraphError: (error: string | null) => void
 
   // Composite actions
   inspectEvent: (eventId: string, displayEvents: TraceEvent[]) => void
@@ -382,6 +391,11 @@ const initialState = {
   decisionJustification: null,
   decisionJustificationLoading: false,
   decisionJustificationError: null,
+
+  // Evidence-provenance graph
+  evidenceGraph: null,
+  evidenceGraphLoading: false,
+  evidenceGraphError: null,
 }
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
@@ -496,6 +510,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setDecisionJustification: (decisionJustification) => set({ decisionJustification }),
   setDecisionJustificationLoading: (decisionJustificationLoading) => set({ decisionJustificationLoading }),
   setDecisionJustificationError: (decisionJustificationError) => set({ decisionJustificationError }),
+  setEvidenceGraph: (evidenceGraph) => set({ evidenceGraph }),
+  setEvidenceGraphLoading: (evidenceGraphLoading) => set({ evidenceGraphLoading }),
+  setEvidenceGraphError: (evidenceGraphError) => set({ evidenceGraphError }),
 
   // Composite actions
   inspectEvent: (eventId, displayEvents) => {
@@ -541,6 +558,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     decisionJustification: null,
     decisionJustificationLoading: false,
     decisionJustificationError: null,
+    evidenceGraph: null,
+    evidenceGraphLoading: false,
+    evidenceGraphError: null,
   }),
 
   reset: () => set({
