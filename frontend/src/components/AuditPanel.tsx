@@ -73,6 +73,23 @@ export function AuditPanel({
         <h2>Trust &amp; verification</h2>
       </div>
 
+      {report.summary && (
+        <div
+          className={`audit-summary audit-summary--${report.summary.verdict}`}
+          data-audit-verdict={report.summary.verdict}
+        >
+          <div className="audit-summary-head">
+            <span
+              className={`audit-verdict audit-verdict--${report.summary.verdict}`}
+            >
+              {report.summary.verdict.toUpperCase()}
+            </span>
+            <p className="audit-summary-tldr">{report.summary.tldr}</p>
+          </div>
+          <pre className="audit-summary-markdown">{report.summary.markdown}</pre>
+        </div>
+      )}
+
       <div className="audit-trust-header">
         <div className={`audit-score audit-score--${trust.band}`}>
           <span className="audit-score-value">{trustPct}</span>

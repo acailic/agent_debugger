@@ -28,6 +28,12 @@ function baseReport(overrides: Partial<SessionAuditReport> = {}): SessionAuditRe
       explanation: '',
     },
     review_points: [],
+    summary: {
+      verdict: 'review',
+      tldr: 'tldr',
+      trust_line: 'trust line',
+      markdown: '',
+    },
     ...overrides,
   }
 }

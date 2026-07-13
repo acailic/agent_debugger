@@ -1580,6 +1580,18 @@ export interface SessionAuditReport {
   critical_decisions: AuditClaim[]
   trust: TrustScore
   review_points: AuditReviewPoint[]
+  summary: AuditSummary
+}
+
+export interface AuditSummary {
+  /** pass | review | fail — deterministic verdict derived from trust band + failures */
+  verdict: 'pass' | 'review' | 'fail'
+  /** One-line headline an operator reads first */
+  tldr: string
+  /** Compact trust-components line */
+  trust_line: string
+  /** Compact multi-section markdown narrative (postmortem assist) */
+  markdown: string
 }
 
 export interface SessionAuditResponse {

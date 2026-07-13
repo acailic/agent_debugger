@@ -366,6 +366,20 @@ class TrustScoreSchema(BaseModel):
     explanation: str
 
 
+class AuditSummarySchema(BaseModel):
+    """Compact, deterministic human-readable audit summary (postmortem assist).
+
+    Collapses the structured report into a one-line verdict + a compact
+    markdown narrative so an operator can audit a run without drilling nodes.
+    Pure template output — no LLM, no wall-clock randomness.
+    """
+
+    verdict: str  # pass | review | fail
+    tldr: str
+    trust_line: str
+    markdown: str
+
+
 class SessionAuditReportSchema(BaseModel):
     """Human-auditable session report answering the five operator questions."""
 
@@ -379,6 +393,7 @@ class SessionAuditReportSchema(BaseModel):
     critical_decisions: list[AuditClaimSchema]
     trust: TrustScoreSchema
     review_points: list[AuditReviewPointSchema]
+    summary: AuditSummarySchema
 
 
 class SessionAuditResponse(BaseModel):

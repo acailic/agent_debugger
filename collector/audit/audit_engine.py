@@ -93,6 +93,7 @@ class SessionAuditReport:
     critical_decisions: list[dict[str, Any]]
     trust: dict[str, Any]
     review_points: list[dict[str, Any]] = field(default_factory=list)
+    summary: dict[str, Any] = field(default_factory=dict)
 
 
 class SessionAuditEngine:
@@ -186,6 +187,17 @@ class SessionAuditEngine:
             checkpoints=checkpoints,
         )
 
+        review_points = self._build_review_points(claims, failures, signals)
+        summary = self._build_summary(
+            objective=objective,
+            final_outcome=final_outcome,
+            trust=trust,
+            claims=claims,
+            failures=failures,
+            signals=signals,
+            review_points=review_points,
+        )
+
         report = SessionAuditReport(
             session_id=session.get("id") or (events[0].session_id if events else ""),
             objective=objective,
@@ -196,7 +208,8 @@ class SessionAuditEngine:
             failures=failures,
             critical_decisions=critical_decisions,
             trust=trust,
-            review_points=self._build_review_points(claims, failures, signals),
+            review_points=review_points,
+            summary=summary,
         )
         return _report_to_dict(report)
 
@@ -1194,6 +1207,128 @@ class SessionAuditEngine:
         }
 
     # ------------------------------------------------------------------
+    # Compact human-auditable summary (deterministic postmortem narrative)
+    # ------------------------------------------------------------------
+
+    def _build_summary(
+        self,
+        *,
+        objective: str | None,
+        final_outcome: str,
+        trust: dict[str, Any],
+        claims: list[dict[str, Any]],
+        failures: list[dict[str, Any]],
+        signals: list[dict[str, Any]],
+        review_points: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Deterministic compact narrative an operator can read at a glance.
+
+        The objective calls for every session to produce a human-auditable
+        summary (objective / outcome / critical decisions / evidence /
+        unsupported claims / failures + root causes / trust / review points).
+        The structured report already exposes all of those fields; this method
+        collapses them into one verdict + a compact markdown block so a human
+        can audit a run without drilling every node. Pure template — no LLM,
+        no wall-clock randomness, fully inspectable.
+        """
+        score = float(trust.get("score", 0.0) or 0.0)
+        band = str(trust.get("band", "medium") or "medium")
+        components = trust.get("components", {}) or {}
+
+        evidence_coverage = float(components.get("evidence_coverage", 0.0) or 0.0)
+        verification_rate = float(components.get("verification_rate", 0.0) or 0.0)
+        policy_compliance = float(components.get("policy_compliance", 0.0) or 0.0)
+        recovery_rate = float(components.get("recovery_rate", 0.0) or 0.0)
+        failure_severity = float(components.get("failure_severity", 0.0) or 0.0)
+
+        unsupported = [c for c in claims if c["verification_status"] == UNSUPPORTED]
+        contradicted = [c for c in claims if c["verification_status"] == CONTRADICTED]
+        high_failures = [f for f in failures if float(f.get("confidence") or 0.0) >= 0.7]
+        high_signals = [s for s in signals if s.get("severity") == "high"]
+        policy_hits = [s for s in signals if s.get("type") == "policy_violation"]
+
+        # Deterministic verdict: fail beats review beats pass.
+        if band == "low" or high_failures or policy_hits:
+            verdict = "fail"
+        elif band == "medium" or unsupported or contradicted or high_signals:
+            verdict = "review"
+        else:
+            verdict = "pass"
+
+        obj_text = objective or "Untitled run"
+        tldr = (
+            f"{obj_text} — {final_outcome}. "
+            f"Trust {score:.2f} ({band}): "
+            f"{len(unsupported)} unsupported, {len(contradicted)} contradicted, "
+            f"{len(failures)} failure(s)."
+        )
+        trust_line = (
+            f"Trust {score:.2f} ({band}) — "
+            f"evidence_coverage={evidence_coverage:.2f}, "
+            f"verification_rate={verification_rate:.2f}, "
+            f"policy_compliance={policy_compliance:.2f}, "
+            f"recovery_rate={recovery_rate:.2f}, "
+            f"failure_severity={failure_severity:.2f}."
+        )
+
+        lines: list[str] = []
+        lines.append(f"# Audit summary — verdict: {verdict.upper()}")
+        lines.append("")
+        lines.append(f"Objective: {obj_text}")
+        lines.append(f"Outcome: {final_outcome}")
+        lines.append("")
+        lines.append(trust_line)
+        lines.append("")
+
+        if unsupported or contradicted:
+            lines.append("## Claims needing review")
+            for claim in (unsupported + contradicted)[:5]:
+                lines.append(
+                    f"- [{claim['verification_status']}] \"{claim['headline']}\" "
+                    f"(confidence {claim['confidence']:.2f})"
+                )
+        else:
+            lines.append("## Claims")
+            lines.append(
+                f"No unsupported or contradicted claims across {len(claims)} decision(s)."
+            )
+        lines.append("")
+
+        lines.append("## Failures & root causes")
+        if failures:
+            for failure in failures[:3]:
+                cause = failure.get("likely_cause") or "unknown"
+                lines.append(
+                    f"- ({failure.get('mode', 'failure')}) "
+                    f"{failure.get('symptom', '')} — likely cause: {cause}"
+                )
+        else:
+            lines.append("No failures localized.")
+        lines.append("")
+
+        lines.append("## Evidence relied on")
+        lines.append(
+            f"Coverage {evidence_coverage:.0%} of decisions; verification rate "
+            f"{verification_rate:.0%}; {components.get('decision_count', len(claims))} "
+            f"decision(s), {len(failures)} failure(s)."
+        )
+        lines.append("")
+
+        lines.append("## Recommended human review")
+        if review_points:
+            for point in review_points[:5]:
+                lines.append(f"- [{point.get('priority', 'medium')}] {point.get('reason', '')}")
+        else:
+            lines.append("No high-priority review points.")
+
+        return {
+            "verdict": verdict,
+            "tldr": tldr,
+            "trust_line": trust_line,
+            "markdown": "\n".join(lines),
+        }
+
+    # ------------------------------------------------------------------
     # Objective / outcome inference
     # ------------------------------------------------------------------
 
@@ -1558,4 +1693,5 @@ def _report_to_dict(report: SessionAuditReport) -> dict[str, Any]:
         "critical_decisions": report.critical_decisions,
         "trust": report.trust,
         "review_points": report.review_points,
+        "summary": report.summary,
     }

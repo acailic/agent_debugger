@@ -1083,3 +1083,95 @@ async def test_portfolio_route_returns_aggregate_summary(shared_app):
         assert "verified" in summary["verification_totals"]
 
 
+# ---------------------------------------------------------------------------
+# Compact human-auditable summary
+# ---------------------------------------------------------------------------
+
+
+def test_summary_always_present_and_well_formed():
+    report = SessionAuditEngine().audit([])
+    summary = report["summary"]
+    assert set(summary) == {"verdict", "tldr", "trust_line", "markdown"}
+    assert summary["verdict"] in {"pass", "review", "fail"}
+    assert summary["tldr"]
+    assert summary["trust_line"]
+    assert summary["markdown"]
+
+
+def test_summary_verdict_pass_for_clean_grounded_run():
+    tool = _event("t1", EventType.TOOL_RESULT, tool_name="search", result={"hits": 1})
+    decision = _decision(
+        "d1", confidence=0.9, evidence_event_ids=["t1"], chosen_action="answer"
+    )
+    summary = SessionAuditEngine().audit([tool, decision])["summary"]
+    assert summary["verdict"] == "pass"
+    assert "Trust" in summary["tldr"]
+    assert "0 unsupported" in summary["tldr"]
+    assert "0 failure" in summary["tldr"]
+
+
+def test_summary_verdict_fail_for_low_trust_unsupported_run():
+    report = SessionAuditEngine().audit([_decision("d1", confidence=0.9)])
+    assert report["trust"]["band"] == "low"
+    assert report["summary"]["verdict"] == "fail"
+    markdown = report["summary"]["markdown"]
+    assert "verdict: FAIL" in markdown
+    assert "## Claims needing review" in markdown
+    assert "unsupported" in markdown
+
+
+def test_summary_verdict_review_for_medium_band_with_unsupported_claim():
+    tool = _event("t1", EventType.TOOL_RESULT, tool_name="search", result={"hits": 1})
+    grounded = _decision(
+        "g1", confidence=0.9, evidence_event_ids=["t1"], chosen_action="answer"
+    )
+    unsupported = _decision("u1", confidence=0.9, chosen_action="guess")
+    report = SessionAuditEngine().audit([tool, grounded, unsupported])
+    assert report["trust"]["band"] == "medium"
+    assert report["summary"]["verdict"] == "review"
+
+
+def test_summary_markdown_contains_required_sections():
+    tool = _event("t1", EventType.TOOL_RESULT, tool_name="search", result={"hits": 1})
+    decision = _decision(
+        "d1", confidence=0.9, evidence_event_ids=["t1"], chosen_action="answer"
+    )
+    markdown = SessionAuditEngine().audit([tool, decision])["summary"]["markdown"]
+    for section in [
+        "# Audit summary",
+        "Objective:",
+        "Outcome:",
+        "Trust ",
+        "## Claims",
+        "## Failures & root causes",
+        "## Evidence relied on",
+        "## Recommended human review",
+    ]:
+        assert section in markdown, f"missing section: {section!r}"
+
+
+def test_summary_lists_failure_root_cause_when_present():
+    decision = _decision("d1", confidence=0.9, chosen_action="call_api")
+    failure = _event(
+        "f1",
+        EventType.TOOL_RESULT,
+        parent_id="d1",
+        tool_name="call_api",
+        error="boom",
+    )
+    report = SessionAuditEngine().audit([decision, failure])
+    assert report["failures"]
+    assert "likely cause:" in report["summary"]["markdown"]
+
+
+def test_summary_is_deterministic():
+    events = [
+        _event("t1", EventType.TOOL_RESULT, tool_name="search", result={}),
+        _decision("d1", confidence=0.8, evidence_event_ids=["t1"], chosen_action="go"),
+    ]
+    first = SessionAuditEngine().audit(events)["summary"]
+    second = SessionAuditEngine().audit(events)["summary"]
+    assert first == second
+
+
+

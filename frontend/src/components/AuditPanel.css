@@ -493,3 +493,75 @@
   background: rgba(138, 143, 152, 0.18);
   color: #8a8f98;
 }
+
+/* ---- Compact human-auditable summary (postmortem narrative) ---- */
+.audit-summary {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  background: var(--surface-raised, rgba(255, 255, 255, 0.03));
+}
+
+.audit-summary--pass {
+  border-color: rgba(63, 185, 80, 0.4);
+  background: rgba(63, 185, 80, 0.08);
+}
+
+.audit-summary--review {
+  border-color: rgba(219, 160, 29, 0.4);
+  background: rgba(219, 160, 29, 0.08);
+}
+
+.audit-summary--fail {
+  border-color: rgba(229, 72, 77, 0.4);
+  background: rgba(229, 72, 77, 0.08);
+}
+
+.audit-summary-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.audit-verdict {
+  flex: 0 0 auto;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: #fff;
+}
+
+.audit-verdict--pass {
+  background: #3fb950;
+}
+
+.audit-verdict--review {
+  background: #dba01d;
+}
+
+.audit-verdict--fail {
+  background: #e5484d;
+}
+
+.audit-summary-tldr {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.audit-summary-markdown {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 6px;
+  max-height: 260px;
+  overflow: auto;
+}
