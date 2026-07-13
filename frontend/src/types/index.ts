@@ -1451,6 +1451,7 @@ export type AuditSignalType =
   | 'plan_drift'
   | 'policy_violation'
   | 'weak_evidence'
+  | 'stale_evidence'
   | string
 
 export type AuditSeverity = 'high' | 'medium' | 'low'

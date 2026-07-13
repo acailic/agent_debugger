@@ -29,6 +29,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any
 
 from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
@@ -54,8 +55,10 @@ CONTRADICTED = "contradicted"
 UNSUPPORTED = "unsupported"
 #: A low-confidence claim with no evidence — an unverified assumption.
 UNVERIFIED = "unverified"
-#: A claim relying on evidence that exists but is older than the configured
-#: staleness window (placeholder for future timestamp-based staleness).
+#: A grounded claim whose cited evidence was superseded — a concrete fact
+#: (tool result / user input / retrieved doc) existed at decision time that
+#: was newer than every cited fact and that the agent did NOT cite. The
+#: decision was built on possibly-outdated evidence.
 STALE = "stale"
 
 #: Evidence ``source`` values that count as tool-backed facts.
@@ -696,6 +699,15 @@ class SessionAuditEngine:
         retrieved_ids: set[str],
     ) -> list[dict[str, Any]]:
         claims: list[dict[str, Any]] = []
+        # Chronological list of (timestamp, id) for every concrete fact in the
+        # trace — used to detect decisions that acted on stale (superseded)
+        # evidence. Computed once here from the fact sets already classified.
+        concrete_fact_ids = tool_backed_ids | user_input_ids | retrieved_ids
+        fact_timeline = sorted(
+            (_event_ts(event), event.id)
+            for event in events
+            if event.id in concrete_fact_ids
+        )
         for event in events:
             if event.event_type != EventType.DECISION:
                 continue
@@ -722,6 +734,7 @@ class SessionAuditEngine:
                 retrieved_ids=retrieved_ids,
                 children_by_parent=children_by_parent,
                 failure_event_ids=failure_event_ids,
+                fact_timeline=fact_timeline,
             )
 
             contradicted = verification_status == CONTRADICTED
@@ -757,6 +770,7 @@ class SessionAuditEngine:
         retrieved_ids: set[str],
         children_by_parent: dict[str, list[str]],
         failure_event_ids: set[str],
+        fact_timeline: list[tuple[datetime, str]],
     ) -> tuple[str, str]:
         has_evidence = bool(evidence_items) or bool(evidence_event_ids)
 
@@ -783,16 +797,32 @@ class SessionAuditEngine:
         )
 
         if resolved_tool_backed or named_tool_backed:
-            return VERIFIED, "backed by a successful tool result"
-        if resolved_user or named_user:
-            return VERIFIED, "backed by user-provided input"
-        if resolved_retrieved or named_retrieved:
-            return PARTIALLY_VERIFIED, "backed by retrieved evidence (not tool-verified)"
-        if has_evidence:
-            return PARTIALLY_VERIFIED, "carries evidence that does not resolve to a concrete fact"
-        if confidence >= UNSUPPORTED_CONFIDENCE_THRESHOLD:
-            return UNSUPPORTED, "confident claim made with no evidence"
-        return UNVERIFIED, "low-confidence claim with no evidence"
+            base_status, base_basis = VERIFIED, "backed by a successful tool result"
+        elif resolved_user or named_user:
+            base_status, base_basis = VERIFIED, "backed by user-provided input"
+        elif resolved_retrieved or named_retrieved:
+            base_status, base_basis = (
+                PARTIALLY_VERIFIED,
+                "backed by retrieved evidence (not tool-verified)",
+            )
+        elif has_evidence:
+            base_status, base_basis = (
+                PARTIALLY_VERIFIED,
+                "carries evidence that does not resolve to a concrete fact",
+            )
+        elif confidence >= UNSUPPORTED_CONFIDENCE_THRESHOLD:
+            base_status, base_basis = UNSUPPORTED, "confident claim made with no evidence"
+        else:
+            base_status, base_basis = UNVERIFIED, "low-confidence claim with no evidence"
+
+        # Staleness: a grounded claim that ignored a newer concrete fact.
+        # Only overrides VERIFIED / PARTIALLY_VERIFIED — ungrounded claims have
+        # no cited evidence to be "outdated", and CONTRADICTED is already worse.
+        if base_status in {VERIFIED, PARTIALLY_VERIFIED}:
+            stale, stale_basis = _staleness_check(event, resolved_evidence_ids, fact_timeline)
+            if stale:
+                return STALE, stale_basis
+        return base_status, base_basis
 
     # ------------------------------------------------------------------
     # Risk signals
@@ -859,6 +889,17 @@ class SessionAuditEngine:
                         "low",
                         f'Decision "{claim["headline"]}" relies on evidence that is not '
                         "tool-verified.",
+                    )
+                )
+
+            if claim["verification_status"] == STALE:
+                signals.append(
+                    _signal(
+                        event_id,
+                        "stale_evidence",
+                        "medium",
+                        f'Decision "{claim["headline"]}" relies on evidence that was '
+                        "superseded by a newer concrete fact it did not cite.",
                     )
                 )
 
@@ -1304,6 +1345,56 @@ def _classify_evidence(evidence_items: list[Any]) -> list[str]:
         else:
             sources.append("inferred")
     return sources
+
+
+def _event_ts(event: TraceEvent) -> datetime:
+    """Comparable timestamp for an event (datetime, normalized to UTC).
+
+    Tolerant of storage-reconstructed events whose ``timestamp`` may be an
+    ISO string; unparseable values fall back to a sentinel so ordering stays
+    total instead of raising.
+    """
+    ts = event.timestamp
+    if isinstance(ts, datetime):
+        return ts if ts.tzinfo is not None else ts.replace(tzinfo=timezone.utc)
+    try:
+        parsed = datetime.fromisoformat(str(ts))
+    except (TypeError, ValueError):
+        return datetime.min.replace(tzinfo=timezone.utc)
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+
+
+def _staleness_check(
+    event: TraceEvent,
+    resolved_evidence_ids: list[str],
+    fact_timeline: list[tuple[datetime, str]],
+) -> tuple[bool, str]:
+    """Return ``(is_stale, basis)`` for a grounded claim.
+
+    A claim is stale when it cites at least one concrete fact AND a strictly
+    newer concrete fact existed at decision time that the agent did NOT cite —
+    i.e. it acted on possibly-outdated evidence when fresher evidence was
+    available. Purely structural (event timestamps + ordering), so it is
+    deterministic and stable on synthetic traces; no wall-clock window.
+    """
+    if not fact_timeline or not resolved_evidence_ids:
+        return False, ""
+    decision_ts = _event_ts(event)
+    cited_ts = [ts for ts, eid in fact_timeline if eid in resolved_evidence_ids]
+    if not cited_ts:
+        return False, ""
+    newest_cited = max(cited_ts)
+    newer_uncited = [
+        ts
+        for ts, eid in fact_timeline
+        if eid not in resolved_evidence_ids and newest_cited < ts <= decision_ts
+    ]
+    if newer_uncited:
+        return True, (
+            "cited evidence was superseded: a newer concrete fact was "
+            "available at decision time and was not cited"
+        )
+    return False, ""
 
 
 def _build_children_index(events: list[TraceEvent]) -> dict[str, list[str]]:

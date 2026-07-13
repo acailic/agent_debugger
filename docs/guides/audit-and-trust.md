@@ -33,7 +33,7 @@ Every `decision` event in the trace is treated as a **claim** and classified det
 | `contradicted` | A confident decision whose downstream causal subtree contains a failure. |
 | `unsupported` | Confident claim (confidence ≥ 0.5) made with **no** evidence. |
 | `unverified` | Low-confidence claim with no evidence — an unverified assumption. |
-| `stale` | Reserved for evidence older than a staleness window. |
+| `stale` | A grounded decision cited an older concrete fact when a strictly newer concrete fact (tool result / user input / retrieved doc) existed at decision time and was **not** cited — the agent acted on possibly-outdated evidence. |
 
 Evidence `source` values are grouped into:
 
@@ -74,6 +74,7 @@ The engine emits these signal types, each anchored to an `event_id`:
 | `confidence_evidence_mismatch` | Confidence is unjustified by attached evidence. |
 | `contradiction` | A confident decision is followed by a failure in its subtree. |
 | `weak_evidence` | A decision relies on non-tool-verified evidence. |
+| `stale_evidence` | A grounded decision ignored a newer concrete fact than every cited one. |
 | `repeated_failed_strategy` | The same tool fails 2+ times. |
 | `plan_drift` | A drift event, tool-loop alert, or status error. |
 | `policy_violation` | A policy/safety rule breach. |

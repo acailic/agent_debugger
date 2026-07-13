@@ -30,6 +30,7 @@ def _event(
     session_id: str = "audit-session",
     parent_id: str | None = None,
     upstream_event_ids: list[str] | None = None,
+    timestamp: datetime | None = None,
     **data,
 ) -> TraceEvent:
     """Build a base TraceEvent carrying typed fields in its data dict.
@@ -44,7 +45,7 @@ def _event(
         parent_id=parent_id,
         name=f"test_{event_type}",
         event_type=event_type,
-        timestamp=datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc),
+        timestamp=timestamp or datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc),
         data=data,
         upstream_event_ids=upstream_event_ids or [],
     )
@@ -60,11 +61,13 @@ def _decision(
     reasoning: str = "",
     parent_id: str | None = None,
     alternatives: list | None = None,
+    timestamp: datetime | None = None,
 ) -> TraceEvent:
     return _event(
         event_id,
         EventType.DECISION,
         parent_id=parent_id,
+        timestamp=timestamp,
         confidence=confidence,
         evidence_event_ids=evidence_event_ids or [],
         evidence=evidence or [],
@@ -180,6 +183,131 @@ def test_confident_decision_whose_subtree_fails_is_contradicted():
     assert statuses["d1"] == "contradicted"
     signal_types = {signal["type"] for signal in report["signals"]}
     assert "contradiction" in signal_types
+
+
+def test_ground_claim_with_newer_uncited_fact_is_stale():
+    # Decision cites an older tool result but a newer tool result existed at
+    # decision time and was NOT cited -> the agent acted on stale evidence.
+    old_tool = _event(
+        "t_old",
+        EventType.TOOL_RESULT,
+        tool_name="search",
+        result={"hits": 1},
+        timestamp=datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc),
+    )
+    fresh_tool = _event(
+        "t_fresh",
+        EventType.TOOL_RESULT,
+        tool_name="search",
+        result={"hits": 99},
+        timestamp=datetime(2026, 1, 1, 0, 5, tzinfo=timezone.utc),
+    )
+    decision = _decision(
+        "d1",
+        confidence=0.8,
+        evidence_event_ids=["t_old"],
+        timestamp=datetime(2026, 1, 1, 0, 6, tzinfo=timezone.utc),
+    )
+    report = SessionAuditEngine().audit([old_tool, fresh_tool, decision])
+
+    claim = report["claims"][0]
+    assert claim["verification_status"] == "stale"
+    assert "superseded" in claim["verification_basis"]
+    signal_types = {signal["type"] for signal in report["signals"]}
+    assert "stale_evidence" in signal_types
+
+
+def test_ground_claim_citing_newest_fact_is_not_stale():
+    # Same facts, but the decision cites the newest one -> no newer uncited
+    # fact exists, so the claim stays verified (not stale).
+    old_tool = _event(
+        "t_old",
+        EventType.TOOL_RESULT,
+        tool_name="search",
+        result={"hits": 1},
+        timestamp=datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc),
+    )
+    fresh_tool = _event(
+        "t_fresh",
+        EventType.TOOL_RESULT,
+        tool_name="search",
+        result={"hits": 99},
+        timestamp=datetime(2026, 1, 1, 0, 5, tzinfo=timezone.utc),
+    )
+    decision = _decision(
+        "d1",
+        confidence=0.8,
+        evidence_event_ids=["t_fresh"],
+        timestamp=datetime(2026, 1, 1, 0, 6, tzinfo=timezone.utc),
+    )
+    report = SessionAuditEngine().audit([old_tool, fresh_tool, decision])
+
+    assert report["claims"][0]["verification_status"] == "verified"
+
+
+def test_fact_newer_than_decision_does_not_make_it_stale():
+    # A fresh fact created AFTER the decision cannot have been cited (it did
+    # not exist at decision time) -> not stale.
+    old_tool = _event(
+        "t_old",
+        EventType.TOOL_RESULT,
+        tool_name="search",
+        result={"hits": 1},
+        timestamp=datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc),
+    )
+    decision = _decision(
+        "d1",
+        confidence=0.8,
+        evidence_event_ids=["t_old"],
+        timestamp=datetime(2026, 1, 1, 0, 1, tzinfo=timezone.utc),
+    )
+    later_tool = _event(
+        "t_later",
+        EventType.TOOL_RESULT,
+        tool_name="search",
+        result={"hits": 99},
+        timestamp=datetime(2026, 1, 1, 0, 9, tzinfo=timezone.utc),
+    )
+    report = SessionAuditEngine().audit([old_tool, decision, later_tool])
+
+    assert report["claims"][0]["verification_status"] == "verified"
+
+
+def test_ungrounded_claim_is_not_stale():
+    # No cited concrete fact -> unsupported, not stale (staleness only
+    # overrides grounded claims).
+    decision = _decision("d1", confidence=0.9)
+    report = SessionAuditEngine().audit([decision])
+
+    assert report["claims"][0]["verification_status"] == "unsupported"
+
+
+def test_stale_lowers_verification_rate_below_verified():
+    # A stale claim is grounded but NOT counted as verified, so a run with a
+    # stale decision has a lower verification_rate than an otherwise-identical
+    # run whose decision cites the newest fact.
+    fresh_ts = datetime(2026, 1, 1, 0, 5, tzinfo=timezone.utc)
+
+    def build(cite_id: str) -> dict:
+        old_tool = _event(
+            "t_old", EventType.TOOL_RESULT, tool_name="s", result={},
+            timestamp=datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc),
+        )
+        fresh_tool = _event(
+            "t_fresh", EventType.TOOL_RESULT, tool_name="s", result={},
+            timestamp=fresh_ts,
+        )
+        decision = _decision(
+            "d1", confidence=0.8, evidence_event_ids=[cite_id],
+            timestamp=datetime(2026, 1, 1, 0, 6, tzinfo=timezone.utc),
+        )
+        return SessionAuditEngine().audit([old_tool, fresh_tool, decision])
+
+    stale_report = build("t_old")
+    verified_report = build("t_fresh")
+    assert stale_report["claims"][0]["verification_status"] == "stale"
+    assert verified_report["claims"][0]["verification_status"] == "verified"
+    assert stale_report["trust"]["components"]["verification_rate"] < verified_report["trust"]["components"]["verification_rate"]
 
 
 # ---------------------------------------------------------------------------

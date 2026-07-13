@@ -109,6 +109,9 @@ export function annotationRank(annotation: AuditEventAnnotation | undefined): An
   if (annotation.verificationStatus === 'unsupported' || annotation.verificationStatus === 'partially_verified') {
     return 'high'
   }
+  if (annotation.verificationStatus === 'stale') {
+    return 'medium'
+  }
   const sev = annotation.topSignalSeverity
   if (sev === 'high') return 'high'
   if (sev === 'medium') return 'medium'
@@ -127,6 +130,8 @@ export function annotationTooltip(annotation: AuditEventAnnotation): string {
     parts.push('unsupported claim — no evidence')
   } else if (annotation.verificationStatus === 'partially_verified') {
     parts.push('partially verified claim')
+  } else if (annotation.verificationStatus === 'stale') {
+    parts.push('stale claim — built on superseded evidence')
   }
   if (annotation.signalTypes.length > 0) {
     parts.push(`signals: ${annotation.signalTypes.join(', ')}`)
