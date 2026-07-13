@@ -300,3 +300,49 @@
     font-size: 0.78rem;
   }
 }
+
+/* ---- Inline audit annotations (failures / unsupported claims / risk signals) ---- */
+
+.audit-flag-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-left: 0.35rem;
+  flex-shrink: 0;
+  cursor: help;
+}
+
+.audit-flag-marker--high {
+  background: #ef4444;
+  color: #fff;
+}
+
+.audit-flag-marker--medium {
+  background: #f59e0b;
+  color: #fff;
+}
+
+/* Subtle left-border accent on the whole row so flagged events stand out while scanning. */
+.timeline-event.audit-flag--high {
+  box-shadow: inset 3px 0 0 #ef4444;
+}
+
+.timeline-event.audit-flag--medium {
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.filter-chip--audit {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.filter-chip--audit.active {
+  background: #ef4444;
+  color: #fff;
+}

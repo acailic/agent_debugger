@@ -15,6 +15,7 @@ import WhyButton from './WhyButton'
 import CostPanel from './CostPanel'
 import HighlightChip from './HighlightChip'
 import { formatEventHeadline } from '../utils/formatting'
+import { deriveAuditAnnotations } from '../utils/auditAnnotations'
 import type { Highlight } from '../types'
 import { useMemo } from 'react'
 
@@ -36,6 +37,7 @@ export function TraceView() {
     currentHighlightIndex,
     replay,
     userBreakpointIds,
+    auditReport,
   } = useSessionStore(
     (state) => ({
       selectedSessionId: state.selectedSessionId,
@@ -49,6 +51,7 @@ export function TraceView() {
       currentHighlightIndex: state.currentHighlightIndex,
       replay: state.replay,
       userBreakpointIds: state.userBreakpointIds,
+      auditReport: state.auditReport,
     }),
   )
 
@@ -105,6 +108,9 @@ export function TraceView() {
       if (displayIndex >= 0) setCurrentIndex(displayIndex)
     }
   }
+
+  // Per-event audit annotations (failures, risk signals, verification) for inline trace flags.
+  const auditAnnotations = useMemo(() => deriveAuditAnnotations(auditReport), [auditReport])
 
   // Build event tree for tree-aware navigation
   const eventTree = useMemo(() => {
@@ -271,6 +277,7 @@ export function TraceView() {
               highlightsMap={derived.highlightsMap}
               showBlockedActions={showBlockedActions}
               onToggleShowBlockedActions={setShowBlockedActions}
+              auditAnnotations={auditAnnotations}
             />
             {useSessionStore.getState().replayMode === 'highlights' &&
               replay?.collapsed_segments?.map((segment, index) => (

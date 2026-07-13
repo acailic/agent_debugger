@@ -2,6 +2,11 @@ import { useState, memo, useCallback, useMemo } from 'react'
 import type { TraceEvent, Highlight, EventType } from '../types'
 import { formatEventHeadline } from '../utils/formatting'
 import { BLOCKED_EVENT_TYPES } from '../utils/latency'
+import {
+  annotationRank,
+  annotationTooltip,
+  type AuditEventAnnotation,
+} from '../utils/auditAnnotations'
 import './TraceTimeline.css'
 
 interface TraceTimelineProps {
@@ -13,6 +18,8 @@ interface TraceTimelineProps {
   highlightsMap?: Map<string, Highlight>
   showBlockedActions?: boolean
   onToggleShowBlockedActions?: (show: boolean) => void
+  /** Per-event audit annotations (failures, risk signals, verification) from the audit report. */
+  auditAnnotations?: Map<string, AuditEventAnnotation>
 }
 
 const EVENT_TYPE_FILTERS: { label: string; types: EventType[]; color: string }[] = [
@@ -32,10 +39,23 @@ export function TraceTimeline({
   highlightsMap,
   showBlockedActions,
   onToggleShowBlockedActions,
+  auditAnnotations,
 }: TraceTimelineProps) {
   const [internalShowBlockedActions, setInternalShowBlockedActions] = useState(false)
   const [activeFilter, setActiveFilter] = useState<typeof EVENT_TYPE_FILTERS[number]>(EVENT_TYPE_FILTERS[0])
+  const [auditOnly, setAuditOnly] = useState(false)
   const blockedActionsVisible = showBlockedActions ?? internalShowBlockedActions
+
+  // Event ids that carry a real audit risk (failure, unsupported/contradicted claim, high/medium signal).
+  const flaggedEventIds = useMemo(() => {
+    if (!auditAnnotations || auditAnnotations.size === 0) return new Set<string>()
+    const ids = new Set<string>()
+    for (const [eventId, annotation] of auditAnnotations) {
+      if (annotationRank(annotation) !== null) ids.add(eventId)
+    }
+    return ids
+  }, [auditAnnotations])
+  const hasAuditFlags = flaggedEventIds.size > 0
 
   const handleBlockedActionsToggle = useCallback((nextValue: boolean) => {
     setInternalShowBlockedActions(nextValue)
@@ -47,12 +67,16 @@ export function TraceTimeline({
     if (activeFilter.types.length > 0 && !activeFilter.types.includes(event.event_type)) {
       return false
     }
+    // Apply audit-flags filter
+    if (auditOnly && !flaggedEventIds.has(event.id)) {
+      return false
+    }
     // Apply blocked actions filter
     if (!blockedActionsVisible) {
       return !BLOCKED_EVENT_TYPES.includes(event.event_type)
     }
     return true
-  }), [events, activeFilter.types, blockedActionsVisible])
+  }), [events, activeFilter.types, blockedActionsVisible, auditOnly, flaggedEventIds])
 
   // Compute latency statistics for color-coding
   const latencyStats = useMemo(() => {
@@ -129,6 +153,20 @@ export function TraceTimeline({
             )}
           </button>
         ))}
+        {hasAuditFlags && (
+          <button
+            key="audit-flags"
+            type="button"
+            className={`filter-chip filter-chip--audit ${auditOnly ? 'active' : ''}`}
+            onClick={() => setAuditOnly((prev) => !prev)}
+            style={{ borderColor: auditOnly ? '#ef4444' : undefined }}
+            aria-pressed={auditOnly}
+            title="Show only events flagged by the audit layer (failures, unsupported/contradicted claims, risk signals)"
+          >
+            Audit flags
+            <span className="filter-count">{flaggedEventIds.size}</span>
+          </button>
+        )}
       </div>
 
       <div className="timeline-events">
@@ -147,13 +185,24 @@ export function TraceTimeline({
             const isHighlight = highlightEventIds?.has(event.id) ?? false
             const highlight = highlightsMap?.get(event.id)
             const blocked = isBlockedEvent(event)
+            const auditAnnotation = auditAnnotations?.get(event.id)
+            const auditRank = annotationRank(auditAnnotation)
             return (
               <div
                 key={event.id}
-                className={`timeline-event ${event.event_type} ${event.id === selectedEventId ? 'selected' : ''} ${isHighlight ? 'highlight' : ''} ${blocked ? 'blocked' : ''}`}
+                className={`timeline-event ${event.event_type} ${event.id === selectedEventId ? 'selected' : ''} ${isHighlight ? 'highlight' : ''} ${blocked ? 'blocked' : ''} ${auditRank ? `audit-flag audit-flag--${auditRank}` : ''}`}
                 onClick={() => onSelectEvent(event.id)}
               >
                 <div className="event-marker" />
+                {auditRank && auditAnnotation && (
+                  <span
+                    className={`audit-flag-marker audit-flag-marker--${auditRank}`}
+                    title={annotationTooltip(auditAnnotation)}
+                    aria-label={annotationTooltip(auditAnnotation)}
+                  >
+                    ⚠
+                  </span>
+                )}
                 {isHighlight && <span className="highlight-marker" title="Highlighted event">*</span>}
                 {blocked && <span className="blocked-badge">BLOCKED</span>}
                 <div className="event-info">
@@ -205,7 +254,8 @@ function arePropsEqual(
     prevProps.events === nextProps.events &&
     prevProps.highlightEventIds === nextProps.highlightEventIds &&
     prevProps.highlightsMap === nextProps.highlightsMap &&
-    prevProps.showBlockedActions === nextProps.showBlockedActions
+    prevProps.showBlockedActions === nextProps.showBlockedActions &&
+    prevProps.auditAnnotations === nextProps.auditAnnotations
   )
 }
 
