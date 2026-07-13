@@ -1659,3 +1659,44 @@ export interface DecisionJustificationResponse {
   event_id: string
   justification: DecisionJustification
 }
+
+export interface EvidenceGraphNode {
+  event_id: string
+  event_type: string
+  role: string // claim | tool_fact | user_fact | other
+  label: string
+  verification_status: string | null
+  confidence: number | null
+  is_failure: boolean
+  timestamp: string | null
+}
+
+export interface EvidenceGraphEdge {
+  source_id: string
+  target_id: string
+  edge_type: string // evidence | causal
+  source_class: string | null // tool_backed | user_provided | other
+}
+
+export interface EvidenceGraphStats {
+  node_count: number
+  claim_count: number
+  fact_count: number
+  evidence_edges: number
+  causal_edges: number
+  unresolved_evidence_refs: number
+  verification_counts: Record<string, number>
+  evidence_coverage: number
+}
+
+export interface EvidenceGraph {
+  session_id: string
+  nodes: EvidenceGraphNode[]
+  edges: EvidenceGraphEdge[]
+  stats: EvidenceGraphStats
+}
+
+export interface EvidenceGraphResponse {
+  session_id: string
+  graph: EvidenceGraph
+}

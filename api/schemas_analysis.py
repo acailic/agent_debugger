@@ -407,3 +407,41 @@ class DecisionJustificationResponse(BaseModel):
     session_id: str
     event_id: str
     justification: DecisionJustificationSchema
+
+
+class EvidenceGraphNodeSchema(BaseModel):
+    """A node in the evidence-provenance graph (claim or fact)."""
+
+    event_id: str
+    event_type: str
+    role: str  # claim | tool_fact | user_fact | other
+    label: str
+    verification_status: str | None = None
+    confidence: float | None = None
+    is_failure: bool = False
+    timestamp: str | None = None
+
+
+class EvidenceGraphEdgeSchema(BaseModel):
+    """An edge in the evidence-provenance graph."""
+
+    source_id: str
+    target_id: str
+    edge_type: str  # evidence | causal
+    source_class: str | None = None  # tool_backed | user_provided | other
+
+
+class EvidenceGraphSchema(BaseModel):
+    """Evidence-provenance graph: how each claim connects to its facts."""
+
+    session_id: str
+    nodes: list[EvidenceGraphNodeSchema]
+    edges: list[EvidenceGraphEdgeSchema]
+    stats: dict[str, Any]
+
+
+class EvidenceGraphResponse(BaseModel):
+    """Response schema for the evidence-graph endpoint."""
+
+    session_id: str
+    graph: EvidenceGraphSchema

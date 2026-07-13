@@ -16,6 +16,7 @@ import type {
   ComparisonResponse,
   DecisionJustificationResponse,
   CoordinationAnalysisResponse,
+  EvidenceGraphResponse,
   CostSummary,
   DivergenceAnalysisResponse,
   DivergenceSummaryResponse,
@@ -1300,6 +1301,34 @@ export async function getDecisionJustification(
         )
       },
       endpoint: `/sessions/{session_id}/decisions/{event_id}/justification`,
+    }
+  )
+}
+
+export async function getEvidenceGraph(
+  sessionId: string
+): Promise<EvidenceGraphResponse> {
+  return fetchJSON<EvidenceGraphResponse>(
+    `${API_BASE}/sessions/${sessionId}/evidence-graph`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        if (v.session_id !== sessionId) return false
+        const graph = v.graph
+        if (typeof graph !== 'object' || graph === null) return false
+        const g = graph as Record<string, unknown>
+        return (
+          'nodes' in g &&
+          Array.isArray(g.nodes) &&
+          'edges' in g &&
+          Array.isArray(g.edges) &&
+          'stats' in g &&
+          typeof g.stats === 'object' &&
+          g.stats !== null
+        )
+      },
+      endpoint: `/sessions/{session_id}/evidence-graph`,
     }
   )
 }

@@ -593,3 +593,154 @@ async def test_justification_route_unknown_event_returns_404(shared_app):
         )
         assert resp.status_code == 404
 
+
+# ---------------------------------------------------------------------------
+# Evidence-provenance graph
+# ---------------------------------------------------------------------------
+
+
+def test_evidence_graph_links_claim_to_tool_fact_via_evidence_edge():
+    tool = _event("t1", EventType.TOOL_RESULT, tool_name="search", result={"hits": 2})
+    decision = _decision(
+        "d1", confidence=0.9, evidence_event_ids=["t1"], chosen_action="answer"
+    )
+    graph = SessionAuditEngine().build_evidence_graph([tool, decision])
+
+    roles = {node["event_id"]: node["role"] for node in graph["nodes"]}
+    assert roles == {"d1": "claim", "t1": "tool_fact"}
+
+    d1 = next(n for n in graph["nodes"] if n["event_id"] == "d1")
+    assert d1["verification_status"] == "verified"
+
+    evidence_edges = [e for e in graph["edges"] if e["edge_type"] == "evidence"]
+    assert len(evidence_edges) == 1
+    edge = evidence_edges[0]
+    assert edge["source_id"] == "d1"
+    assert edge["target_id"] == "t1"
+    assert edge["source_class"] == "tool_backed"
+
+    assert graph["stats"]["claim_count"] == 1
+    assert graph["stats"]["fact_count"] == 1
+    assert graph["stats"]["verification_counts"] == {"verified": 1}
+
+
+def test_evidence_graph_includes_causal_edges_from_parent_ids():
+    user_input = _event("u1", EventType.AGENT_START, goal="resolve ticket")
+    decision = _decision(
+        "d1",
+        confidence=0.9,
+        evidence_event_ids=["u1"],
+        chosen_action="triage",
+        parent_id="u1",
+    )
+    graph = SessionAuditEngine().build_evidence_graph([user_input, decision])
+
+    causal_edges = [e for e in graph["edges"] if e["edge_type"] == "causal"]
+    assert causal_edges
+    assert {
+        "source_id": "u1",
+        "target_id": "d1",
+        "edge_type": "causal",
+    }.items() <= causal_edges[0].items()
+    # The cited user input is also an evidence edge with the user_provided class.
+    evidence_edges = [e for e in graph["edges"] if e["edge_type"] == "evidence"]
+    assert any(
+        e["source_id"] == "d1" and e["target_id"] == "u1" and e["source_class"] == "user_provided"
+        for e in evidence_edges
+    )
+
+
+def test_evidence_graph_counts_mixed_verification_statuses():
+    tool = _event("t1", EventType.TOOL_RESULT, tool_name="search", result={})
+    verified = _decision("d1", confidence=0.9, evidence_event_ids=["t1"])
+    unsupported = _decision("d2", confidence=0.9)
+    graph = SessionAuditEngine().build_evidence_graph([tool, verified, unsupported])
+
+    assert graph["stats"]["verification_counts"] == {"verified": 1, "unsupported": 1}
+    assert graph["stats"]["claim_count"] == 2
+
+
+def test_evidence_graph_counts_unresolved_evidence_refs():
+    decision = _decision(
+        "d1",
+        confidence=0.8,
+        evidence_event_ids=["ghost"],
+        evidence=[{"source": "model_memory", "content": "vague"}],
+    )
+    graph = SessionAuditEngine().build_evidence_graph([decision])
+
+    assert graph["stats"]["unresolved_evidence_refs"] == 1
+    assert not any(e["edge_type"] == "evidence" for e in graph["edges"])
+
+
+def test_evidence_graph_includes_uncited_facts_as_available_evidence():
+    cited = _event("t1", EventType.TOOL_RESULT, tool_name="search", result={})
+    uncited = _event("t2", EventType.TOOL_RESULT, tool_name="lookup", result={})
+    decision = _decision("d1", confidence=0.9, evidence_event_ids=["t1"])
+    graph = SessionAuditEngine().build_evidence_graph([cited, uncited, decision])
+
+    node_ids = {node["event_id"] for node in graph["nodes"]}
+    assert node_ids == {"d1", "t1", "t2"}  # t2 available but never cited
+    assert graph["stats"]["fact_count"] == 2
+    assert graph["stats"]["evidence_edges"] == 1
+
+
+@pytest.mark.asyncio
+async def test_evidence_graph_route_returns_graph(shared_app):
+    """GET /api/sessions/{id}/evidence-graph over the wire."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        from api import app_context
+
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            await repo.create_session(_make_session("audit-evidence-graph-session"))
+            tool = TraceEvent(
+                id="eg-tool",
+                session_id="audit-evidence-graph-session",
+                name="search",
+                event_type=EventType.TOOL_RESULT,
+                timestamp=datetime(2026, 3, 26, 10, 5, tzinfo=timezone.utc),
+                data={"tool_name": "search", "result": {"hits": 1}},
+            )
+            decision = TraceEvent(
+                id="eg-decision",
+                session_id="audit-evidence-graph-session",
+                parent_id="eg-tool",
+                name="decide",
+                event_type=EventType.DECISION,
+                timestamp=datetime(2026, 3, 26, 10, 6, tzinfo=timezone.utc),
+                data={
+                    "confidence": 0.9,
+                    "evidence_event_ids": ["eg-tool"],
+                    "chosen_action": "answer",
+                    "reasoning": "grounded",
+                },
+            )
+            await repo.add_event(tool)
+            await repo.add_event(decision)
+            await db_session.commit()
+
+        resp = await client.get(
+            "/api/sessions/audit-evidence-graph-session/evidence-graph"
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["session_id"] == "audit-evidence-graph-session"
+        graph = body["graph"]
+        assert set(graph) == {"session_id", "nodes", "edges", "stats"}
+        roles = {node["role"] for node in graph["nodes"]}
+        assert "claim" in roles
+        assert graph["stats"]["evidence_edges"] >= 1
+        assert graph["stats"]["verification_counts"] == {"verified": 1}
+
+
+@pytest.mark.asyncio
+async def test_evidence_graph_route_missing_session_returns_404(shared_app):
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/sessions/nope-not-real/evidence-graph")
+        assert resp.status_code == 404
+

@@ -14,7 +14,11 @@ from fastapi import APIRouter, Depends
 from api.analytics_db import record_event
 from api.dependencies import get_repository
 from api.exceptions import NotFoundError
-from api.schemas_analysis import DecisionJustificationResponse, SessionAuditResponse
+from api.schemas_analysis import (
+    DecisionJustificationResponse,
+    EvidenceGraphResponse,
+    SessionAuditResponse,
+)
 from api.services import analyze_session, require_session
 from collector.audit import SessionAuditEngine
 from storage import TraceRepository
@@ -109,3 +113,35 @@ async def get_decision_justification(
         event_id=event_id,
         justification=justification,
     )
+
+
+@router.get(
+    "/api/sessions/{session_id}/evidence-graph",
+    response_model=EvidenceGraphResponse,
+)
+async def get_evidence_graph(
+    session_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> EvidenceGraphResponse:
+    """Return the evidence-provenance graph for a session.
+
+    Nodes are claims (decisions) and facts (tool results, user input); edges
+    are ``evidence`` (a decision cites a fact) or ``causal`` (parent /
+    upstream). Claim nodes reuse :class:`SessionAuditEngine`'s verification
+    status, so the graph is a navigable view of how every claim connects to
+    its evidence — including available facts that were never cited.
+    """
+    session = await require_session(repo, session_id)
+    try:
+        events, _checkpoints, analysis, _ = await analyze_session(repo, session_id)
+        graph = _audit_engine.build_evidence_graph(
+            events,
+            session=_session_dict(session),
+            failure_explanations=analysis.get("failure_explanations", []),
+        )
+        await repo.commit()
+    except Exception:
+        await repo.rollback()
+        raise
+    record_event("evidence_graph_viewed", session_id=session_id)
+    return EvidenceGraphResponse(session_id=session_id, graph=graph)

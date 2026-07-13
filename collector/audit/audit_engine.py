@@ -345,6 +345,135 @@ class SessionAuditEngine:
             },
         }
 
+    # ------------------------------------------------------------------
+    # Evidence-provenance graph
+    # ------------------------------------------------------------------
+
+    def build_evidence_graph(
+        self,
+        events: list[TraceEvent],
+        *,
+        session: dict[str, Any] | None = None,
+        failure_explanations: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Return an evidence-provenance graph for the session.
+
+        Nodes are *claims* (decisions) and the *facts* available to the agent
+        (tool results, user input). Edges are either ``evidence`` (a decision
+        cites a fact via ``evidence_event_ids``) or ``causal`` (parent /
+        upstream data-flow). Claim nodes carry the same ``verification_status``
+        as the session-level audit, so the graph is a navigable view of how
+        every claim connects to its evidence — including facts that existed
+        but were never cited (a missing-evidence smell).
+
+        Deterministic and derived entirely from captured event fields.
+        """
+        report = self.audit(
+            events, session=session, failure_explanations=failure_explanations
+        )
+        claim_by_id = {claim["event_id"]: claim for claim in report["claims"]}
+        id_lookup = {event.id: event for event in events}
+        failure_event_ids = {
+            event.id for event in events if self._diagnostics.is_failure_event(event)
+        }
+
+        node_ids: set[str] = set()
+        nodes: list[dict[str, Any]] = []
+        edges: list[dict[str, Any]] = []
+        seen_edges: set[tuple[str, str, str, str | None]] = set()
+        unresolved_refs = 0
+
+        def add_node(event_id: str) -> None:
+            if event_id in node_ids or event_id not in id_lookup:
+                return
+            node_ids.add(event_id)
+            event = id_lookup[event_id]
+            claim = claim_by_id.get(event_id)
+            nodes.append(
+                _evidence_node(
+                    event,
+                    claim=claim,
+                    failure_event_ids=failure_event_ids,
+                )
+            )
+
+        def add_edge(
+            source_id: str,
+            target_id: str,
+            edge_type: str,
+            source_class: str | None,
+        ) -> None:
+            key = (source_id, target_id, edge_type, source_class)
+            if key in seen_edges:
+                return
+            seen_edges.add(key)
+            edges.append(
+                {
+                    "source_id": source_id,
+                    "target_id": target_id,
+                    "edge_type": edge_type,
+                    "source_class": source_class,
+                }
+            )
+
+        # All claims + all available facts become nodes.
+        for event in events:
+            if _classify_node_role(event) in {"claim", "tool_fact", "user_fact"}:
+                add_node(event.id)
+        # Pull in any resolved evidence refs whose source event is "other".
+        for claim in report["claims"]:
+            for ref in claim["evidence_refs"]:
+                if ref in id_lookup:
+                    add_node(ref)
+
+        # Evidence edges: claim -> cited fact.
+        for claim in report["claims"]:
+            for ref in claim["evidence_refs"]:
+                if ref in id_lookup:
+                    target = id_lookup[ref]
+                    add_edge(
+                        claim["event_id"],
+                        ref,
+                        "evidence",
+                        _source_class_for(target),
+                    )
+                else:
+                    unresolved_refs += 1
+
+        # Causal edges among nodes already in the graph.
+        for node_id in list(node_ids):
+            event = id_lookup[node_id]
+            upstream = set(event_value(event, "upstream_event_ids", []) or [])
+            if event.parent_id:
+                upstream.add(event.parent_id)
+            for parent_id in upstream:
+                if parent_id in node_ids:
+                    add_edge(parent_id, node_id, "causal", None)
+
+        role_counts: Counter[str] = Counter(node["role"] for node in nodes)
+        verification_counts: Counter[str] = Counter(
+            claim["verification_status"] for claim in report["claims"]
+        )
+        stats = {
+            "node_count": len(nodes),
+            "claim_count": len(report["claims"]),
+            "fact_count": sum(
+                count for role, count in role_counts.items() if role != "claim"
+            ),
+            "evidence_edges": sum(1 for e in edges if e["edge_type"] == "evidence"),
+            "causal_edges": sum(1 for e in edges if e["edge_type"] == "causal"),
+            "unresolved_evidence_refs": unresolved_refs,
+            "verification_counts": dict(verification_counts),
+            "evidence_coverage": report["trust"]["components"]["evidence_coverage"],
+        }
+
+        return {
+            "session_id": report["session_id"],
+            "nodes": nodes,
+            "edges": edges,
+            "stats": stats,
+        }
+
     def _descendants_set(
         self, root_id: str, children_by_parent: dict[str, list[str]]
     ) -> set[str]:
@@ -1082,6 +1211,63 @@ def _descendants_include_failure(
             next_frontier.extend(children_by_parent.get(node_id, []))
         frontier = next_frontier
     return False
+
+
+def _classify_node_role(event: TraceEvent) -> str:
+    """Classify an event into an evidence-graph node role."""
+    if event.event_type == EventType.DECISION:
+        return "claim"
+    if event.event_type == EventType.TOOL_RESULT:
+        return "tool_fact"
+    if event.event_type in {EventType.AGENT_TURN, EventType.AGENT_START}:
+        return "user_fact"
+    return "other"
+
+
+def _source_class_for(event: TraceEvent) -> str:
+    """Evidence-edge ``source_class`` for a cited target event."""
+    role = _classify_node_role(event)
+    if role == "tool_fact":
+        return "tool_backed"
+    if role == "user_fact":
+        return "user_provided"
+    return "other"
+
+
+def _event_label(event: TraceEvent) -> str:
+    label = (
+        event_value(event, "tool_name", None)
+        or event_value(event, "chosen_action", None)
+        or event_value(event, "goal", None)
+        or event.name
+        or str(event.event_type).replace("_", " ")
+    )
+    return str(label)[:96]
+
+
+def _evidence_node(
+    event: TraceEvent,
+    *,
+    claim: dict[str, Any] | None,
+    failure_event_ids: set[str],
+) -> dict[str, Any]:
+    role = _classify_node_role(event)
+    if claim is not None:
+        verification_status: str | None = claim["verification_status"]
+        confidence: float | None = claim["confidence"]
+    else:
+        verification_status = None
+        confidence = None
+    return {
+        "event_id": event.id,
+        "event_type": str(event.event_type),
+        "role": role,
+        "label": _event_label(event),
+        "verification_status": verification_status,
+        "confidence": confidence,
+        "is_failure": event.id in failure_event_ids,
+        "timestamp": _iso(event),
+    }
 
 
 def _summarize_alternatives(alternatives: list[Any]) -> list[dict[str, Any]]:
