@@ -2,14 +2,14 @@
   <img src="docs/assets/logo.jpeg" alt="Peaky Peek" width="128" />
 </p>
 
-<h1 align="center">Local-first agent debugger with replay, failure memory, smart highlights, and drift detection.</h1>
+<h1 align="center">Local-first audit & trust console for AI agents — see what an agent did, why, with what evidence, and where it went wrong.</h1>
 
 <p align="center">
   <code>pip install peaky-peek-server && peaky-peek --open</code>
 </p>
 
 <p align="center">
-  <strong>Local-first, open-source agent debugger.</strong> Capture decisions, replay from checkpoints, visualize reasoning trees — all on your machine, no data sent anywhere.
+  <strong>Local-first, open-source agent audit debugger.</strong> Every run answers five operator questions — <em>what happened, why, with what evidence, with what result, and where it failed</em> — with deterministic claim verification and an explainable trust score, all on your machine.
 </p>
 
 <p align="center">
@@ -25,16 +25,24 @@
 
 ## Why Peaky Peek?
 
-Traditional observability tools weren't built for agent-native debugging:
+Traditional observability tools weren't built for agent-native debugging, and they don't answer the question operators actually care about: *can I trust what this agent did?*
 
 | Tool | Focus | Problem |
 |------|-------|---------|
 | LangSmith | LLM tracing | SaaS-first, your data leaves your machine |
 | OpenTelemetry | Infra metrics | Blind to reasoning chains and decision trees |
 | Sentry | Error tracking | No insight into *why* agents chose specific actions |
-| **Peaky Peek** | **Agent-native debugging** | **Local-first, open source, privacy by default** |
+| **Peaky Peek** | **Agent audit & trust** | **Local-first, evidence-backed, deterministic verification + trust score** |
 
-Peaky Peek captures the **causal chain** behind every action so you can debug agents like distributed systems: trace failures, replay from checkpoints, and search across reasoning paths.
+Peaky Peek is a **black-box recorder + reasoning audit console** for AI agents. It captures the **causal chain** behind every action, then reframes each run as an audit record that answers five questions:
+
+1. **What happened?** — the exact sequence of tool calls, model calls, decisions, retries, and outputs
+2. **Why?** — the stated rationale, alternatives considered, confidence, and trigger for each important step
+3. **With what evidence?** — the inputs used: user input, retrieved docs, tool results, prompt fragments
+4. **With what result?** — success/failure, returned data, state changes, downstream effects
+5. **Where did it fail?** — the first bad decision, ignored evidence, weak tool data, contradictions, plan drift, and the downstream damage
+
+Every claim is classified deterministically as **verified · partially verified · contradicted · unsupported · unverified**, and each session gets an **explainable trust score** so a human can audit a run without guessing.
 
 ---
 
@@ -143,6 +151,20 @@ import agent_debugger_sdk.auto_patch  # activates on import when PEAKY_PEEK_AUTO
 ---
 
 ## Features
+
+### Agent Audit & Trust Console
+
+Peaky Peek's defining capability: every session produces an **audit report** that turns a trace into evidence. Open the **Audit** panel on any session to see:
+
+- **Trust header** — an explainable score (`low` / `medium` / `high`) with its components: evidence coverage, verification rate, policy compliance, recovery rate, failure severity, and contradiction count.
+- **The five-question view** — What happened · Why · Evidence used · Outcome · Where it failed, in one grid.
+- **Verification badges** — every decision is tagged `verified`, `partially_verified`, `contradicted`, `unsupported`, or `unverified`, with the basis (tool result, user input, retrieved doc, or none).
+- **Where-it-failed** — the first bad decision, localized failure root-cause suspects, and the causal path to each failure.
+- **Risk signals** — deterministic detections: unsupported claims, missing evidence, contradictions, repeated failed strategies, plan drift, policy violations, weak evidence.
+
+Every row is clickable and jumps to the underlying event. The same report is available as JSON at `GET /api/sessions/{id}/audit`. Deterministic only — no opaque "AI insights," every number is derivable from captured fields.
+
+See the [Audit & Trust guide](./docs/guides/audit-and-trust.md) for the data model, an example audited session, and an example failure report.
 
 ### Decision Tree Visualization
 
@@ -326,10 +348,11 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for full module breakdown.
 
 ## Project Status
 
+- **Agent audit & trust** — deterministic 5-questions report, claim verification, risk signals, explainable trust score (API + Audit UI panel)
 - **Core debugger** — local path end-to-end, stable
 - **SDK** — `@trace`, `trace_session()`, auto-patch for 7 frameworks
-- **API** — 11 routers: sessions, traces, replay, search, analytics, cost, comparison
-- **Frontend** — 8 specialized panels (decision tree, replay, checkpoints, search)
+- **API** — 12 routers: sessions, traces, replay, search, analytics, cost, comparison, **audit**
+- **Frontend** — 9 specialized panels (decision tree, replay, checkpoints, search, **audit**)
 - **Tests** — 2900+ passing, CI on Python 3.10/3.11/3.12
 
 ---
@@ -352,6 +375,7 @@ Peaky Peek is informed by research on agent debugging, causal tracing, failure a
 ## Documentation
 
 - [5-Minute Getting Started](./docs/guides/getting-started.md)
+- [Audit & Trust Guide](./docs/guides/audit-and-trust.md)
 - [Integration Guide](./docs/guides/integration.md)
 - [SDK README](./agent_debugger_sdk/README.md)
 - [Architecture Overview](./ARCHITECTURE.md)
