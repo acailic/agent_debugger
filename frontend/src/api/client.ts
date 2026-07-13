@@ -32,6 +32,7 @@ import type {
   RedundancyAnalysisResponse,
   ReplayResponse,
   SafetyAnalysisResponse,
+  SessionAuditResponse,
   ScenarioBranch,
   ScenarioComparison,
   SearchResponse,
@@ -1238,4 +1239,39 @@ export async function findSimilarSessions(params: {
 
   const url = `${API_BASE}/violations/session/${params.sessionId}/similar${searchParams.toString() ? '?' + searchParams.toString() : ''}`
   return fetchJSON(url)
+}
+
+// ============================================================================
+// Agent Audit / Trust API
+// ============================================================================
+
+export async function getSessionAudit(sessionId: string): Promise<SessionAuditResponse> {
+  return fetchJSON<SessionAuditResponse>(
+    `${API_BASE}/sessions/${sessionId}/audit`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        if (v.session_id !== sessionId) return false
+        const audit = v.audit
+        if (typeof audit !== 'object' || audit === null) return false
+        const a = audit as Record<string, unknown>
+        return (
+          'questions' in a &&
+          typeof a.questions === 'object' &&
+          a.questions !== null &&
+          'claims' in a &&
+          Array.isArray(a.claims) &&
+          'signals' in a &&
+          Array.isArray(a.signals) &&
+          'failures' in a &&
+          Array.isArray(a.failures) &&
+          'trust' in a &&
+          typeof a.trust === 'object' &&
+          a.trust !== null
+        )
+      },
+      endpoint: `/sessions/{session_id}/audit`,
+    }
+  )
 }

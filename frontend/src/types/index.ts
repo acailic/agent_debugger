@@ -1429,3 +1429,159 @@ export interface MultiAgentAnalysisResponse {
     summary: EmergentBehaviorSummary
   }
 }
+
+// ============================================================================
+// Agent Audit / Trust types — evidence-backed audit report per session
+// ============================================================================
+
+export type AuditVerificationStatus =
+  | 'verified'
+  | 'partially_verified'
+  | 'contradicted'
+  | 'unsupported'
+  | 'unverified'
+  | 'stale'
+
+export type AuditSignalType =
+  | 'unsupported_claim'
+  | 'missing_evidence'
+  | 'confidence_evidence_mismatch'
+  | 'contradiction'
+  | 'repeated_failed_strategy'
+  | 'plan_drift'
+  | 'policy_violation'
+  | 'weak_evidence'
+  | string
+
+export type AuditSeverity = 'high' | 'medium' | 'low'
+export type AuditTrustBand = 'low' | 'medium' | 'high'
+
+export interface AuditClaim {
+  event_id: string
+  event_type: string
+  headline: string
+  claim: string
+  rationale: string
+  confidence: number
+  alternatives_considered: number
+  evidence_refs: string[]
+  evidence_sources: string[]
+  verification_status: AuditVerificationStatus
+  verification_basis: string
+  contradicted: boolean
+  timestamp: string
+}
+
+export interface AuditSignal {
+  event_id: string
+  type: AuditSignalType
+  severity: AuditSeverity
+  message: string
+}
+
+export interface AuditFailure {
+  event_id: string
+  event_type: string
+  headline: string
+  mode: string
+  symptom: string
+  likely_cause: string
+  likely_cause_event_id: string | null
+  confidence: number
+  supporting_event_ids: string[]
+  position: number
+}
+
+export interface AuditReviewPoint {
+  event_id: string
+  priority: AuditSeverity
+  reason: string
+}
+
+export interface TrustScore {
+  score: number
+  band: AuditTrustBand
+  components: Record<string, number>
+  explanation: string
+}
+
+export interface AuditWhatHappened {
+  summary: string
+  event_count: number
+  tool_calls: number
+  tool_results: number
+  llm_calls: number
+  decisions: number
+  retries: number
+  edits: number
+}
+
+export interface AuditWhyItem {
+  event_id: string
+  headline: string
+  rationale: string
+  confidence: number
+  alternatives_considered: number
+}
+
+export interface AuditEvidence {
+  tool_backed_facts: number
+  user_input_facts: number
+  retrieved_facts: number
+  evidence_sources: string[]
+  coverage_of_decisions: number
+}
+
+export interface AuditOutcomeFailure {
+  event_id: string | null
+  mode: string
+  symptom: string
+  likely_cause_event_id: string | null
+}
+
+export interface AuditOutcome {
+  success_count: number
+  failure_count: number
+  failed_tool_results: number
+  state_snapshots: number
+  failures: AuditOutcomeFailure[]
+}
+
+export interface AuditTopSignal {
+  type: string
+  severity: AuditSeverity
+  message: string
+}
+
+export interface AuditWhereItFailed {
+  first_failure: string | null
+  first_bad_decision: string | null
+  failures: number
+  top_signals: AuditTopSignal[]
+}
+
+export interface AuditQuestions {
+  what_happened: AuditWhatHappened
+  why: { decisions_with_rationale: AuditWhyItem[] }
+  evidence: AuditEvidence
+  outcome: AuditOutcome
+  where_it_failed: AuditWhereItFailed
+}
+
+export interface SessionAuditReport {
+  session_id: string
+  objective: string | null
+  final_outcome: string
+  questions: AuditQuestions
+  claims: AuditClaim[]
+  signals: AuditSignal[]
+  failures: AuditFailure[]
+  critical_decisions: AuditClaim[]
+  trust: TrustScore
+  review_points: AuditReviewPoint[]
+}
+
+export interface SessionAuditResponse {
+  session_id: string
+  audit: SessionAuditReport
+}

@@ -12,6 +12,7 @@ import type {
   ReplayMode,
   SearchScope,
   SessionSortMode,
+  SessionAuditReport,
 } from '../types'
 
 const BLOCKED_ACTIONS_STORAGE_KEY = 'peaky-peek:show-blocked-actions'
@@ -170,6 +171,11 @@ interface SessionStore {
   driftData: DriftResponse | null
   driftLoading: boolean
 
+  // Audit / trust report
+  auditReport: SessionAuditReport | null
+  auditLoading: boolean
+  auditError: string | null
+
   // Session actions
   setSessions: (sessions: Session[]) => void
   setSelectedSessionId: (id: string | null) => void
@@ -235,6 +241,11 @@ interface SessionStore {
   // Drift actions
   setDriftData: (data: DriftResponse | null) => void
   setDriftLoading: (loading: boolean) => void
+
+  // Audit actions
+  setAuditReport: (report: SessionAuditReport | null) => void
+  setAuditLoading: (loading: boolean) => void
+  setAuditError: (error: string | null) => void
 
   // Composite actions
   inspectEvent: (eventId: string, displayEvents: TraceEvent[]) => void
@@ -352,6 +363,11 @@ const initialState = {
   // Drift data
   driftData: null,
   driftLoading: false,
+
+  // Audit / trust report
+  auditReport: null,
+  auditLoading: false,
+  auditError: null,
 }
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
@@ -459,6 +475,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setDriftData: (driftData) => set({ driftData }),
   setDriftLoading: (driftLoading) => set({ driftLoading }),
 
+  // Audit actions
+  setAuditReport: (auditReport) => set({ auditReport }),
+  setAuditLoading: (auditLoading) => set({ auditLoading }),
+  setAuditError: (auditError) => set({ auditError }),
+
   // Composite actions
   inspectEvent: (eventId, displayEvents) => {
     set({ selectedEventId: eventId })
@@ -497,6 +518,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     currentIndex: 0,
     isPlaying: false,
     userBreakpointIds: new Set(),
+    auditReport: null,
+    auditLoading: false,
+    auditError: null,
   }),
 
   reset: () => set({

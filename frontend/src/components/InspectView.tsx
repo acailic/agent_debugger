@@ -3,8 +3,10 @@ import { useSessionStore } from '../stores/sessionStore'
 import { useDerivedSessionData } from '../hooks/useDerivedSessionData'
 import { useInspectEvent } from '../hooks/useInspectEvent'
 import { useDriftData } from '../hooks/useDriftData'
+import { useAuditData } from '../hooks/useAuditData'
 import { ErrorBoundary } from './ErrorBoundary'
 import { EmptyState } from './EmptyState'
+import { AuditPanel } from './AuditPanel'
 import { DecisionTreeMemo } from './DecisionTree'
 import { ConversationPanelMemo } from './ConversationPanel'
 import { DriftAlertsPanel } from './DriftAlertsPanel'
@@ -25,6 +27,7 @@ export function InspectView() {
   const derived = useDerivedSessionData()
   const handleInspectEvent = useInspectEvent(derived.displayEvents)
   useDriftData()
+  useAuditData()
 
   // Local state for collapsible sections
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
@@ -45,6 +48,9 @@ export function InspectView() {
     secondaryBundle,
     sessions,
     secondarySessionId,
+    auditReport,
+    auditLoading,
+    auditError,
   } = useSessionStore(
     (state) => ({
       selectedSessionId: state.selectedSessionId,
@@ -61,6 +67,9 @@ export function InspectView() {
       secondaryBundle: state.secondaryBundle,
       sessions: state.sessions,
       secondarySessionId: state.secondarySessionId,
+      auditReport: state.auditReport,
+      auditLoading: state.auditLoading,
+      auditError: state.auditError,
     }),
   )
 
@@ -123,6 +132,28 @@ export function InspectView() {
         </div>
 
         <div className="inspect-grid">
+          {/* Audit Group: trust + verification + failure provenance */}
+          <div
+            className={`inspect-section-divider ${collapsedSections['audit'] ? 'collapsed' : ''}`}
+            onClick={() => setCollapsedSections((prev: Record<string, boolean>) => ({ ...prev, audit: !prev.audit }))}
+          >
+            <span className="inspect-section-label">Audit</span>
+          </div>
+
+          <div data-section="audit" data-section-hidden={collapsedSections['audit'] ? 'true' : 'false'}>
+            <ErrorBoundary>
+              {selectedSessionId && (
+                <AuditPanel
+                  report={auditReport}
+                  loading={auditLoading}
+                  error={auditError}
+                  selectedEventId={selectedEventId}
+                  onSelectEvent={handleInspectEvent}
+                />
+              )}
+            </ErrorBoundary>
+          </div>
+
           {/* Analysis Group: Inspectors + Conversation + Comparison */}
           <div
             className={`inspect-section-divider ${collapsedSections['analysis'] ? 'collapsed' : ''}`}
