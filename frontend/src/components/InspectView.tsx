@@ -4,9 +4,11 @@ import { useDerivedSessionData } from '../hooks/useDerivedSessionData'
 import { useInspectEvent } from '../hooks/useInspectEvent'
 import { useDriftData } from '../hooks/useDriftData'
 import { useAuditData } from '../hooks/useAuditData'
+import { useDecisionJustification } from '../hooks/useDecisionJustification'
 import { ErrorBoundary } from './ErrorBoundary'
 import { EmptyState } from './EmptyState'
 import { AuditPanel } from './AuditPanel'
+import { DecisionJustificationPanel } from './DecisionJustificationPanel'
 import { DecisionTreeMemo } from './DecisionTree'
 import { ConversationPanelMemo } from './ConversationPanel'
 import { DriftAlertsPanel } from './DriftAlertsPanel'
@@ -28,6 +30,7 @@ export function InspectView() {
   const handleInspectEvent = useInspectEvent(derived.displayEvents)
   useDriftData()
   useAuditData()
+  useDecisionJustification()
 
   // Local state for collapsible sections
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
@@ -51,6 +54,9 @@ export function InspectView() {
     auditReport,
     auditLoading,
     auditError,
+    decisionJustification,
+    decisionJustificationLoading,
+    decisionJustificationError,
   } = useSessionStore(
     (state) => ({
       selectedSessionId: state.selectedSessionId,
@@ -70,6 +76,9 @@ export function InspectView() {
       auditReport: state.auditReport,
       auditLoading: state.auditLoading,
       auditError: state.auditError,
+      decisionJustification: state.decisionJustification,
+      decisionJustificationLoading: state.decisionJustificationLoading,
+      decisionJustificationError: state.decisionJustificationError,
     }),
   )
 
@@ -147,6 +156,15 @@ export function InspectView() {
                   report={auditReport}
                   loading={auditLoading}
                   error={auditError}
+                  selectedEventId={selectedEventId}
+                  onSelectEvent={handleInspectEvent}
+                />
+              )}
+              {selectedSessionId && selectedEventId && (
+                <DecisionJustificationPanel
+                  justification={decisionJustification}
+                  loading={decisionJustificationLoading}
+                  error={decisionJustificationError}
                   selectedEventId={selectedEventId}
                   onSelectEvent={handleInspectEvent}
                 />

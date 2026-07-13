@@ -13,6 +13,7 @@ import type {
   SearchScope,
   SessionSortMode,
   SessionAuditReport,
+  DecisionJustification,
 } from '../types'
 
 const BLOCKED_ACTIONS_STORAGE_KEY = 'peaky-peek:show-blocked-actions'
@@ -176,6 +177,11 @@ interface SessionStore {
   auditLoading: boolean
   auditError: string | null
 
+  // Per-decision justification (why / evidence / outcome / where-failed) for the selected event
+  decisionJustification: DecisionJustification | null
+  decisionJustificationLoading: boolean
+  decisionJustificationError: string | null
+
   // Session actions
   setSessions: (sessions: Session[]) => void
   setSelectedSessionId: (id: string | null) => void
@@ -246,6 +252,9 @@ interface SessionStore {
   setAuditReport: (report: SessionAuditReport | null) => void
   setAuditLoading: (loading: boolean) => void
   setAuditError: (error: string | null) => void
+  setDecisionJustification: (justification: DecisionJustification | null) => void
+  setDecisionJustificationLoading: (loading: boolean) => void
+  setDecisionJustificationError: (error: string | null) => void
 
   // Composite actions
   inspectEvent: (eventId: string, displayEvents: TraceEvent[]) => void
@@ -368,6 +377,11 @@ const initialState = {
   auditReport: null,
   auditLoading: false,
   auditError: null,
+
+  // Per-decision justification
+  decisionJustification: null,
+  decisionJustificationLoading: false,
+  decisionJustificationError: null,
 }
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
@@ -479,6 +493,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setAuditReport: (auditReport) => set({ auditReport }),
   setAuditLoading: (auditLoading) => set({ auditLoading }),
   setAuditError: (auditError) => set({ auditError }),
+  setDecisionJustification: (decisionJustification) => set({ decisionJustification }),
+  setDecisionJustificationLoading: (decisionJustificationLoading) => set({ decisionJustificationLoading }),
+  setDecisionJustificationError: (decisionJustificationError) => set({ decisionJustificationError }),
 
   // Composite actions
   inspectEvent: (eventId, displayEvents) => {
@@ -521,6 +538,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     auditReport: null,
     auditLoading: false,
     auditError: null,
+    decisionJustification: null,
+    decisionJustificationLoading: false,
+    decisionJustificationError: null,
   }),
 
   reset: () => set({

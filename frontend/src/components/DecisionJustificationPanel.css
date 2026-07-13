@@ -1,0 +1,203 @@
+/* Per-decision justification panel — event-level why/evidence/outcome/where-failed. */
+
+.decision-justification-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.decision-justification-headline {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
+  background: var(--surface-raised, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.decision-justification-action {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.decision-justification-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+
+.decision-justification-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-left-width: 3px;
+}
+
+.decision-justification-card--why {
+  border-left-color: #3b82f6;
+}
+.decision-justification-card--evidence {
+  border-left-color: #10b981;
+}
+.decision-justification-card--outcome {
+  border-left-color: #8b5cf6;
+}
+.decision-justification-card--where {
+  border-left-color: #e5484d;
+}
+
+.decision-justification-card-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #8a8f98);
+  margin: 0;
+}
+
+.decision-justification-card-body {
+  font-size: 0.85rem;
+}
+
+.decision-justification-rationale {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.decision-justification-alternatives {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.decision-justification-alternatives li {
+  font-size: 0.82rem;
+  color: var(--text-muted, #8a8f98);
+}
+
+.decision-justification-alternatives li.chosen {
+  color: var(--text, #e6e8eb);
+  font-weight: 600;
+}
+
+.decision-justification-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.decision-justification-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.decision-justification-stat strong {
+  font-size: 1.1rem;
+}
+
+.decision-justification-stat small {
+  font-size: 0.68rem;
+  color: var(--text-muted, #8a8f98);
+}
+
+.decision-justification-stat--bad strong {
+  color: #e5484d;
+}
+
+.decision-justification-produced {
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.78rem;
+}
+
+.decision-justification-produced li {
+  line-height: 1.35;
+}
+
+.decision-justification-basis {
+  font-size: 0.78rem;
+  color: var(--text-muted, #8a8f98);
+  margin: 0;
+}
+
+.decision-justification-flag {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.decision-justification-flag--bad {
+  color: #e5484d;
+}
+
+.decision-justification-subtree-failure {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.35rem 0;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  font-size: 0.8rem;
+}
+
+.decision-justification-subtree-failure .audit-signal-msg {
+  flex: 1;
+}
+
+.decision-justification-path {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+}
+
+.decision-justification-path ol {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.5rem;
+}
+
+.decision-justification-path li {
+  list-style: decimal;
+}
+
+.decision-justification-policy {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0.8rem;
+  border-radius: 8px;
+  background: var(--surface-raised, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.decision-justification-policy-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+}
+
+.decision-justification-policy-badge.compliant {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.decision-justification-policy-badge.violated {
+  color: #e5484d;
+  background: rgba(229, 72, 77, 0.12);
+}
+
+.audit-tag--link.unresolved {
+  opacity: 0.5;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
