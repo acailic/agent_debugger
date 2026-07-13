@@ -474,6 +474,139 @@ class SessionAuditEngine:
             "stats": stats,
         }
 
+    # ------------------------------------------------------------------
+    # Portfolio aggregation (cross-session trust / verification)
+    # ------------------------------------------------------------------
+
+    def aggregate_audits(
+        self,
+        reports: list[dict[str, Any]],
+        *,
+        sessions_meta: dict[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Aggregate per-session audit reports into a fleet-level summary.
+
+        Cross-session counterpart of :meth:`audit`: it does not re-read
+        events, it reduces already-computed audit reports into the portfolio
+        view an operator scans to find the least trustworthy runs without
+        opening each one. Pure and deterministic (no I/O, no LLM).
+
+        Args:
+            reports: Audit report dicts (as produced by :meth:`audit`).
+            sessions_meta: Optional ``{session_id: {agent_name, started_at,
+                status}}`` lookup merged into each per-session row.
+        """
+        sessions_meta = sessions_meta or {}
+        band_distribution: Counter[str] = Counter()
+        verification_totals: Counter[str] = Counter()
+        signal_type_counts: Counter[str] = Counter()
+        failure_mode_counts: Counter[str] = Counter()
+        component_sums: dict[str, float] = {
+            "evidence_coverage": 0.0,
+            "verification_rate": 0.0,
+            "policy_compliance": 0.0,
+            "recovery_rate": 0.0,
+            "failure_severity": 0.0,
+        }
+        total_decisions = 0
+        total_failures = 0
+        total_contradictions = 0
+        total_unsupported = 0
+        total_signals = 0
+        trust_score_sum = 0.0
+        rows: list[dict[str, Any]] = []
+
+        for report in reports:
+            trust = report.get("trust", {})
+            score = _as_float(trust.get("score", 0.0), default=0.0)
+            band = trust.get("band", "low")
+            band_distribution[band] += 1
+            trust_score_sum += score
+
+            components = trust.get("components", {})
+            for key in component_sums:
+                component_sums[key] += _as_float(components.get(key, 0.0), default=0.0)
+
+            claims = report.get("claims", [])
+            for claim in claims:
+                status = claim.get("verification_status", UNVERIFIED)
+                verification_totals[status] += 1
+                if status == UNSUPPORTED:
+                    total_unsupported += 1
+                elif status == CONTRADICTED:
+                    total_contradictions += 1
+
+            for signal in report.get("signals", []):
+                signal_type_counts[signal.get("type", "unknown")] += 1
+            total_signals += len(report.get("signals", []))
+
+            for failure in report.get("failures", []):
+                failure_mode_counts[failure.get("mode") or "unknown"] += 1
+
+            session_id = report.get("session_id", "")
+            meta = sessions_meta.get(session_id, {})
+            decision_count = int(components.get("decision_count", 0) or 0)
+            failure_count = int(components.get("failure_count", 0) or 0)
+            total_decisions += decision_count
+            total_failures += failure_count
+
+            where_failed = report.get("questions", {}).get("where_it_failed", {}) or {}
+            rows.append(
+                {
+                    "session_id": session_id,
+                    "agent_name": meta.get("agent_name"),
+                    "started_at": meta.get("started_at"),
+                    "status": meta.get("status"),
+                    "trust_score": round(score, 4),
+                    "band": band,
+                    "decision_count": decision_count,
+                    "unsupported_count": sum(
+                        1 for c in claims if c.get("verification_status") == UNSUPPORTED
+                    ),
+                    "contradiction_count": int(components.get("contradiction_count", 0) or 0),
+                    "failure_count": failure_count,
+                    "signal_count": len(report.get("signals", [])),
+                    "first_bad_decision": where_failed.get("first_bad_decision"),
+                    "objective": report.get("objective"),
+                    "final_outcome": report.get("final_outcome"),
+                }
+            )
+
+        count = len(reports)
+        if count:
+            means = {key: round(val / count, 4) for key, val in component_sums.items()}
+            mean_trust = round(trust_score_sum / count, 4)
+        else:
+            means = {key: 0.0 for key in component_sums}
+            mean_trust = 0.0
+
+        # Worst-trust-first; tie-break by more failures then session id for determinism.
+        rows.sort(key=lambda row: (row["trust_score"], -row["failure_count"], row["session_id"]))
+
+        return {
+            "total_sessions": count,
+            "trust": {
+                "mean_score": mean_trust,
+                "band_distribution": dict(band_distribution),
+            },
+            "means": means,
+            "verification_totals": dict(verification_totals),
+            "totals": {
+                "decisions": total_decisions,
+                "failures": total_failures,
+                "unsupported_claims": total_unsupported,
+                "contradictions": total_contradictions,
+                "signals": total_signals,
+            },
+            "signal_type_counts": [
+                {"type": t, "count": c} for t, c in signal_type_counts.most_common()
+            ],
+            "failure_mode_counts": [
+                {"mode": m, "count": c} for m, c in failure_mode_counts.most_common()
+            ],
+            "sessions": rows,
+        }
+
     def _descendants_set(
         self, root_id: str, children_by_parent: dict[str, list[str]]
     ) -> set[str]:

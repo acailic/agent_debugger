@@ -744,3 +744,214 @@ async def test_evidence_graph_route_missing_session_returns_404(shared_app):
         resp = await client.get("/api/sessions/nope-not-real/evidence-graph")
         assert resp.status_code == 404
 
+
+# ---------------------------------------------------------------------------
+# Cross-session portfolio aggregation
+# ---------------------------------------------------------------------------
+
+
+def _verified_report(session_id: str = "p-verified") -> dict:
+    tool = _event(
+        "vt",
+        EventType.TOOL_RESULT,
+        tool_name="search",
+        result={"hits": 1},
+    )
+    decision = _decision(
+        "vd",
+        confidence=0.9,
+        evidence_event_ids=["vt"],
+        chosen_action="answer",
+        reasoning="grounded in search",
+        parent_id="vt",
+    )
+    return SessionAuditEngine().audit([tool, decision], session={"id": session_id})
+
+
+def _unsupported_report(session_id: str = "p-unsupported") -> dict:
+    decision = _decision(
+        "ud",
+        confidence=0.9,
+        chosen_action="guess",
+        reasoning="no evidence",
+    )
+    return SessionAuditEngine().audit([decision], session={"id": session_id})
+
+
+def _contradicted_report(session_id: str = "p-contradicted") -> dict:
+    decision = _decision(
+        "cd",
+        confidence=0.9,
+        chosen_action="proceed",
+        reasoning="confident",
+    )
+    failing_tool = _event(
+        "ct",
+        EventType.TOOL_RESULT,
+        parent_id="cd",
+        tool_name="write",
+        error="disk full",
+    )
+    return SessionAuditEngine().audit([decision, failing_tool], session={"id": session_id})
+
+
+def test_aggregate_empty_reports_returns_zeroed_summary():
+    summary = SessionAuditEngine().aggregate_audits([])
+
+    assert summary["total_sessions"] == 0
+    assert summary["trust"]["mean_score"] == 0.0
+    assert summary["trust"]["band_distribution"] == {}
+    assert summary["sessions"] == []
+    assert summary["totals"]["decisions"] == 0
+
+
+def test_aggregate_trust_mean_and_band_distribution():
+    verified = _verified_report()
+    unsupported = _unsupported_report()
+
+    summary = SessionAuditEngine().aggregate_audits([verified, unsupported])
+
+    assert summary["total_sessions"] == 2
+    expected_mean = round((verified["trust"]["score"] + unsupported["trust"]["score"]) / 2, 4)
+    assert summary["trust"]["mean_score"] == expected_mean
+    # Each report contributes its own band.
+    assert summary["trust"]["band_distribution"][
+        verified["trust"]["band"]
+    ] + summary["trust"]["band_distribution"][unsupported["trust"]["band"]] == 2
+
+
+def test_aggregate_verification_totals_and_unsupported_count():
+    verified = _verified_report()
+    unsupported = _unsupported_report()
+
+    summary = SessionAuditEngine().aggregate_audits([verified, unsupported])
+
+    assert summary["verification_totals"].get("verified", 0) >= 1
+    assert summary["verification_totals"].get("unsupported", 0) >= 1
+    assert summary["totals"]["unsupported_claims"] >= 1
+    # The unsupported session row records its own unsupported claim.
+    bad_row = next(r for r in summary["sessions"] if r["session_id"] == "p-unsupported")
+    assert bad_row["unsupported_count"] == 1
+
+
+def test_aggregate_sessions_sorted_worst_trust_first():
+    verified = _verified_report()
+    unsupported = _unsupported_report()
+
+    summary = SessionAuditEngine().aggregate_audits([verified, unsupported])
+
+    scores = [row["trust_score"] for row in summary["sessions"]]
+    assert scores == sorted(scores)
+    # Unsupported (no evidence) lands below the verified run.
+    assert summary["sessions"][0]["session_id"] == "p-unsupported"
+
+
+def test_aggregate_signal_and_failure_mode_counts():
+    unsupported = _unsupported_report()
+    contradicted = _contradicted_report()
+
+    summary = SessionAuditEngine().aggregate_audits([unsupported, contradicted])
+
+    signal_types = {item["type"] for item in summary["signal_type_counts"]}
+    assert "unsupported_claim" in signal_types
+    # The contradicted report contains a failing tool result -> a failure mode.
+    assert sum(item["count"] for item in summary["failure_mode_counts"]) >= 1
+    assert summary["totals"]["signals"] >= 1
+
+
+def test_aggregate_per_session_row_carries_first_bad_decision():
+    unsupported = _unsupported_report()
+
+    summary = SessionAuditEngine().aggregate_audits([unsupported])
+
+    row = summary["sessions"][0]
+    assert row["first_bad_decision"] == "ud"
+    assert row["decision_count"] == 1
+    assert row["agent_name"] is None  # no sessions_meta supplied
+    # Supplying sessions_meta merges agent_name into the row.
+    summary_with_meta = SessionAuditEngine().aggregate_audits(
+        [unsupported],
+        sessions_meta={"p-unsupported": {"agent_name": "fleet_agent"}},
+    )
+    assert summary_with_meta["sessions"][0]["agent_name"] == "fleet_agent"
+
+
+def test_aggregate_is_deterministic():
+    reports = [_verified_report(), _unsupported_report(), _contradicted_report()]
+    summary_a = SessionAuditEngine().aggregate_audits(reports)
+    summary_b = SessionAuditEngine().aggregate_audits(list(reversed(reports)))
+    # Aggregation is order-independent except the worst-first sort, so the
+    # multi-set of session ids and the totals must match exactly.
+    assert {r["session_id"] for r in summary_a["sessions"]} == {
+        r["session_id"] for r in summary_b["sessions"]
+    }
+    assert summary_a["totals"] == summary_b["totals"]
+    assert summary_a["trust"]["mean_score"] == summary_b["trust"]["mean_score"]
+
+
+@pytest.mark.asyncio
+async def test_portfolio_route_returns_aggregate_summary(shared_app):
+    """GET /api/audit/portfolio aggregates trust + verification across runs."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        from api import app_context
+
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            await repo.create_session(_make_session("audit-portfolio-ver"))
+            await repo.add_event(
+                TraceEvent(
+                    id="pv-tool",
+                    session_id="audit-portfolio-ver",
+                    name="search",
+                    event_type=EventType.TOOL_RESULT,
+                    timestamp=datetime(2026, 3, 26, 10, 5, tzinfo=timezone.utc),
+                    data={"tool_name": "search", "result": {"hits": 1}},
+                )
+            )
+            await repo.add_event(
+                TraceEvent(
+                    id="pv-decision",
+                    session_id="audit-portfolio-ver",
+                    parent_id="pv-tool",
+                    name="decide",
+                    event_type=EventType.DECISION,
+                    timestamp=datetime(2026, 3, 26, 10, 6, tzinfo=timezone.utc),
+                    data={
+                        "confidence": 0.9,
+                        "evidence_event_ids": ["pv-tool"],
+                        "chosen_action": "answer",
+                        "reasoning": "grounded",
+                    },
+                )
+            )
+
+            await repo.create_session(_make_session("audit-portfolio-bad"))
+            await repo.add_event(
+                TraceEvent(
+                    id="pb-decision",
+                    session_id="audit-portfolio-bad",
+                    name="decide",
+                    event_type=EventType.DECISION,
+                    timestamp=datetime(2026, 3, 26, 10, 6, tzinfo=timezone.utc),
+                    data={"confidence": 0.9, "chosen_action": "guess"},
+                )
+            )
+            await db_session.commit()
+
+        resp = await client.get("/api/audit/portfolio")
+        assert resp.status_code == 200
+        body = resp.json()
+        summary = body["summary"]
+        assert summary["total_sessions"] >= 2
+        session_ids = {row["session_id"] for row in summary["sessions"]}
+        assert {"audit-portfolio-ver", "audit-portfolio-bad"} <= session_ids
+        # Per-session rows are sorted worst-trust-first.
+        scores = [row["trust_score"] for row in summary["sessions"]]
+        assert scores == sorted(scores)
+        # Aggregation structure is present and well-typed.
+        assert set(summary["trust"]) == {"mean_score", "band_distribution"}
+        assert "verified" in summary["verification_totals"]
+
+

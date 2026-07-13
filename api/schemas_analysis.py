@@ -445,3 +445,46 @@ class EvidenceGraphResponse(BaseModel):
 
     session_id: str
     graph: EvidenceGraphSchema
+
+
+class PortfolioSessionRowSchema(BaseModel):
+    """One session's audit summary in the cross-session portfolio view."""
+
+    session_id: str
+    agent_name: str | None = None
+    started_at: str | None = None
+    status: str | None = None
+    trust_score: float = Field(ge=0.0, le=1.0)
+    band: str  # low | medium | high
+    decision_count: int = 0
+    unsupported_count: int = 0
+    contradiction_count: int = 0
+    failure_count: int = 0
+    signal_count: int = 0
+    first_bad_decision: str | None = None
+    objective: str | None = None
+    final_outcome: str | None = None
+
+
+class PortfolioAuditSummarySchema(BaseModel):
+    """Fleet-level aggregate of per-session audit reports.
+
+    Lets an operator scan trust, verification, and failure posture across all
+    runs without opening each session — the portfolio counterpart of the
+    per-session :class:`SessionAuditReportSchema`.
+    """
+
+    total_sessions: int
+    trust: dict[str, Any]
+    means: dict[str, Any]
+    verification_totals: dict[str, int]
+    totals: dict[str, int]
+    signal_type_counts: list[dict[str, Any]]
+    failure_mode_counts: list[dict[str, Any]]
+    sessions: list[PortfolioSessionRowSchema]
+
+
+class PortfolioAuditResponse(BaseModel):
+    """Response schema for the cross-session audit portfolio endpoint."""
+
+    summary: PortfolioAuditSummarySchema

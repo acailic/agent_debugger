@@ -9,7 +9,7 @@ with the replay / causal analysis surfaced elsewhere.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from api.analytics_db import record_event
 from api.dependencies import get_repository
@@ -17,6 +17,7 @@ from api.exceptions import NotFoundError
 from api.schemas_analysis import (
     DecisionJustificationResponse,
     EvidenceGraphResponse,
+    PortfolioAuditResponse,
     SessionAuditResponse,
 )
 from api.services import analyze_session, require_session
@@ -145,3 +146,44 @@ async def get_evidence_graph(
         raise
     record_event("evidence_graph_viewed", session_id=session_id)
     return EvidenceGraphResponse(session_id=session_id, graph=graph)
+
+
+@router.get("/api/audit/portfolio", response_model=PortfolioAuditResponse)
+async def get_audit_portfolio(
+    limit: int = Query(default=50, ge=1, le=200),
+    repo: TraceRepository = Depends(get_repository),
+) -> PortfolioAuditResponse:
+    """Return a cross-session audit portfolio: trust + verification aggregated
+    across runs.
+
+    The portfolio view lets an operator find the least trustworthy runs
+    without opening each session. It audits each recent session with
+    :class:`SessionAuditEngine` and reduces the reports into fleet-level
+    trust means, verification totals, recurring signal/failure modes, and a
+    worst-trust-first per-session list. Deterministic — every number is
+    derivable from captured event fields.
+    """
+    try:
+        sessions = await repo.list_sessions(limit=limit)
+        reports: list[dict] = []
+        sessions_meta: dict[str, dict[str, str | None]] = {}
+        for session in sessions:
+            events, checkpoints, analysis, _ = await analyze_session(repo, session.id)
+            if not events:
+                continue
+            session_dict = _session_dict(session)
+            report = _audit_engine.audit(
+                events,
+                checkpoints,
+                session=session_dict,
+                failure_explanations=analysis.get("failure_explanations", []),
+            )
+            reports.append(report)
+            sessions_meta[session.id] = session_dict
+        await repo.commit()
+    except Exception:
+        await repo.rollback()
+        raise
+    summary = _audit_engine.aggregate_audits(reports, sessions_meta=sessions_meta)
+    record_event("audit_portfolio_viewed")
+    return PortfolioAuditResponse(summary=summary)

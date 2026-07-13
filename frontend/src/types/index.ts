@@ -1700,3 +1700,38 @@ export interface EvidenceGraphResponse {
   session_id: string
   graph: EvidenceGraph
 }
+
+export interface PortfolioSessionRow {
+  session_id: string
+  agent_name: string | null
+  started_at: string | null
+  status: string | null
+  trust_score: number
+  band: string
+  decision_count: number
+  unsupported_count: number
+  contradiction_count: number
+  failure_count: number
+  signal_count: number
+  first_bad_decision: string | null
+  objective: string | null
+  final_outcome: string | null
+}
+
+export interface PortfolioAuditSummary {
+  total_sessions: number
+  trust: {
+    mean_score: number
+    band_distribution: Record<string, number>
+  }
+  means: Record<string, number>
+  verification_totals: Record<string, number>
+  totals: Record<string, number>
+  signal_type_counts: Array<{ type: string; count: number }>
+  failure_mode_counts: Array<{ mode: string; count: number }>
+  sessions: PortfolioSessionRow[]
+}
+
+export interface PortfolioAuditResponse {
+  summary: PortfolioAuditSummary
+}

@@ -17,6 +17,7 @@ import type {
   DecisionJustificationResponse,
   CoordinationAnalysisResponse,
   EvidenceGraphResponse,
+  PortfolioAuditResponse,
   CostSummary,
   DivergenceAnalysisResponse,
   DivergenceSummaryResponse,
@@ -1329,6 +1330,30 @@ export async function getEvidenceGraph(
         )
       },
       endpoint: `/sessions/{session_id}/evidence-graph`,
+    }
+  )
+}
+
+export async function getAuditPortfolio(
+  limit = 50
+): Promise<PortfolioAuditResponse> {
+  return fetchJSON<PortfolioAuditResponse>(
+    `${API_BASE}/audit/portfolio?limit=${limit}`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        const summary = v.summary
+        if (typeof summary !== 'object' || summary === null) return false
+        const s = summary as Record<string, unknown>
+        return (
+          typeof s.total_sessions === 'number' &&
+          typeof s.trust === 'object' &&
+          s.trust !== null &&
+          Array.isArray(s.sessions)
+        )
+      },
+      endpoint: `/audit/portfolio`,
     }
   )
 }
