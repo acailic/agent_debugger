@@ -59,6 +59,7 @@ def _decision(
     chosen_action: str = "act",
     reasoning: str = "",
     parent_id: str | None = None,
+    alternatives: list | None = None,
 ) -> TraceEvent:
     return _event(
         event_id,
@@ -69,6 +70,7 @@ def _decision(
         evidence=evidence or [],
         chosen_action=chosen_action,
         reasoning=reasoning,
+        alternatives=alternatives or [],
     )
 
 
@@ -413,5 +415,181 @@ async def test_audit_route_missing_session_returns_404(shared_app):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/api/sessions/nope-not-real/audit")
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Per-decision justification
+# ---------------------------------------------------------------------------
+
+
+def test_justify_decision_returns_why_evidence_outcome():
+    tool = _event("t1", EventType.TOOL_RESULT, tool_name="search", result={"hits": 2})
+    decision = _decision(
+        "d1",
+        confidence=0.9,
+        evidence_event_ids=["t1"],
+        chosen_action="answer",
+        reasoning="grounded in search results",
+    )
+    justification = SessionAuditEngine().justify_decision([tool, decision], "d1")
+
+    assert justification is not None
+    assert justification["event_id"] == "d1"
+    assert justification["what"]["action"] == "answer"
+    assert justification["why"]["rationale"] == "grounded in search results"
+    assert justification["evidence"]["verification_status"] == "verified"
+    assert justification["evidence"]["resolved_refs"] == ["t1"]
+    assert justification["outcome"]["downstream_event_count"] == 0
+    assert justification["where_it_failed"]["contradicted"] is False
+    assert justification["where_it_failed"]["path_to_first_failure"] == []
+    assert justification["policy"]["compliant"] is True
+
+
+def test_justify_decision_normalizes_alternatives():
+    decision = _decision(
+        "d1",
+        confidence=0.8,
+        alternatives=[
+            {"action": "answer", "chosen": True},
+            {"description": "ask clarifying question"},
+            "retry",
+        ],
+    )
+    justification = SessionAuditEngine().justify_decision([decision], "d1")
+
+    assert justification is not None
+    alternatives = justification["why"]["alternatives"]
+    assert alternatives == [
+        {"action": "answer", "chosen": True},
+        {"action": "ask clarifying question", "chosen": False},
+        {"action": "retry", "chosen": False},
+    ]
+
+
+def test_justify_decision_returns_none_for_non_decision_event():
+    tool = _event("t1", EventType.TOOL_RESULT, tool_name="search", result={})
+    # t1 exists but is not a decision claim.
+    assert SessionAuditEngine().justify_decision([tool], "t1") is None
+    # Unknown event id also resolves to None.
+    assert SessionAuditEngine().justify_decision([tool], "missing") is None
+
+
+def test_justify_decision_localizes_downstream_failure_path():
+    decision = _decision(
+        "d1", confidence=0.9, chosen_action="delete_records", reasoning="cleanup"
+    )
+    failure = _event(
+        "f1",
+        EventType.TOOL_RESULT,
+        parent_id="d1",
+        upstream_event_ids=["d1"],
+        tool_name="db",
+        error="permission denied",
+    )
+    justification = SessionAuditEngine().justify_decision(
+        [decision, failure], "d1"
+    )
+
+    assert justification is not None
+    assert justification["where_it_failed"]["contradicted"] is True
+    assert justification["where_it_failed"]["path_to_first_failure"][-1] == "f1"
+    assert justification["outcome"]["downstream_failures"] == 1
+    assert justification["outcome"]["downstream_successes"] == 0
+    assert justification["where_it_failed"]["subtree_failures"]
+
+
+def test_justify_decision_reports_policy_violation_in_subtree():
+    decision = _decision("d1", confidence=0.9, chosen_action="send_email")
+    violation = _event(
+        "v1",
+        EventType.POLICY_VIOLATION,
+        parent_id="d1",
+        upstream_event_ids=["d1"],
+        violation_type="unsafe_action",
+    )
+    justification = SessionAuditEngine().justify_decision(
+        [decision, violation], "d1"
+    )
+
+    assert justification is not None
+    assert justification["policy"]["compliant"] is False
+    assert justification["policy"]["violations_in_subtree"][0]["event_id"] == "v1"
+
+
+@pytest.mark.asyncio
+async def test_justification_route_returns_report(shared_app):
+    """GET /api/sessions/{id}/decisions/{event_id}/justification over the wire."""
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        from api import app_context
+
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            await repo.create_session(_make_session("audit-justification-session"))
+            tool = TraceEvent(
+                id="j-tool",
+                session_id="audit-justification-session",
+                name="search",
+                event_type=EventType.TOOL_RESULT,
+                timestamp=datetime(2026, 3, 26, 10, 5, tzinfo=timezone.utc),
+                data={"tool_name": "search", "result": {"hits": 1}},
+            )
+            decision = TraceEvent(
+                id="j-decision",
+                session_id="audit-justification-session",
+                parent_id="j-tool",
+                name="decide",
+                event_type=EventType.DECISION,
+                timestamp=datetime(2026, 3, 26, 10, 6, tzinfo=timezone.utc),
+                data={
+                    "confidence": 0.9,
+                    "evidence_event_ids": ["j-tool"],
+                    "chosen_action": "answer",
+                    "reasoning": "grounded",
+                    "alternatives": [{"action": "answer", "chosen": True}],
+                },
+            )
+            await repo.add_event(tool)
+            await repo.add_event(decision)
+            await db_session.commit()
+
+        resp = await client.get(
+            "/api/sessions/audit-justification-session/decisions/j-decision/justification"
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["session_id"] == "audit-justification-session"
+        assert body["event_id"] == "j-decision"
+        justification = body["justification"]
+        assert justification["evidence"]["verification_status"] == "verified"
+        assert set(justification) == {
+            "event_id",
+            "headline",
+            "what",
+            "why",
+            "evidence",
+            "outcome",
+            "where_it_failed",
+            "policy",
+        }
+
+
+@pytest.mark.asyncio
+async def test_justification_route_unknown_event_returns_404(shared_app):
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        from api import app_context
+
+        async with app_context.require_session_maker()() as db_session:
+            repo = TraceRepository(db_session)
+            await repo.create_session(_make_session("audit-justification-404-session"))
+            await db_session.commit()
+
+        resp = await client.get(
+            "/api/sessions/audit-justification-404-session/decisions/nope/justification"
+        )
         assert resp.status_code == 404
 

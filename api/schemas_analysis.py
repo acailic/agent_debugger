@@ -386,3 +386,24 @@ class SessionAuditResponse(BaseModel):
 
     session_id: str
     audit: SessionAuditReportSchema
+
+
+class DecisionJustificationSchema(BaseModel):
+    """Per-decision justification: why / evidence / outcome / where-failed."""
+
+    event_id: str
+    headline: str
+    what: dict[str, Any]
+    why: dict[str, Any]
+    evidence: dict[str, Any]
+    outcome: dict[str, Any]
+    where_it_failed: dict[str, Any]
+    policy: dict[str, Any]
+
+
+class DecisionJustificationResponse(BaseModel):
+    """Response schema for the decision justification lookup endpoint."""
+
+    session_id: str
+    event_id: str
+    justification: DecisionJustificationSchema

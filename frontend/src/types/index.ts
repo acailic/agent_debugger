@@ -1585,3 +1585,77 @@ export interface SessionAuditResponse {
   session_id: string
   audit: SessionAuditReport
 }
+
+// ============================================================================
+// Decision justification lookup — per-node why / evidence / outcome drill-down
+// ============================================================================
+
+export interface DecisionJustificationWhat {
+  claim: string
+  action: string
+  event_type: string
+  timestamp: string
+}
+
+export interface DecisionJustificationAlternative {
+  action: string
+  chosen: boolean
+}
+
+export interface DecisionJustificationWhy {
+  rationale: string
+  intent: string | null
+  confidence: number
+  alternatives: DecisionJustificationAlternative[]
+}
+
+export interface DecisionJustificationEvidence {
+  refs: string[]
+  resolved_refs: string[]
+  sources: string[]
+  verification_status: AuditVerificationStatus
+  verification_basis: string
+}
+
+export interface DecisionJustificationOutcome {
+  downstream_event_count: number
+  downstream_successes: number
+  downstream_failures: number
+  produced: string[]
+  state_changes: number
+}
+
+export interface DecisionJustificationSubtreeFailure {
+  event_id: string | null
+  mode: string
+  symptom: string
+  likely_cause_event_id: string | null
+}
+
+export interface DecisionJustificationWhereItFailed {
+  contradicted: boolean
+  subtree_failures: DecisionJustificationSubtreeFailure[]
+  path_to_first_failure: string[]
+}
+
+export interface DecisionJustificationPolicy {
+  violations_in_subtree: Array<{ event_id: string; type: string }>
+  compliant: boolean
+}
+
+export interface DecisionJustification {
+  event_id: string
+  headline: string
+  what: DecisionJustificationWhat
+  why: DecisionJustificationWhy
+  evidence: DecisionJustificationEvidence
+  outcome: DecisionJustificationOutcome
+  where_it_failed: DecisionJustificationWhereItFailed
+  policy: DecisionJustificationPolicy
+}
+
+export interface DecisionJustificationResponse {
+  session_id: string
+  event_id: string
+  justification: DecisionJustification
+}

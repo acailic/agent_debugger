@@ -198,6 +198,200 @@ class SessionAuditEngine:
         return _report_to_dict(report)
 
     # ------------------------------------------------------------------
+    # Per-decision justification (why / evidence / outcome / where-failed)
+    # ------------------------------------------------------------------
+
+    def justify_decision(
+        self,
+        events: list[TraceEvent],
+        event_id: str,
+        *,
+        session: dict[str, Any] | None = None,
+        failure_explanations: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | None:
+        """Return a per-decision justification record.
+
+        The dominant audit interaction is drilling into one important node
+        and asking *what / why / evidence / outcome / where-failed*. This
+        reuses :meth:`audit` so the claim's verification status, evidence
+        classification, and failure localization stay identical to the
+        session-level report, then localizes the outcome + failure path to
+        the decision's downstream subtree.
+
+        Returns ``None`` when *event_id* is not a captured decision — callers
+        map that to a 404.
+        """
+        report = self.audit(
+            events, session=session, failure_explanations=failure_explanations
+        )
+        claim = next(
+            (item for item in report["claims"] if item["event_id"] == event_id), None
+        )
+        if claim is None:
+            return None
+
+        id_lookup = {event.id: event for event in events}
+        children_by_parent = _build_children_index(events)
+        failure_event_ids = {
+            event.id for event in events if self._diagnostics.is_failure_event(event)
+        }
+        subtree_ids = self._descendants_set(event_id, children_by_parent)
+        subtree_events = [
+            id_lookup[eid] for eid in subtree_ids if eid in id_lookup
+        ]
+
+        downstream_results = [
+            event
+            for event in subtree_events
+            if event.event_type == EventType.TOOL_RESULT
+        ]
+        successes = [
+            event for event in downstream_results if not event_value(event, "error")
+        ]
+        downstream_failures = [
+            event for event in downstream_results if event_value(event, "error")
+        ]
+        produced = [
+            str(event_value(event, "tool_name", "") or event.name or event.id)
+            for event in successes
+        ]
+        state_changes = sum(
+            1
+            for event in subtree_events
+            if event.event_type == EventType.REPAIR_ATTEMPT
+            and event_value(event, "repair_diff")
+        )
+
+        subtree_failure_entries = [
+            {
+                "event_id": failure["event_id"],
+                "mode": failure["mode"],
+                "symptom": failure["symptom"],
+                "likely_cause_event_id": failure["likely_cause_event_id"],
+            }
+            for failure in report["failures"]
+            if failure.get("event_id") in subtree_ids
+        ]
+        path_to_first_failure = self._path_to_first_failure(
+            event_id, children_by_parent, failure_event_ids
+        )
+
+        policy_in_subtree = [
+            {
+                "event_id": event.id,
+                "type": str(
+                    event_value(event, "violation_type", event.name or "violation")
+                ),
+            }
+            for event in subtree_events
+            if event.event_type == EventType.POLICY_VIOLATION
+        ]
+
+        decision_event = id_lookup.get(event_id)
+        alternatives_raw = (
+            event_value(decision_event, "alternatives", []) if decision_event else []
+        )
+        intent = (
+            event_value(decision_event, "intent", None)
+            or event_value(decision_event, "goal", None)
+            if decision_event
+            else None
+        )
+        action = (
+            event_value(decision_event, "chosen_action", "") or claim["claim"]
+            if decision_event
+            else claim["claim"]
+        )
+
+        return {
+            "event_id": event_id,
+            "headline": claim["headline"],
+            "what": {
+                "claim": claim["claim"],
+                "action": action,
+                "event_type": claim["event_type"],
+                "timestamp": claim["timestamp"],
+            },
+            "why": {
+                "rationale": claim["rationale"],
+                "intent": intent,
+                "confidence": claim["confidence"],
+                "alternatives": _summarize_alternatives(alternatives_raw),
+            },
+            "evidence": {
+                "refs": claim["evidence_refs"],
+                "resolved_refs": [
+                    ref for ref in claim["evidence_refs"] if ref in id_lookup
+                ],
+                "sources": claim["evidence_sources"],
+                "verification_status": claim["verification_status"],
+                "verification_basis": claim["verification_basis"],
+            },
+            "outcome": {
+                "downstream_event_count": len(subtree_events),
+                "downstream_successes": len(successes),
+                "downstream_failures": len(downstream_failures),
+                "produced": produced,
+                "state_changes": state_changes,
+            },
+            "where_it_failed": {
+                "contradicted": claim["contradicted"],
+                "subtree_failures": subtree_failure_entries,
+                "path_to_first_failure": path_to_first_failure,
+            },
+            "policy": {
+                "violations_in_subtree": policy_in_subtree,
+                "compliant": len(policy_in_subtree) == 0,
+            },
+        }
+
+    def _descendants_set(
+        self, root_id: str, children_by_parent: dict[str, list[str]]
+    ) -> set[str]:
+        """Return the set of all event ids transitively downstream of *root_id*."""
+        seen: set[str] = set()
+        frontier = list(children_by_parent.get(root_id, []))
+        # Bounded walk so a cyclic graph cannot loop forever.
+        for _ in range(2000):
+            if not frontier:
+                return seen
+            next_frontier: list[str] = []
+            for node_id in frontier:
+                if node_id in seen:
+                    continue
+                seen.add(node_id)
+                next_frontier.extend(children_by_parent.get(node_id, []))
+            frontier = next_frontier
+        return seen
+
+    def _path_to_first_failure(
+        self,
+        root_id: str,
+        children_by_parent: dict[str, list[str]],
+        failure_event_ids: set[str],
+    ) -> list[str]:
+        """BFS downstream from *root_id*; return the event-id path to the first failure.
+
+        The path is inclusive of the failing event and exclusive of *root_id*.
+        Returns an empty list when the decision's subtree has no failure.
+        """
+        queue: list[tuple[str, list[str]]] = [(root_id, [root_id])]
+        seen: set[str] = {root_id}
+        for _ in range(2000):
+            if not queue:
+                return []
+            node, path = queue.pop(0)
+            for child in children_by_parent.get(node, []):
+                if child in seen:
+                    continue
+                seen.add(child)
+                child_path = path + [child]
+                if child in failure_event_ids:
+                    return child_path
+                queue.append((child, child_path))
+        return []
+
+    # ------------------------------------------------------------------
     # Fact indexing — what counts as grounded evidence in this trace
     # ------------------------------------------------------------------
 
@@ -888,6 +1082,24 @@ def _descendants_include_failure(
             next_frontier.extend(children_by_parent.get(node_id, []))
         frontier = next_frontier
     return False
+
+
+def _summarize_alternatives(alternatives: list[Any]) -> list[dict[str, Any]]:
+    """Normalize raw alternative entries into a stable {action, chosen} shape."""
+    summarized: list[dict[str, Any]] = []
+    for alternative in alternatives or []:
+        if isinstance(alternative, dict):
+            action = (
+                alternative.get("action")
+                or alternative.get("description")
+                or alternative.get("name")
+                or alternative.get("option")
+                or ""
+            )
+            summarized.append({"action": str(action), "chosen": bool(alternative.get("chosen", False))})
+        else:
+            summarized.append({"action": str(alternative), "chosen": False})
+    return summarized
 
 
 def _safe_rate(claims: list[dict[str, Any]], predicate) -> float:

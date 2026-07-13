@@ -14,6 +14,7 @@ import type {
   BranchesResponse,
   CausalAnalysisResponse,
   ComparisonResponse,
+  DecisionJustificationResponse,
   CoordinationAnalysisResponse,
   CostSummary,
   DivergenceAnalysisResponse,
@@ -1272,6 +1273,33 @@ export async function getSessionAudit(sessionId: string): Promise<SessionAuditRe
         )
       },
       endpoint: `/sessions/{session_id}/audit`,
+    }
+  )
+}
+
+export async function getDecisionJustification(
+  sessionId: string,
+  eventId: string
+): Promise<DecisionJustificationResponse> {
+  return fetchJSON<DecisionJustificationResponse>(
+    `${API_BASE}/sessions/${sessionId}/decisions/${eventId}/justification`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        if (v.event_id !== eventId) return false
+        const justification = v.justification
+        if (typeof justification !== 'object' || justification === null) return false
+        const j = justification as Record<string, unknown>
+        return (
+          'why' in j &&
+          'evidence' in j &&
+          'outcome' in j &&
+          'where_it_failed' in j &&
+          'policy' in j
+        )
+      },
+      endpoint: `/sessions/{session_id}/decisions/{event_id}/justification`,
     }
   )
 }

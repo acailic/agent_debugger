@@ -13,7 +13,8 @@ from fastapi import APIRouter, Depends
 
 from api.analytics_db import record_event
 from api.dependencies import get_repository
-from api.schemas_analysis import SessionAuditResponse
+from api.exceptions import NotFoundError
+from api.schemas_analysis import DecisionJustificationResponse, SessionAuditResponse
 from api.services import analyze_session, require_session
 from collector.audit import SessionAuditEngine
 from storage import TraceRepository
@@ -57,3 +58,54 @@ async def get_session_audit(
         raise
     record_event("audit_report_viewed", session_id=session_id)
     return SessionAuditResponse(session_id=session_id, audit=report)
+
+
+def _session_dict(session) -> dict:
+    return {
+        "id": session.id,
+        "status": str(session.status) if session.status else None,
+        "agent_name": session.agent_name,
+        "started_at": session.started_at.isoformat() if session.started_at else None,
+        "ended_at": session.ended_at.isoformat() if session.ended_at else None,
+    }
+
+
+@router.get(
+    "/api/sessions/{session_id}/decisions/{event_id}/justification",
+    response_model=DecisionJustificationResponse,
+)
+async def get_decision_justification(
+    session_id: str,
+    event_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> DecisionJustificationResponse:
+    """Return a per-decision justification (why / evidence / outcome / where-failed).
+
+    This is the drill-down view for the audit's dominant interaction: one
+    important decision node answered end-to-end. Verification status and
+    failure localization are reused from :class:`SessionAuditEngine` so they
+    match the session-level report exactly.
+    """
+    session = await require_session(repo, session_id)
+    try:
+        events, _checkpoints, analysis, _ = await analyze_session(repo, session_id)
+        justification = _audit_engine.justify_decision(
+            events,
+            event_id,
+            session=_session_dict(session),
+            failure_explanations=analysis.get("failure_explanations", []),
+        )
+        if justification is None:
+            raise NotFoundError(
+                f"Decision {event_id} not found in session {session_id}"
+            )
+        await repo.commit()
+    except Exception:
+        await repo.rollback()
+        raise
+    record_event("decision_justification_viewed", session_id=session_id)
+    return DecisionJustificationResponse(
+        session_id=session_id,
+        event_id=event_id,
+        justification=justification,
+    )
