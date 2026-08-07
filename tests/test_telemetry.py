@@ -12,24 +12,39 @@ import pytest
 def fake_opentelemetry(monkeypatch):
     """Install fake opentelemetry modules into sys.modules so the
     telemetry module's success-path branches (normally unreachable
-    without the real, optional dependency) can be exercised."""
-    trace_mod = ModuleType("opentelemetry.trace")
+    without the real, optional dependency) can be exercised.
+
+    Each fake package module gets a `__path__` (even if empty) and is
+    wired onto its parent as an attribute, so it behaves like a real
+    package: submodules already registered here resolve via the
+    sys.modules cache, and anything NOT registered here (e.g. a
+    genuinely installed opentelemetry.exporter.* on the test machine)
+    fails with a clean ImportError against the empty __path__ instead
+    of falling through to whatever is actually on disk.
+    """
     otel_mod = ModuleType("opentelemetry")
-    otel_mod.trace = trace_mod
+    otel_mod.__path__ = []
+
+    trace_mod = ModuleType("opentelemetry.trace")
     trace_mod.set_tracer_provider = MagicMock()
     trace_mod.get_tracer = MagicMock(return_value="real-tracer")
+    otel_mod.trace = trace_mod
+
+    sdk_mod = ModuleType("opentelemetry.sdk")
+    sdk_mod.__path__ = []
+    otel_mod.sdk = sdk_mod
 
     sdk_trace_mod = ModuleType("opentelemetry.sdk.trace")
+    sdk_trace_mod.__path__ = []
     sdk_trace_mod.TracerProvider = MagicMock(
         return_value=MagicMock(add_span_processor=MagicMock())
     )
+    sdk_mod.trace = sdk_trace_mod
 
     export_mod = ModuleType("opentelemetry.sdk.trace.export")
     export_mod.BatchSpanProcessor = MagicMock()
     export_mod.ConsoleSpanExporter = MagicMock()
-
-    sdk_mod = ModuleType("opentelemetry.sdk")
-    sdk_mod.trace = sdk_trace_mod
+    sdk_trace_mod.export = export_mod
 
     modules = {
         "opentelemetry": otel_mod,
@@ -50,6 +65,22 @@ def fake_opentelemetry(monkeypatch):
     }
 
 
+@pytest.fixture
+def no_opentelemetry(monkeypatch):
+    """Force `from opentelemetry import ...` to fail with ImportError,
+    regardless of whether opentelemetry is actually installed in the
+    environment running the tests. A bare, path-less module with no
+    attributes makes `from opentelemetry import trace` raise ImportError
+    deterministically (no __path__ means Python won't try to resolve
+    `trace` as a real submodule, it just does a failed getattr)."""
+    dummy = ModuleType("opentelemetry")
+    monkeypatch.setitem(sys.modules, "opentelemetry", dummy)
+    for name in list(sys.modules):
+        if name.startswith("opentelemetry."):
+            monkeypatch.delitem(sys.modules, name, raising=False)
+    return dummy
+
+
 def test_telemetry_module_importable():
     """Telemetry module should be importable and expose its public API."""
     from agent_debugger_sdk import telemetry
@@ -67,7 +98,7 @@ def test_is_telemetry_enabled_false_before_init():
     assert telemetry.is_telemetry_enabled() is False
 
 
-def test_init_telemetry_noop_when_opentelemetry_not_installed(caplog):
+def test_init_telemetry_noop_when_opentelemetry_not_installed(caplog, no_opentelemetry):
     """init_telemetry should no-op and log when opentelemetry-sdk is unavailable."""
     import agent_debugger_sdk.telemetry as telemetry
 
@@ -81,7 +112,7 @@ def test_init_telemetry_noop_when_opentelemetry_not_installed(caplog):
     assert "opentelemetry-sdk not installed" in caplog.text
 
 
-def test_init_telemetry_accepts_otlp_args_without_crashing():
+def test_init_telemetry_accepts_otlp_args_without_crashing(no_opentelemetry):
     """init_telemetry should not raise when called with an otlp exporter/endpoint,
     even though opentelemetry is not installed (falls back to the no-op path)."""
     import agent_debugger_sdk.telemetry as telemetry
@@ -97,7 +128,7 @@ def test_init_telemetry_accepts_otlp_args_without_crashing():
     assert telemetry.is_telemetry_enabled() is False
 
 
-def test_get_tracer_returns_noop_tracer_when_opentelemetry_not_installed():
+def test_get_tracer_returns_noop_tracer_when_opentelemetry_not_installed(no_opentelemetry):
     """get_tracer should fall back to _NoOpTracer when opentelemetry is unavailable."""
     from agent_debugger_sdk.telemetry import _NoOpTracer, get_tracer
 
