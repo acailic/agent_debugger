@@ -181,15 +181,38 @@ def test_init_telemetry_otlp_export_with_endpoint(fake_opentelemetry, monkeypatc
     OTLP gRPC exporter when it is importable."""
     import agent_debugger_sdk.telemetry as telemetry
 
+    otel_mod = fake_opentelemetry["otel"]
+
+    exporter_mod = ModuleType("opentelemetry.exporter")
+    exporter_mod.__path__ = []
+    otel_mod.exporter = exporter_mod
+
+    otlp_mod = ModuleType("opentelemetry.exporter.otlp")
+    otlp_mod.__path__ = []
+    exporter_mod.otlp = otlp_mod
+
+    proto_mod = ModuleType("opentelemetry.exporter.otlp.proto")
+    proto_mod.__path__ = []
+    otlp_mod.proto = proto_mod
+
+    grpc_mod = ModuleType("opentelemetry.exporter.otlp.proto.grpc")
+    grpc_mod.__path__ = []
+    proto_mod.grpc = grpc_mod
+
     otlp_exporter_mod = ModuleType(
         "opentelemetry.exporter.otlp.proto.grpc.trace_exporter"
     )
     otlp_exporter_mod.OTLPSpanExporter = MagicMock()
-    monkeypatch.setitem(
-        sys.modules,
-        "opentelemetry.exporter.otlp.proto.grpc.trace_exporter",
-        otlp_exporter_mod,
-    )
+    grpc_mod.trace_exporter = otlp_exporter_mod
+
+    for name, mod in {
+        "opentelemetry.exporter": exporter_mod,
+        "opentelemetry.exporter.otlp": otlp_mod,
+        "opentelemetry.exporter.otlp.proto": proto_mod,
+        "opentelemetry.exporter.otlp.proto.grpc": grpc_mod,
+        "opentelemetry.exporter.otlp.proto.grpc.trace_exporter": otlp_exporter_mod,
+    }.items():
+        monkeypatch.setitem(sys.modules, name, mod)
 
     telemetry._initialized = False
     telemetry.init_telemetry(
