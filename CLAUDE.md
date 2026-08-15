@@ -163,6 +163,7 @@ make demo-research
 - Use `ruff check .` after Python, API, storage, auth, redaction, or SDK changes.
 - Use `python3 -m pytest -q` after meaningful backend or SDK changes, especially when behavior or contracts changed.
 - Use a targeted pytest command such as `python3 -m pytest -q tests/test_api_contract.py -k sessions` when you changed one area and want fast feedback before running the full suite.
+- Do not chase per-file coverage numbers for `api/*_routes.py` locally: coverage.py under-records FastAPI handler bodies exercised through httpx `ASGITransport` in some environments (verified with a manual `sys.settrace` probe — the lines do execute). Trust passing response assertions; CI measures coverage independently.
 - Use `cd frontend && npm run build` after any TypeScript, React, or UI contract change.
 - Use `make server` when you need the FastAPI app running locally for API or integration checks.
 - Use `make frontend` when you need the Vite UI running for manual inspection.

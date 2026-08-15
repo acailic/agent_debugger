@@ -13,6 +13,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
+from conftest import unique_id
 from httpx import ASGITransport, AsyncClient
 
 from agent_debugger_sdk.core.events import (
@@ -113,11 +114,9 @@ def _research_events(session_id: str) -> list[TraceEvent]:
 
 async def _seed_research_session() -> str:
     """Seed a fresh session with a unique id and return it."""
-    import uuid
-
     from api import app_context
 
-    session_id = f"researchapi-{uuid.uuid4().hex[:8]}"
+    session_id = unique_id("researchapi")
     async with app_context.require_session_maker()() as db_session:
         repo = TraceRepository(db_session)
         await repo.create_session(_make_session(session_id))

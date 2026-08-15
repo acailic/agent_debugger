@@ -287,6 +287,18 @@ def reset_event_buffer():
 # =============================================================================
 
 
+def unique_id(prefix: str) -> str:
+    """Generate a unique test identifier.
+
+    The shared test database persists across tests within a run, so both
+    session ids and explicit event ids must be unique per seeding — a fixed
+    id makes the second seed fail with UNIQUE constraint errors.
+    """
+    import uuid
+
+    return f"{prefix}-{uuid.uuid4().hex[:8]}"
+
+
 @pytest.fixture(scope="session")
 def shared_app():
     """Session-scoped shared FastAPI app instance.

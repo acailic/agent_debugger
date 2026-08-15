@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
+from conftest import unique_id
 from httpx import ASGITransport, AsyncClient
 
 from agent_debugger_sdk.core.events import (
@@ -95,11 +96,9 @@ def _multi_agent_events(session_id: str) -> list:
 
 @pytest.fixture
 async def session_id() -> str:
-    import uuid
-
     from api import app_context
 
-    session_id = f"swimapi-{uuid.uuid4().hex[:8]}"
+    session_id = unique_id("swimapi")
     async with app_context.require_session_maker()() as db_session:
         repo = TraceRepository(db_session)
         await repo.create_session(_make_session(session_id))

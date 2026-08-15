@@ -44,13 +44,7 @@ async def get_session_audit(
     session = await require_session(repo, session_id)
     try:
         events, checkpoints, analysis, _ = await analyze_session(repo, session_id)
-        session_dict = {
-            "id": session.id,
-            "status": str(session.status) if session.status else None,
-            "agent_name": session.agent_name,
-            "started_at": session.started_at.isoformat() if session.started_at else None,
-            "ended_at": session.ended_at.isoformat() if session.ended_at else None,
-        }
+        session_dict = _session_dict(session)
         report = _audit_engine.audit(
             events,
             checkpoints,
