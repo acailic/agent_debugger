@@ -251,11 +251,11 @@ class TestCheckpointEndpoints:
 
     def test_checkpoint_endpoints_registered(self):
         """GET and POST checkpoint endpoints should be registered in the app."""
-        from fastapi.routing import APIRoute
+        from conftest import iter_app_api_routes
 
         import api.main as api_main
 
-        routes = [(r.path, r.methods) for r in api_main.app.routes if isinstance(r, APIRoute)]
+        routes = [(p, m) for p, m, _e in iter_app_api_routes(api_main.app)]
         assert any(p == "/api/checkpoints/{checkpoint_id}" and "GET" in m for p, m in routes)
         assert any(p == "/api/checkpoints/{checkpoint_id}/restore" and "POST" in m for p, m in routes)
 
@@ -276,13 +276,12 @@ class TestCheckpointEndpoints:
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
 
+            from conftest import iter_app_api_routes
+
             endpoint = next(
-                r.endpoint
-                for r in api_main.app.routes
-                if hasattr(r, "path")
-                and r.path == "/api/checkpoints/{checkpoint_id}"
-                and hasattr(r, "methods")
-                and "GET" in r.methods
+                endpoint_fn
+                for path, methods, endpoint_fn in iter_app_api_routes(api_main.app)
+                if path == "/api/checkpoints/{checkpoint_id}" and "GET" in (methods or {})
             )
             async with session_maker() as session:
                 repo = TraceRepository(session)

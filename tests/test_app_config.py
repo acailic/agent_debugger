@@ -17,5 +17,7 @@ def test_create_app_has_health_endpoint():
     from api.main import create_app
 
     app = create_app()
-    routes = [route.path for route in app.routes]
+    from conftest import api_route_paths
+
+    routes = api_route_paths(app)
     assert "/api/health" in routes or "/health" in routes

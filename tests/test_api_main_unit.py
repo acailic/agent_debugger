@@ -10,7 +10,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
-from fastapi.routing import APIRoute
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import api.main as api_main
@@ -25,9 +24,11 @@ from storage import Base, TraceRepository
 
 
 def _get_route_endpoint(path: str, method: str):
-    for route in api_main.app.routes:
-        if isinstance(route, APIRoute) and route.path == path and method.upper() in route.methods:
-            return route.endpoint
+    from conftest import iter_app_api_routes
+
+    for route_path, methods, endpoint in iter_app_api_routes(api_main.app):
+        if route_path == path and method.upper() in (methods or {}):
+            return endpoint
     raise AssertionError(f"Route {method} {path} not found")
 
 

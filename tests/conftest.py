@@ -299,6 +299,41 @@ def unique_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8]}"
 
 
+def iter_app_api_routes(app):
+    """Yield every registered API route as (path, methods, endpoint).
+
+    Version-agnostic across FastAPI layouts: <=0.13x flattens APIRoute
+    objects directly into ``app.routes``; >=0.141 wraps each included
+    router in a lazy ``_IncludedRouter`` whose ``effective_candidates()``
+    exposes the resolved routes as objects with ``path`` / ``methods`` /
+    ``endpoint``.
+    """
+    from fastapi.routing import APIRoute
+
+    def walk(routes):
+        for route in routes:
+            if isinstance(route, APIRoute):
+                yield (route.path, route.methods, route.endpoint)
+                continue
+            inner = getattr(route, "router", None)
+            if inner is not None and hasattr(inner, "routes"):
+                yield from walk(inner.routes)
+            candidates = getattr(route, "effective_candidates", None)
+            if callable(candidates):
+                for context in candidates():
+                    path = getattr(context, "path", None)
+                    endpoint = getattr(context, "endpoint", None)
+                    if path is not None and endpoint is not None:
+                        yield (path, getattr(context, "methods", None), endpoint)
+
+    yield from walk(app.routes)
+
+
+def api_route_paths(app) -> list[str]:
+    """All registered API route paths (sorted, deduplicated)."""
+    return sorted({path for path, _methods, _endpoint in iter_app_api_routes(app)})
+
+
 @pytest.fixture(scope="session")
 def shared_app():
     """Session-scoped shared FastAPI app instance.

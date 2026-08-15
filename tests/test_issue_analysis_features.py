@@ -42,11 +42,11 @@ from storage.models import AnomalyAlertModel
 
 def _get_route_endpoint(path: str, method: str):
     """Get a route endpoint by path and method."""
-    from fastapi.routing import APIRoute
+    from conftest import iter_app_api_routes
 
-    for route in api_main.app.routes:
-        if isinstance(route, APIRoute) and route.path == path and method.upper() in route.methods:
-            return route.endpoint
+    for route_path, methods, endpoint in iter_app_api_routes(api_main.app):
+        if route_path == path and method.upper() in (methods or {}):
+            return endpoint
     raise AssertionError(f"Route {method} {path} not found")
 
 

@@ -608,8 +608,9 @@ class TestPatternAPIEndpoints:
         app = create_app()
 
         # Verify the endpoint exists
-        route_paths = [route.path for route in app.routes if hasattr(route, "path")]
-        assert "/api/analytics/patterns" in route_paths
+        from conftest import api_route_paths
+
+        assert "/api/analytics/patterns" in api_route_paths(app)
 
     def test_health_report_endpoint_exists(self):
         """Test that health report endpoint is registered."""
@@ -618,5 +619,6 @@ class TestPatternAPIEndpoints:
         app = create_app()
 
         # Verify the endpoint exists
-        route_paths = [route.path for route in app.routes if hasattr(route, "path")]
-        assert "/api/analytics/health-report" in route_paths
+        from conftest import api_route_paths
+
+        assert "/api/analytics/health-report" in api_route_paths(app)
