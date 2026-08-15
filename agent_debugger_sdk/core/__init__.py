@@ -116,6 +116,10 @@ from agent_debugger_sdk.core.stepper import (
     StepperState,
     StepResult,
 )
+from agent_debugger_sdk.core.success_flow import (
+    build_success_flow_advisory,
+    step_signature,
+)
 from agent_debugger_sdk.core.swimlane import (
     CoordinationIssue,
     CoordinationSeverity,
@@ -169,6 +173,8 @@ __all__ = [
     "TraceContext",
     "get_current_context",
     "get_importance_scorer",
+    "build_success_flow_advisory",
+    "step_signature",
     "trace_agent",
     "trace_tool",
     "trace_llm",

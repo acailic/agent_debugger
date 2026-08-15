@@ -1344,3 +1344,152 @@ def test_stakes_empty_for_reasoning_only_run():
     )
     assert report["summary"]["stakes"]["tool_calls"] == 0
     assert "read-only" in report["summary"]["stakes_line"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Success-flow deviation advisory route (OAT paper experiment)
+# ---------------------------------------------------------------------------
+
+
+async def _seed_flow_session(
+    session_id: str,
+    *,
+    agent: str,
+    status: SessionStatus,
+    events_spec: list[tuple[EventType, str | None]],
+) -> None:
+    from api import app_context
+
+    async with app_context.require_session_maker()() as db_session:
+        repo = TraceRepository(db_session)
+        await repo.create_session(
+            _make_session(session_id)
+        )
+        # _make_session pins agent_name "audit_agent"; override for flow tests
+        await repo.update_session(session_id, agent_name=agent, status=status)
+        for idx, (event_type, tool_name) in enumerate(events_spec):
+            data = {"tool_name": tool_name} if tool_name else {}
+            await repo.add_event(
+                TraceEvent(
+                    id=f"{session_id}-e{idx}",
+                    session_id=session_id,
+                    timestamp=datetime(2026, 3, 26, 10, idx, tzinfo=timezone.utc),
+                    event_type=event_type,
+                    name=f"step-{idx}",
+                    data=data,
+                )
+            )
+        await db_session.commit()
+
+
+@pytest.mark.asyncio
+async def test_success_flow_route_with_auto_reference(shared_app):
+    from conftest import unique_id
+
+    target_id = unique_id("flow-target")
+    reference_id = unique_id("flow-reference")
+
+    # Failing run departs from the success flow at its second step.
+    await _seed_flow_session(
+        target_id,
+        agent="flow-agent",
+        status=SessionStatus.ERROR,
+        events_spec=[
+            (EventType.AGENT_START, None),
+            (EventType.TOOL_CALL, "search"),
+            (EventType.TOOL_CALL, "save_file"),
+            (EventType.ERROR, None),
+        ],
+    )
+    await _seed_flow_session(
+        reference_id,
+        agent="flow-agent",
+        status=SessionStatus.COMPLETED,
+        events_spec=[
+            (EventType.AGENT_START, None),
+            (EventType.TOOL_CALL, "search"),
+            (EventType.TOOL_RESULT, None),
+            (EventType.DECISION, None),
+        ],
+    )
+
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get(f"/api/sessions/{target_id}/success-flow")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["session_id"] == target_id
+    assert body["reference"]["session_id"] == reference_id
+
+    advisory = body["advisory"]
+    assert advisory["advisory"] is True
+    assert advisory["common_prefix_steps"] == 2
+    assert advisory["candidate_first_bad_step"] == f"{target_id}-e2"
+
+
+@pytest.mark.asyncio
+async def test_success_flow_route_with_explicit_reference(shared_app):
+    from conftest import unique_id
+
+    target_id = unique_id("flow-target")
+    reference_id = unique_id("flow-reference")
+
+    await _seed_flow_session(
+        target_id,
+        agent="flow-agent",
+        status=SessionStatus.ERROR,
+        events_spec=[(EventType.AGENT_START, None), (EventType.ERROR, None)],
+    )
+    await _seed_flow_session(
+        reference_id,
+        agent="other-agent",
+        status=SessionStatus.COMPLETED,
+        events_spec=[(EventType.AGENT_START, None), (EventType.DECISION, None)],
+    )
+
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get(
+            f"/api/sessions/{target_id}/success-flow",
+            params={"reference_session_id": reference_id},
+        )
+
+    assert resp.status_code == 200
+    # Explicit reference wins even across agents.
+    assert resp.json()["reference"]["session_id"] == reference_id
+
+
+@pytest.mark.asyncio
+async def test_success_flow_route_without_any_reference(shared_app):
+    from conftest import unique_id
+
+    target_id = unique_id("flow-lonely")
+    await _seed_flow_session(
+        target_id,
+        agent="lonely-agent",
+        status=SessionStatus.ERROR,
+        events_spec=[(EventType.AGENT_START, None)],
+    )
+
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get(f"/api/sessions/{target_id}/success-flow")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["advisory"] is None
+    assert "No successful reference" in body["reason"]
+
+
+@pytest.mark.asyncio
+async def test_success_flow_route_missing_session_404(shared_app):
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/sessions/nope-not-real/success-flow")
+
+    assert resp.status_code == 404

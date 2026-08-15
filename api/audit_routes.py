@@ -142,6 +142,79 @@ async def get_evidence_graph(
     return EvidenceGraphResponse(session_id=session_id, graph=graph)
 
 
+@router.get("/api/sessions/{session_id}/success-flow")
+async def get_success_flow_advisory(
+    session_id: str,
+    reference_session_id: str | None = Query(default=None),
+    repo: TraceRepository = Depends(get_repository),
+) -> dict:
+    """Return a success-flow deviation advisory for a session.
+
+    Aligns the session's step flow against a successful reference run
+    (explicit, or auto-selected: most recent completed, error-free session
+    of the same agent) and reports the first divergence — a candidate
+    first-bad-step in the spirit of OAT's success-flow attribution.
+
+    Advisory by construction: statistical contrast, never feeds the
+    deterministic trust score or claim verification.
+    """
+    from agent_debugger_sdk.core.events import EventType
+    from agent_debugger_sdk.core.success_flow import build_success_flow_advisory
+
+    session = await require_session(repo, session_id)
+    target_events = await repo.get_event_tree(session_id)
+
+    reference_session = None
+    reference_events: list = []
+    if reference_session_id:
+        reference_session = await require_session(repo, reference_session_id)
+        reference_events = await repo.get_event_tree(reference_session_id)
+    else:
+        candidates = await repo.list_sessions(
+            limit=20, agent_name=session.agent_name
+        )
+        for candidate in candidates:
+            if candidate.id == session_id:
+                continue
+            if str(candidate.status or "") != "SessionStatus.COMPLETED":
+                if getattr(candidate.status, "value", None) != "completed":
+                    continue
+            events = await repo.get_event_tree(candidate.id)
+            if any(event.event_type == EventType.ERROR for event in events):
+                continue
+            reference_session = candidate
+            reference_events = events
+            break
+
+    if reference_session is None:
+        return {
+            "session_id": session_id,
+            "advisory": None,
+            "reason": (
+                "No successful reference run found for this agent "
+                "(need a completed, error-free session)."
+            ),
+        }
+
+    advisory = build_success_flow_advisory(
+        target_events,
+        reference_events,
+        reference_session_id=reference_session.id,
+    )
+    record_event("success_flow_viewed", session_id=session_id)
+    return {
+        "session_id": session_id,
+        "reference": {
+            "session_id": reference_session.id,
+            "agent_name": reference_session.agent_name,
+            "started_at": reference_session.started_at.isoformat()
+            if reference_session.started_at
+            else None,
+        },
+        "advisory": advisory,
+    }
+
+
 @router.get("/api/audit/portfolio", response_model=PortfolioAuditResponse)
 async def get_audit_portfolio(
     limit: int = Query(default=50, ge=1, le=200),
