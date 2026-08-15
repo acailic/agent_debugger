@@ -23,6 +23,11 @@ Each note uses the same structure:
 - [XAI for Coding Agent Failures: Transforming Raw Execution Traces into Actionable Insights](./xai-for-coding-agent-failures.md)
 - [REST: Receding Horizon Explorative Steiner Tree for Zero-Shot Object-Goal Navigation](./rest-receding-horizon-explorative-steiner-tree.md)
 - [FailureMem: A Failure-Aware Multimodal Framework for Autonomous Software Repair](./failuremem-failure-aware-autonomous-software-repair.md)
+- [From Agent Traces to Trust: Evidence Tracing and Execution Provenance in LLM Agents](./from-agent-traces-to-trust-provenance-survey.md)
+- [Evaluating Goal Drift in Language Model Agents](./evaluating-goal-drift-in-language-model-agents.md)
+- [Which Agent Causes Task Failures and When? (Who&When)](./who-and-when-automated-failure-attribution.md)
+- [Tracing Agentic Failure from the Flow of Success (OAT)](./tracing-agentic-failure-from-the-flow-of-success.md)
+- [Calibrated Trust in Dealing with LLM Hallucinations](./calibrated-trust-in-dealing-with-llm-hallucinations.md)
 
 ## How To Read These Notes
 
