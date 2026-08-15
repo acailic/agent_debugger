@@ -11,5 +11,11 @@ derivable from captured event fields, never from an opaque model call.
 from __future__ import annotations
 
 from .audit_engine import SessionAuditEngine, SessionAuditReport
+from .who_when import evaluate_records, load_who_when_records
 
-__all__ = ["SessionAuditEngine", "SessionAuditReport"]
+__all__ = [
+    "SessionAuditEngine",
+    "SessionAuditReport",
+    "evaluate_records",
+    "load_who_when_records",
+]

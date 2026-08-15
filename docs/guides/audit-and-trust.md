@@ -314,3 +314,34 @@ No schema migration was required — the event model already carried the audit f
 - Not a generic observability dashboard — the unit of analysis is one agent run, audited as evidence.
 - Not opaque "AI insights" — every status, signal, and score term is derivable from captured fields.
 - Not a replacement for replay or drift detection — it composes them. Replay shows *how* a run unfolded; audit shows *whether you should trust it*.
+
+---
+
+## External validation: the Who&When benchmark
+
+The engine's failure localization can be scored against the public
+[Who&When benchmark](https://github.com/mingyin1/Agents_Failure_Attribution)
+(184 annotated multi-agent failure logs; the paper's best LLM-judge method
+reaches **53.5% agent accuracy / 14.2% step accuracy**). The harness lives
+in `collector/audit/who_when.py` with a CLI wrapper:
+
+```bash
+# Offline pipeline smoke test (bundled synthetic records):
+python scripts/benchmark_who_when.py --self-test
+
+# Full run against the downloaded dataset:
+git clone https://github.com/mingyin1/Agents_Failure_Attribution /tmp/ww
+python scripts/benchmark_who_when.py --data /tmp/ww/Who*When --step-scope agent
+```
+
+The dataset is not vendored into this repo. Records are JSONL with a
+`history` of `{content, name, role}` messages plus `mistake_agent` /
+`mistake_step` annotations; messages containing traceback/error markers
+are converted to ERROR events so the engine's deterministic localization
+has failure signals to work with. `mistake_step` is interpreted as the
+1-based index among the mistake agent's own messages (`--step-scope
+global` switches to whole-history indexing).
+
+Because the harness scores our *deterministic* attribution, its output is
+an external accuracy number that is reproducible by anyone — the claim
+"no LLM judge in the attribution path" becomes measurable.
