@@ -79,6 +79,9 @@ Make the research-backed debugger viable outside a strong local demo.
 2. Cross-session replay clustering and retention tiers
 3. Finish cloud/auth wiring around the accepted ADRs; enforce tenant isolation
    end-to-end
+4. Typing-debt cleanup — drive the pyright baseline (see
+   `pyrightconfig.json`, ~280 errors as of 2026-08) to zero so the advisory
+   type-check step can gate again
 4. Wire redaction into every ingestion and persistence path
 
 ## Research Experiment Backlog
