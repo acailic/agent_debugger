@@ -49,7 +49,7 @@ jobs:
       - name: Type check with pyright
         run: |
           pip install pyright
-          pyright --ignoreexternal
+          pyright
 
       - name: Run tests with coverage
         run: |
