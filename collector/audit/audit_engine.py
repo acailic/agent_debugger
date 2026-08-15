@@ -27,6 +27,7 @@ Design rules (see AGENTS.md / project philosophy):
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -82,6 +83,24 @@ HIGH_CONFIDENCE_THRESHOLD = 0.7
 # declared. Two keeps the signal conservative (one off-topic decision is
 # noise; a sustained gap is drift).
 GOAL_DRIFT_MIN_STEPS = 2
+
+# Action-oriented labels for trust bands: the same score must read
+# differently for a low-stakes scratch task and a mutating production run,
+# so the verdict card names the recommended posture instead of a bare band.
+TRUST_BAND_LABELS = {
+    "high": "act",
+    "medium": "verify-first",
+    "low": "do-not-act",
+}
+
+# Tool-name tokens that mark a call as state-mutating for the stakes line.
+WRITE_TOOL_KEYWORDS = frozenset(
+    {
+        "write", "save", "delete", "update", "create", "send", "post",
+        "put", "patch", "remove", "deploy", "commit", "install",
+        "upload", "publish", "modify", "drop", "insert",
+    }
+)
 
 # Words too generic to count as an objective reference ("analyze the data"
 # must not match every decision that mentions "data" alone — overlap needs
@@ -225,6 +244,7 @@ class SessionAuditEngine:
             failures=failures,
             signals=signals,
             review_points=review_points,
+            events=events,
         )
 
         report = SessionAuditReport(
@@ -1250,6 +1270,7 @@ class SessionAuditEngine:
         failures: list[dict[str, Any]],
         signals: list[dict[str, Any]],
         review_points: list[dict[str, Any]],
+        events: list[TraceEvent] | None = None,
     ) -> dict[str, Any]:
         """Deterministic compact narrative an operator can read at a glance.
 
@@ -1284,6 +1305,8 @@ class SessionAuditEngine:
             verdict = "review"
         else:
             verdict = "pass"
+
+        stakes = self._build_stakes(events or [])
 
         obj_text = objective or "Untitled run"
         tldr = (
@@ -1356,11 +1379,41 @@ class SessionAuditEngine:
             "tldr": tldr,
             "trust_line": trust_line,
             "markdown": "\n".join(lines),
+            "trust_band_label": TRUST_BAND_LABELS.get(band, "verify-first"),
+            "stakes": stakes,
+            "stakes_line": _stakes_line(stakes),
         }
 
     # ------------------------------------------------------------------
     # Objective / outcome inference
     # ------------------------------------------------------------------
+
+    def _build_stakes(self, events: list[TraceEvent]) -> dict[str, Any]:
+        """Deterministically summarize what the session could have affected.
+
+        Operators calibrate trust by decision stakes: a read-only scratch
+        run and a run that mutated state deserve different levels of
+        scrutiny at the same trust score. Classification is a conservative
+        keyword match over tool-call names — anything not clearly mutating
+        counts as read-like, so ``mutating`` understates rather than
+        overstates the stakes.
+        """
+        tool_calls = [e for e in events if e.event_type == EventType.TOOL_CALL]
+        write_like = 0
+        for call in tool_calls:
+            tool_name = str(
+                event_value(call, "tool_name", "") or call.name or ""
+            ).lower()
+            tokens = {t for t in re.split(r"[^a-z0-9]+", tool_name) if t}
+            if tokens & WRITE_TOOL_KEYWORDS:
+                write_like += 1
+
+        return {
+            "tool_calls": len(tool_calls),
+            "write_like_calls": write_like,
+            "read_like_calls": len(tool_calls) - write_like,
+            "mutating": write_like > 0,
+        }
 
     def _build_goal_drift(
         self, events: list[TraceEvent], objective: str | None
@@ -1529,6 +1582,20 @@ class SessionAuditEngine:
 # ---------------------------------------------------------------------------
 
 _SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
+
+
+def _stakes_line(stakes: dict[str, Any]) -> str:
+    """Human-readable stakes summary for the verdict card."""
+    tool_calls = int(stakes.get("tool_calls", 0) or 0)
+    write_like = int(stakes.get("write_like_calls", 0) or 0)
+    if tool_calls == 0:
+        return "No tool calls — read-only reasoning run."
+    if write_like == 0:
+        return f"{tool_calls} tool call(s), all read-like — no state mutated."
+    return (
+        f"{tool_calls} tool call(s), {write_like} mutating — "
+        "this run changed state outside itself."
+    )
 
 
 def _significant_tokens(text: str) -> set[str]:

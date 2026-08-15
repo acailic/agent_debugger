@@ -85,8 +85,19 @@ export function AuditPanel({
             >
               {report.summary.verdict.toUpperCase()}
             </span>
+            {report.summary.trust_band_label && (
+              <span
+                className={`audit-band-label audit-band-label--${report.summary.trust_band_label}`}
+                title="Recommended posture for this trust band"
+              >
+                {report.summary.trust_band_label}
+              </span>
+            )}
             <p className="audit-summary-tldr">{report.summary.tldr}</p>
           </div>
+          {report.summary.stakes_line && (
+            <p className="audit-stakes-line">{report.summary.stakes_line}</p>
+          )}
           <pre className="audit-summary-markdown">{report.summary.markdown}</pre>
         </div>
       )}

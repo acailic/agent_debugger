@@ -378,6 +378,10 @@ class AuditSummarySchema(BaseModel):
     tldr: str
     trust_line: str
     markdown: str
+    # Action-oriented trust band label: act | verify-first | do-not-act
+    trust_band_label: str = "verify-first"
+    stakes: dict[str, Any] = Field(default_factory=dict)
+    stakes_line: str = ""
 
 
 class SessionAuditReportSchema(BaseModel):

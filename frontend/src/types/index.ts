@@ -1601,6 +1601,13 @@ export interface SessionAuditReport {
   goal_drift?: GoalDrift
 }
 
+export interface AuditStakes {
+  tool_calls: number
+  write_like_calls: number
+  read_like_calls: number
+  mutating: boolean
+}
+
 export interface AuditSummary {
   /** pass | review | fail — deterministic verdict derived from trust band + failures */
   verdict: 'pass' | 'review' | 'fail'
@@ -1610,6 +1617,10 @@ export interface AuditSummary {
   trust_line: string
   /** Compact multi-section markdown narrative (postmortem assist) */
   markdown: string
+  /** act | verify-first | do-not-act — recommended posture for the trust band */
+  trust_band_label?: string
+  stakes?: AuditStakes
+  stakes_line?: string
 }
 
 export interface SessionAuditResponse {

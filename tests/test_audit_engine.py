@@ -1091,7 +1091,15 @@ async def test_portfolio_route_returns_aggregate_summary(shared_app):
 def test_summary_always_present_and_well_formed():
     report = SessionAuditEngine().audit([])
     summary = report["summary"]
-    assert set(summary) == {"verdict", "tldr", "trust_line", "markdown"}
+    assert set(summary) == {
+        "verdict",
+        "tldr",
+        "trust_line",
+        "markdown",
+        "trust_band_label",
+        "stakes",
+        "stakes_line",
+    }
     assert summary["verdict"] in {"pass", "review", "fail"}
     assert summary["tldr"]
     assert summary["trust_line"]
@@ -1277,3 +1285,62 @@ def test_goal_drift_empty_without_decisions():
     assert drift["decisions"] == 0
     assert drift["adherence_series"] == []
     assert drift["drifted"] is False
+
+
+# ---------------------------------------------------------------------------
+# Verdict card: trust band labels + stakes (calibrated-trust experiment)
+# ---------------------------------------------------------------------------
+
+
+def test_summary_names_action_band_for_each_trust_band():
+    from collector.audit.audit_engine import TRUST_BAND_LABELS
+
+    assert TRUST_BAND_LABELS == {
+        "high": "act",
+        "medium": "verify-first",
+        "low": "do-not-act",
+    }
+    # An evidence-free confident decision lands in the low band -> the most
+    # conservative posture is named on the card.
+    report = SessionAuditEngine().audit(
+        [_decision("d1", confidence=0.9, evidence_event_ids=[])]
+    )
+    assert report["summary"]["trust_band_label"] == "do-not-act"
+
+
+def test_stakes_counts_mutating_tool_calls():
+    events = [
+        _event("g", EventType.AGENT_START, content="Prepare the report"),
+        _event("t1", EventType.TOOL_CALL, tool_name="read_file"),
+        _event("t2", EventType.TOOL_CALL, tool_name="save_document"),
+        _event("t3", EventType.TOOL_CALL, tool_name="deploy_service"),
+    ]
+    report = SessionAuditEngine().audit(events)
+    stakes = report["summary"]["stakes"]
+
+    assert stakes["tool_calls"] == 3
+    assert stakes["write_like_calls"] == 2
+    assert stakes["read_like_calls"] == 1
+    assert stakes["mutating"] is True
+    assert "mutating" in report["summary"]["stakes_line"]
+
+
+def test_stakes_read_only_when_no_mutating_calls():
+    events = [
+        _event("g", EventType.AGENT_START, content="Look things up"),
+        _event("t1", EventType.TOOL_CALL, tool_name="search_index"),
+    ]
+    report = SessionAuditEngine().audit(events)
+    stakes = report["summary"]["stakes"]
+
+    assert stakes["mutating"] is False
+    assert stakes["write_like_calls"] == 0
+    assert "read-like" in report["summary"]["stakes_line"]
+
+
+def test_stakes_empty_for_reasoning_only_run():
+    report = SessionAuditEngine().audit(
+        [_event("g", EventType.AGENT_START, content="Think quietly")]
+    )
+    assert report["summary"]["stakes"]["tool_calls"] == 0
+    assert "read-only" in report["summary"]["stakes_line"].lower()
