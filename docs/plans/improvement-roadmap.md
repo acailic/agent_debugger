@@ -1,3 +1,7 @@
+> **SUPERSEDED (2026-08-15):** This document is historical. For current
+> priorities, milestones, and the experiment backlog, see
+> [`docs/ROADMAP.md`](../ROADMAP.md). Do not plan new work from this file.
+
 # Improvement Roadmap
 
 This page is about the shortest path from working debugger core to research-grade product.

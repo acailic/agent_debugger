@@ -4,6 +4,7 @@ This folder explains what the project is, how to integrate it, and how it works.
 
 ## Start Here
 
+- [Roadmap](./ROADMAP.md): the living roadmap — milestones, experiment backlog, recently shipped (supersedes older plans)
 - [Intro](./guides/intro.md): the plain-language explanation of the product
 - [Integration](./guides/integration.md): how to instrument your code locally
 - [Progress](./guides/progress.md): current implementation status
@@ -15,8 +16,8 @@ This folder explains what the project is, how to integrate it, and how it works.
 
 - [Lessons Learned](./guides/lessons-learned.md): what building the debugger so far has taught
 - [Console Workflows](./guides/console-workflows.md): the debugger workflows implemented in the UI
-- [Improvement Roadmap](./plans/improvement-roadmap.md): useful next improvements
-- [Research Implementation Plan](./research/research-implementation-plan.md): how paper-inspired features should be built
+- [Improvement Roadmap](./plans/improvement-roadmap.md): (superseded) useful next improvements
+- [Research Implementation Plan](./research/research-implementation-plan.md): (superseded for priorities; theme reference) how paper-inspired features should be built
 - [Research Inspiration](./research/research-inspiration.md): papers influencing the design direction
 - [Paper Notes](./papers/README.md): notes on specific papers
 - [ADRs](./decisions/README.md): architecture decision records

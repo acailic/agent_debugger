@@ -1,3 +1,7 @@
+> **SUPERSEDED (2026-08-15):** This document is historical. For current
+> priorities, milestones, and the experiment backlog, see
+> [`docs/ROADMAP.md`](../ROADMAP.md). Do not plan new work from this file.
+
 # Top 5 No-Brainer Features: Complete Implementation Guide
 
 **Date**: 2026-03-24

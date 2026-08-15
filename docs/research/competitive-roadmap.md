@@ -1,3 +1,7 @@
+> **SUPERSEDED (2026-08-15):** This document is historical. For current
+> priorities, milestones, and the experiment backlog, see
+> [`docs/ROADMAP.md`](../ROADMAP.md). Do not plan new work from this file.
+
 # Competitive Roadmap: Peaky Peek, Hindsight, and Market Positioning
 
 > Research conducted 2026-04-03. Based on analysis of [Hindsight](https://github.com/vectorize-io/hindsight), current Peaky Peek implementation status, and the broader agent tooling market.
