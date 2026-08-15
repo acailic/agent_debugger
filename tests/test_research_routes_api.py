@@ -462,7 +462,7 @@ async def test_get_risk_assessment_missing_session(shared_app):
 
 
 def test_calculate_frame_depth_orphan_parent():
-    from api.research_routes import _calculate_frame_depth
+    from api.services.research import calculate_frame_depth
 
     event = TraceEvent(
         id="orphan",
@@ -473,27 +473,27 @@ def test_calculate_frame_depth_orphan_parent():
         name="orphan",
     )
     # Parent not in event list -> depth stops at 0
-    assert _calculate_frame_depth(event, [event]) == 0
+    assert calculate_frame_depth(event, [event]) == 0
 
 
 def test_build_frame_tree_empty_events():
-    from api.research_routes import _build_frame_tree
+    from api.services.research import build_frame_tree
 
-    assert _build_frame_tree([]) == {}
+    assert build_frame_tree([]) == {}
 
 
 def test_generate_risk_recommendations_levels():
-    from api.research_routes import _generate_risk_recommendations
+    from api.services.research import generate_risk_recommendations
 
-    high = _generate_risk_recommendations("high", 0.05)
+    high = generate_risk_recommendations("high", 0.05)
     assert len(high) == 3
 
-    medium = _generate_risk_recommendations("medium", 0.05)
+    medium = generate_risk_recommendations("medium", 0.05)
     assert len(medium) == 2
 
-    low = _generate_risk_recommendations("low", 0.05)
+    low = generate_risk_recommendations("low", 0.05)
     assert len(low) == 2
 
     # Ratio above 0.15 appends one extra recommendation
-    escalated = _generate_risk_recommendations("low", 0.2)
+    escalated = generate_risk_recommendations("low", 0.2)
     assert len(escalated) == 3

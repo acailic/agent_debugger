@@ -659,8 +659,8 @@ async def test_event_generator_emits_event_and_keepalive_and_unsubscribes():
         return outcome
 
     with (
-        patch("api.services.get_event_buffer", return_value=fake_buffer),
-        patch("api.services.asyncio.wait_for", side_effect=fake_wait_for),
+        patch("api.services.ingestion.get_event_buffer", return_value=fake_buffer),
+        patch("api.services.ingestion.asyncio.wait_for", side_effect=fake_wait_for),
     ):
         generator = api_services.event_generator("stream-test")
         first = await anext(generator)
