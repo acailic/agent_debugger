@@ -394,6 +394,7 @@ class SessionAuditReportSchema(BaseModel):
     trust: TrustScoreSchema
     review_points: list[AuditReviewPointSchema]
     summary: AuditSummarySchema
+    goal_drift: dict[str, Any] = Field(default_factory=dict)
 
 
 class SessionAuditResponse(BaseModel):

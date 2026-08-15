@@ -78,6 +78,23 @@ UNSUPPORTED_CONFIDENCE_THRESHOLD = 0.5
 # Confidence above which an evidence-free decision is a notable risk signal.
 HIGH_CONFIDENCE_THRESHOLD = 0.7
 
+# Trailing decisions without an objective reference before goal drift is
+# declared. Two keeps the signal conservative (one off-topic decision is
+# noise; a sustained gap is drift).
+GOAL_DRIFT_MIN_STEPS = 2
+
+# Words too generic to count as an objective reference ("analyze the data"
+# must not match every decision that mentions "data" alone — overlap needs
+# a distinctive token, so generic words are dropped from the token set).
+_DRIFT_STOPWORDS = frozenset(
+    {
+        "that", "this", "with", "from", "into", "then", "when", "what",
+        "which", "their", "there", "these", "those", "will", "should",
+        "would", "could", "after", "before", "while", "about", "user",
+        "agent", "task", "using", "based",
+    }
+)
+
 
 @dataclass
 class SessionAuditReport:
@@ -94,6 +111,7 @@ class SessionAuditReport:
     trust: dict[str, Any]
     review_points: list[dict[str, Any]] = field(default_factory=list)
     summary: dict[str, Any] = field(default_factory=dict)
+    goal_drift: dict[str, Any] = field(default_factory=dict)
 
 
 class SessionAuditEngine:
@@ -175,6 +193,17 @@ class SessionAuditEngine:
         )
 
         objective = self._infer_objective(events, session)
+        goal_drift = self._build_goal_drift(events, objective)
+        if goal_drift.get("drifted"):
+            signals.append(
+                _signal(
+                    goal_drift.get("first_drift_event_id"),
+                    "goal_drift",
+                    "medium",
+                    "Goal drift: objective not referenced in the last "
+                    f"{goal_drift['decisions_after_last_reference']} decisions",
+                )
+            )
         final_outcome = self._infer_final_outcome(events, session)
         questions = self._build_questions(
             events=events,
@@ -210,6 +239,7 @@ class SessionAuditEngine:
             trust=trust,
             review_points=review_points,
             summary=summary,
+            goal_drift=goal_drift,
         )
         return _report_to_dict(report)
 
@@ -1332,6 +1362,67 @@ class SessionAuditEngine:
     # Objective / outcome inference
     # ------------------------------------------------------------------
 
+    def _build_goal_drift(
+        self, events: list[TraceEvent], objective: str | None
+    ) -> dict[str, Any]:
+        """Measure per-decision adherence to the session objective.
+
+        Deterministic goal-drift score: walk the captured decisions in order
+        and mark each one as referencing the objective (significant-token
+        overlap between the objective and the decision's name/reasoning).
+        Drift is declared when the objective was established by early
+        decisions but the trailing decisions stopped referencing it — the
+        run's reasoning decoupled from its goal. When no decision ever
+        references the objective, adherence was never established and no
+        drift is claimed (honest "unknown", not a false alarm).
+        """
+        decisions = [event for event in events if event.event_type == EventType.DECISION]
+        report: dict[str, Any] = {
+            "objective": objective,
+            "decisions": len(decisions),
+            "objective_referenced": False,
+            "adherence_series": [],
+            "decisions_after_last_reference": None,
+            "drifted": False,
+            "first_drift_event_id": None,
+        }
+        if not decisions:
+            return report
+
+        objective_tokens = _significant_tokens(objective or "")
+        if not objective_tokens:
+            return report
+
+        series: list[dict[str, Any]] = []
+        last_reference_idx: int | None = None
+        for idx, decision in enumerate(decisions):
+            text = f"{decision.name} {event_value(decision, 'reasoning', '') or ''}"
+            adherent = bool(objective_tokens & _significant_tokens(text))
+            if adherent:
+                last_reference_idx = idx
+            series.append(
+                {
+                    "event_id": decision.id,
+                    "name": decision.name,
+                    "adherent": adherent,
+                    "steps_since_reference": (
+                        idx - last_reference_idx if last_reference_idx is not None else None
+                    ),
+                }
+            )
+
+        report["adherence_series"] = series
+        if last_reference_idx is None:
+            return report
+
+        decisions_after = len(decisions) - 1 - last_reference_idx
+        report["objective_referenced"] = True
+        report["decisions_after_last_reference"] = decisions_after
+        if decisions_after >= GOAL_DRIFT_MIN_STEPS:
+            report["drifted"] = True
+            report["first_drift_event_id"] = decisions[last_reference_idx + 1].id
+        return report
+
     def _infer_objective(self, events: list[TraceEvent], session: dict[str, Any]) -> str | None:
         config_goal = session.get("goal") if isinstance(session.get("goal"), str) else None
         if config_goal:
@@ -1438,6 +1529,16 @@ class SessionAuditEngine:
 # ---------------------------------------------------------------------------
 
 _SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
+
+
+def _significant_tokens(text: str) -> set[str]:
+    """Lowercased distinctive words used for objective-reference matching."""
+    words = text.lower().split()
+    return {
+        word.strip(".,:;!?()[]{}\"'")
+        for word in words
+        if len(word) >= 4 and word.strip(".,:;!?()[]{}\"'") not in _DRIFT_STOPWORDS
+    }
 
 
 def _signal(event_id: str, signal_type: str, severity: str, message: str) -> dict[str, Any]:
@@ -1694,4 +1795,5 @@ def _report_to_dict(report: SessionAuditReport) -> dict[str, Any]:
         "trust": report.trust,
         "review_points": report.review_points,
         "summary": report.summary,
+        "goal_drift": report.goal_drift,
     }

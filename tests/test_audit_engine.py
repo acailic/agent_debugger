@@ -1175,3 +1175,105 @@ def test_summary_is_deterministic():
 
 
 
+
+
+# ---------------------------------------------------------------------------
+# Goal drift (deterministic per-decision objective adherence)
+# ---------------------------------------------------------------------------
+
+
+def _drift_session_events(reasonings: list[str]) -> list[TraceEvent]:
+    """AGENT_START carries the objective; each reasoning becomes a decision."""
+    events = [
+        _event(
+            "goal-source",
+            EventType.AGENT_START,
+            content="Summarize the quarterly revenue report",
+        )
+    ]
+    for idx, reasoning in enumerate(reasonings):
+        events.append(_decision(f"d-{idx}", reasoning=reasoning))
+    return events
+
+
+def test_goal_drift_detected_when_trailing_decisions_drop_objective():
+    events = _drift_session_events(
+        [
+            "Need the quarterly revenue figures first",
+            "Compose the summary from quarterly revenue",
+            "Rewrite the opening poem for style",
+            "Polish the poem's second stanza",
+        ]
+    )
+    report = SessionAuditEngine().audit(events)
+    drift = report["goal_drift"]
+
+    assert drift["objective"] == "Summarize the quarterly revenue report"
+    assert drift["decisions"] == 4
+    assert drift["objective_referenced"] is True
+    assert drift["decisions_after_last_reference"] == 2
+    assert drift["drifted"] is True
+    assert drift["first_drift_event_id"] == "d-2"
+    assert [p["adherent"] for p in drift["adherence_series"]] == [
+        True,
+        True,
+        False,
+        False,
+    ]
+    assert any(s["type"] == "goal_drift" for s in report["signals"])
+
+
+def test_goal_drift_not_flagged_for_single_off_topic_decision():
+    events = _drift_session_events(
+        [
+            "Collect quarterly revenue data",
+            "Fix a typo noticed along the way",
+            "Continue with the quarterly summary",
+        ]
+    )
+    report = SessionAuditEngine().audit(events)
+    drift = report["goal_drift"]
+
+    # One unreferenced step is noise, not drift (min trailing gap is 2).
+    assert drift["drifted"] is False
+    assert drift["decisions_after_last_reference"] == 0
+    assert not any(s["type"] == "goal_drift" for s in report["signals"])
+
+
+def test_goal_drift_not_detected_when_objective_stays_referenced():
+    events = _drift_session_events(
+        [
+            "Load the quarterly revenue sheets",
+            "Aggregate quarterly revenue by region",
+            "Write the summary of quarterly revenue",
+        ]
+    )
+    report = SessionAuditEngine().audit(events)
+    drift = report["goal_drift"]
+
+    assert drift["objective_referenced"] is True
+    assert drift["drifted"] is False
+    assert drift["first_drift_event_id"] is None
+    assert not any(s["type"] == "goal_drift" for s in report["signals"])
+
+
+def test_goal_drift_reports_unknown_when_never_referenced():
+    events = _drift_session_events(["Order more coffee", "Nap", "Stare out the window"])
+    report = SessionAuditEngine().audit(events)
+    drift = report["goal_drift"]
+
+    # Adherence was never established — honest unknown, not a false alarm.
+    assert drift["objective_referenced"] is False
+    assert drift["drifted"] is False
+    assert drift["decisions_after_last_reference"] is None
+    assert not any(s["type"] == "goal_drift" for s in report["signals"])
+
+
+def test_goal_drift_empty_without_decisions():
+    events = [_event("goal-only", EventType.AGENT_START, content="Do the thing")]
+    report = SessionAuditEngine().audit(events)
+    drift = report["goal_drift"]
+
+    assert drift["decisions"] == 0
+    assert drift["adherence_series"] == []
+    assert drift["drifted"] is False

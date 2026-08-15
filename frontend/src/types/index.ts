@@ -1569,6 +1569,23 @@ export interface AuditQuestions {
   where_it_failed: AuditWhereItFailed
 }
 
+export interface GoalDriftAdherencePoint {
+  event_id: string
+  name: string
+  adherent: boolean
+  steps_since_reference: number | null
+}
+
+export interface GoalDrift {
+  objective: string | null
+  decisions: number
+  objective_referenced: boolean
+  adherence_series: GoalDriftAdherencePoint[]
+  decisions_after_last_reference: number | null
+  drifted: boolean
+  first_drift_event_id: string | null
+}
+
 export interface SessionAuditReport {
   session_id: string
   objective: string | null
@@ -1581,6 +1598,7 @@ export interface SessionAuditReport {
   trust: TrustScore
   review_points: AuditReviewPoint[]
   summary: AuditSummary
+  goal_drift?: GoalDrift
 }
 
 export interface AuditSummary {

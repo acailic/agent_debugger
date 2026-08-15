@@ -5,6 +5,7 @@ import type {
   AuditReviewPoint,
   AuditSignal,
   AuditVerificationStatus,
+  GoalDrift,
   SessionAuditReport,
 } from '../types'
 import './AuditPanel.css'
@@ -232,7 +233,53 @@ export function AuditPanel({
           </ul>
         </div>
       )}
+
+      {report.goal_drift && report.goal_drift.decisions > 0 && (
+        <div className="audit-block">
+          <p className="audit-block-label">Goal drift</p>
+          <GoalDriftLine drift={report.goal_drift} onSelectEvent={onSelectEvent} />
+        </div>
+      )}
     </section>
+  )
+}
+
+function GoalDriftLine({
+  drift,
+  onSelectEvent,
+}: {
+  drift: GoalDrift
+  onSelectEvent: (eventId: string) => void
+}) {
+  if (!drift.objective_referenced) {
+    return (
+      <p className="audit-drift-line">
+        Objective never referenced by any of the {drift.decisions} captured decisions —
+        adherence could not be established.
+      </p>
+    )
+  }
+  if (!drift.drifted) {
+    return (
+      <p className="audit-drift-line">
+        Objective stayed referenced across all {drift.decisions} decisions — no drift detected.
+      </p>
+    )
+  }
+  return (
+    <p className="audit-drift-line audit-drift-line--drifted">
+      Drift: the last {drift.decisions_after_last_reference} decisions stopped referencing the
+      objective.{' '}
+      {drift.first_drift_event_id && (
+        <button
+          type="button"
+          className="audit-link"
+          onClick={() => onSelectEvent(drift.first_drift_event_id as string)}
+        >
+          First drifted decision
+        </button>
+      )}
+    </p>
   )
 }
 
