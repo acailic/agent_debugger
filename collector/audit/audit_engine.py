@@ -37,7 +37,8 @@ from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
 
 from ..causal_analysis import CausalAnalyzer
 from ..failure_diagnostics import FailureDiagnostics
-from ..intelligence.helpers import event_value
+from ..intelligence.helpers import event_label, event_value
+from .failure_narrative import build_failure_narrative
 
 # ---------------------------------------------------------------------------
 # Verification taxonomy
@@ -131,6 +132,7 @@ class SessionAuditReport:
     review_points: list[dict[str, Any]] = field(default_factory=list)
     summary: dict[str, Any] = field(default_factory=dict)
     goal_drift: dict[str, Any] = field(default_factory=dict)
+    failure_narrative: dict[str, Any] = field(default_factory=dict)
 
 
 class SessionAuditEngine:
@@ -261,7 +263,11 @@ class SessionAuditEngine:
             summary=summary,
             goal_drift=goal_drift,
         )
-        return _report_to_dict(report)
+        result = _report_to_dict(report)
+        # First-class explanation surface (M2): symptom / mechanism / evidence
+        # / next-inspection bundle, derived from the completed report.
+        result["failure_narrative"] = build_failure_narrative(events, result)
+        return result
 
     # ------------------------------------------------------------------
     # Per-decision justification (why / evidence / outcome / where-failed)
@@ -1761,17 +1767,6 @@ def _source_class_for(event: TraceEvent) -> str:
     return "other"
 
 
-def _event_label(event: TraceEvent) -> str:
-    label = (
-        event_value(event, "tool_name", None)
-        or event_value(event, "chosen_action", None)
-        or event_value(event, "goal", None)
-        or event.name
-        or str(event.event_type).replace("_", " ")
-    )
-    return str(label)[:96]
-
-
 def _evidence_node(
     event: TraceEvent,
     *,
@@ -1789,7 +1784,7 @@ def _evidence_node(
         "event_id": event.id,
         "event_type": str(event.event_type),
         "role": role,
-        "label": _event_label(event),
+        "label": event_label(event),
         "verification_status": verification_status,
         "confidence": confidence,
         "is_failure": event.id in failure_event_ids,
@@ -1863,4 +1858,5 @@ def _report_to_dict(report: SessionAuditReport) -> dict[str, Any]:
         "review_points": report.review_points,
         "summary": report.summary,
         "goal_drift": report.goal_drift,
+        "failure_narrative": report.failure_narrative,
     }

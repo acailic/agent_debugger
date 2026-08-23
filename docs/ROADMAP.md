@@ -10,7 +10,7 @@ work into [Recently Shipped](#recently-shipped), refresh milestones, and re-rank
 the experiment backlog. Do not create new standalone plan documents; extend this
 one.
 
-Last updated: 2026-08-15
+Last updated: 2026-08-24
 
 ---
 
@@ -66,6 +66,8 @@ Reduce the distance between "report exists" and "operator decides".
    invalidate a suspect claim (from the provenance survey note)
 2. Explanation maturity — failure narratives (symptom / mechanism / evidence /
    next inspection point) as a first-class surface
+   *Delivered: 2026-08-24 (`collector/audit/failure_narrative.py`, wired into
+   the audit report + AuditPanel narrative block).*
 3. Replay restore semantics beyond checkpoint slicing
 4. Seeded benchmark corpora + UI smoke workflows around them
 
@@ -97,7 +99,7 @@ Rank by how often real operators ask the question it answers.
 | OAT / Flow of Success | First-divergence heuristic vs audit engine's first bad decision | **shipped** (M1.2) |
 | Calibrated Trust | Stakes line + trust bands in verdict card | **shipped** (M1.4) |
 | AgentTrace | Causal graph completeness check against root-cause queries | not started |
-| XAI for Coding Agent Failures | Structured explanation bundle for one failed session | partially shipped (session summary) |
+| XAI for Coding Agent Failures | Structured explanation bundle for one failed session | **shipped** (M2.2) |
 | FailureMem | Failure-memory reuse across similar sessions | not started |
 | MSSR | Adaptive replay ranking by replay value | not started |
 | Act-or-Refuse | Refusal-behavior surfaces in the audit report | not started |
@@ -118,6 +120,10 @@ Carried forward from the research implementation plan:
 
 ## Recently Shipped
 
+- 2026-08-24 — failure narratives (M2.2): symptom / mechanism / evidence /
+  next-inspection bundle in every audit report, normalized failure-mode
+  taxonomy, honest weakness note + capped confidence when no cause is
+  localized; first AuditPanel narrative surface
 - 2026-08-15 — goal-drift score, success-flow advisory, Who&When harness,
   verdict stakes + trust bands (M1), services decomposition (M3.1), API route
   tests for research/swimlane endpoints, 5 new research paper notes

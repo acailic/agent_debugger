@@ -5,6 +5,7 @@ import type {
   AuditReviewPoint,
   AuditSignal,
   AuditVerificationStatus,
+  FailureNarrative,
   GoalDrift,
   SessionAuditReport,
 } from '../types'
@@ -100,6 +101,13 @@ export function AuditPanel({
           )}
           <pre className="audit-summary-markdown">{report.summary.markdown}</pre>
         </div>
+      )}
+
+      {report.failure_narrative?.available && (
+        <FailureNarrativeBlock
+          narrative={report.failure_narrative}
+          onSelectEvent={onSelectEvent}
+        />
       )}
 
       <div className="audit-trust-header">
@@ -252,6 +260,110 @@ export function AuditPanel({
         </div>
       )}
     </section>
+  )
+}
+
+function FailureNarrativeBlock({
+  narrative,
+  onSelectEvent,
+}: {
+  narrative: FailureNarrative
+  onSelectEvent: (eventId: string) => void
+}) {
+  return (
+    <div className="audit-narrative">
+      <div className="audit-narrative-head">
+        <p className="audit-block-label">Failure narrative</p>
+        <span className="audit-narrative-confidence" title="Narrative confidence — capped when no cause was localized">
+          {Math.round(narrative.confidence * 100)}%
+        </span>
+      </div>
+      <p className="audit-narrative-headline">{narrative.headline}</p>
+
+      {narrative.symptom.text && (
+        <p className="audit-narrative-line">
+          <span className="audit-inline-label">Symptom:</span> {narrative.symptom.text}
+        </p>
+      )}
+
+      {narrative.mechanism.text && (
+        <p className="audit-narrative-line">
+          <span className="audit-inline-label">Mechanism:</span> {narrative.mechanism.text}
+        </p>
+      )}
+
+      {narrative.mechanism.cause_chain.length > 0 && (
+        <div className="audit-narrative-chain">
+          <span className="audit-inline-label">Cause chain:</span>
+          {narrative.mechanism.cause_chain.map((item, idx) => (
+            <span key={item.event_id} className="audit-narrative-chain-step">
+              {idx > 0 && <span className="audit-narrative-chain-arrow">→</span>}
+              <button
+                type="button"
+                className={`audit-tag audit-tag--link audit-narrative-chain-node--${item.role}`}
+                title={`${item.event_type} — ${item.label}`}
+                onClick={() => onSelectEvent(item.event_id)}
+              >
+                {item.label}
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {narrative.mechanism.contributing_factors.length > 0 && (
+        <div className="audit-narrative-factors">
+          <span className="audit-inline-label">Contributing:</span>
+          {narrative.mechanism.contributing_factors.map((factor) => (
+            <button
+              key={factor.type}
+              type="button"
+              className="audit-tag audit-tag--link"
+              title={factor.text}
+              onClick={() => factor.event_id && onSelectEvent(factor.event_id)}
+            >
+              {factor.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {narrative.evidence.length > 0 && (
+        <div className="audit-narrative-evidence">
+          <span className="audit-inline-label">Evidence:</span>
+          {narrative.evidence.map((entry) => (
+            <button
+              key={entry.event_id}
+              type="button"
+              className="audit-tag audit-tag--link"
+              title={entry.why}
+              onClick={() => onSelectEvent(entry.event_id)}
+            >
+              {entry.event_id.slice(0, 8)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {narrative.next_inspection.event_id && (
+        <div className="audit-narrative-next">
+          <span className="audit-inline-label">Next inspection:</span>
+          <span className="audit-narrative-next-why">{narrative.next_inspection.why}</span>
+          <button
+            type="button"
+            className="audit-link"
+            onClick={() => onSelectEvent(narrative.next_inspection.event_id as string)}
+          >
+            jump
+          </button>
+          <p className="audit-narrative-next-action">{narrative.next_inspection.suggested_action}</p>
+        </div>
+      )}
+
+      {narrative.weakness && (
+        <p className="audit-narrative-weakness">{narrative.weakness}</p>
+      )}
+    </div>
   )
 }
 

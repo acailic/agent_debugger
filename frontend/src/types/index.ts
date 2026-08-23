@@ -1586,6 +1586,62 @@ export interface GoalDrift {
   first_drift_event_id: string | null
 }
 
+export interface FailureNarrativeSymptom {
+  text: string
+  failure_event_id: string
+  mode: string
+  /** Normalized mechanism category from the failure-mode taxonomy */
+  mechanism_category: string
+}
+
+export interface FailureNarrativeChainItem {
+  event_id: string
+  event_type: string
+  label: string
+  role: string
+}
+
+export interface FailureNarrativeFactor {
+  type: string
+  label: string
+  text: string
+  event_id: string | null
+}
+
+export interface FailureNarrativeMechanism {
+  text: string
+  cause_event_id: string | null
+  localized: boolean
+  cause_chain: FailureNarrativeChainItem[]
+  first_bad_decision: string | null
+  contributing_factors: FailureNarrativeFactor[]
+}
+
+export interface FailureNarrativeEvidence {
+  event_id: string
+  event_type: string
+  label: string
+  why: string
+}
+
+export interface FailureNarrativeNextInspection {
+  event_id: string | null
+  why: string
+  suggested_action: string
+}
+
+export interface FailureNarrative {
+  available: boolean
+  headline: string
+  symptom: FailureNarrativeSymptom
+  mechanism: FailureNarrativeMechanism
+  evidence: FailureNarrativeEvidence[]
+  next_inspection: FailureNarrativeNextInspection
+  confidence: number
+  weakness: string | null
+  narrative: string
+}
+
 export interface SessionAuditReport {
   session_id: string
   objective: string | null
@@ -1599,6 +1655,7 @@ export interface SessionAuditReport {
   review_points: AuditReviewPoint[]
   summary: AuditSummary
   goal_drift?: GoalDrift
+  failure_narrative?: FailureNarrative
 }
 
 export interface AuditStakes {

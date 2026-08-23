@@ -37,3 +37,15 @@ def mean(values: list[float]) -> float:
     if not values:
         return 0.0
     return sum(values) / len(values)
+
+
+def event_label(event: TraceEvent) -> str:
+    """Short human-facing label for an event (tool name, action, or goal)."""
+    label = (
+        event_value(event, "tool_name", None)
+        or event_value(event, "chosen_action", None)
+        or event_value(event, "goal", None)
+        or event.name
+        or str(event.event_type).replace("_", " ")
+    )
+    return str(label)[:96]

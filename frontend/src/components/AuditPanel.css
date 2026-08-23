@@ -599,3 +599,95 @@
   font-size: 12px;
   color: var(--text-muted, #8b949e);
 }
+
+/* Failure narrative — XAI explanation bundle (symptom / mechanism / evidence / next step) */
+.audit-narrative {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  background: var(--surface-raised, rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(218, 54, 51, 0.25);
+}
+
+.audit-narrative-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.audit-narrative-confidence {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(187, 128, 9, 0.18);
+  color: #bb8009;
+}
+
+.audit-narrative-headline {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.audit-narrative-line {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.audit-narrative-chain,
+.audit-narrative-factors,
+.audit-narrative-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.audit-narrative-chain-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.audit-narrative-chain-arrow {
+  color: var(--text-muted, #8b949e);
+}
+
+.audit-narrative-chain-node--failure {
+  border-color: rgba(218, 54, 51, 0.5);
+  color: #f85149;
+}
+
+.audit-narrative-next {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  background: rgba(63, 185, 80, 0.07);
+  border: 1px solid rgba(63, 185, 80, 0.2);
+  font-size: 0.82rem;
+}
+
+.audit-narrative-next-why {
+  flex: 1 1 auto;
+}
+
+.audit-narrative-next-action {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted, #8b949e);
+}
+
+.audit-narrative-weakness {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #dba01d;
+}

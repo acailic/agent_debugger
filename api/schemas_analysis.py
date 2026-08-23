@@ -384,6 +384,26 @@ class AuditSummarySchema(BaseModel):
     stakes_line: str = ""
 
 
+class FailureNarrativeSchema(BaseModel):
+    """Structured failure narrative (symptom / mechanism / evidence / next step).
+
+    The XAI explanation bundle: compresses the localized failure into a
+    human-readable story while keeping anchored links back to the underlying
+    events and an explicit ``weakness`` note when localization is weak.
+    Deterministic template output — no LLM.
+    """
+
+    available: bool = False
+    headline: str = ""
+    symptom: dict[str, Any] = Field(default_factory=dict)
+    mechanism: dict[str, Any] = Field(default_factory=dict)
+    evidence: list[dict[str, Any]] = Field(default_factory=list)
+    next_inspection: dict[str, Any] = Field(default_factory=dict)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    weakness: str | None = None
+    narrative: str = ""
+
+
 class SessionAuditReportSchema(BaseModel):
     """Human-auditable session report answering the five operator questions."""
 
@@ -399,6 +419,7 @@ class SessionAuditReportSchema(BaseModel):
     review_points: list[AuditReviewPointSchema]
     summary: AuditSummarySchema
     goal_drift: dict[str, Any] = Field(default_factory=dict)
+    failure_narrative: FailureNarrativeSchema = Field(default_factory=FailureNarrativeSchema)
 
 
 class SessionAuditResponse(BaseModel):
