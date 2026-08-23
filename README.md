@@ -21,6 +21,12 @@
   <img src="https://img.shields.io/pypi/dm/peaky-peek" alt="Downloads" />
 </p>
 
+<p align="center">
+  <img src="./docs/assets/screenshot-audit-panel.png" alt="Peaky Peek audit report: FAIL verdict card with do-not-act trust band, explainable trust line, and a failure narrative (symptom, mechanism, cause chain, evidence, next inspection point)" width="860" />
+</p>
+
+<p align="center"><em>Every session gets this audit report — deterministic, no LLM judging the LLM.</em></p>
+
 ---
 
 ## Why Peaky Peek?
@@ -42,7 +48,7 @@ Peaky Peek is a **black-box recorder + reasoning audit console** for AI agents. 
 4. **With what result?** — success/failure, returned data, state changes, downstream effects
 5. **Where did it fail?** — the first bad decision, ignored evidence, weak tool data, contradictions, plan drift, and the downstream damage
 
-Every claim is classified deterministically as **verified · partially verified · contradicted · unsupported · unverified**, and each session gets an **explainable trust score** so a human can audit a run without guessing.
+Every claim is classified deterministically as **verified · partially verified · contradicted · unsupported · unverified · stale** (stale = acted on evidence a newer fact had already superseded), and each session gets an **explainable trust score** plus a **verdict card** — a stakes line (did this run mutate state?) and a named posture: **act / verify-first / do-not-act**.
 
 ---
 
@@ -156,13 +162,19 @@ import agent_debugger_sdk.auto_patch  # activates on import when PEAKY_PEEK_AUTO
 
 Peaky Peek's defining capability: every session produces an **audit report** that turns a trace into evidence. Open the **Audit** panel on any session to see:
 
+- **Verdict card** — deterministic verdict (pass / review / fail), a stakes line (read-only run vs. state-mutating run), and the posture it implies: act / verify-first / do-not-act.
 - **Trust header** — an explainable score (`low` / `medium` / `high`) with its components: evidence coverage, verification rate, policy compliance, recovery rate, failure severity, and contradiction count.
+- **Failure narrative** — the run's primary failure told as a story: observed symptom, likely mechanism, the root-cause → failure chain (clickable), contributing factors (repeated failed strategies, contradictions, stale evidence, goal drift), anchored evidence links, and the single best **next inspection point** with a suggested action. Confidence is honestly capped with an explicit weakness note when no cause could be localized.
 - **The five-question view** — What happened · Why · Evidence used · Outcome · Where it failed, in one grid.
-- **Verification badges** — every decision is tagged `verified`, `partially_verified`, `contradicted`, `unsupported`, or `unverified`, with the basis (tool result, user input, retrieved doc, or none).
-- **Where-it-failed** — the first bad decision, localized failure root-cause suspects, and the causal path to each failure.
-- **Risk signals** — deterministic detections: unsupported claims, missing evidence, contradictions, repeated failed strategies, plan drift, policy violations, weak evidence.
+- **Verification badges** — every decision is tagged `verified`, `partially_verified`, `contradicted`, `unsupported`, `unverified`, or `stale`, with the basis (tool result, user input, retrieved doc, or none).
+- **Where-it-failed** — the first bad decision, localized failure root-cause suspects, and the causal path to each failure. A **goal-drift score** tracks whether trailing decisions stopped referencing the objective, and a **success-flow advisory** localizes the first divergence from a similar successful run.
+- **Risk signals** — deterministic detections: unsupported claims, missing evidence, contradictions, repeated failed strategies, plan drift, policy violations, weak evidence, stale evidence.
 
-Every row is clickable and jumps to the underlying event. The same report is available as JSON at `GET /api/sessions/{id}/audit`. Deterministic only — no opaque "AI insights," every number is derivable from captured fields.
+<p align="center">
+  <img src="./docs/assets/screenshot-failure-narrative.png" alt="Failure narrative block: symptom, mechanism with clickable cause chain, contributing factors, evidence chips, and the next inspection point with a jump action" width="820" />
+</p>
+
+Every row is clickable and jumps to the underlying event. The same report is available as JSON at `GET /api/sessions/{id}/audit`, and a fleet-level portfolio (`GET /api/audit/portfolio`) ranks sessions worst-trust-first. Deterministic only — no opaque "AI insights," every number is derivable from captured fields.
 
 See the [Audit & Trust guide](./docs/guides/audit-and-trust.md) for the data model, an example audited session, and an example failure report.
 

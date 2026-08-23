@@ -120,6 +120,10 @@ Carried forward from the research implementation plan:
 
 ## Recently Shipped
 
+- 2026-08-24 — frontend load-crash fixes: zustand v5 object selectors in
+  TraceView/InspectView wrapped in useShallow (infinite re-render on load),
+  TraceTimeline null-duration guard (`duration_ms` arrives as JSON null);
+  first audit-panel + failure-narrative screenshots in README
 - 2026-08-24 — failure narratives (M2.2): symptom / mechanism / evidence /
   next-inspection bundle in every audit report, normalized failure-mode
   taxonomy, honest weakness note + capped confidence when no cause is

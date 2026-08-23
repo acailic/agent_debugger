@@ -1,4 +1,5 @@
 import { useSessionStore } from '../stores/sessionStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useDerivedSessionData } from '../hooks/useDerivedSessionData'
 import { useInspectEvent } from '../hooks/useInspectEvent'
 import { useReplayBreakpoint } from '../hooks/useReplayBreakpoint'
@@ -39,7 +40,7 @@ export function TraceView() {
     userBreakpointIds,
     auditReport,
   } = useSessionStore(
-    (state) => ({
+    useShallow((state) => ({
       selectedSessionId: state.selectedSessionId,
       selectedEventId: state.selectedEventId,
       currentIndex: state.currentIndex,
@@ -52,7 +53,7 @@ export function TraceView() {
       replay: state.replay,
       userBreakpointIds: state.userBreakpointIds,
       auditReport: state.auditReport,
-    }),
+    })),
   )
 
   const {
@@ -68,7 +69,7 @@ export function TraceView() {
     setCurrentHighlightIndex,
     toggleUserBreakpoint,
   } = useSessionStore(
-    (state) => ({
+    useShallow((state) => ({
       setSelectedEventId: state.setSelectedEventId,
       setSelectedSessionId: state.setSelectedSessionId,
       setIsPlaying: state.setIsPlaying,
@@ -80,7 +81,7 @@ export function TraceView() {
       toggleExpandedSegment: state.toggleExpandedSegment,
       setCurrentHighlightIndex: state.setCurrentHighlightIndex,
       toggleUserBreakpoint: state.toggleUserBreakpoint,
-    }),
+    })),
   )
 
   function seekReplayIndex(nextIndex: number) {

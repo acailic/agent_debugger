@@ -259,8 +259,10 @@ later so they don't cannibalize each other, then Discords in the evening.
 - [ ] Blog post published (section 1) — read it once aloud first
 - [ ] Repo README top matches the positioning line (first screen answers
       "what is this for me" in <10s)
-- [ ] Repo has a screenshot/GIF of the audit verdict card + failure narrative
-      near the top (record with the seeded demo: `make demo-seed`)
+- [x] Repo has a screenshot/GIF of the audit verdict card + failure narrative
+      near the top (recorded from the seeded demo:
+      `docs/assets/screenshot-audit-panel.png` +
+      `docs/assets/screenshot-failure-narrative.png`)
 - [ ] Show HN submitted (section 2); first comment posted immediately
 - [ ] r/LocalLLaMA post (section 3)
 - [ ] Discord one-liners (section 4)

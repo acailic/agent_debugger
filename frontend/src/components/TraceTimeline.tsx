@@ -80,22 +80,22 @@ export function TraceTimeline({
 
   // Compute latency statistics for color-coding
   const latencyStats = useMemo(() => {
-    const durations = filteredEvents.map(e => e.duration_ms).filter((d): d is number => d !== undefined)
+    const durations = filteredEvents.map(e => e.duration_ms).filter((d): d is number => typeof d === 'number')
     const maxDuration = durations.length > 0 ? Math.max(...durations) : 0
     const avgDuration = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0
     return { maxDuration, avgDuration }
   }, [filteredEvents])
 
-  const getLatencyColor = useCallback((durationMs: number | undefined): string => {
-    if (durationMs === undefined) return 'transparent'
+  const getLatencyColor = useCallback((durationMs: number | null | undefined): string => {
+    if (durationMs == null) return 'transparent'
     if (durationMs > latencyStats.avgDuration * 2) return '#ef4444' // Red for very slow
     if (durationMs > latencyStats.avgDuration * 1.5) return '#f59e0b' // Orange for slow
     if (durationMs > latencyStats.avgDuration) return '#fbbf24' // Yellow for above average
     return '#10b981' // Green for fast
   }, [latencyStats.avgDuration])
 
-  const getLatencyWidth = useCallback((durationMs: number | undefined): number => {
-    if (durationMs === undefined || latencyStats.maxDuration === 0) return 0
+  const getLatencyWidth = useCallback((durationMs: number | null | undefined): number => {
+    if (durationMs == null || latencyStats.maxDuration === 0) return 0
     return Math.min(Math.max((durationMs / latencyStats.maxDuration) * 100, 5), 100)
   }, [latencyStats.maxDuration])
 
@@ -211,7 +211,7 @@ export function TraceTimeline({
                   <span className="event-time">
                     {new Date(event.timestamp).toLocaleTimeString()}
                   </span>
-                  {event.duration_ms !== undefined && (
+                  {event.duration_ms != null && (
                     <span
                       className="latency-bar"
                       title={`Duration: ${event.duration_ms.toFixed(0)}ms`}
