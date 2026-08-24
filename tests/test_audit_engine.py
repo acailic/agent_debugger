@@ -1384,7 +1384,7 @@ async def _seed_flow_session(
 
 @pytest.mark.asyncio
 async def test_success_flow_route_with_auto_reference(shared_app):
-    from conftest import unique_id
+    from tests.conftest import unique_id
 
     target_id = unique_id("flow-target")
     reference_id = unique_id("flow-reference")
@@ -1431,7 +1431,7 @@ async def test_success_flow_route_with_auto_reference(shared_app):
 
 @pytest.mark.asyncio
 async def test_success_flow_route_with_explicit_reference(shared_app):
-    from conftest import unique_id
+    from tests.conftest import unique_id
 
     target_id = unique_id("flow-target")
     reference_id = unique_id("flow-reference")
@@ -1464,7 +1464,7 @@ async def test_success_flow_route_with_explicit_reference(shared_app):
 
 @pytest.mark.asyncio
 async def test_success_flow_route_without_any_reference(shared_app):
-    from conftest import unique_id
+    from tests.conftest import unique_id
 
     target_id = unique_id("flow-lonely")
     await _seed_flow_session(

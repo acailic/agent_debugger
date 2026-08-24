@@ -120,6 +120,16 @@ Carried forward from the research implementation plan:
 
 ## Recently Shipped
 
+- 2026-08-24 — full-stack e2e scenario suite (`tests/e2e/`, 46 tests): real
+  uvicorn subprocess + real SDK HTTP transport + real SQLite + authenticated
+  tenant; 11 real-world scenario agents (grounded, contradicted, stale
+  evidence, retry loop, goal drift, policy refusal, recovery, checkpoints,
+  multi-agent crew, twin triage runs, operator utilities). The suite
+  immediately caught and fixed three real product bugs in the HTTP delivery
+  path: collector ingest dropped all typed event fields and regenerated
+  event ids (breaking evidence references), checkpoints were silently lost
+  in transport mode (no send_checkpoint/endpoint), and audit verdicts
+  mis-scored enum repair outcomes + false-stale self-supersession
 - 2026-08-24 — frontend load-crash fixes: zustand v5 object selectors in
   TraceView/InspectView wrapped in useShallow (infinite re-render on load),
   TraceTimeline null-duration guard (`duration_ms` arrives as JSON null);

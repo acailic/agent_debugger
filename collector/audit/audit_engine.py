@@ -741,15 +741,19 @@ class SessionAuditEngine:
             if event.event_type in {EventType.AGENT_TURN, EventType.AGENT_START}:
                 if event_value(event, "content") or event_value(event, "goal"):
                     user_input.add(event.id)
-            # Evidence items that name a concrete source are themselves facts.
-            for item in event_value(event, "evidence", []) or []:
-                source = str(item.get("source", "")).lower() if isinstance(item, dict) else ""
-                if source in TOOL_BACKED_SOURCES:
-                    tool_backed.add(event.id)
-                elif source in RETRIEVED_SOURCES:
-                    retrieved.add(event.id)
-                elif source in USER_SOURCES:
-                    user_input.add(event.id)
+            # Evidence items that name a concrete source are themselves facts —
+            # except on decisions: a decision's evidence items DESCRIBE the
+            # facts it cites; treating the decision as a fact would let it
+            # "supersede" its own citations and trip a false staleness flag.
+            if event.event_type != EventType.DECISION:
+                for item in event_value(event, "evidence", []) or []:
+                    source = str(item.get("source", "")).lower() if isinstance(item, dict) else ""
+                    if source in TOOL_BACKED_SOURCES:
+                        tool_backed.add(event.id)
+                    elif source in RETRIEVED_SOURCES:
+                        retrieved.add(event.id)
+                    elif source in USER_SOURCES:
+                        user_input.add(event.id)
         return tool_backed, user_input, retrieved
 
     # ------------------------------------------------------------------
@@ -1100,7 +1104,7 @@ class SessionAuditEngine:
         recoveries = sum(
             1
             for event in repair_attempts
-            if str(event_value(event, "repair_outcome", "")).lower() == "success"
+            if _repair_succeeded(event)
         )
         failure_count = max(1, len(failures))
         recovery_rate = recoveries / failure_count
@@ -1304,8 +1308,13 @@ class SessionAuditEngine:
         high_signals = [s for s in signals if s.get("severity") == "high"]
         policy_hits = [s for s in signals if s.get("type") == "policy_violation"]
 
+        # A failure the agent demonstrably repaired in-run does not sink the
+        # verdict — recovery is the product's promise. Only unrecovered
+        # high-confidence failures (or policy hits / low trust) force "fail".
+        fully_recovered = bool(failures) and recovery_rate >= 1.0
+
         # Deterministic verdict: fail beats review beats pass.
-        if band == "low" or high_failures or policy_hits:
+        if band == "low" or policy_hits or (high_failures and not fully_recovered):
             verdict = "fail"
         elif band == "medium" or unsupported or contradicted or high_signals:
             verdict = "review"
@@ -1529,6 +1538,17 @@ class SessionAuditEngine:
                         "reason": (
                             f"Decision \"{claim['headline']}\" is {claim['verification_status']} "
                             f"(confidence {claim['confidence']:.2f})."
+                        ),
+                    }
+                )
+            elif claim["verification_status"] == STALE:
+                review.append(
+                    {
+                        "event_id": claim["event_id"],
+                        "priority": "medium",
+                        "reason": (
+                            f"Decision \"{claim['headline']}\" relied on superseded "
+                            "evidence (stale)."
                         ),
                     }
                 )
@@ -1808,6 +1828,18 @@ def _summarize_alternatives(alternatives: list[Any]) -> list[dict[str, Any]]:
         else:
             summarized.append({"action": str(alternative), "chosen": False})
     return summarized
+
+
+def _repair_succeeded(event: TraceEvent) -> bool:
+    """Whether a repair attempt succeeded, tolerant of enum or string values.
+
+    Fresh in-process events may carry a ``RepairOutcome`` enum (``str()`` of
+    which is ``"RepairOutcome.SUCCESS"``, not the value), while
+    storage/HTTP-reconstructed events carry the plain string. Normalize both.
+    """
+    outcome = event_value(event, "repair_outcome", "")
+    value = getattr(outcome, "value", outcome)
+    return str(value).lower() == "success"
 
 
 def _safe_rate(claims: list[dict[str, Any]], predicate) -> float:

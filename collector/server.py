@@ -14,12 +14,13 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from agent_debugger_sdk.config import get_config
 from agent_debugger_sdk.core.events import (
+    Checkpoint,
     EventType,
     Session,
     TraceEvent,
@@ -38,7 +39,21 @@ MAX_NAME_LENGTH = 255
 
 
 class TraceEventIngest(BaseModel):
+    """Inbound trace event over HTTP.
+
+    Accepts the SDK's ``TraceEvent.to_dict()`` shape: shared base fields are
+    validated explicitly, typed event fields (``reasoning``, ``confidence``,
+    ``evidence_event_ids``, ``error``, ``tool_name``, ...) arrive as extra
+    top-level keys and are folded into the event payload by
+    :func:`_build_event` so they survive the HTTP hop. The SDK-side event
+    ``id`` is preserved — regenerating it would orphan every cross-event
+    reference (evidence ids, upstream ids, parents).
+    """
+
+    model_config = ConfigDict(extra="allow")
+
     session_id: str
+    id: str | None = None
     parent_id: str | None = None
     event_type: str
     timestamp: str | None = None
@@ -240,8 +255,25 @@ def _build_event(event_data: TraceEventIngest, event_type: EventType) -> TraceEv
     }
     if timestamp is not None:
         base_kwargs["timestamp"] = timestamp
+    if event_data.id:
+        base_kwargs["id"] = event_data.id
 
-    return TraceEvent.from_data(event_type, base_kwargs, event_data.data)
+    # Fold SDK typed fields (extra top-level keys from to_dict()) into the
+    # payload; from_data() pulls them back out into the typed event class.
+    # Explicit ``data`` wins on conflict.
+    extras = {
+        key: value
+        for key, value in event_data.model_dump().items()
+        if key not in _INGEST_BASE_FIELDS and value is not None
+    }
+    merged_data = {**extras, **event_data.data}
+
+    return TraceEvent.from_data(event_type, base_kwargs, merged_data)
+
+
+# Fields consumed explicitly by _build_event; everything else in the payload
+# is a typed event field that must survive into the stored data dict.
+_INGEST_BASE_FIELDS = frozenset(TraceEventIngest.model_fields)
 
 
 async def _ingest_trace(
@@ -325,6 +357,51 @@ async def create_session(
     request: Request,
 ) -> SessionResponse:
     return await _create_session(session_data, request)
+
+
+class CheckpointIngest(BaseModel):
+    """Inbound checkpoint over HTTP (SDK ``Checkpoint.to_dict()`` shape)."""
+
+    session_id: str
+    id: str | None = None
+    event_id: str = ""
+    sequence: int = 0
+    state: dict[str, Any] = Field(default_factory=dict)
+    memory: dict[str, Any] = Field(default_factory=dict)
+    timestamp: str | None = None
+    importance: float = 0.5
+
+
+@router.post("/checkpoints", status_code=status.HTTP_202_ACCEPTED)
+async def ingest_checkpoint(
+    checkpoint_data: CheckpointIngest,
+    request: Request,
+) -> dict[str, str]:
+    """Persist a time-travel checkpoint delivered by the SDK transport.
+
+    Without this endpoint, checkpoints captured in cloud/HTTP mode were
+    silently dropped — replay and restore only worked for the in-process
+    pipeline.
+    """
+    deps = _resolve_dependencies()
+    timestamp = _parse_timestamp(checkpoint_data.timestamp)
+    checkpoint = Checkpoint(
+        id=checkpoint_data.id or str(uuid.uuid4()),
+        session_id=checkpoint_data.session_id,
+        event_id=checkpoint_data.event_id,
+        sequence=checkpoint_data.sequence,
+        state=checkpoint_data.state,
+        memory=checkpoint_data.memory,
+        importance=checkpoint_data.importance,
+        **({"timestamp": timestamp} if timestamp is not None else {}),
+    )
+    if deps.session_maker is not None:
+        async with deps.session_maker() as db:
+            tenant_id = await deps.tenant_resolver(request, db)
+            repo = TraceRepository(db, tenant_id=tenant_id)
+            await repo.create_checkpoint(checkpoint)
+            await repo.commit()
+    return {"checkpoint_id": checkpoint.id, "status": "stored"}
 
 
 @router.get("/health", response_model=HealthResponse)

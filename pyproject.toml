@@ -90,6 +90,7 @@ timeout = 120
 xfail_strict = true
 markers = [
     "integration: End-to-end tests requiring API keys (deselected by default)",
+    "e2e: Full-stack scenario tests (real server subprocess, real SDK transport, real SQLite)",
 ]
 
 [tool.coverage.run]

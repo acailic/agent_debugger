@@ -46,6 +46,7 @@ async def test_trace_context_cloud_mode_uses_transport_and_closes_it():
         send_event=AsyncMock(),
         send_session_start=AsyncMock(),
         send_session_update=AsyncMock(),
+        send_checkpoint=AsyncMock(),
         close=AsyncMock(),
     )
     config = SimpleNamespace(mode="cloud", api_key="ad_live_test", endpoint="https://collector.test", enabled=True)

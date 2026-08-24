@@ -13,7 +13,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
-from conftest import unique_id
 from httpx import ASGITransport, AsyncClient
 
 from agent_debugger_sdk.core.events import (
@@ -27,6 +26,7 @@ from agent_debugger_sdk.core.events import (
 )
 from api.main import create_app
 from storage import TraceRepository
+from tests.conftest import unique_id
 
 BASE_TIME = datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc)
 

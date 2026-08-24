@@ -8,7 +8,7 @@ from collections.abc import Callable
 
 import httpx
 
-from agent_debugger_sdk.core.events import Session, TraceEvent
+from agent_debugger_sdk.core.events import Checkpoint, Session, TraceEvent
 
 logger = logging.getLogger("agent_debugger")
 
@@ -158,6 +158,21 @@ class HttpTransport:
             path=f"/api/sessions/{session.id}",
             payload=session.to_dict(),
             context=f"session_id={session.id}",
+            on_delivery_failure=on_delivery_failure,
+        )
+
+    async def send_checkpoint(
+        self,
+        checkpoint: Checkpoint,
+        *,
+        on_delivery_failure: DeliveryFailureCallback | None = None,
+    ) -> None:
+        """Deliver a checkpoint to the collector (time-travel state snapshot)."""
+        await self._send_with_retry(
+            method="POST",
+            path="/api/checkpoints",
+            payload=checkpoint.to_dict(),
+            context=f"checkpoint_id={checkpoint.id}",
             on_delivery_failure=on_delivery_failure,
         )
 
