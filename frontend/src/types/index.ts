@@ -26,6 +26,7 @@ export type EventType =
   | 'agent_turn'
   | 'behavior_alert'
   | 'repair_attempt'
+  | 'drift'
 
 export interface TraceEvent {
   id: string

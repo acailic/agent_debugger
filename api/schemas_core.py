@@ -162,8 +162,8 @@ class SessionDetailResponse(BaseModel):
 class SessionUpdateRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    agent_name: str | None = Field(default=None, min_length=1, max_length=200)
-    framework: str | None = Field(default=None, min_length=1, max_length=50)
+    agent_name: str | None = Field(default=None, max_length=200)
+    framework: str | None = Field(default=None, max_length=50)
     started_at: datetime | None = None
     ended_at: datetime | None = None
     status: SessionStatus | None = None

@@ -573,7 +573,7 @@ export async function getRedundancyAnalysis(sessionId: string): Promise<Redundan
 // Causal Analysis API
 export async function getCausalAnalysis(sessionId: string): Promise<CausalAnalysisResponse> {
   return fetchJSON<CausalAnalysisResponse>(
-    `${API_BASE}/sessions/${sessionId}/causal`,
+    `${API_BASE}/sessions/${sessionId}/failures/causes`,
     {
       validator: (value: unknown) => {
         if (typeof value !== 'object' || value === null) return false
@@ -587,7 +587,7 @@ export async function getCausalAnalysis(sessionId: string): Promise<CausalAnalys
           v.causal_graph !== null
         )
       },
-      endpoint: '/sessions/{session_id}/causal',
+      endpoint: '/sessions/{session_id}/failures/causes',
     }
   )
 }
