@@ -450,6 +450,44 @@ class DecisionJustificationResponse(BaseModel):
     justification: DecisionJustificationSchema
 
 
+class ReexecutionNodeSchema(BaseModel):
+    """A node in a decision's minimal re-execution set."""
+
+    event_id: str
+    event_type: str
+    label: str
+    role: str  # decision | evidence | upstream_tool_call | downstream
+    mode: str  # required_rerun | read_only
+    why_included: str
+    timestamp: str | None = None
+
+
+class ReexecutionEdgeSchema(BaseModel):
+    """An edge between nodes of a re-execution set (evidence or causal)."""
+
+    source_id: str
+    target_id: str
+    edge_type: str  # evidence | causal
+    source_class: str | None = None  # tool_backed | user_provided | other
+
+
+class ReexecutionSetSchema(BaseModel):
+    """Minimal re-execution set: what would have to re-run to re-verify a claim."""
+
+    nodes: list[ReexecutionNodeSchema]
+    edges: list[ReexecutionEdgeSchema]
+    node_count: int
+    markdown: str
+
+
+class ReexecutionSetResponse(BaseModel):
+    """Response schema for the per-decision re-execution set endpoint."""
+
+    session_id: str
+    event_id: str
+    reexecution_set: ReexecutionSetSchema
+
+
 class EvidenceGraphNodeSchema(BaseModel):
     """A node in the evidence-provenance graph (claim or fact)."""
 
