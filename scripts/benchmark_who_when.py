@@ -5,14 +5,18 @@ Runs the audit engine's deterministic failure localization against the
 public Who&When annotated failure logs and prints agent/step accuracy.
 
 Usage:
-    python scripts/benchmark_who_when.py --data PATH [PATH ...] [--step-scope agent|global]
+    python scripts/benchmark_who_when.py --data PATH [PATH ...] [--step-scope agent|global] [--out PATH]
     python scripts/benchmark_who_when.py --self-test   # offline smoke test
 
 Dataset: https://github.com/mingyin1/Agents_Failure_Attribution
 (Hugging Face: Kevin355/Who_and_When). Records are JSONL with a
 ``history`` of {content, name, role} messages plus ``mistake_agent`` /
-``mistake_step`` annotations. The dataset is not vendored here — clone or
-download it, then point --data at the JSONL files.
+``mistake_step`` annotations (``mistake_step`` is the 0-based index of
+the erroneous message among the mistake agent's own messages). The
+dataset is not vendored here — seed the corpora with
+``scripts/fetch_who_when.py`` (or clone manually) and point --data at the
+JSONL files. ``--out PATH`` writes the full results including per-record
+rows as JSON.
 
 Reference numbers from the paper: best LLM-judge method reaches 53.5%
 agent accuracy / 14.2% step accuracy.
@@ -21,6 +25,7 @@ agent accuracy / 14.2% step accuracy.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -41,7 +46,7 @@ _SELF_TEST_RECORDS = [
             },
         ],
         "mistake_agent": "Verifier_Expert",
-        "mistake_step": "1",
+        "mistake_step": "0",
         "mistake_reason": "The Python code is incorrect.",
     },
     {
@@ -50,7 +55,7 @@ _SELF_TEST_RECORDS = [
             {"content": "Look up the answer.", "name": "Planner", "role": "user"},
         ],
         "mistake_agent": "Planner",
-        "mistake_step": "1",
+        "mistake_step": "0",
         "mistake_reason": "No work performed.",
     },
 ]
@@ -74,6 +79,11 @@ def main() -> int:
         "--self-test",
         action="store_true",
         help="Run offline on bundled synthetic records to verify the pipeline",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        help="Write the full results (including per-record rows) to this JSON file",
     )
     args = parser.parse_args()
 
@@ -103,6 +113,10 @@ def main() -> int:
         first = results["rows"][0]
         assert first["agent_match"] and first["step_match"], results["rows"]
         print("self-test OK")
+    if args.out:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(results, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(f"results written to {args.out}")
     return 0
 
 

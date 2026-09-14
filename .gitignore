@@ -66,3 +66,6 @@ docs/docs/
 adws/adw_data/sessions/
 adws/adw_data/sssf.db*
 *.pyc
+
+# Who&When benchmark corpora (runtime state; reseed with scripts/fetch_who_when.py)
+benchmarks/corpora/

@@ -87,3 +87,23 @@ procs ADW_ID:
 # boot the trace UI, http://localhost:4601 (api on :4600)
 obs:
     cd .claude/skills/sssf/apps/visualizer && bun install && (SSSF_DB={{justfile_directory()}}/{{db}} bun run server/index.ts &) && bunx vite
+
+# ── benchmarks ──────────────────────────────────────────────────────────────
+
+# fetch Who&When corpora if missing, run agent-scope benchmark, write results with per-record rows
+who-when:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    CORPUS=benchmarks/corpora/who_when
+    if [ ! -s "$CORPUS/algorithm_generated.jsonl" ] || [ ! -s "$CORPUS/hand_crafted.jsonl" ]; then
+        echo "Who&When corpora missing under $CORPUS — fetching from github.com/mingyin1/Agents_Failure_Attribution…"
+        uv run scripts/fetch_who_when.py
+    fi
+    if [ ! -s "$CORPUS/algorithm_generated.jsonl" ] || [ ! -s "$CORPUS/hand_crafted.jsonl" ]; then
+        echo "ERROR: corpora still missing after fetch. Run 'uv run scripts/fetch_who_when.py' manually (optionally --source /path/to/existing/clone) and retry." >&2
+        exit 1
+    fi
+    uv run scripts/benchmark_who_when.py \
+        --data "$CORPUS/algorithm_generated.jsonl" "$CORPUS/hand_crafted.jsonl" \
+        --step-scope agent \
+        --out "$CORPUS/results_agent_scope.json"

@@ -21,15 +21,22 @@ Record schema (one JSON object per line)::
       "mistake_reason": "..."
     }
 
-Step indexing: ``mistake_step`` is interpreted as the 1-based index of the
-erroneous message among the messages spoken by ``mistake_agent`` (the
-benchmark's per-agent step convention; switch ``step_scope="global"`` for
+Step indexing: ``mistake_step`` is the 0-based index of the erroneous
+message among the messages spoken by ``mistake_agent`` (the benchmark's
+per-agent step convention; switch ``step_scope="global"`` for 0-based
 whole-history indexing).
+
+Speakers: Algorithm-Generated records carry the speaker in
+``history[].name``; Hand-Crafted records leave ``name`` null and carry it
+in ``history[].role`` instead, including parenthetical variants such as
+``Orchestrator (thought)`` — the trailing parenthetical is stripped at
+read time so the speaker matches the ``mistake_agent`` annotations.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -40,6 +47,21 @@ from collector.audit import SessionAuditEngine
 #: converting conversation logs to trace events. Tracebacks and explicit
 #: error markers only — plain mentions of the word in prose are too noisy.
 _ERROR_MARKERS = ("Traceback (most recent call last):", "SyntaxError", "Execution failed")
+
+#: Strips one trailing parenthetical from a role-derived speaker name,
+#: e.g. "Orchestrator (thought)" -> "Orchestrator".
+_ROLE_PARENTHETICAL = re.compile(r"\s*\([^)]*\)$")
+
+
+def _speaker_of(message: dict[str, Any]) -> str:
+    """name when present; otherwise role with one trailing parenthetical stripped."""
+    name = message.get("name")
+    if name:
+        return str(name)
+    role = str(message.get("role") or "").strip()
+    if role:
+        return _ROLE_PARENTHETICAL.sub("", role).strip() or role
+    return "unknown"
 
 
 def load_who_when_records(paths: Iterable[Path]) -> list[dict[str, Any]]:
@@ -65,7 +87,7 @@ def history_to_events(record: dict[str, Any]) -> list[TraceEvent]:
     question_id = str(record.get("question_ID") or record.get("question_id") or "who-when")
     events: list[TraceEvent] = []
     for index, message in enumerate(record.get("history", [])):
-        speaker = str(message.get("name") or "unknown")
+        speaker = _speaker_of(message)
         content = str(message.get("content") or "")
         is_error = any(marker in content for marker in _ERROR_MARKERS)
         events.append(
@@ -93,7 +115,7 @@ def _localize_first_bad_step(
 def _step_index_of(
     event_id: str | None, events: list[TraceEvent], step_scope: str
 ) -> tuple[str | None, int | None]:
-    """Map an event id back to (speaker, 1-based step index)."""
+    """Map an event id back to (speaker, 0-based step index)."""
     if event_id is None:
         return None, None
     target = next((event for event in events if event.id == event_id), None)
@@ -102,7 +124,7 @@ def _step_index_of(
     speaker = str((target.data or {}).get("speaker") or target.name or "unknown")
     if step_scope == "global":
         return speaker, next(
-            (idx + 1 for idx, event in enumerate(events) if event.id == event_id), None
+            (idx for idx, event in enumerate(events) if event.id == event_id), None
         )
     same_speaker = [
         event for event in events
@@ -110,7 +132,7 @@ def _step_index_of(
     ]
     for idx, event in enumerate(same_speaker):
         if event.id == event_id:
-            return speaker, idx + 1
+            return speaker, idx
     return speaker, None
 
 

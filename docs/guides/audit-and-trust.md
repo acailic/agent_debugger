@@ -329,18 +329,25 @@ in `collector/audit/who_when.py` with a CLI wrapper:
 # Offline pipeline smoke test (bundled synthetic records):
 python scripts/benchmark_who_when.py --self-test
 
-# Full run against the downloaded dataset:
-git clone https://github.com/mingyin1/Agents_Failure_Attribution /tmp/ww
-python scripts/benchmark_who_when.py --data /tmp/ww/Who*When --step-scope agent
+# Seed the corpora (clones the dataset; or pass --source /path/to/existing/clone),
+# then run the full agent-scope evaluation and write per-record results:
+uv run scripts/fetch_who_when.py
+just who-when
 ```
 
-The dataset is not vendored into this repo. Records are JSONL with a
-`history` of `{content, name, role}` messages plus `mistake_agent` /
-`mistake_step` annotations; messages containing traceback/error markers
-are converted to ERROR events so the engine's deterministic localization
-has failure signals to work with. `mistake_step` is interpreted as the
-1-based index among the mistake agent's own messages (`--step-scope
-global` switches to whole-history indexing).
+The corpora land in `benchmarks/corpora/who_when/` (`algorithm_generated.jsonl`,
+`hand_crafted.jsonl`, plus `MANIFEST.json` recording the source repo, commit
+sha, and counts). That directory is runtime state, gitignored — reseed with
+the fetch script. Records are JSONL with a `history` of
+`{content, name, role}` messages plus `mistake_agent` / `mistake_step`
+annotations; messages containing traceback/error markers are converted to
+ERROR events so the engine's deterministic localization has failure signals
+to work with. `mistake_step` is the **0-based** index among the mistake
+agent's own messages (`--step-scope global` switches to 0-based
+whole-history indexing). Algorithm-Generated records carry the speaker in
+`history[].name`; Hand-Crafted records carry it in `history[].role`, where
+parenthetical variants like `Orchestrator (thought)` normalize to
+`Orchestrator`.
 
 Because the harness scores our *deterministic* attribution, its output is
 an external accuracy number that is reproducible by anyone — the claim
