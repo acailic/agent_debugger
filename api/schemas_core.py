@@ -283,6 +283,9 @@ class RestoreResponse(BaseModel):
     restore_token: str
     replayed_events_count: int | None = None
     drift_detected: bool | None = None
+    copied_event_count: int = 0
+    new_checkpoint_id: str = ""
+    restore_event_id: str = ""
 
 
 class DeleteResponse(BaseModel):
