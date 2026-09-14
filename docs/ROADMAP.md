@@ -74,6 +74,12 @@ Reduce the distance between "report exists" and "operator decides".
    *Delivered: 2026-08-24 (`collector/audit/failure_narrative.py`, wired into
    the audit report + AuditPanel narrative block).*
 3. Replay restore semantics beyond checkpoint slicing
+   *Delivered: 2026-09-14 — semantic restore: the new session carries the
+   source prefix (fresh ids, remapped internal references, outside refs
+   dropped), a leading `session_restored` marker with provenance, and an
+   initial SDK-wrapped state checkpoint; `RestoreResponse` extended with
+   `copied_event_count` / `new_checkpoint_id` / `restore_event_id`. Factory
+   chain c905da74: 10/10 phases, reviewer 9/9, suite green first try.*
 4. Seeded benchmark corpora + UI smoke workflows around them
 
 ### M3 — Platform at scale
@@ -125,6 +131,9 @@ Carried forward from the research implementation plan:
 
 ## Recently Shipped
 
+- 2026-09-14 — M2.3 semantic checkpoint restore (factory chain c905da74):
+  prefix event carry-over with id remapping, restore marker, state hand-off
+  checkpoint — restored runs stay auditable
 - 2026-09-14 — sssf factory stamped into the repo (roster on local
   zai-coding-cn GLM models, quality blocks wired to .venv-ci pytest/ruff);
   first factory-built feature: minimal re-execution set (M2.1)
