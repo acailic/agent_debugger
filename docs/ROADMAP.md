@@ -64,6 +64,11 @@ Reduce the distance between "report exists" and "operator decides".
 
 1. Minimal re-execution set — the smallest sub-graph to re-run to confirm or
    invalidate a suspect claim (from the provenance survey note)
+   *Delivered: 2026-09-14 (`collector/audit/reexecution.py` +
+   `GET /api/sessions/{id}/decisions/{event_id}/reexecution-set` — first
+   feature built end-to-end by the stamped sssf factory: plan → build →
+   test → review → document, 10/10 phases, reviewer approved 15/15
+   requirements).*
 2. Explanation maturity — failure narratives (symptom / mechanism / evidence /
    next inspection point) as a first-class surface
    *Delivered: 2026-08-24 (`collector/audit/failure_narrative.py`, wired into
@@ -93,7 +98,7 @@ Rank by how often real operators ask the question it answers.
 
 | Paper note | Experiment | Status |
 |---|---|---|
-| From Agent Traces to Trust (provenance survey) | Map one session onto the survey's relation taxonomy; find expressible-vs-missing relations | not started |
+| From Agent Traces to Trust (provenance survey) | Minimal re-execution set for a suspect claim | **shipped** (M2.1) |
 | Evaluating Goal Drift | Per-step adherence series vs trust score | **shipped** (M1.1) |
 | Who&When | External accuracy on public failure logs | harness ready (M1.3) |
 | OAT / Flow of Success | First-divergence heuristic vs audit engine's first bad decision | **shipped** (M1.2) |
@@ -120,6 +125,9 @@ Carried forward from the research implementation plan:
 
 ## Recently Shipped
 
+- 2026-09-14 — sssf factory stamped into the repo (roster on local
+  zai-coding-cn GLM models, quality blocks wired to .venv-ci pytest/ruff);
+  first factory-built feature: minimal re-execution set (M2.1)
 - 2026-08-24 — full-stack e2e scenario suite (`tests/e2e/`, 46 tests): real
   uvicorn subprocess + real SDK HTTP transport + real SQLite + authenticated
   tenant; 11 real-world scenario agents (grounded, contradicted, stale

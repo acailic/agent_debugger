@@ -126,6 +126,9 @@ exclude_lines = [
 
 [tool.ruff]
 line-length = 120
+# .claude/skills/ + adws/: vendored factory machinery stamped from the sssf
+# skill — lint it in its source repo, not here.
+exclude = [".claude/skills", "adws"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
