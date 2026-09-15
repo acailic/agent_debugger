@@ -54,8 +54,9 @@ def test_run_seeds_jsonl_and_manifest_from_fixture_source(tmp_path: Path):
     assert [m["role"] for m in variant["history"]] == [
         "human",
         "Orchestrator (thought)",
+        "Coder",
         "Orchestrator (-> WebSurfer)",
-        "Orchestrator",
+        "Orchestrator (thought)",
         "WebSurfer",
     ]
     assert all(m["name"] is None for m in variant["history"])

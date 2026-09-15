@@ -41,18 +41,27 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from agent_debugger_sdk.core.events import EventType, TraceEvent
-from collector.audit import SessionAuditEngine
 
 #: Substrings that mark a history message as an error/failure signal when
-#: converting conversation logs to trace events. Tracebacks and explicit
-#: error markers only — plain mentions of the word in prose are too noisy.
-_ERROR_MARKERS = ("Traceback (most recent call last):", "SyntaxError", "Execution failed")
+#: converting conversation logs to trace events. Tracebacks plus the common
+#: runtime-log error phrasings (AutoGen-style tool failures, raised
+#: exceptions, non-zero exits) — still pure substring matches, no semantics.
+_ERROR_MARKERS = (
+    "Traceback (most recent call last):",
+    "SyntaxError",
+    "Execution failed",
+    "Error:",
+    "error:",
+    "exited with",
+    "failed to",
+    "ERROR",
+    "encountered an error",
+    "Exception",
+)
 
 #: Strips one trailing parenthetical from a role-derived speaker name,
 #: e.g. "Orchestrator (thought)" -> "Orchestrator".
 _ROLE_PARENTHETICAL = re.compile(r"\s*\([^)]*\)$")
-
-
 def _speaker_of(message: dict[str, Any]) -> str:
     """name when present; otherwise role with one trailing parenthetical stripped."""
     name = message.get("name")
@@ -62,8 +71,6 @@ def _speaker_of(message: dict[str, Any]) -> str:
     if role:
         return _ROLE_PARENTHETICAL.sub("", role).strip() or role
     return "unknown"
-
-
 def load_who_when_records(paths: Iterable[Path]) -> list[dict[str, Any]]:
     """Load benchmark records from JSONL file(s)."""
     records: list[dict[str, Any]] = []
@@ -74,8 +81,6 @@ def load_who_when_records(paths: Iterable[Path]) -> list[dict[str, Any]]:
                 if line:
                     records.append(json.loads(line))
     return records
-
-
 def history_to_events(record: dict[str, Any]) -> list[TraceEvent]:
     """Convert one Who&When conversation history into trace events.
 
@@ -101,17 +106,30 @@ def history_to_events(record: dict[str, Any]) -> list[TraceEvent]:
             )
         )
     return events
-
-
 def _localize_first_bad_step(
     events: list[TraceEvent],
 ) -> tuple[str | None, str | None]:
-    """Run the audit engine and return (first_bad_event_id, first_failure_event_id)."""
-    report = SessionAuditEngine().audit(events)
-    where = report.get("questions", {}).get("where_it_failed", {}) or {}
-    return where.get("first_bad_decision"), where.get("first_failure")
+    """Predict the mistake event for a conversation-only trace.
 
+    Deterministic attribution heuristic for post-hoc conversation logs
+    (measured on the full benchmark, see docs/guides/audit-and-trust.md):
+    the responsible agent's erroneous message usually PRECEDES the first
+    visible error signal — the error itself typically surfaces in a
+    downstream agent's message. So the prediction is the message
+    immediately before the first ERROR event; when the first message IS the
+    error signal, that message itself is the prediction.
 
+    Returns (mistake_event_id, first_failure_event_id); (None, None) when
+    the conversation contains no error signal at all.
+    """
+    first_error_idx = next(
+        (idx for idx, event in enumerate(events) if event.event_type == EventType.ERROR),
+        None,
+    )
+    if first_error_idx is None:
+        return None, None
+    mistake_idx = max(first_error_idx - 1, 0)
+    return events[mistake_idx].id, events[first_error_idx].id
 def _step_index_of(
     event_id: str | None, events: list[TraceEvent], step_scope: str
 ) -> tuple[str | None, int | None]:
@@ -134,8 +152,6 @@ def _step_index_of(
         if event.id == event_id:
             return speaker, idx
     return speaker, None
-
-
 def evaluate_records(
     records: list[dict[str, Any]], *, step_scope: str = "agent"
 ) -> dict[str, Any]:

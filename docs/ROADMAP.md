@@ -53,7 +53,10 @@ Make the audit layer measurably trustworthy, not just present.
    *Delivered: 2026-08-15.*
 3. **Who&When benchmark harness** — evaluate failure localization against the
    public Who&When annotated failure logs; publish an external accuracy number.
-   *Harness delivered 2026-08-15; full-dataset run pending.*
+   *Harness delivered 2026-08-15; full run 2026-09-15 — 184 records,
+   deterministic attribution at 26.6% agent / 5.4% step (vs the paper's best
+   LLM judge 53.5% / 14.2%); methodology + honest read in
+   docs/guides/audit-and-trust.md.*
 4. **Verdict-card stakes + named trust bands** — stakes line (resources
    touched, writes vs reads) and act / verify-first / do-not-act bands.
    *Delivered: 2026-08-15.*
@@ -81,6 +84,11 @@ Reduce the distance between "report exists" and "operator decides".
    `copied_event_count` / `new_checkpoint_id` / `restore_event_id`. Factory
    chain c905da74: 10/10 phases, reviewer 9/9, suite green first try.*
 4. Seeded benchmark corpora + UI smoke workflows around them
+   *Corpora delivered 2026-09-15 (factory chain e282101b): fetch/normalize
+   script + 184-record corpora + MANIFEST + fixtures + `just who-when`
+   recipe; harness correctness fixes found while preparing the run (0-based
+   step indexing, name-or-role speaker extraction). UI smoke workflows
+   remain open — API-level e2e coverage exists in tests/e2e/.*
 
 ### M3 — Platform at scale
 
@@ -106,7 +114,7 @@ Rank by how often real operators ask the question it answers.
 |---|---|---|
 | From Agent Traces to Trust (provenance survey) | Minimal re-execution set for a suspect claim | **shipped** (M2.1) |
 | Evaluating Goal Drift | Per-step adherence series vs trust score | **shipped** (M1.1) |
-| Who&When | External accuracy on public failure logs | harness ready (M1.3) |
+| Who&When | External accuracy on public failure logs | **shipped** (M1.3: 26.6% agent / 5.4% step, deterministic, vs 53.5% / 14.2% LLM judge) |
 | OAT / Flow of Success | First-divergence heuristic vs audit engine's first bad decision | **shipped** (M1.2) |
 | Calibrated Trust | Stakes line + trust bands in verdict card | **shipped** (M1.4) |
 | AgentTrace | Causal graph completeness check against root-cause queries | not started |
@@ -131,6 +139,11 @@ Carried forward from the research implementation plan:
 
 ## Recently Shipped
 
+- 2026-09-15 — M1.3 closed + M2.4 corpora: Who&When full-dataset run
+  (184 records) with deterministic attribution measured at 26.6% agent /
+  5.4% step; fetch/normalize script, MANIFEST-pinned corpora, harness
+  fixes (0-based indexing, name-or-role speakers, last-before-error
+  attribution), results + framing documented in the audit guide
 - 2026-09-14 — M2.3 semantic checkpoint restore (factory chain c905da74):
   prefix event carry-over with id remapping, restore marker, state hand-off
   checkpoint — restored runs stay auditable

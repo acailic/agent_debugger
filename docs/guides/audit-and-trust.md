@@ -352,3 +352,32 @@ parenthetical variants like `Orchestrator (thought)` normalize to
 Because the harness scores our *deterministic* attribution, its output is
 an external accuracy number that is reproducible by anyone — the claim
 "no LLM judge in the attribution path" becomes measurable.
+
+### Measured on the full dataset (2026-09-15)
+
+Corpora commit `b2bae5c` — 184 records (126 Algorithm-Generated, 58
+Hand-Crafted), agent scope, deterministic attribution:
+
+| Method | Agent accuracy | Step accuracy | Localized |
+|---|---|---|---|
+| Paper's best LLM judge | 53.5% | 14.2% | 184/184 |
+| **Peaky Peek harness (deterministic)** | **26.6%** | **5.4%** | 98/184 |
+
+Attribution heuristic, in full: a message becomes an ERROR event when its
+content contains one of the wide error markers (tracebacks, `Error:`,
+`exited with`, `failed to`, ...); the predicted mistake is **the message
+immediately before the first ERROR event** — in multi-agent conversations
+the visible error usually surfaces in a downstream agent's message, while
+the responsible message precedes it. Both the marker set and the rule are
+plain deterministic string/position operations, disclosed here and pinned
+by tests.
+
+Read the numbers honestly: on **post-hoc conversation-only logs**, a
+zero-cost deterministic heuristic reaches about half of what the best LLM
+judge scores — and even that judge is wrong about the responsible agent
+almost every second time. That is precisely the gap this project exists to
+close: attribution from raw conversations is fundamentally underdetermined.
+Peaky Peek's native mode captures decisions, evidence, and tool results
+**at trace time**, where localization becomes structural traversal rather
+than post-hoc reading — deterministic by construction, as the SDK-level
+and end-to-end suites (3,100+ tests) verify on every run.

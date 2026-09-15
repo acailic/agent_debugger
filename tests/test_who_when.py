@@ -23,10 +23,10 @@ _RECORD = {
     "question_ID": "rec-1",
     "history": [
         {"content": "Compute the total.", "name": "Planner", "role": "user"},
-        {"content": "Running code.", "name": "Terminal", "role": "assistant"},
+        {"content": "result = compute(total  # bad syntax", "name": "Verifier_Expert", "role": "assistant"},
         {
             "content": "Traceback (most recent call last):\nSyntaxError: invalid syntax",
-            "name": "Verifier_Expert",
+            "name": "Terminal",
             "role": "assistant",
         },
         {"content": "Final answer: 2732.", "name": "Planner", "role": "assistant"},
@@ -44,7 +44,7 @@ def test_history_to_events_marks_error_messages():
     assert events[0].data["speaker"] == "Planner"
     error_events = [e for e in events if e.event_type.value == "error"]
     assert len(error_events) == 1
-    assert error_events[0].data["speaker"] == "Verifier_Expert"
+    assert error_events[0].data["speaker"] == "Terminal"
     assert error_events[0].id == "rec-1-m2"
 
 
@@ -125,10 +125,12 @@ def test_fixture_role_speaker_used_for_events_and_attribution():
     record = _fixture("Hand-Crafted/fx_hc_role.json")
 
     events = history_to_events(record)
-    assert [event.data["speaker"] for event in events] == ["human", "WebSurfer"]
+    assert [event.data["speaker"] for event in events] == ["human", "WebSurfer", "Orchestrator"]
 
     results = evaluate_records([record])
     row = results["rows"][0]
+    # The error surfaces in the Orchestrator's message; the responsible
+    # message is the one immediately before it (WebSurfer's only message).
     assert row["predicted_agent"] == "WebSurfer"
     assert row["agent_match"] is True
     # WebSurfer's only message is index 0 (0-based) among its own messages.
@@ -143,6 +145,7 @@ def test_fixture_role_variants_normalize_to_base_name():
     assert [event.data["speaker"] for event in events] == [
         "human",
         "Orchestrator",
+        "Coder",
         "Orchestrator",
         "Orchestrator",
         "WebSurfer",
@@ -151,8 +154,10 @@ def test_fixture_role_variants_normalize_to_base_name():
     results = evaluate_records([record])
     row = results["rows"][0]
     assert row["predicted_agent"] == "Orchestrator"
-    # The crashing message is Orchestrator's 3rd own message -> 0-based index 2.
-    assert row["predicted_step"] == 2
+    # Prediction: the message right before the error signal — the
+    # delegation ask, Orchestrator's 2nd own message -> 0-based index 1.
+    assert row["predicted_step"] == 1
+    assert row["truth_step"] == 1
     assert row["step_match"] is True
 
 
@@ -164,17 +169,19 @@ def test_fixture_agent_scope_step_is_zero_based():
     results = evaluate_records([record], step_scope="agent")
     row = results["rows"][0]
     assert row["predicted_agent"] == "Coder"
-    # Coder's messages: index 0 = counting, index 1 = traceback.
-    assert row["predicted_step"] == 1
-    assert row["truth_step"] == 1
+    # Prediction is the message before the traceback (Coder's 1st own
+    # message) -> 0-based index 0; the annotation agrees.
+    assert row["predicted_step"] == 0
+    assert row["truth_step"] == 0
     assert row["step_match"] is True
 
 
 def test_fixture_global_scope_step_is_zero_based():
-    # The traceback sits at whole-history index 2 (0-based).
-    record = dict(_fixture("Algorithm-Generated/fx_ag_multi.json"), mistake_step="2")
+    # The predicted mistake message (right before the traceback) sits at
+    # whole-history index 1 (0-based).
+    record = dict(_fixture("Algorithm-Generated/fx_ag_multi.json"), mistake_step="1")
 
     results = evaluate_records([record], step_scope="global")
     row = results["rows"][0]
-    assert row["predicted_step"] == 2
+    assert row["predicted_step"] == 1
     assert row["step_match"] is True
