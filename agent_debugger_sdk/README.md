@@ -59,6 +59,33 @@ init(
 
 If no API key is set, the SDK stays in local mode and defaults to `http://localhost:8000`.
 
+### HTTP delivery and retries
+
+When HTTP transport is active, temporary failures (timeouts, disconnects, HTTP
+408, 429, and 5xx responses) receive up to three retries. Authentication errors
+and redirects fail immediately; point the endpoint directly at the collector.
+
+For direct `HttpTransport` use, customize retries and observe failed delivery:
+
+```python
+import logging
+
+from agent_debugger_sdk.transport import HttpTransport, RetryConfig
+
+transport = HttpTransport(
+    endpoint="http://localhost:8000",
+    retry_config=RetryConfig(max_retries=3, max_backoff_seconds=10),
+    on_delivery_failure=lambda error: logging.warning("Trace delivery failed: %s", error),
+)
+# Use `async with transport:` when sending events to close its HTTP client.
+```
+
+The default backoff starts at 0.5 seconds, doubles after each retry, and is capped
+at 30 seconds per delay. The transport honors `Retry-After` seconds and HTTP
+dates. If the server requests a delay above the configured cap, delivery ends
+with a failure callback instead of retrying early. Delivery failures are logged
+and do not raise into your agent; retries are finite and do not guarantee delivery.
+
 ## Integration Options
 
 ### `TraceContext`
