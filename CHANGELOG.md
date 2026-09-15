@@ -6,6 +6,84 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.3.0] - 2026-09-15
+
+The operator-decides release: failure narratives, minimal re-execution
+sets, semantic checkpoint restore, an externally benchmarked localization
+harness — and a fully repaired HTTP/cloud delivery path for the SDK.
+
+### Added
+
+#### Failure narratives (M2.2)
+- Every audit report now carries a structured failure narrative — observed
+  symptom (with a normalized mechanism category), likely mechanism with a
+  clickable root-cause → failure chain, contributing factors (repeated
+  failed strategies, contradictions, stale evidence, goal drift),
+  trace-anchored evidence links, and the single best next inspection point
+  with a suggested action; confidence is honestly capped with an explicit
+  weakness note when no cause could be localized
+- First-class AuditPanel surface in the UI
+
+#### Minimal re-execution set (M2.1)
+- `GET /api/sessions/{id}/decisions/{event_id}/reexecution-set` — the
+  smallest sub-graph to re-run to confirm or invalidate a suspect decision's
+  claim: the decision, its cited evidence, upstream tool calls, and the
+  downstream subtree, each node marked read-only vs required-rerun with a
+  why-included reason
+
+#### Semantic checkpoint restore (M2.3)
+- `POST /api/checkpoints/{id}/restore` now carries the source session's
+  event prefix (fresh ids, remapped internal references), a leading
+  `session_restored` provenance marker, and an initial SDK-wrapped state
+  checkpoint — restored runs stay auditable; response extended with
+  `copied_event_count`, `new_checkpoint_id`, `restore_event_id`
+
+#### Who&When benchmark corpora + measured result (M1.3/M2.4)
+- `scripts/fetch_who_when.py` seeds the public 184-record benchmark
+  (MANIFEST-pinned); `just who-when` reproduces the run
+- Full-dataset result: deterministic attribution measures **26.6% agent /
+  5.4% step accuracy** on raw conversation logs vs the paper's best LLM
+  judge at 53.5% / 14.2% — methodology and the honest read in
+  docs/guides/audit-and-trust.md
+
+#### End-to-end scenario suite
+- `tests/e2e/` — 46 full-stack tests: real uvicorn subprocess, real SDK
+  HTTP transport, real SQLite, authenticated tenant; 11 deterministic
+  scenario agents covering grounded runs, contradictions, stale evidence,
+  retry loops, goal drift, policy refusions, recovery, checkpoints,
+  multi-agent crews, and cross-session surfaces
+
+### Fixed
+
+#### SDK HTTP/cloud delivery path (found by the e2e suite)
+- Collector ingest dropped all typed event fields (reasoning, confidence,
+  evidence ids, errors, tool results) and regenerated event ids — every
+  evidence/upstream/parent reference from the SDK was orphaned; ingest now
+  preserves ids and reconstructs typed events
+- Checkpoints were silently lost in transport mode — `HttpTransport` gains
+  `send_checkpoint` and the collector a `POST /api/checkpoints` endpoint
+- `record_tool_call` accepts `agent_id` for multi-agent attribution
+
+#### Audit engine scoring
+- Recovery rate counted enum repair outcomes as failures (0% over HTTP);
+  stale-evidence claims now appear in review points; a fully repaired
+  failure no longer forces a fail verdict; decisions carrying evidence
+  items no longer self-supersede into false staleness
+
+#### Frontend
+- UI load crash: zustand v5 object selectors in TraceView/InspectView
+  re-rendered infinitely (React #185) — now wrapped in `useShallow`
+- TraceTimeline crashed on JSON-null `duration_ms` arriving from the API
+
+### Changed
+
+- Who&When harness: 0-based step indexing (was off by one), speaker
+  extraction from `name` OR `role` (with parenthetical normalization),
+  attribution switched to the measured-best deterministic heuristic
+  (message immediately before the first error signal)
+- verdict semantics: recovered failures read as review/pass, unrecovered
+  and policy-violating runs still fail
+
 ## [0.1.4] - 2026-03-24
 
 ### Added
