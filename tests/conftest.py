@@ -8,7 +8,8 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Each xdist worker gets its own DB file to avoid SQLite lock contention.
-_worker_id = os.environ.get("PYTEST_XDIST_WORKER_ID", "master")
+# xdist sets PYTEST_XDIST_WORKER (e.g. "gw0"), not PYTEST_XDIST_WORKER_ID.
+_worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
 _temp_dir = tempfile.mkdtemp()
 _test_db_path = os.path.join(_temp_dir, f"test_agent_debugger_{_worker_id}.db")
 os.environ["AGENT_DEBUGGER_DB_URL"] = f"sqlite+aiosqlite:///{_test_db_path}"
