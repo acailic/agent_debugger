@@ -535,7 +535,7 @@ S/M/L are rough ranges: S ≤3 engineer-days, M 4–7, L 8–15, excluding obser
 | Q10 | DONE 2026-09-20 | SDK restore POSTs the semantic contract (authenticated; unauthenticated local mode), adopts server ids and typed RestoreProvenance, legacy GET fallback marked, no execution (`e61f04d`) | Q09 ✓; Q06 hosted gate open | ✓ |
 | Q11 | NOT STARTED | Browser scenario from finding to evidence to restore boundary with delayed-response coverage | Q04, Q10 | M |
 | Q12 | DONE (first slice) 2026-09-20 | scripts/install_smoke.sh: both wheels built the publish.yml way, installed into a fresh venv outside the checkout; server start → keyless SDK trace → query → restart → same trace → bundled UI → same inside a Docker container with a mounted volume; two real packaging bugs fixed (alembic.ini guard, Dockerfile COPY) (`a52f40c`). CI automation of the smoke is a follow-up | Q09 ✓ | ✓(local) |
-| Q13 | DONE 2026-09-20 | Code delivered (`e8e6696`); non-skipping real-service CI job (redis:7-alpine service + redis-server binary) added — acceptance closes when that job runs green (`a52f40c`) | — | ✓ |
+| Q13 | DONE 2026-09-20 | Code delivered (`e8e6696`) and the non-skipping real-service CI job (redis:7-alpine + redis-server binary) ran green (run 35540245616) after two test-only fixes it caught: redis-py ≥5.2 returns pubsub_numsub as a list, and the drop-oldest test raced fan-out lag (now deterministic via a drain-signal subscriber; validated 5× live) | — | ✓ |
 | Q14 | NOT STARTED | Sanitized incident → immutable regression case → baseline/candidate comparison | Q05, Q08 | L |
 | Q15 | PARTIAL | Adapter capability matrix with real framework tests for first supported version set | Q09 | M |
 | Q16 | UNVERIFIED | Pilot first-value and diagnosis study with raw outcome counts and documented consent | Q11, Q12 | M |
@@ -859,7 +859,8 @@ before testing the main user journey.
 
 ## Shipped history and superseded plans
 
-- 2026-09-20 (agent-team waves): Q06/Q07/Q09/Q13 (wave 1) and Q08/Q10 (wave 2) — hosted-boundary
+- 2026-09-20 (agent-team waves): Q03 tracker reconciliation (zero open PRs), Q04 payload/nullability gate, Q06 hosted-auth hardening, Q07 creation-time validation, Q08/Q10 (wave 2), Q12 install smoke with packaging fixes, Q13 real-service CI green — see earlier entry;
+  plus wave 1: Q06/Q07/Q09/Q13 — hosted-boundary
   fixes with route inventory and two-tenant matrix, eval-free breakpoint predicates, no-key local
   SDK delivery, Redis buffer repair, one-policy redaction across sinks with a sentinel scan
   artifact, SDK semantic restore with provenance; Python 3.10 SSE TimeoutError bug fixed.
