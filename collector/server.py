@@ -399,6 +399,14 @@ async def ingest_checkpoint(
         async with deps.session_maker() as db:
             tenant_id = await deps.tenant_resolver(request, db)
             repo = TraceRepository(db, tenant_id=tenant_id)
+            # Ownership check mirrors the event path (_persist_event_if_configured):
+            # a checkpoint may only attach to a session visible to the caller's
+            # tenant, so another tenant's session_id cannot be targeted.
+            if await repo.get_session(checkpoint.session_id) is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Session {checkpoint.session_id} not found",
+                )
             await repo.create_checkpoint(checkpoint)
             await repo.commit()
     return {"checkpoint_id": checkpoint.id, "status": "stored"}
