@@ -1,7 +1,7 @@
 # Peaky Peek roadmap
 
-**Last verified: 2026-09-20. Source/release: `main` at `5a807cf` (v0.4.0).
-Focused local validation: `f9dc240`.**
+**Last verified: 2026-09-20. Source: local and remote `main` at `f832204`.
+Latest release: v0.4.0 at `5a807cf`; later commits are not part of that release.**
 
 This is the single source of priorities for the repository. It contains the
 ambitious development plans as workstreams, with their current state, dependencies
@@ -16,6 +16,8 @@ hosting and advanced automation are later extensions of that complete workflow.
 ## Read this first
 
 - [Verified implementation snapshot](guides/progress.md)
+- [Latest delivery follow-up](research/2026-09-20-delivery-followup.md) and
+  [PR #325 review](reports/2026-09-20-pr325-review.md)
 - Evidence: [SDK and replay](research/2026-09-19-core-status.md),
   [intelligence and benchmarks](research/2026-09-19-intelligence-status.md),
   [platform and UI](research/2026-09-19-platform-status.md),
@@ -42,19 +44,19 @@ hosting and advanced automation are later extensions of that complete workflow.
 performance targets and adoption thresholds below are **proposals**, not measured
 baselines or deadlines. The original capability audit inspected `3597b6b` and
 pre-existing working-tree changes. This refresh verifies the subsequent committed
-CI, contract and benchmark fixes, three successful GitHub CI matrices, and 56
-focused local tests. Historical audit findings remain scoped to their recorded
+CI, contract and benchmark fixes and subsequent delivery changes. The latest
+selection passed 86 tests; main CI passed while the separate secret scan failed. Historical audit findings remain scoped to their recorded
 revision unless updated here. A browser session, installed artifacts and a
 production deployment were not exercised in this refresh. See the
-[dated delivery evidence](research/2026-09-20-planning-evidence.md#delivery-refresh-after-the-fixes)
-for commands, results and limits.
+[latest delivery evidence](research/2026-09-20-delivery-followup.md) for commands,
+results, skipped Redis checks and scope limits.
 
 ## Verified baseline and urgent gaps
 
 | Capability | Status | What exists / what remains | Evidence |
 |---|---|---|---|
 | Typed trace events, decisions, checkpoints and manual recording | **DONE** | Implemented SDK model and recording primitives; reliability of delivery is a separate scope | [Core audit](research/2026-09-19-core-status.md) |
-| SDK configuration, decorators and framework hooks | **PARTIAL** | APIs and hooks exist; local no-key delivery and adapter semantic coverage need work | [Core audit](research/2026-09-19-core-status.md) |
+| SDK configuration, decorators and framework hooks | **PARTIAL** | Explicit endpoint/no-key delivery is implemented and tested (Q09); adapter semantic coverage and installed-package onboarding remain | [Delivery follow-up](research/2026-09-20-delivery-followup.md) |
 | HTTP event/checkpoint ingestion | **PARTIAL** | Real persistence path exists; auth, ownership and privacy coverage are incomplete | [Platform audit](research/2026-09-19-platform-status.md) |
 | Delivery recovery | **PARTIAL** | Retry/cancellation/partial-write recovery exists; memory queues are not crash-durable | [DISCOVERIES](../DISCOVERIES.md), [core audit](research/2026-09-19-core-status.md) |
 | Session audit, claim verification, evidence graph and narratives | **DONE** | Deterministic analysis surfaces exist; real-world correctness and calibrated probabilities are not established | [Intelligence audit](research/2026-09-19-intelligence-status.md) |
@@ -68,21 +70,24 @@ for commands, results and limits.
 | Who&When benchmark | **PARTIAL** | Corrected protocol shipped 2026-09-20: global upstream indexing, exact independent/joint/abstention metrics with denominators, pinned-commit fetch, validated annotations, versioned result manifest (`benchmarks/results/who_when/2026-09-20-global-protocol.json`). Remaining: native-engine attribution is a separate unevaluated claim | [Intelligence audit](research/2026-09-19-intelligence-status.md), [CHANGELOG](../CHANGELOG.md) |
 | Conformal uncertainty as a product guarantee | **UNVERIFIED** | Core calibration utilities exist, but research API paths include confidence-derived heuristics; do not advertise fitted guarantees | [Intelligence audit](research/2026-09-19-intelligence-status.md) |
 | Auth / tenant isolation / redaction everywhere | **PARTIAL** | Clusters tenant-scoping, checkpoint ownership and one-policy redaction across storage/SSE/checkpoints/metadata landed 2026-09-20 (Q06+Q08) with sentinel tests; analytics auth and absent-key cloud fallback remain open | [Platform audit](research/2026-09-19-platform-status.md) |
-| Safe custom breakpoint predicates | **PARTIAL / BLOCKED remote exposure** | Custom expression evaluates in server Python context; replace or disable the path for remote operation | [Platform audit](research/2026-09-19-platform-status.md) |
+| Safe custom breakpoint predicates | **PARTIAL** | `eval` replaced by a constrained interpreter in `730d1dc`; invalid conditions are still accepted at creation/import, and evaluation budgets need completion | [Delivery follow-up](research/2026-09-20-delivery-followup.md#q07-validate-before-changing-state) |
 | Redis-backed operation | **PARTIAL** | Constructor/URL wiring repaired 2026-09-20 with bounded queues, reconnect and documented durability limits; real-service verification pending where redis-server is available | [Platform audit](research/2026-09-19-platform-status.md), [Q13](#first-implementation-queue) |
 | SDK/server packaging and bundled UI | **PARTIAL** | Separate package definitions and publish workflow exist; clean installed-artifact and container proof needed | [Platform audit](research/2026-09-19-platform-status.md) |
 | Browser regression workflows | **NOT STARTED** for seeded full browser coverage | API e2e and component tests exist; they do not prove a browser workflow or hosted auth enforcement | [Platform audit](research/2026-09-19-platform-status.md) |
 | Main CI | **RECOVERED 2026-09-20** | #324 fixed (`09ec3dc`) and closed. Q02's three consecutive green matrices: `423ab82` (35479465055), `07efd4e` (35479673383), `2e45fe7` (35479946771); `f9dc240` also passed (35480122316). Covers Python 3.10/3.11/3.12 with `-k "not integration"`, coverage, contract checks, frontend build/tests and dependency security; advisory checks remain nonblocking | [Delivery evidence](research/2026-09-20-planning-evidence.md#delivery-refresh-after-the-fixes) |
+| Latest repository workflows | **MIXED / SCAN FIX VERIFIED LOCALLY** | `f832204` CI passed (35483421378); Gitleaks failed (35483421310) on one synthetic fixture. Exact fingerprints pass the failed range in two scanner versions; new GitHub evidence and a separate 19-finding historical baseline remain open | [Delivery follow-up](research/2026-09-20-delivery-followup.md#secret-scan-diagnosis-and-local-correction) |
 | Type checks and API contracts | **PARTIAL** | Contract gate committed in `ac819c0` and green: 8 response field sets, 3 enum unions, 72 frontend routes, plus mutation regressions. Runtime payload types/nullability remain Q04; Pyright remains advisory | [Delivery evidence](research/2026-09-20-planning-evidence.md#delivery-refresh-after-the-fixes) |
 | OTel interoperability | **PARTIAL** | Exporter setup exists; native event-to-span wiring and inbound ingestion not established | [Core audit](research/2026-09-19-core-status.md) |
 | Teams, hosted accounts, billing and paid adoption | **NOT STARTED / UNVERIFIED** | Product surfaces absent in inspected app; actual customer adoption not measured | [Platform](research/2026-09-19-platform-status.md), [research](research/2026-09-20-planning-evidence.md) |
 
 ### First release gates
 
-1. **Delivery:** CI recovery is complete (Q01/Q02). Next, review one existing
-   threshold-test PR (Q03) and extend the committed contract gate (Q04).
+1. **Delivery:** Q01/Q02 recovery is complete. Deliver the locally verified
+   secret-scan correction; refresh #325 after its passing local review (Q03), then obtain
+   required PR checks. Payload contract extension remains Q04.
 2. **Trust boundary:** scope every hosted route, checkpoint write, live stream and
-   derived store; remove server-side arbitrary breakpoint evaluation.
+   derived store. The interpreter replacement is delivered; complete predicate
+   creation/import validation and resource bounds (Q07).
 3. **Truthful evaluation:** ~~correct Who&When indexing/metrics and separate its
    standalone heuristic from the native audit engine; repair its broken self-test.~~
    Done 2026-09-20 (Q05). Native-engine attribution evaluation (E1) remains open.
@@ -105,7 +110,7 @@ The previous M1–M3 IDs are retained so existing references still make sense.
 | M1.4 | Stakes line and named trust bands | **DONE** as a UI/engine feature; bands are not calibrated safety guarantees |
 | M2.1 | Minimal re-execution set | **DONE** as a recommendation endpoint; execution of that set is future W04 work |
 | M2.2 | Failure narratives | **DONE**: structured narrative and UI block; operator usefulness still to measure |
-| M2.3 | Semantic checkpoint restore | **DONE** for server API; **PARTIAL** for SDK integration; runtime continuation **NOT STARTED** |
+| M2.3 | Semantic checkpoint restore | **DONE** for server API and SDK integration (`e61f04d`, Q10); browser flow and runtime continuation remain separate |
 | M2.4 | Seeded corpus plus UI smoke workflows | **PARTIAL**: seed/fetch scripts and API scenarios exist; browser smoke suite still open |
 | M3.1 | Service decomposition | **DONE** for session-analysis/causal/similarity split; further decomposition only when needed |
 | M3.2 | Cross-session clustering and retention tiers | **PARTIAL**, not greenfield: clustering and scoring exist; deletion/archive lifecycle and hosted isolation remain |
@@ -128,6 +133,13 @@ contracts, typing and automation remain. **Priority:** P1.
 **Outcome:** a failed check identifies a real regression; automation extends an
 existing issue/PR rather than generating repeated copies of blocked work.
 
+- [x] Classify the failed secret scan on `f832204`: one synthetic redaction
+  fixture. Exact historical fingerprints pass the failed range with Gitleaks
+  8.24.3 and 8.30.1; new-commit negative controls still fail; 43 redaction tests pass.
+  [Diagnosis and local correction](research/2026-09-20-delivery-followup.md#secret-scan-diagnosis-and-local-correction).
+- [ ] Deliver the local scan correction and record a passing GitHub run. Resolve
+  the separate 19-finding historical fixture baseline without blanket exclusions.
+  Main CI success and a passing range scan do not imply clean full history.
 - [x] Capture worker ID, database URL, engine lifecycle and schema state on the
   failing xdist path; reproduce before choosing a fixture or application fix.
   *(Done 2026-09-20: reproduced locally 100% with `-n auto`; three stacked root
@@ -141,6 +153,9 @@ existing issue/PR rather than generating repeated copies of blocked work.
   not another implementation of that correction.
 - [ ] Reconcile #321/#322/#325 and review one threshold-resolution implementation
   after CI recovery. Record infrastructure blockers separately from code findings.
+  *(Local review complete: #325 covers #311; 38 alert tests, 100% targeted coverage
+  and Ruff pass. [Review notes](reports/2026-09-20-pr325-review.md); updated PR-head
+  CI, merge and tracker reconciliation remain.)*
 - [x] Commit API-contract field/enum/route checks and prove drift fails CI.
   *(Done in `ac819c0`; live Pydantic fields, TypeScript AST extraction, mutation
   regressions and corrected frontend calls. Fresh check: 8 schemas, 3 enums,
@@ -152,7 +167,8 @@ existing issue/PR rather than generating repeated copies of blocked work.
 - [ ] Give automatic work an issue lease, existing-PR lookup, base-CI preflight,
   retry budget and a durable reason for stopping after repeated identical failure.
 
-**Next slice:** review and consolidate existing threshold-test PRs (Q03), then
+**Next slice:** deliver the verified scan correction and confirm CI; review and
+consolidate existing threshold-test PRs (Q03), then
 extend payload contracts (Q04). Initial worker diagnosis is complete.
 **Gate:** affected scenarios pass in the full serial and bounded-parallel suites;
 three consecutive CI matrices pass after the fix, with no weakened assertions or
@@ -168,8 +184,8 @@ remain open even though delivery is unblocked.
 **Outcome:** an operator can tell whether a session is complete and what delivery
 failure occurred, without destabilizing the instrumented application.
 
-- [ ] Unify local/no-key and authenticated transport selection; separate destination
-  selection from presence of an API key. Keep disabled tracing inert.
+- [x] Separate explicit destination selection from presence of an API key;
+  no-key delivery and disabled/no-endpoint controls pass (`bd37ce0`, Q09).
 - [ ] Consolidate auto-patch and async transport delivery contracts: auth, timeouts,
   status handling, bounded queues, shutdown drain and per-run context.
 - [ ] Define acknowledgement semantics and idempotency keys for events/checkpoints;
@@ -181,8 +197,9 @@ failure occurred, without destabilizing the instrumented application.
 - [ ] Version event envelopes and preserve source IDs/order across imports and
   restore; document ordering under concurrent producers and clock skew.
 
-**First slice:** no-key SDK → running collector → persisted event → query response,
-plus collector-unavailable behavior and visible delivery diagnostics.
+**Delivered first slice:** explicit no-key endpoint → collector → persisted event
+→ query, including offline/disabled behavior. Next, unify delivery contracts and
+acknowledgement semantics; installed-artifact proof is Q12.
 **Gate:** cancellation, partial write, restart, duplicate retry and quota cases
 have explicit outcomes; zero silent loss among durably acknowledged test events.
 **Dependencies:** W01 for regression confidence, W10 for privacy before spooling.
@@ -218,14 +235,15 @@ an explicit missing-evidence marker; independent reviewers can reproduce verdict
 
 ### W04 — From inspection to controlled replay experiments
 
-**Current:** inspection and server restore DONE; SDK connection PARTIAL;
-execution continuation NOT STARTED. **Priority:** P1/P2. **Owner:** SDK / runtime.
+**Current:** inspection, server restore and SDK semantic connection DONE (Q10);
+browser integration and execution continuation remain. **Priority:** P1/P2. **Owner:** SDK / runtime.
 
 **Outcome:** inspect, restore, simulate from cached responses and execute a new
 branch are separate modes with clear provenance and effects.
 
-- [ ] Route SDK restore through the server's semantic restore contract, including
-  configured authentication, returned IDs and checkpoint-state ownership.
+- [x] Route SDK restore through the server's semantic contract with configured
+  authentication and returned IDs/provenance (`e61f04d`, Q10). End-to-end source
+  immutability/no-execution tests pass; hosted ownership completion remains Q06.
 - [ ] Show copied prefix, restore boundary, excluded outside references and new
   branch identity in the UI; compare divergent events without claiming determinism.
 - [ ] Define a capability contract per adapter: inspect-only, state restore,
@@ -237,8 +255,9 @@ branch are separate modes with clear provenance and effects.
 - [ ] Execute a minimal re-execution set only when dependency and effect coverage
   are known; otherwise recommend the larger safe boundary.
 
-**First slice:** authenticated SDK restore preserves source-prefix provenance
-end-to-end, without running agent code. Next slice uses a deterministic fixture
+**Delivered first slice:** authenticated SDK restore preserves source-prefix
+provenance end to end without running agent code. Next, expose that provenance
+in the Q11 browser workflow; subsequent continuation uses a deterministic fixture
 agent and simulated tools for one branch.
 **Gate:** original run remains immutable; cache misses never silently run a tool;
 new execution has its own trace, costs and effect ledger; changing one input
@@ -408,14 +427,17 @@ actual entry/exit path, including derived data and live delivery.
 
 - [ ] Make server local/hosted mode explicit and observable; exercise the actual
   server process in hosted mode, rather than only configuring the SDK fixture.
-- [ ] Inventory endpoints and derived stores; close hard-coded local tenant paths,
-  unauthenticated analytics reads and missing-key behavior in hosted mode.
-- [ ] Check parent session/event ownership on checkpoint and related writes;
-  test a second tenant's IDs and inconsistent references.
-- [ ] Apply the configured redaction policy before both persistence and live fan-out;
-  cover checkpoint state, nested metadata, errors, annotations and future spools.
-- [ ] Replace arbitrary Python breakpoint expressions with a constrained predicate
-  language, or disable custom expressions on exposed servers; no eval-based sandbox.
+- [x] Document route inventory and replace hard-coded cluster tenant scope (Q06).
+- [ ] Enforce inventory coverage in tests; reject missing hosted credentials and
+  scope or disable unauthenticated analytics reads/writes (remaining Q06).
+- [x] Check checkpoint parent-session ownership (`42a6c6b`).
+- [ ] Validate checkpoint event/session consistency, including same-tenant wrong
+  sessions and cross-tenant event IDs before any mutation (remaining Q06).
+- [x] Apply one configured policy to existing persistence/live/checkpoint/metadata
+  paths (`7f95046`, Q08); sentinel boundary tests pass. Future sinks require coverage.
+- [x] Replace Python `eval` with a constrained predicate interpreter (`730d1dc`).
+- [ ] Validate predicates before creation/import, return clear API 4xx errors and
+  bound evaluation work/result sizes (remaining Q07).
 - [ ] Add bounded payload/queue/request policies, key rotation/revocation tests and
   export/delete accounting across indexes, memory, cache and audit records.
 
@@ -437,8 +459,10 @@ installations have a tested recovery path before adding more infrastructure.
 
 - [ ] Build SDK/server wheels and container in clean environments; verify CLI,
   bundled assets, first trace, health/readiness and migration lifecycle.
-- [ ] Fix Redis constructor/configuration wiring and test against an actual service;
-  explicitly choose whether it provides fan-out, a durable queue, or both.
+- [x] Fix Redis constructor/configuration wiring and document fan-out/reconnect/
+  bounded-queue behavior (`e8e6696`, Q13); missed-message replay is not promised.
+- [ ] Run Redis acceptance against an actual service in a job where those tests
+  cannot silently skip. The latest local selection lacked the Redis dependency.
 - [ ] Validate PostgreSQL driver/migrations/queries in a dedicated job; local SQLite
   tests are not proof of PostgreSQL readiness.
 - [ ] Implement retention execution: dry-run eligibility → delete/archive → remove
@@ -501,28 +525,29 @@ S/M/L are rough ranges: S ≤3 engineer-days, M 4–7, L 8–15, excluding obser
 |---|---|---|---|---|
 | Q01 | DONE (diagnosis+fix) | #324: three lifecycle/isolation causes fixed in `09ec3dc`; serial reproducer, `-n 1` and twelve local `-n auto` runs recorded. Issue closed, verified 2026-09-20 | — | ✓ |
 | Q02 | DONE | Serial green; `-n 1` + twelve local `-n auto` runs green; three consecutive fully green CI matrices (runs 35479465055, 35479673383, 35479946771) | Q01 | ✓ |
-| Q03 | PARTIAL / READY | Review #325 first against #321/#322; #323's worker fix is already on main. Select one threshold-test change and reconcile tracker state after passing review | Q02 ✓ | S |
+| Q03 | PARTIAL / REVIEWED LOCALLY | #325 covers #311; 38 alert tests pass, targeted module coverage 100%, Ruff passes. Refresh the actual PR head, resolve small review notes, obtain CI and merge once | Q02 ✓ | S |
 | Q04 | PARTIAL / READY | Base checker and mutations DONE in `ac819c0`; extend real payload, structural-type and nullability checks | Q02 ✓ | M |
 | Q05 | DONE (corrections) | Who&When global-index fixtures, passing self-test, named independent/joint metrics and versioned result manifest — shipped 2026-09-20 | — | ✓ |
-| Q06 | DONE 2026-09-20 | Hosted-mode fixture + full route inventory (`docs/hosted-route-inventory.md`); clusters tenant-scoping and checkpoint ownership fixed; two-tenant matrix green; open gaps pinned (analytics auth, absent-key cloud fallback, SSE redaction) → Q08 | — | ✓ |
-| Q07 | DONE 2026-09-20 | Delivered the stronger form: eval replaced by an AST-allowlisted predicate interpreter (no calls/dunders/comprehensions; caps; explicit unsupported-construct errors); 72 attack-surface tests + independent RCE probes blocked (`730d1dc`) | — | ✓ |
-| Q08 | DONE 2026-09-20 | One configured policy across persisted rows (data + metadata), buffer/SSE fan-out, checkpoint state/memory, session config and NDJSON spill; sentinel boundary tests + `scripts/scan_redaction_sinks.py` audit artifact; Python 3.10 SSE TimeoutError bug fixed en route (`7f95046`). Policy is opt-in per deployment | Q06 ✓ | ✓ |
+| Q06 | PARTIAL | Cluster scope, checkpoint parent-session ownership, inventory and ASGI matrix delivered. Missing-key/analytics auth, real hosted startup, event/session consistency and complete negative-route acceptance remain under Q06 | — | M |
+| Q07 | PARTIAL | `eval` replacement and evaluator tests delivered (`730d1dc`). Finish pre-mutation creation/import validation, API 4xx errors and bounded evaluation work/results | —; Q06 for hosted proof | S |
+| Q08 | DONE 2026-09-20 | One configured policy across persisted rows (data + metadata), buffer/SSE fan-out, checkpoint state/memory, session config and NDJSON spill; sentinel boundary tests + `scripts/scan_redaction_sinks.py` audit artifact; Python 3.10 SSE TimeoutError bug fixed en route (`7f95046`). Policy is opt-in per deployment | Q06 inventory ✓; hosted gate open | ✓ |
 | Q09 | DONE 2026-09-20 | Endpoint-without-key installs unauthenticated delivery; no-endpoint/disabled inert; offline exits cleanly via failure callbacks; real-collector e2e green (`bd37ce0`). Installed-wheel onboarding command check folds into Q12 | Q02 ✓ | ✓ |
-| Q10 | DONE 2026-09-20 | SDK restore POSTs the semantic contract (authenticated; unauthenticated local mode), adopts server ids and typed RestoreProvenance, legacy GET fallback marked, no execution (`e61f04d`) | Q06 ✓, Q09 ✓ | ✓ |
+| Q10 | DONE 2026-09-20 | SDK restore POSTs the semantic contract (authenticated; unauthenticated local mode), adopts server ids and typed RestoreProvenance, legacy GET fallback marked, no execution (`e61f04d`) | Q09 ✓; Q06 hosted gate open | ✓ |
 | Q11 | NOT STARTED | Browser scenario from finding to evidence to restore boundary with delayed-response coverage | Q04, Q10 | M |
 | Q12 | PARTIAL | Wheel/server/container smoke in clean environment; restart preserves captured trace | Q09 | M |
-| Q13 | DONE 2026-09-20 | Constructor NameError fixed (lazy import, clear RuntimeError), REDIS_URL wired through, bounded drop-oldest queues, reconnect, durability limit documented; real-service tests skip where redis-server absent (`e8e6696`) | Q06 ✓ | ✓ |
+| Q13 | PARTIAL / CODE DELIVERED | Constructor/URL/queue/reconnect fixes and service tests exist (`e8e6696`); run a non-skipping real-service job to close acceptance. Both Redis modules skipped in this audit | —; Q06 for hosted proof | S |
 | Q14 | NOT STARTED | Sanitized incident → immutable regression case → baseline/candidate comparison | Q05, Q08 | L |
 | Q15 | PARTIAL | Adapter capability matrix with real framework tests for first supported version set | Q09 | M |
 | Q16 | UNVERIFIED | Pilot first-value and diagnosis study with raw outcome counts and documented consent | Q11, Q12 | M |
 
-Q01, Q02 and Q05 are complete. **Next order for one maintainer:** Q03 review,
-Q07 rejection of custom expressions, Q06 hosted boundaries, Q08 redaction, Q09
-local delivery, Q04 payload contracts, then Q10 restore and Q11 browser coverage.
-Q12 installed-artifact proof can follow Q09 independently of Q10/Q11.
-Q04 and Q09 are also ready for a second contributor; their completion does not
-authorize shared hosting. Q03 reuses existing PR effort. Do not open all sixteen
-issues or build all twelve streams concurrently.
+Q01, Q02, Q05 and the bounded Q08/Q09/Q10 implementations are complete.
+**Next order for one maintainer:** deliver W01's verified local scan correction; finish
+Q03's reviewed PR handoff; close Q06/Q07 remaining acceptance; then Q04 response
+contracts, Q12 installed artifacts and Q11 browser workflows. Q13 needs a real
+Redis service run. Q04/Q12 can proceed independently of hosted release work.
+Reuse delivered redaction, local transport and semantic restore code. Do not
+restart those implementations or open duplicate PRs. Keep one delivery slice active
+per maintainer; broader workstreams retain their own remaining gates.
 
 ## Next delivery slices
 
@@ -536,7 +561,9 @@ plus a passing acceptance artifact before checking off a slice.
 **Starting point:** [#325](https://github.com/acailic/agent_debugger/pull/325),
 [#322](https://github.com/acailic/agent_debugger/pull/322) and
 [#321](https://github.com/acailic/agent_debugger/pull/321) add the same test file,
-absent from main. #325 is the first review candidate, not an approved change.
+absent from main. [Local review of #325](reports/2026-09-20-pr325-review.md)
+found no substantive blocker and passed 38 alert tests with 100% targeted coverage.
+It is the selected handoff candidate, not a GitHub-approved or merged change.
 
 1. Compare all three diffs against `collector/alerts/base.py`; retain the best
    cases in one existing PR. Check absent/empty/disabled policies, missing and
@@ -554,28 +581,38 @@ absent from main. #325 is the first review candidate, not an approved change.
 passing required checks and an explicit warning-handling decision. Tracker
 cleanup is still pending; this planning task performed no merges, comments or closures.
 
-### Q07 — Remove the custom-expression execution path
+### Q07 — Finish validation around the delivered predicate interpreter
 
 **Files:** `agent_debugger_sdk/core/stepper.py`, `api/stepper_routes.py`,
 `frontend/src/components/StepperPanel.tsx`, and their existing tests.
 
-1. Preserve built-in breakpoint conditions. Reject custom expressions with a
-   clear unsupported-condition error; remove or disable the corresponding UI input.
-2. Apply validation to core creation and imported stepper state, not just HTTP
-   requests. Remove the `eval` path rather than treating evaluation errors as no match.
-3. Exercise supported conditions, invalid numeric inputs and custom expressions
-   through creation/import/API paths. Rejections must occur before state changes.
+**Delivered:** `730d1dc` chose the constrained-grammar option instead of disabling
+custom conditions. Preserve its supported predicates; no Python `eval` remains.
+The remaining work is to satisfy the original boundary and error-handling gate.
 
-**Acceptance:** built-ins still stop recorded-event replay; custom expressions
-cannot be created, imported or evaluated, and errors are visible to the caller.
-This slice can ship before Q06; hosted acceptance still uses Q06's real server.
-A constrained expression language needs a separate use case and bounded design.
+1. Validate custom conditions and numeric built-ins before core/API creation.
+   Parse and validate an imported candidate state before replacing current state.
+2. Convert unsupported predicates to explicit API 4xx responses and display the
+   message in the existing UI. Do not wait until replay to discover invalid input.
+3. Make arithmetic/sequence limits symmetric and bound aggregate work and output
+   sizes. Verify rejection with a recording operator stub before any allocation;
+   short expression syntax alone does not bound computation.
+4. Cover built-ins, supported grammar, malformed conditions and imports through
+   core and HTTP paths; assert rejected requests leave prior state unchanged.
+
+**Acceptance:** valid predicates retain behavior; rejected creation/import causes
+no state mutation; callers receive actionable errors; evaluation stays within
+declared budgets. Hosted acceptance still needs Q06's actual server configuration.
 
 ### Q06 — Establish hosted identity and ownership end to end
 
 **Files:** `auth/middleware.py`, `api/main.py`, `api/cross_session_routes.py`,
 `api/analytics_routes.py`, `collector/server.py`,
 `storage/repositories/checkpoint_repo.py`, and `tests/e2e/conftest.py`.
+
+**Delivered foundation:** cluster tenant scoping, parent-session ownership,
+[route inventory](hosted-route-inventory.md) and the ASGI matrix in `42a6c6b`.
+Its tests explicitly preserve anonymous cloud access today. Remaining steps:
 
 1. Define validated server-local versus hosted startup configuration independently
    of SDK credentials. Launch a real hosted subprocess with two tenant keys;
@@ -584,8 +621,8 @@ A constrained expression language needs a separate use case and bounded design.
    State the intentional public allowlist. Missing, malformed, invalid and revoked
    keys must fail on protected paths. Adding a protected route without an inventory
    entry must fail the inventory check.
-3. Replace hard-coded local identity in clustering; close its database session.
-   For non-tenant analytics reads and writes, either add tenant scope or explicitly
+3. Preserve the delivered cluster repository fix. For non-tenant analytics reads
+   and writes, either add tenant scope or explicitly
    make them unavailable in hosted mode until scope is implemented.
 4. Validate checkpoint session ownership and referenced-event/session consistency
    before writes. Exercise read, write, export, restore, stream and derived-data
@@ -599,6 +636,10 @@ Q06 completion alone does not complete the shared-hosting release gates.
 
 ### Q09 — Make the local quickstart deliver a persisted trace
 
+**DONE for the explicit-endpoint source workflow (`bd37ce0`).** The fresh delivery
+tests pass. The steps below describe delivered scope; execute Q12 for installed
+artifacts rather than reimplementing transport selection.
+
 **Files:** `agent_debugger_sdk/config.py`,
 `agent_debugger_sdk/core/context/trace_context.py`,
 `agent_debugger_sdk/transport.py`, SDK/config/transport tests and `tests/e2e/`.
@@ -608,12 +649,14 @@ Q06 completion alone does not complete the shared-hosting release gates.
    prevent delivery to a selected local endpoint. Preserve existing hook isolation.
 2. Use the existing HTTP transport without an Authorization header for local
    delivery. Keep authenticated delivery and concurrent context lifecycles covered.
-3. Start a separate collector with a temporary database. From a standalone SDK
-   process, capture a session/event/checkpoint with no key; query their persisted
-   IDs and final session state over HTTP.
+3. Start a separate collector with a temporary database; capture a no-key SDK
+   session/tool event and verify persisted session/event retrieval over HTTP.
+   This establishes capture/query, not a standalone installed-SDK process or a
+   no-key checkpoint/final-session-state acceptance case.
 4. Cover disabled tracing, collector unavailable, shutdown/drain and bounded
    retry behavior. Show an actionable delivery failure without crashing the agent.
-   Update the quickstart only after its exact command sequence passes.
+   Exact installed quickstart commands and the standalone SDK process are Q12;
+   no-key checkpoint/final-session-state coverage remains W02 follow-up.
 
 **Acceptance:** the documented no-key path produces queryable persisted data;
 disabled tracing makes no delivery requests; offline behavior is bounded and
@@ -637,6 +680,54 @@ observable; explicit hooks are not duplicated. Keep clean-wheel proof in Q12.
 **Acceptance:** valid response fixtures pass; each incompatible mutation makes CI
 fail with a field/type diagnostic. Existing field-name equality is not sufficient.
 Expand only the named contracts before considering general client generation.
+
+### Q12 — Verify installation independently of the source checkout
+
+**Files:** `pyproject.toml`, `pyproject-server.toml`, `.github/workflows/publish.yml`,
+`Dockerfile`, `docker-compose.yml`, `storage/engine.py`, both CLI modules and the
+getting-started guide. **Prerequisite:** Q09's local transport is delivered.
+
+1. Build SDK/server artifacts in a disposable build directory. Install each into
+   a clean environment outside the checkout, with repository `PYTHONPATH` unset.
+   Verify actual imports and entry points come from those installed artifacts.
+2. Resolve the shared `peaky-peek` command contract for SDK-only and SDK+server
+   installs. Verify supported install order, help, server startup and first trace.
+3. Ensure migrations and their configuration are packaged; start with a fresh
+   database, capture/query data, stop/restart and verify the same IDs survive.
+   Include bundled `/ui/` assets and a health/readiness request.
+4. Fix the container's missing `pyproject.toml` installation input and required
+   build assets; use the project's supported Node version. Align the writable
+   database directory with the non-root user's mounted persistent volume.
+5. Run the exact documented onboarding commands against the artifacts. Add this
+   check before publish; a successful upload is not installed behavior evidence.
+
+**Acceptance:** SDK-only and server install paths, UI assets, trace/query/restart
+and non-root container persistence pass without checkout files. Preserve logs and
+artifact hashes. Do not count a source-tree import or skipped Docker run as passed.
+
+### Q11 — Exercise the investigation journey in a real browser
+
+**Files:** frontend API/types, investigation/replay components and session store,
+`scripts/seed_demo_sessions.py`, a browser test runner and CI configuration.
+**Prerequisites:** Q04 response contracts; Q10 semantic restore is delivered.
+
+1. Start a real API/frontend pair with a deterministic seeded failure and stable
+   fixture IDs. Reuse existing evidence and replay surfaces; fixture ingestion
+   must use the same persistence contract as normal data.
+2. Wire a visible semantic-restore action and source/copy-boundary provenance into
+   the browser workflow. Confirm returned IDs reach the selected session/comparison
+   state; SDK-only provenance does not establish UI completion.
+3. Automate session → finding → exact evidence → checkpoint → restored branch/
+   comparison. Check source immutability and copied-prefix boundaries using API
+   assertions as well as visible browser content.
+4. Delay trace/replay responses, reload a deep link, and return an expired/missing
+   session. Verify selection, recovery messages, keyboard focus and empty states.
+5. Make console exceptions and unexpected failed requests fail the job. Retain
+   screenshots/browser traces on failure and stop services after each run.
+
+**Acceptance:** three defined browser journeys pass in CI, including restored
+provenance, delayed navigation and failure recovery. Keep the separate 10k-event
+performance study and hosted-auth matrix out of this completion claim.
 
 ### Follow-on handoffs
 
@@ -734,8 +825,8 @@ Presence of similarly named code is not proof of the paper's scientific result.
 
 | Measure | Present evidence | Proposed next measurement |
 |---|---|---|
-| CI reliability | Q02 three-run gate met; subsequent `f9dc240` and v0.4.0 release CI also passed | Matrix pass rate and reproducible failure categories over subsequent runs; keep excluded/advisory scope explicit |
-| First useful local trace | Documentation promise, wiring gap found | Median and failure count from five clean-install pilot sessions |
+| CI reliability | Q02 gate met; `f832204` CI passes; failed scan's synthetic fixture corrected locally in two scanner versions | Confirm the correction in GitHub; retain the separate 19-finding historical baseline and excluded/advisory scope |
+| First useful local trace | Q09 explicit-endpoint no-key session/event capture and HTTP query pass | Q12 clean-install commands and standalone process, then pilot timing/failure counts |
 | Capture completeness | Recovery tests; no crash-durable universal guarantee | Ack/durable/drop/retry counts under declared failure injections |
 | Diagnosis usefulness | Implemented heuristics and narratives | Correctness plus paired task time; report all pilot outcomes |
 | Native failure-localization accuracy | Not established by Who&When helper | Held-out native traces with independently reviewed cause/step labels |

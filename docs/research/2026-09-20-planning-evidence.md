@@ -1,5 +1,9 @@
 # Planning evidence: delivery state, standards, and strategic choices
 
+> **Later verification:** the [delivery follow-up at `f832204`](2026-09-20-delivery-followup.md)
+> supersedes current-state claims below for Q06–Q10/Q13 and workflow health.
+> This note preserves the earlier audit, release and test evidence at its named revisions.
+
 Audit started 2026-09-19 and completed 2026-09-20 (Europe/Belgrade).
 Local baseline: `main`, commit `3597b6b`. This is a research snapshot, not a
 release certification. [ROADMAP](../ROADMAP.md) owns priorities; these notes

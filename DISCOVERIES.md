@@ -159,3 +159,31 @@ it does not inherit the document origin automatically like browser fetch does.
 **Prevention:** Exercise the exported client functions with mocked fetch and
 assert the resulting origin, route, method, and query parameters. Static route
 existence checks alone cannot establish that a client function reaches fetch.
+
+## 2026-09-20 — Secret scan flagged a synthetic redaction sentinel
+
+**Issue:** Secret-scan run `35483421310` failed on `f832204` while main CI passed.
+
+**Root cause:** The synthetic AWS-shaped value in
+`tests/test_redaction_boundary.py:58`, introduced by `7f95046`, is deliberately
+recognizable by the redaction detector. Gitleaks also flags it. Direct job logs
+identify the executed scanner as 8.24.3; the SARIF driver label `v8.0.0` is not the
+binary version. Version 8.24.3 reports `aws-access-token`, while 8.30.1 reports
+the same historical fixture as `generic-api-key`.
+
+**Solution:** Add the two observed commit/path/rule/line fingerprints to
+[.gitleaksignore](.gitleaksignore), retaining the fixture and default detector
+rules. The failed push range reproduces one finding before the correction and
+zero afterward in both versions. In a disposable clone, a different synthetic
+value at the same path/line in a new commit still produces a finding in both.
+All 43 focused redaction tests pass. The patch is locally verified; a new GitHub
+run remains pending. See [commands and evidence](docs/research/2026-09-20-delivery-followup.md#secret-scan-diagnosis-and-local-correction).
+
+**Prevention:** Verify the scanner's actual binary version and exact commit range
+before reproducing a CI failure. Use precise historical exceptions only after
+confirming fixture provenance, and test a new finding at the same path/line.
+Keep complete-history results separate: an 8.24.3 HEAD-history scan still reports
+19 older findings outside this failing push range. Historical source review
+classifies them as test fixtures/documentation placeholders, with an inventory in
+the linked evidence. This correction does not suppress them or establish a clean
+historical baseline.

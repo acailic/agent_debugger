@@ -1,99 +1,100 @@
 # Planning status report — 2026-09-20
 
-**Audience:** project maintainers and contributors.
+**Verified source:** local and remote `main` at `f832204`.
+**Latest checked release:** v0.4.0 at `5a807cf`; later changes are on main only.
 
-**Verified source/release:** `main` at `5a807cf` (v0.4.0).
+Local no-key delivery, SDK semantic restore and the configured redaction boundary
+are now implemented and tested. PR #325 has passed local review and focused tests.
+The failed secret scan is diagnosed and corrected locally. The next work is to
+confirm that correction in CI, complete hosted/predicate acceptance, and verify
+installed artifacts and browser workflows.
 
-**Focused local validation:** `f9dc240`, before the concurrent release's version/documentation changes.
-
-CI recovery and benchmark-protocol repair are complete. The contract checker has
-also landed. The next work is to consolidate existing test PRs, close the concrete
-hosted-boundary gaps, and complete the local capture → evidence → restore journey.
-[v0.4.0](https://github.com/acailic/agent_debugger/releases/tag/v0.4.0) was published
-by concurrent release work during this refresh; issue #324 is now closed.
-The release's [CI](https://github.com/acailic/agent_debugger/actions/runs/35480454666)
-and [SDK/server publication jobs](https://github.com/acailic/agent_debugger/actions/runs/35480455352)
-passed; clean-install behavior still needs Q12 validation.
-
-This report replaces the 2026-03-24 report. Its “100% cloud-ready,” blanket replay
-completion and fixed SaaS-launch schedule were not supported by the later audit.
-The [roadmap](../ROADMAP.md) remains the only priority queue; this report summarizes
-evidence and links to the detailed implementation plans.
+The [roadmap](../ROADMAP.md) owns priorities. This report replaces older completion
+claims, including the March cloud-readiness claim and the earlier three-item tally.
+Completion here is scoped to an observed behavior and its evidence.
 
 ## What is done
 
-| Item | Evidence | Exact completion boundary |
+| Deliverable | Evidence | Boundary |
 |---|---|---|
-| Q01 — xdist failure diagnosis and repair | `09ec3dc`, [DISCOVERIES](../../DISCOVERIES.md) | Three isolation/lifecycle causes fixed; earlier serial and twelve local parallel runs recorded |
-| Q02 — CI recovery observation | [Run 1](https://github.com/acailic/agent_debugger/actions/runs/35479465055), [run 2](https://github.com/acailic/agent_debugger/actions/runs/35479673383), [run 3](https://github.com/acailic/agent_debugger/actions/runs/35479946771) | Each passed Python 3.10/3.11/3.12 jobs and dependency security; three-run gate met |
-| Q04 foundation — contract CI | `ac819c0`; fresh check passes 8 schemas, 3 enums, 72 routes | Field/enum/route checking and mutation tests shipped; payload/nullability coverage is still planned |
-| Q05/E0 — Who&When correction | `9c2bd04` and [versioned manifest](../../benchmarks/results/who_when/2026-09-20-global-protocol.json) | Corrected global-index protocol and explicit metrics; native audit-engine effectiveness remains unmeasured |
-| Earlier debugger capabilities | [Core](../research/2026-09-19-core-status.md) and [intelligence](../research/2026-09-19-intelligence-status.md) audits | Recording, evidence inspection, deterministic analysis, event replay and server semantic restore exist |
+| Q01/Q02 — CI isolation repair and recovery gate | `09ec3dc` and [three-run evidence](../research/2026-09-20-planning-evidence.md#delivery-refresh-after-the-fixes) | Issue #324 closed; later workflow failures are tracked separately |
+| Q04 foundation — field/enum/route contracts | `ac819c0`; earlier 8-schema/3-enum/72-route check | Real payload structural types/nullability remain |
+| Q05 — benchmark protocol correction | `9c2bd04`, [manifest](../../benchmarks/results/who_when/2026-09-20-global-protocol.json) | Standalone heuristic measurement; native-engine effectiveness remains open |
+| Q08 — configured redaction | `7f95046`; fresh sentinel boundary tests | Existing database/buffer/SSE/checkpoint/metadata/config/spill paths; opt-in policy |
+| Q09 — explicit no-key endpoint delivery | `bd37ce0`; fresh TCP and real-server tests | Disabled/no-endpoint and offline behavior covered; installed-wheel onboarding remains Q12 |
+| Q10 — SDK semantic restore | `e61f04d`; fresh real-server source-immutability/provenance tests | Authenticated POST and returned IDs; legacy fallback labeled; no agent execution |
+| Q06/Q07/Q13 foundations | Cluster scope/checkpoint session check; constrained predicate interpreter; Redis wiring/reconnect | Delivered components, with original acceptance still incomplete below |
 
-These are bounded completions, not a project-wide percentage. Three of sixteen
-queue items are complete; several others contain substantial delivered components.
-Counting modules, tests or checkboxes would conceal the remaining integration gaps.
+## What is not complete
 
-## What is still open
+| Slice | Remaining acceptance | Evidence / next step |
+|---|---|---|
+| Q03 | Actual PR-head CI, reviewed merge and duplicate cleanup | [#325 review](2026-09-20-pr325-review.md): no substantive spec blocker; two small standards notes; pre-existing coroutine warning recorded |
+| Q04 | Serialized payload types, required fields and nullability | Extend existing checker and prove incompatible payload mutations fail |
+| Q06 | Missing hosted credentials, unscoped analytics, real hosted startup, checkpoint event/session consistency and full negative route matrix | Existing ASGI tests intentionally allow anonymous cloud access; they do not meet the original rejection gate |
+| Q07 | Pre-mutation predicate creation/import validation, API 4xx errors and aggregate evaluation budgets | Safe probe reproduced acceptance now and rejection only during evaluation |
+| Q11 | Three actual browser journeys, including restore provenance and delayed navigation | SDK/API tests do not establish UI completion |
+| Q12 | Clean SDK/server installation, bundled UI, migrations and persistent non-root container restart | Published packages have not been exercised outside the checkout in this audit |
+| Q13 | Real Redis service run that cannot silently skip | Both Redis test modules skipped here because the client dependency is unavailable |
+| Q14–Q16 | Regression-case workflow, supported framework versions and measured pilot outcomes | Preserve existing implementations; expand after their dependencies pass |
 
-| Area | Remaining result needed |
-|---|---|
-| Threshold tests (Q03) | One reviewed, passing merged PR. #321/#322/#325 all add the same absent-on-main test file; review #325 first |
-| Contract coverage (Q04) | Real serialized responses validated for structural types, required fields and nullability; deliberate drift must fail CI |
-| Hosted boundaries (Q06–Q08) | Real hosted-mode/two-tenant tests, checkpoint ownership, scoped derived data, no Python breakpoint evaluation and consistent redaction |
-| Local capture and SDK restore (Q09/Q10) | No-key standalone SDK produces persisted data; SDK semantic restore uses authenticated server results and provenance |
-| Browser and installed artifacts (Q11/Q12) | Seeded browser journey plus clean wheel/container startup and persistent restart |
-| Optional scale/runtime work (Q13/Q15, W04/W11) | Real Redis/framework compatibility, PostgreSQL recovery, retention execution and one controlled continuation |
-| Regression lab and pilot (Q14/Q16) | Sanitized reproducible incident comparison, then measured first value and repeat use |
+Q06/Q07/Q13 are **PARTIAL**, correcting the overly broad DONE labels from the
+last delivery update. Keep the delivered fixes; complete the remaining acceptance
+under those same IDs. Q08 redaction does not resolve Q06 authentication gaps.
 
-See the [current capability snapshot](../guides/progress.md) for scope and the
-[roadmap](../ROADMAP.md#next-delivery-slices) for file-level steps and acceptance.
-No customer, benchmark-effectiveness or hosted-readiness claim follows from green CI.
+## Repository workflow status
 
-## Tracker reconciliation
+[Main CI](https://github.com/acailic/agent_debugger/actions/runs/35483421378) on
+`f832204` passed all three Python jobs and dependency security. The separate
+[secret scan](https://github.com/acailic/agent_debugger/actions/runs/35483421310)
+failed on one synthetic redaction fixture. Exact historical fingerprints now pass
+the failed push range in Gitleaks 8.24.3 and 8.30.1; both still reject a different
+synthetic value at the same file/line in a new commit. The local patch has not been
+validated by a new GitHub run. A complete-history scan still reports 19 older
+findings, classified as historical test/documentation fixtures and kept separate
+from this correction. See the
+[diagnosis and evidence](../research/2026-09-20-delivery-followup.md#secret-scan-diagnosis-and-local-correction).
 
-- **#324 is closed:** its code fix and CI recovery are delivered; closure was
-  verified in the final tracker refresh.
-- **#323 remains open:** the worker-variable correction is already in `09ec3dc`.
-  It needs reconciliation as superseded, not another implementation.
-- **#311 remains open:** none of the three threshold-test PRs is merged. #325's
-  twelve cases make it the first review candidate; refresh against main, review
-  async fallback/argument coverage and obtain new required checks.
-- **#306–310 remain open:** evaluate dependency changes separately using recovered CI.
+The v0.4.0 release and its publication jobs succeeded earlier. That history does
+not establish current installed-package behavior or make every later workflow green.
 
-All tracker actions by this planning task were read-only. Concurrent release work
-closed #324 and published v0.4.0; those changes were preserved and rechecked.
-This task did not create, comment on, review, merge or close issues/PRs.
-Old PR failures predate main's
-repairs and do not establish whether a refreshed branch will pass.
+## PR review outcome
 
-## Next delivery plan
+#325 covers all nine requirements of #311, adds useful fallback cases, and passed
+38 warning-strict alert tests with 100% coverage of `collector.alerts.base`.
+Ruff passed. Prefer it over duplicate #321/#322. Resolve the small commit/type-hint
+notes, add chosen robustness cases, and explicitly record the existing coroutine
+warning decision before refreshing the actual PR branch and obtaining new checks.
 
-The [roadmap queue](../ROADMAP.md#first-implementation-queue) specifies sequence.
-The [next delivery briefs](../ROADMAP.md#next-delivery-slices) now cover Q03, Q07,
-Q06, Q09 and Q04, including touched modules, implementation steps and acceptance.
-Follow-on handoffs cover redaction, restore, browser tests, packaging and regression
-cases. Q07 can disable custom expressions independently; Q06 is required for its
-hosted acceptance evidence. Q04 and Q09 can proceed on recovered main.
+The sync fallback warning is pre-existing; closing a coroutine inside the test
+only keeps that test clean. No production fix is implied. No PR was approved,
+commented on, merged or closed by this planning task. #323's worker-variable
+correction is already on main; reconcile that superseded PR separately.
 
-Keep one delivery slice plus one research experiment active per maintainer.
-Additional framework support, teams/billing and runtime execution wait for their
-specific evidence gates, rather than the superseded ten-week schedule.
+## Written next plans
+
+The [delivery briefs](../ROADMAP.md#next-delivery-slices) now distinguish delivered
+Q09 scope from remaining Q06/Q07 work. They include concrete Q04 contract steps,
+a clean-install/container plan for Q12, and a seeded browser/restore plan for Q11.
+File scope, dependencies, observable outcomes and failure artifacts are specified.
+
+The immediate order is delivery/CI confirmation of the scan correction and Q03
+handoff, then Q06/Q07 closure. Retain the older scan baseline under W01.
+Q04 and Q12 are independent local-workflow slices; Q11 follows the response contract
+and reuses delivered semantic restore. Keep one delivery slice active per maintainer.
 
 ## Validation and maintenance
 
-Fresh local checks:
+- `f832204` plus the exact #325 file: **86 tests passed**, including no-key TCP
+  delivery, real-server SDK restore, redaction and the current ASGI tenant matrix.
+  Two dependency deprecation warnings were emitted.
+- Earlier `e8e6696` selection: **123 passed, two Redis modules skipped**.
+- PR-specific selection: **38 passed**, **100% targeted coverage**, Ruff passed.
+- Secret-scan correction: failed-range and negative-control checks pass in two
+  scanner versions; **43 redaction tests passed**. Full history is not clean.
 
-- 56 contract/benchmark tests passed in 4.11 seconds.
-- Contract checker passed: 8 schemas, 3 enums, 72 routes, no drift.
-- Offline Who&When CLI self-test passed.
-
-[Delivery evidence](../research/2026-09-20-planning-evidence.md#delivery-refresh-after-the-fixes)
-contains commands, commits, tracker observations and run links. Full CI results
-were inspected remotely; no full local suite, browser, installed wheel, container
-or production deployment was run for this refresh. Advisory checks and excluded
-optional integrations remain outside the green-CI claim.
-
-Refresh this report after a queue acceptance gate, a merged PR or a material
-failed validation. Update the roadmap and progress page together. Preserve dated
-audit evidence and distinguish implementation completion from tracker closure.
+Counts overlap and are not a unique full-suite total. Detailed commands and
+scope are in the [follow-up evidence](../research/2026-09-20-delivery-followup.md).
+No full local suite, browser, installed-artifact, Docker or Redis-service run was
+performed. Update this report and the roadmap together after an acceptance gate,
+changed PR head, workflow finding or release. Preserve each audit's exact revision.
