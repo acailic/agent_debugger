@@ -212,18 +212,26 @@ async def test_slow_subscriber_queue_is_bounded_drop_oldest(redis_url: str, make
     """A subscriber that never reads keeps only the newest bounded backlog."""
     async with RedisEventBuffer(redis_url=redis_url, subscriber_maxsize=10) as buf:
         queue = await buf.subscribe("s1")
+        # Second subscriber consumed live as a drain signal: publish ACKs do
+        # not mean the pub/sub listener has fanned out yet, and queue-size
+        # polling cannot distinguish a full-but-still-filling backlog from a
+        # final one. _fanout delivers each event to every subscriber queue
+        # synchronously in one pass, so once drain_signal yields the final
+        # event, ``queue`` has also received it and no further events exist.
+        drain_signal = await buf.subscribe("s1")
         await _wait_for_numsub(redis_url, "ad:live:s1", minimum=1)
 
         for i in range(25):
             await buf.publish("s1", make_event(session_id="s1", name=f"e{i:02d}"))
 
-        # Consume until the final published event arrives: delivery is
-        # ordered, so seeing e24 means the backlog state is final.
-        received: list[str] = []
         while True:
-            event = await asyncio.wait_for(queue.get(), timeout=5.0)
-            received.append(event.name)
+            event = await asyncio.wait_for(drain_signal.get(), timeout=5.0)
             if event.name == "e24":
                 break
+
+        received: list[str] = []
+        while queue.qsize():
+            event = await asyncio.wait_for(queue.get(), timeout=5.0)
+            received.append(event.name)
 
         assert received == [f"e{i:02d}" for i in range(15, 25)]
