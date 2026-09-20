@@ -6,6 +6,46 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Fixed
+
+#### Hosted-boundary slice (Q06)
+- `/api/clusters` no longer resolves its repository through a module-local
+  helper that hard-coded `tenant_id="local"` (and leaked its DB session);
+  both cluster routes use the shared tenant-scoped repository dependency
+- Checkpoint ingestion verifies the parent session is visible to the
+  caller's tenant before writing (404, zero mutation on cross-tenant
+  attach), mirroring the event path
+- New two-tenant hosted-mode regression matrix (sessions, events,
+  checkpoints, replay, SSE, clusters, analytics) plus
+  `docs/hosted-route-inventory.md` — every mounted route with auth,
+  tenant-scoping evidence and sinks, and the known-open gaps pinned
+
+#### Custom breakpoint predicates are no longer eval'd (Q07)
+- `Breakpoint.should_trigger` evaluated CUSTOM_CONDITION strings with
+  Python `eval` in the server process. Conditions are now parsed and
+  validated against a strict AST allowlist and evaluated by a recursive
+  interpreter — no calls, no dunder access, no comprehensions/f-strings,
+  length and node caps, explicit unsupported-construct errors. Wire
+  contract unchanged
+
+#### No-key local SDK delivers traces (Q09)
+- Destination selection is separate from authentication: an endpoint
+  without an API key now installs unauthenticated HTTP delivery to a
+  local collector (the documented quickstart path); no endpoint or
+  disabled tracing stays fully inert. `Config.endpoint` now defaults to
+  None so bare `init()` never guesses a localhost port
+
+#### Redis buffer repaired (Q13)
+- `RedisEventBuffer()` no longer raises NameError without an injected
+  client (lazy import; clear RuntimeError when the package is absent),
+  `REDIS_URL` is actually passed to the selected redis backend,
+  subscriber queues are bounded with a documented drop-oldest policy,
+  the pub/sub listener reconnects after connection loss, and the class
+  docstring states the durability limit. Real-service tests activate
+  where redis/redis-server exist
+
 ## [0.4.0] - 2026-09-20
 
 The benchmark-integrity and delivery-recovery release: the Who&When
