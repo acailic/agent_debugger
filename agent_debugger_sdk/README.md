@@ -20,7 +20,7 @@ import asyncio
 
 from agent_debugger_sdk import TraceContext, init
 
-init()  # Local mode by default
+init(endpoint="http://localhost:8000")  # no API key needed for a local collector
 
 
 async def main() -> None:
@@ -36,7 +36,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-Run the backend locally if you want to receive and inspect events:
+Run the backend locally to receive and inspect the events:
 
 ```bash
 pip install peaky-peek-server
@@ -57,7 +57,11 @@ init(
 )
 ```
 
-If no API key is set, the SDK stays in local mode and defaults to `http://localhost:8000`.
+Delivery depends on the endpoint, not the API key. With an endpoint and no
+API key the SDK sends unauthenticated (local collector mode). With an API
+key it sends the same events plus an `Authorization` header (cloud mode).
+Without an endpoint the SDK stays inert: events are recorded in memory only
+and nothing is sent.
 
 ### HTTP delivery and retries
 
@@ -167,7 +171,7 @@ Important:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AGENT_DEBUGGER_API_KEY` | - | API key for cloud-oriented mode |
-| `AGENT_DEBUGGER_URL` | `http://localhost:8000` | Collector endpoint |
+| `AGENT_DEBUGGER_URL` | - | Collector endpoint; enables HTTP delivery when set |
 | `AGENT_DEBUGGER_ENABLED` | `true` | Enable or disable tracing |
 | `AGENT_DEBUGGER_SAMPLE_RATE` | `1.0` | Sampling rate |
 | `AGENT_DEBUGGER_REDACT_PROMPTS` | `false` | Redact prompts before storage |
