@@ -7,9 +7,29 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+# pytest registers this file once, but tests that do ``from conftest
+# import ...`` (top-level name, resolvable via sys.path insertion) re-execute
+# the same source as a second module object. The side effects below must be
+# idempotent per process: a naive re-import would mkdtemp() a second
+# directory and rewrite AGENT_DEBUGGER_DB_URL after the schema and cached
+# engines were already bound to the first path — fresh xdist workers then
+# initialize app_context against the new, schema-less file and every route
+# test fails with "no such table" (issue #324's second root cause).
+#
+# The PID guard matters: xdist workers inherit the controller's environment,
+# so a bare "dir already recorded" check would make every worker reuse the
+# controller's temp dir — and the first worker to finish would rmtree() it
+# while the others are still running.
+_stored_pid, _, _stored_dir = os.environ.get("AGENT_DEBUGGER_TEST_DB_DIR", "").partition(":")
+if _stored_pid == str(os.getpid()) and _stored_dir and os.path.isdir(_stored_dir):
+    _temp_dir = _stored_dir
+else:
+    _temp_dir = tempfile.mkdtemp()
+    os.environ["AGENT_DEBUGGER_TEST_DB_DIR"] = f"{os.getpid()}:{_temp_dir}"
+
 # Each xdist worker gets its own DB file to avoid SQLite lock contention.
-_worker_id = os.environ.get("PYTEST_XDIST_WORKER_ID", "master")
-_temp_dir = tempfile.mkdtemp()
+# pytest-xdist sets PYTEST_XDIST_WORKER (gw0, gw1, ...); it is unset serially.
+_worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
 _test_db_path = os.path.join(_temp_dir, f"test_agent_debugger_{_worker_id}.db")
 os.environ["AGENT_DEBUGGER_DB_URL"] = f"sqlite+aiosqlite:///{_test_db_path}"
 

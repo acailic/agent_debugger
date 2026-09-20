@@ -55,7 +55,16 @@ async def set_breakpoint(
     Args:
         session_id: Session ID to set breakpoint for
         breakpoint_type: Type of breakpoint condition
-        condition_value: Value for the breakpoint condition
+        condition_value: Value for the breakpoint condition. For
+            breakpoint_type="custom_condition" this must be a predicate in the
+            restricted grammar documented in
+            agent_debugger_sdk.core.stepper.validate_custom_condition:
+            comparisons (==, !=, <, <=, >, >=, in, not in), boolean and/not/or,
+            arithmetic (+, -, *, /, %, **), constants, attribute chains rooted
+            at "event", and literal subscripts like event.data['status'].
+            Calls, lambdas, comprehensions, f-strings, imports, names other
+            than "event", and dunder attribute access are rejected with
+            ValueError; expressions are capped at 200 characters / 100 AST nodes.
         description: Human-readable description
 
     Returns:

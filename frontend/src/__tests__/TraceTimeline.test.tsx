@@ -102,6 +102,16 @@ describe('TraceTimeline', () => {
     expect(timeElements.length).toBeGreaterThan(0)
   })
 
+  it('renders checkpoint numbers from the SDK event payload', () => {
+    const checkpoint = makeEvent({
+      id: 'checkpoint-event',
+      event_type: 'checkpoint',
+      data: { checkpoint_id: 'cp-1', sequence: 3 },
+    })
+    render(<TraceTimeline events={[checkpoint]} selectedEventId={null} onSelectEvent={vi.fn()} />)
+    expect(screen.getByText('Checkpoint 3')).toBeInTheDocument()
+  })
+
   // -----------------------------------------------------------------------
   // Filter chips
   // -----------------------------------------------------------------------

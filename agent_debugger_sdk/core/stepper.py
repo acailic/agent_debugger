@@ -9,10 +9,15 @@ Key capabilities:
 - StepControls: step_into (next decision), step_over (skip tool internals), step_out (return to parent)
 - StateInspector: show agent context at each breakpoint
 - BranchAndReplay: create alternative paths from any breakpoint
+- CUSTOM_CONDITION breakpoints use a restricted predicate language (see
+  ``validate_custom_condition``) evaluated without eval/exec, so breakpoint
+  conditions can never execute arbitrary code in the host process
 """
 
 from __future__ import annotations
 
+import ast
+import operator
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -29,6 +34,8 @@ __all__ = [
     "StepResult",
     "BranchPoint",
     "AgentStepper",
+    "validate_custom_condition",
+    "evaluate_custom_condition",
 ]
 
 
@@ -39,7 +46,7 @@ class BreakpointType(StrEnum):
     TOOL_NAME = "tool_name"  # Break when specific tool is called
     CONFIDENCE_THRESHOLD = "confidence_threshold"  # Break on confidence below threshold
     SAFETY_OUTCOME = "safety_outcome"  # Break on specific safety outcome
-    CUSTOM_CONDITION = "custom_condition"  # Break on custom Python expression
+    CUSTOM_CONDITION = "custom_condition"  # Break on restricted predicate over `event` (see validate_custom_condition)
     EVENT_ID = "event_id"  # Break at specific event ID
 
 
@@ -53,6 +60,275 @@ class StepAction(StrEnum):
     RUN_TO = "run_to"  # Run to specific event ID
 
 
+# --- Restricted predicate language for CUSTOM_CONDITION breakpoints ------------
+#
+# CUSTOM_CONDITION breakpoints historically evaluated their condition string
+# with eval(). That was a remote-code-execution vector for anyone able to reach
+# the breakpoint API. Conditions are now parsed to an AST and checked against a
+# strict allowlist before being evaluated by a small recursive interpreter, so
+# eval/exec are never used and no unsupported construct can execute.
+
+_MAX_CONDITION_LENGTH = 200
+_MAX_CONDITION_NODES = 100
+
+_UNSUPPORTED = "custom condition uses unsupported construct: {reason}"
+
+_ALLOWED_COMPARE_OPS: dict[type[ast.cmpop], Any] = {
+    ast.Eq: operator.eq,
+    ast.NotEq: operator.ne,
+    ast.Lt: operator.lt,
+    ast.LtE: operator.le,
+    ast.Gt: operator.gt,
+    ast.GtE: operator.ge,
+    ast.In: lambda left, right: left in right,
+    ast.NotIn: lambda left, right: left not in right,
+}
+
+_ALLOWED_BINOPS: dict[type[ast.operator], Any] = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+}
+
+_UNSUPPORTED_NODE_REASONS: dict[type[ast.AST], str] = {
+    ast.Call: "function calls are not allowed",
+    ast.Lambda: "lambda expressions are not allowed",
+    ast.ListComp: "comprehensions are not allowed",
+    ast.SetComp: "comprehensions are not allowed",
+    ast.DictComp: "comprehensions are not allowed",
+    ast.GeneratorExp: "comprehensions are not allowed",
+    ast.JoinedStr: "f-strings are not allowed",
+    ast.FormattedValue: "f-strings are not allowed",
+    ast.Starred: "starred expressions are not allowed",
+    ast.IfExp: "conditional expressions are not allowed",
+    ast.NamedExpr: "assignment expressions are not allowed",
+    ast.Await: "await expressions are not allowed",
+    ast.Yield: "yield expressions are not allowed",
+    ast.YieldFrom: "yield expressions are not allowed",
+    ast.Dict: "dict literals are not allowed",
+    ast.Import: "import is not allowed",
+    ast.ImportFrom: "import is not allowed",
+}
+
+
+def _unsupported(reason: str) -> ValueError:
+    return ValueError(_UNSUPPORTED.format(reason=reason))
+
+
+def _is_dunder(name: str) -> bool:
+    return name.startswith("__") and name.endswith("__")
+
+
+def _validate_node(node: ast.AST) -> None:
+    """Recursively check that an AST node only uses allowlisted constructs.
+
+    Raises:
+        ValueError: If the node (or any child) uses a forbidden construct.
+    """
+    if isinstance(node, ast.Constant):
+        if node.value is None or isinstance(node.value, (bool, int, float, complex, str)):
+            return
+        raise _unsupported(f"constants of type {type(node.value).__name__} are not allowed")
+
+    if isinstance(node, ast.Name):
+        if node.id != "event":
+            raise _unsupported(f"names other than 'event' are not allowed (got '{node.id}')")
+        return
+
+    if isinstance(node, ast.Attribute):
+        _validate_node(node.value)
+        # Dunder names are rejected at validation time so evaluation can rely on
+        # plain getattr() without ever exposing __class__/__globals__/etc.
+        if _is_dunder(node.attr):
+            raise _unsupported(f"dunder attribute access is not allowed (.{node.attr})")
+        return
+
+    if isinstance(node, ast.Subscript):
+        _validate_node(node.value)
+        sl = node.slice
+        if not (isinstance(sl, ast.Constant) and isinstance(sl.value, (str, int))):
+            raise _unsupported("subscript index must be a literal string or number")
+        return
+
+    if isinstance(node, ast.BoolOp):
+        for value in node.values:
+            _validate_node(value)
+        return
+
+    if isinstance(node, ast.UnaryOp):
+        if not isinstance(node.op, (ast.Not, ast.USub, ast.UAdd)):
+            raise _unsupported(f"unary operator {type(node.op).__name__} is not allowed")
+        _validate_node(node.operand)
+        return
+
+    if isinstance(node, ast.BinOp):
+        if type(node.op) not in _ALLOWED_BINOPS:
+            raise _unsupported(f"binary operator {type(node.op).__name__} is not allowed")
+        _validate_node(node.left)
+        _validate_node(node.right)
+        return
+
+    if isinstance(node, ast.Compare):
+        for op in node.ops:
+            if type(op) not in _ALLOWED_COMPARE_OPS:
+                raise _unsupported(f"comparison operator {type(op).__name__} is not allowed")
+        _validate_node(node.left)
+        for comparator in node.comparators:
+            _validate_node(comparator)
+        return
+
+    if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+        for element in node.elts:
+            _validate_node(element)
+        return
+
+    reason = _UNSUPPORTED_NODE_REASONS.get(type(node))
+    if reason is None:
+        reason = f"{type(node).__name__} expressions are not allowed"
+    raise _unsupported(reason)
+
+
+def validate_custom_condition(condition: str) -> ast.Expression:
+    """Validate a CUSTOM_CONDITION predicate against the supported grammar.
+
+    The supported grammar is a strict subset of Python expressions:
+
+    - boolean operators ``and`` / ``or`` and unary ``not``
+    - comparisons ``==``, ``!=``, ``<``, ``<=``, ``>``, ``>=``, ``in``, ``not in``
+      (``is`` / ``is not`` are not allowed)
+    - arithmetic ``+``, ``-``, ``*``, ``/``, ``%``, ``**`` (no ``//``, shifts,
+      or bitwise operators)
+    - numeric and string constants, ``True`` / ``False`` / ``None``
+    - attribute chains rooted at the single name ``event`` (no dunder names)
+    - ``event.data['key']``-style subscripts with a literal string or number
+    - tuple/list/set literals of the above (e.g. for ``in`` comparisons)
+
+    Forbidden (raises ValueError): calls, lambdas, comprehensions, f-strings,
+    starred/walrus/await/yield expressions, names other than ``event``, dunder
+    attribute access, non-literal subscripts, and expressions longer than 200
+    characters or containing more than 100 AST nodes.
+
+    Args:
+        condition: The custom condition expression string
+
+    Returns:
+        The parsed (and validated) expression AST
+
+    Raises:
+        ValueError: If the condition uses an unsupported construct
+    """
+    if not isinstance(condition, str):
+        raise _unsupported("condition must be a string")
+    if len(condition) > _MAX_CONDITION_LENGTH:
+        raise _unsupported(f"expression exceeds {_MAX_CONDITION_LENGTH} characters")
+    try:
+        tree = ast.parse(condition, mode="eval")
+    except SyntaxError as exc:
+        raise _unsupported(f"invalid syntax ({exc.msg})") from exc
+    if sum(1 for _ in ast.walk(tree)) > _MAX_CONDITION_NODES:
+        raise _unsupported(f"expression exceeds {_MAX_CONDITION_NODES} AST nodes")
+    _validate_node(tree.body)
+    return tree
+
+
+def _eval_node(node: ast.AST, event: TraceEvent) -> Any:
+    """Evaluate a previously validated condition AST against an event."""
+    if isinstance(node, ast.Constant):
+        return node.value
+
+    if isinstance(node, ast.Name):
+        # Validation guarantees the only allowed name is "event".
+        return event
+
+    if isinstance(node, ast.Attribute):
+        return getattr(_eval_node(node.value, event), node.attr)
+
+    if isinstance(node, ast.Subscript):
+        return _eval_node(node.value, event)[_eval_node(node.slice, event)]
+
+    if isinstance(node, ast.BoolOp):
+        is_and = isinstance(node.op, ast.And)
+        result: Any = True
+        for value in node.values:
+            result = _eval_node(value, event)
+            if is_and and not result:
+                return result
+            if not is_and and result:
+                return result
+        return result
+
+    if isinstance(node, ast.UnaryOp):
+        if isinstance(node.op, ast.Not):
+            return not _eval_node(node.operand, event)
+        if isinstance(node.op, ast.USub):
+            return -_eval_node(node.operand, event)
+        return +_eval_node(node.operand, event)
+
+    if isinstance(node, ast.BinOp):
+        left = _eval_node(node.left, event)
+        right = _eval_node(node.right, event)
+        if isinstance(node.op, ast.Pow) and isinstance(right, (int, float)) and abs(right) > 10000:
+            # Cap exponents so a literal like 10**10**10 cannot stall evaluation.
+            raise OverflowError("exponent too large")
+        if (
+            isinstance(node.op, ast.Mult)
+            and isinstance(left, (str, bytes, list, tuple))
+            and isinstance(right, int)
+            and abs(right) > 10000
+        ):
+            raise OverflowError("sequence repetition too large")
+        return _ALLOWED_BINOPS[type(node.op)](left, right)
+
+    if isinstance(node, ast.Compare):
+        left = _eval_node(node.left, event)
+        for op, comparator in zip(node.ops, node.comparators):
+            right = _eval_node(comparator, event)
+            if not _ALLOWED_COMPARE_OPS[type(op)](left, right):
+                return False
+            left = right
+        return True
+
+    if isinstance(node, ast.Tuple):
+        return tuple(_eval_node(element, event) for element in node.elts)
+    if isinstance(node, ast.List):
+        return [_eval_node(element, event) for element in node.elts]
+    if isinstance(node, ast.Set):
+        return {_eval_node(element, event) for element in node.elts}
+
+    # Unreachable for trees that passed validate_custom_condition().
+    raise _unsupported(f"{type(node).__name__} expressions are not allowed")
+
+
+def evaluate_custom_condition(condition: str, event: TraceEvent) -> bool:
+    """Evaluate a CUSTOM_CONDITION predicate against an event, without eval.
+
+    Conditions must satisfy the grammar documented in
+    ``validate_custom_condition``; unsupported constructs raise ValueError
+    instead of being silently skipped. Runtime failures while evaluating a
+    grammatically valid condition (missing attribute, missing mapping key,
+    incomparable types, division by zero, ...) return False, matching the
+    historical behavior.
+
+    Args:
+        condition: The custom condition expression string
+        event: Event to evaluate the condition against
+
+    Returns:
+        Truthiness of the condition for this event
+
+    Raises:
+        ValueError: If the condition uses an unsupported construct
+    """
+    tree = validate_custom_condition(condition)
+    try:
+        return bool(_eval_node(tree.body, event))
+    except Exception:
+        return False
+
+
 @dataclass(kw_only=True)
 class Breakpoint:
     """A breakpoint in agent execution.
@@ -60,7 +336,10 @@ class Breakpoint:
     Attributes:
         breakpoint_id: Unique identifier for this breakpoint
         breakpoint_type: Type of breakpoint condition
-        condition_value: Value for the breakpoint condition
+        condition_value: Value for the breakpoint condition; for CUSTOM_CONDITION
+            this is a predicate string restricted to the grammar documented in
+            ``validate_custom_condition`` (comparisons/boolean logic over
+            ``event`` attributes — no calls, no names other than ``event``)
         description: Human-readable description
         enabled: Whether breakpoint is active
         hit_count: Number of times breakpoint was hit
@@ -83,6 +362,10 @@ class Breakpoint:
 
         Returns:
             True if breakpoint should trigger
+
+        Raises:
+            ValueError: If a CUSTOM_CONDITION predicate uses a construct
+                outside the supported grammar (see ``validate_custom_condition``)
         """
         if not self.enabled:
             return False
@@ -108,11 +391,9 @@ class Breakpoint:
             return event.id == self.condition_value
 
         elif self.breakpoint_type == BreakpointType.CUSTOM_CONDITION:
-            # Evaluate custom condition safely
-            try:
-                return bool(eval(str(self.condition_value), {}, {"event": event}))
-            except Exception:
-                return False
+            # Evaluate via the restricted predicate interpreter; unsupported
+            # constructs raise ValueError rather than silently never matching.
+            return evaluate_custom_condition(str(self.condition_value), event)
 
         return False
 
@@ -289,7 +570,9 @@ class AgentStepper:
 
         Args:
             breakpoint_type: Type of breakpoint condition
-            condition_value: Value for the breakpoint condition
+            condition_value: Value for the breakpoint condition; for
+                CUSTOM_CONDITION this must be a predicate in the restricted
+                grammar documented in ``validate_custom_condition``
             description: Human-readable description
 
         Returns:

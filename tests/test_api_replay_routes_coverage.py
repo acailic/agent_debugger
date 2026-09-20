@@ -20,6 +20,7 @@ def mock_repo() -> AsyncMock:
     repo = AsyncMock()
     repo.get_checkpoint = AsyncMock(return_value=None)
     repo.get_session = AsyncMock(return_value=None)
+    repo.get_event_tree = AsyncMock(return_value=[])
     return repo
 
 

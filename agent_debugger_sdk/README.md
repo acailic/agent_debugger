@@ -20,7 +20,7 @@ import asyncio
 
 from agent_debugger_sdk import TraceContext, init
 
-init()  # Local mode by default
+init(endpoint="http://localhost:8000")  # no API key needed for a local collector
 
 
 async def main() -> None:
@@ -36,7 +36,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-Run the backend locally if you want to receive and inspect events:
+Run the backend locally to receive and inspect the events:
 
 ```bash
 pip install peaky-peek-server
@@ -57,7 +57,38 @@ init(
 )
 ```
 
-If no API key is set, the SDK stays in local mode and defaults to `http://localhost:8000`.
+Delivery depends on the endpoint, not the API key. With an endpoint and no
+API key the SDK sends unauthenticated (local collector mode). With an API
+key it sends the same events plus an `Authorization` header (cloud mode).
+Without an endpoint the SDK stays inert: events are recorded in memory only
+and nothing is sent.
+
+### HTTP delivery and retries
+
+When HTTP transport is active, temporary failures (timeouts, disconnects, HTTP
+408, 429, and 5xx responses) receive up to three retries. Authentication errors
+and redirects fail immediately; point the endpoint directly at the collector.
+
+For direct `HttpTransport` use, customize retries and observe failed delivery:
+
+```python
+import logging
+
+from agent_debugger_sdk.transport import HttpTransport, RetryConfig
+
+transport = HttpTransport(
+    endpoint="http://localhost:8000",
+    retry_config=RetryConfig(max_retries=3, max_backoff_seconds=10),
+    on_delivery_failure=lambda error: logging.warning("Trace delivery failed: %s", error),
+)
+# Use `async with transport:` when sending events to close its HTTP client.
+```
+
+The default backoff starts at 0.5 seconds, doubles after each retry, and is capped
+at 30 seconds per delay. The transport honors `Retry-After` seconds and HTTP
+dates. If the server requests a delay above the configured cap, delivery ends
+with a failure callback instead of retrying early. Delivery failures are logged
+and do not raise into your agent; retries are finite and do not guarantee delivery.
 
 ## Integration Options
 
@@ -140,7 +171,7 @@ Important:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AGENT_DEBUGGER_API_KEY` | - | API key for cloud-oriented mode |
-| `AGENT_DEBUGGER_URL` | `http://localhost:8000` | Collector endpoint |
+| `AGENT_DEBUGGER_URL` | - | Collector endpoint; enables HTTP delivery when set |
 | `AGENT_DEBUGGER_ENABLED` | `true` | Enable or disable tracing |
 | `AGENT_DEBUGGER_SAMPLE_RATE` | `1.0` | Sampling rate |
 | `AGENT_DEBUGGER_REDACT_PROMPTS` | `false` | Redact prompts before storage |

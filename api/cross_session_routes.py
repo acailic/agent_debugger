@@ -9,24 +9,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from api import app_context
+from api.dependencies import get_repository
 from api.schemas import SessionSchema
 
 if TYPE_CHECKING:
     from storage.repository import TraceRepository
 
 router = APIRouter(prefix="/api", tags=["clusters"])
-
-
-async def get_repository() -> TraceRepository:
-    """Dependency to get a repository instance."""
-    from storage.repository import TraceRepository
-
-    session_maker = app_context.require_session_maker()
-    session: AsyncSession = await session_maker().__aenter__()
-    return TraceRepository(session, tenant_id="local")
 
 
 @router.get("/clusters", response_model=dict[str, Any])

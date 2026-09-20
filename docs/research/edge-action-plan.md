@@ -1,5 +1,9 @@
 # Edge Action Plan: Peaky Peek Research-Backed Roadmap
 
+> **SUPERSEDED for priorities (2026-09-20):** this is a historical proposal.
+> Use the [living roadmap](../ROADMAP.md) and [verified progress](../guides/progress.md).
+> Percentages, timelines and unchecked tasks below are not current completion evidence.
+
 **Prepared by:** worker-planner (research-edge-plan team)
 **Date:** 2026-03-31
 **Based on:** Research papers deep-dive (worker-scientist) + Code audit (worker-architect)
