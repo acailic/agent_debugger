@@ -14,19 +14,20 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from agent_debugger_sdk.config import get_config
 from agent_debugger_sdk.core.events import (
+    Checkpoint,
     EventType,
     Session,
     TraceEvent,
 )
 from agent_debugger_sdk.core.scorer import get_importance_scorer
 from auth.middleware import get_tenant_from_api_key
-from redaction.pipeline import RedactionPipeline
+from redaction.pipeline import RedactionPipeline, apply_payload_redaction
 from storage import TraceRepository
 
 from .buffer import get_event_buffer
@@ -38,7 +39,21 @@ MAX_NAME_LENGTH = 255
 
 
 class TraceEventIngest(BaseModel):
+    """Inbound trace event over HTTP.
+
+    Accepts the SDK's ``TraceEvent.to_dict()`` shape: shared base fields are
+    validated explicitly, typed event fields (``reasoning``, ``confidence``,
+    ``evidence_event_ids``, ``error``, ``tool_name``, ...) arrive as extra
+    top-level keys and are folded into the event payload by
+    :func:`_build_event` so they survive the HTTP hop. The SDK-side event
+    ``id`` is preserved — regenerating it would orphan every cross-event
+    reference (evidence ids, upstream ids, parents).
+    """
+
+    model_config = ConfigDict(extra="allow")
+
     session_id: str
+    id: str | None = None
     parent_id: str | None = None
     event_type: str
     timestamp: str | None = None
@@ -179,13 +194,21 @@ async def _persist_event_if_configured(
     *,
     dependencies: CollectorDependencies | None = None,
     db_session: AsyncSession | None = None,
-) -> None:
+) -> TraceEvent:
+    """Apply the configured redaction policy and persist the event if storage is on.
+
+    Returns the redacted event — the single object that is both stored (when
+    storage is configured) and published to the live buffer, so the stored
+    and streamed representations can never diverge. The caller's original
+    event object is left untouched; only the returned copy is redacted.
+    """
     deps = dependencies or _resolve_dependencies()
-    if deps.session_maker is None and db_session is None:
-        return
 
     pipeline = deps.redaction_pipeline_factory()
     event = pipeline.apply(event)
+
+    if deps.session_maker is None and db_session is None:
+        return event
 
     if db_session is not None:
         repo = TraceRepository(db_session, tenant_id=tenant_id)
@@ -197,7 +220,7 @@ async def _persist_event_if_configured(
             )
         await repo.add_event(event)
         await repo.commit()
-        return
+        return event
 
     assert deps.session_maker is not None
     async with deps.session_maker() as session:
@@ -210,6 +233,7 @@ async def _persist_event_if_configured(
             )
         await repo.add_event(event)
         await repo.commit()
+    return event
 
 
 def _parse_event_type(event_type_str: str) -> EventType:
@@ -240,8 +264,25 @@ def _build_event(event_data: TraceEventIngest, event_type: EventType) -> TraceEv
     }
     if timestamp is not None:
         base_kwargs["timestamp"] = timestamp
+    if event_data.id:
+        base_kwargs["id"] = event_data.id
 
-    return TraceEvent.from_data(event_type, base_kwargs, event_data.data)
+    # Fold SDK typed fields (extra top-level keys from to_dict()) into the
+    # payload; from_data() pulls them back out into the typed event class.
+    # Explicit ``data`` wins on conflict.
+    extras = {
+        key: value
+        for key, value in event_data.model_dump().items()
+        if key not in _INGEST_BASE_FIELDS and value is not None
+    }
+    merged_data = {**extras, **event_data.data}
+
+    return TraceEvent.from_data(event_type, base_kwargs, merged_data)
+
+
+# Fields consumed explicitly by _build_event; everything else in the payload
+# is a typed event field that must survive into the stored data dict.
+_INGEST_BASE_FIELDS = frozenset(TraceEventIngest.model_fields)
 
 
 async def _ingest_trace(
@@ -259,13 +300,22 @@ async def _ingest_trace(
     if deps.session_maker is not None:
         async with deps.session_maker() as db:
             tenant_id = await deps.tenant_resolver(request, db)
-            await _persist_event_if_configured(event, tenant_id=tenant_id, dependencies=deps, db_session=db)
+            stored_event = await _persist_event_if_configured(
+                event, tenant_id=tenant_id, dependencies=deps, db_session=db
+            )
     else:
-        await _persist_event_if_configured(event, dependencies=deps)
+        stored_event = await _persist_event_if_configured(event, dependencies=deps)
+    if stored_event is None:
+        # Only reachable when the persister is swapped out (test wiring) for
+        # one that returns None; the real persister always returns the
+        # redacted event.
+        stored_event = event
 
-    await deps.buffer.publish(event.session_id, event)
+    # Publish the same redacted object that was (or would be) persisted so
+    # the buffer/SSE fan-out can never leak more than storage does.
+    await deps.buffer.publish(stored_event.session_id, stored_event)
 
-    return TraceEventResponse(event_id=event.id, status="queued")
+    return TraceEventResponse(event_id=stored_event.id, status="queued")
 
 
 @router.post("/traces", response_model=TraceEventResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -283,11 +333,15 @@ async def _create_session(
     dependencies: CollectorDependencies | None = None,
 ) -> SessionResponse:
     deps = dependencies or _resolve_dependencies()
+    # Session config flows through the same redaction policy as event
+    # payloads before it reaches storage (structural fields — agent name,
+    # framework, tags — are kept as delivered).
+    pipeline = deps.redaction_pipeline_factory()
     session = Session(
         id=_resolve_session_id(session_data.id),
         agent_name=session_data.agent_name,
         framework=session_data.framework,
-        config=session_data.config,
+        config=apply_payload_redaction(pipeline, session_data.config),
         tags=session_data.tags,
     )
     if deps.session_maker is not None:
@@ -325,6 +379,63 @@ async def create_session(
     request: Request,
 ) -> SessionResponse:
     return await _create_session(session_data, request)
+
+
+class CheckpointIngest(BaseModel):
+    """Inbound checkpoint over HTTP (SDK ``Checkpoint.to_dict()`` shape)."""
+
+    session_id: str
+    id: str | None = None
+    event_id: str = ""
+    sequence: int = 0
+    state: dict[str, Any] = Field(default_factory=dict)
+    memory: dict[str, Any] = Field(default_factory=dict)
+    timestamp: str | None = None
+    importance: float = 0.5
+
+
+@router.post("/checkpoints", status_code=status.HTTP_202_ACCEPTED)
+async def ingest_checkpoint(
+    checkpoint_data: CheckpointIngest,
+    request: Request,
+) -> dict[str, str]:
+    """Persist a time-travel checkpoint delivered by the SDK transport.
+
+    Without this endpoint, checkpoints captured in cloud/HTTP mode were
+    silently dropped — replay and restore only worked for the in-process
+    pipeline.
+    """
+    deps = _resolve_dependencies()
+    timestamp = _parse_timestamp(checkpoint_data.timestamp)
+    # Checkpoint state and memory flow through the same redaction policy as
+    # event payloads before they reach storage (structural fields — ids,
+    # sequence, timestamps — are kept as delivered).
+    pipeline = deps.redaction_pipeline_factory()
+    checkpoint = Checkpoint(
+        id=checkpoint_data.id or str(uuid.uuid4()),
+        session_id=checkpoint_data.session_id,
+        event_id=checkpoint_data.event_id,
+        sequence=checkpoint_data.sequence,
+        state=apply_payload_redaction(pipeline, checkpoint_data.state),
+        memory=apply_payload_redaction(pipeline, checkpoint_data.memory),
+        importance=checkpoint_data.importance,
+        **({"timestamp": timestamp} if timestamp is not None else {}),
+    )
+    if deps.session_maker is not None:
+        async with deps.session_maker() as db:
+            tenant_id = await deps.tenant_resolver(request, db)
+            repo = TraceRepository(db, tenant_id=tenant_id)
+            # Ownership check mirrors the event path (_persist_event_if_configured):
+            # a checkpoint may only attach to a session visible to the caller's
+            # tenant, so another tenant's session_id cannot be targeted.
+            if await repo.get_session(checkpoint.session_id) is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Session {checkpoint.session_id} not found",
+                )
+            await repo.create_checkpoint(checkpoint)
+            await repo.commit()
+    return {"checkpoint_id": checkpoint.id, "status": "stored"}
 
 
 @router.get("/health", response_model=HealthResponse)

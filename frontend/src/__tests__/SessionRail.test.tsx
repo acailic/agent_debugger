@@ -125,6 +125,7 @@ function buildState(overrides: Record<string, unknown> = {}): SessionStoreState 
     searchResponse: null,
     searchLoading: false,
     searchError: null,
+    pendingSearchResult: null,
     liveEvents: [],
     liveSummary: null,
     streamConnected: false,

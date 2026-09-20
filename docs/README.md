@@ -8,6 +8,8 @@ This folder explains what the project is, how to integrate it, and how it works.
 - [Intro](./guides/intro.md): the plain-language explanation of the product
 - [Integration](./guides/integration.md): how to instrument your code locally
 - [Progress](./guides/progress.md): current implementation status
+- [Planning status](./reports/PLANNING_STATUS_REPORT.md): verified completions, open review work, and next delivery slices
+- [Latest delivery evidence](./research/2026-09-20-delivery-followup.md): tested scope, remaining acceptance and workflow failures
 - [How It Works](./guides/how-it-works.md): the runtime flow from trace capture to UI
 - [Architecture](./guides/architecture.md): system layers, modules, and data flow
 - [Repo Overview](./guides/repo-overview.md): what is in the repository

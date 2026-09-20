@@ -4,11 +4,17 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 from dataclasses import fields
 from typing import Any
 
 from agent_debugger_sdk.core.events import BASE_EVENT_FIELDS, EventType, TraceEvent
-from redaction.patterns import PII_PATTERNS, REPLACEMENT_MAP
+from redaction.patterns import (
+    PII_PATTERNS,
+    REPLACEMENT_MAP,
+    SECRET_PATTERNS,
+    SECRET_REPLACEMENT_MAP,
+)
 
 # Fields that contain prompt/response content
 PROMPT_FIELDS = {"content", "messages", "prompts", "result", "arguments"}
@@ -24,6 +30,17 @@ TRUNCATION_PRIORITY_FIELDS = {
     "evidence",
 }
 TRUNCATED_MARKER = "[TRUNCATED]"
+
+# Base event fields whose *content* is payload-like and therefore flows
+# through the PII/payload scrub path. The remaining base fields (id,
+# session_id, parent_id, event_type, timestamp, name, data bookkeeping,
+# importance, upstream_event_ids) are structural and stay excluded so
+# trace linkage and ordering survive redaction.
+PAYLOAD_LIKE_BASE_FIELDS = frozenset({"metadata"})
+
+# Environment toggles for policy options the SDK Config does not carry yet.
+REDACT_PII_ENV = "AGENT_DEBUGGER_REDACT_PII"
+REDACT_TOOL_PAYLOADS_ENV = "AGENT_DEBUGGER_REDACT_TOOL_PAYLOADS"
 
 
 class RedactionPipeline:
@@ -41,13 +58,29 @@ class RedactionPipeline:
 
     @classmethod
     def from_config(cls) -> RedactionPipeline:
-        """Build a redaction pipeline from the active SDK configuration."""
+        """Build a redaction pipeline from the active SDK configuration.
+
+        The SDK ``Config`` object currently exposes ``redact_prompts`` and
+        ``max_payload_kb`` only; those are mapped directly. For the options
+        the config object does not carry yet, ``getattr`` picks the field up
+        if a future SDK config grows it, and otherwise falls back to the
+        corresponding ``AGENT_DEBUGGER_*`` environment variable:
+
+        - ``redact_pii``: ``AGENT_DEBUGGER_REDACT_PII`` (default ``False``)
+        - ``redact_tool_payloads``: ``AGENT_DEBUGGER_REDACT_TOOL_PAYLOADS``
+          (default ``False``)
+
+        Defaults documented above apply when neither the config field nor
+        the environment variable is set, so existing deployments keep the
+        previous opt-in behaviour until they enable the policy.
+        """
         from agent_debugger_sdk.config import get_config
 
         config = get_config()
         return cls(
             redact_prompts=config.redact_prompts,
-            redact_pii=False,
+            redact_tool_payloads=_config_flag(config, "redact_tool_payloads", REDACT_TOOL_PAYLOADS_ENV),
+            redact_pii=_config_flag(config, "redact_pii", REDACT_PII_ENV),
             max_payload_kb=config.max_payload_kb,
         )
 
@@ -83,6 +116,17 @@ class RedactionPipeline:
 
         return redacted
 
+    def scrub_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Scrub a non-event dict payload (session config, checkpoint state/memory).
+
+        Routes the payload through :meth:`apply` on a carrier event so the
+        exact same policy — PII/secret scrub plus size truncation — governs
+        every sink. Whole-field redaction (prompts/tool payloads) is event
+        type specific and intentionally does not fire for these payloads.
+        """
+        carrier = TraceEvent(event_type=EventType.AGENT_START, data=copy.deepcopy(payload))
+        return dict(self.apply(carrier).data)
+
     def _redact_fields(self, data: dict, fields: set[str]) -> dict:
         for key in fields:
             if key in data:
@@ -93,6 +137,8 @@ class RedactionPipeline:
         if isinstance(obj, str):
             for pattern_name, pattern in PII_PATTERNS.items():
                 obj = pattern.sub(REPLACEMENT_MAP[pattern_name], obj)
+            for pattern_name, pattern in SECRET_PATTERNS.items():
+                obj = pattern.sub(SECRET_REPLACEMENT_MAP[pattern_name], obj)
             return obj
         if isinstance(obj, dict):
             return {k: self._scrub_pii(v) for k, v in obj.items()}
@@ -101,7 +147,16 @@ class RedactionPipeline:
         return obj
 
     def _build_event_payload(self, event: TraceEvent) -> dict[str, Any]:
+        """Merge event data, payload-like base fields, and typed fields.
+
+        ``metadata`` is payload-like content, so it joins the scrub path
+        (PII/secret scrub, truncation) alongside ``data`` and typed fields.
+        The remaining base fields stay excluded — they are structural and
+        must survive redaction untouched.
+        """
         payload = copy.deepcopy(event.data)
+        for field_name in PAYLOAD_LIKE_BASE_FIELDS:
+            payload[field_name] = copy.deepcopy(getattr(event, field_name))
         for field_info in fields(event):
             if field_info.name in BASE_EVENT_FIELDS:
                 continue
@@ -110,6 +165,9 @@ class RedactionPipeline:
 
     def _apply_event_payload(self, event: TraceEvent, payload: dict[str, Any]) -> None:
         remaining = copy.deepcopy(payload)
+        for field_name in PAYLOAD_LIKE_BASE_FIELDS:
+            if field_name in remaining:
+                setattr(event, field_name, remaining.pop(field_name))
         for field_info in fields(event):
             if field_info.name in BASE_EVENT_FIELDS:
                 continue
@@ -310,3 +368,33 @@ class RedactionPipeline:
 
     def _serialize_json(self, payload: Any) -> str:
         return json.dumps(payload, ensure_ascii=False, default=str)
+
+
+def _env_flag(name: str) -> bool:
+    """Parse a boolean environment toggle; unset or unrecognized means off."""
+    value = os.getenv(name)
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _config_flag(config: Any, field_name: str, env_var: str) -> bool:
+    """Resolve a policy flag from the config object, falling back to env."""
+    value = getattr(config, field_name, None)
+    if value is not None:
+        return bool(value)
+    return _env_flag(env_var)
+
+
+def apply_payload_redaction(pipeline: Any, payload: dict[str, Any]) -> dict[str, Any]:
+    """Scrub an arbitrary dict payload through the given redaction pipeline.
+
+    Uses the pipeline's ``scrub_payload`` entry point. Pipelines that only
+    implement ``apply()`` (duck-typed test doubles) are treated as
+    event-only policies: the payload is returned as a copy, unchanged, so
+    injecting such a double never widens or narrows the real policy.
+    """
+    scrub = getattr(pipeline, "scrub_payload", None)
+    if callable(scrub):
+        return scrub(payload)
+    return copy.deepcopy(payload)

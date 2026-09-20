@@ -33,7 +33,7 @@ export function formatEventHeadline(event: TraceEvent | null, fallback = 'Select
     case 'llm_response':
       return 'LLM Response'
     case 'checkpoint':
-      return `Checkpoint ${event.sequence ?? ''}`.trim()
+      return typeof event.data.sequence === 'number' ? `Checkpoint ${event.data.sequence}` : 'Checkpoint'
     case 'tool_call':
       return event.tool_name ?? event.name
     case 'tool_result':

@@ -160,7 +160,15 @@ class RecordingMixin(abc.ABC):
         upstream_event_ids: list[str] | None = None,
         parent_id: str | None = None,
         name: str | None = None,
+        agent_id: str | None = None,
     ) -> str:
+        """Record a tool invocation.
+
+        Args:
+            agent_id: Optional id of the calling agent. In multi-agent runs
+                this attributes the call to a speaker lane, enabling
+                inter-agent message-flow detection (e.g. delegation tools).
+        """
         self._check_entered()
 
         event = ToolCallEvent(
@@ -172,6 +180,7 @@ class RecordingMixin(abc.ABC):
             arguments=arguments,
             importance=0.4,
             upstream_event_ids=upstream_event_ids or [],
+            **({"metadata": {"agent_id": agent_id}} if agent_id else {}),
         )
         await self._emit_event(event)
         return event.id

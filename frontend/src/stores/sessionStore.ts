@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { mergeSessionEvents } from '../utils/sessionEvents'
 import type {
   Session,
   TraceEvent,
@@ -137,6 +138,7 @@ interface SessionStore {
   searchResponse: TraceSearchResponse | null
   searchLoading: boolean
   searchError: string | null
+  pendingSearchResult: { sessionId: string; eventId: string } | null
 
   // Live streaming state
   liveEvents: TraceEvent[]
@@ -354,6 +356,7 @@ const initialState = {
   searchResponse: null,
   searchLoading: false,
   searchError: null,
+  pendingSearchResult: null,
 
   // Live streaming state
   liveEvents: [],
@@ -417,7 +420,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   // Session actions
   setSessions: (sessions) => set({ sessions }),
-  setSelectedSessionId: (selectedSessionId) => set({ selectedSessionId }),
+  setSelectedSessionId: (selectedSessionId) => set((state) => ({
+    selectedSessionId,
+    pendingSearchResult: selectedSessionId === state.selectedSessionId ? state.pendingSearchResult : null,
+  })),
   setSecondarySessionId: (secondarySessionId) => set({ secondarySessionId }),
 
   // Bundle actions
@@ -425,9 +431,24 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setSecondaryBundle: (secondaryBundle) => set({ secondaryBundle }),
 
   // Replay actions
-  setReplay: (replay) => set({ replay }),
-  setReplayMode: (replayMode) => set({ replayMode }),
-  setCurrentIndex: (currentIndex) => set({ currentIndex }),
+  setReplay: (replay) => set((state) => {
+    if (!replay) return { replay }
+    const target = state.pendingSearchResult
+    const events = mergeSessionEvents(state.bundle?.events ?? [], state.liveEvents)
+    const targetIndex = target?.sessionId === replay.session_id && replay.mode === 'full'
+      ? events.findIndex((event) => event.id === target.eventId)
+      : -1
+    return {
+      replay,
+      currentIndex: targetIndex >= 0
+        ? targetIndex
+        : (replay.stopped_at_breakpoint ? replay.stopped_at_index ?? 0 : 0),
+      isPlaying: false,
+      pendingSearchResult: null,
+    }
+  }),
+  setReplayMode: (replayMode) => set({ replayMode, pendingSearchResult: null }),
+  setCurrentIndex: (currentIndex) => set({ currentIndex, pendingSearchResult: null }),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setSpeed: (speed) => set({ speed }),
   setCollapseThreshold: (collapseThreshold) => set({ collapseThreshold, expandedSegments: new Set() }),
@@ -465,7 +486,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   // UI actions
   setActiveTab: (activeTab) => set({ activeTab }),
   setSessionSortMode: (sessionSortMode) => set({ sessionSortMode }),
-  setSelectedEventId: (selectedEventId) => set({ selectedEventId }),
+  setSelectedEventId: (selectedEventId) => set((state) => ({
+    selectedEventId,
+    pendingSearchResult: selectedEventId === state.pendingSearchResult?.eventId ? state.pendingSearchResult : null,
+  })),
   setFocusEventId: (focusEventId) => set({ focusEventId }),
   setSelectedCheckpointId: (selectedCheckpointId) => set({ selectedCheckpointId }),
   setCurrentHighlightIndex: (currentHighlightIndex) => set({ currentHighlightIndex }),
@@ -533,7 +557,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   // Composite actions
   inspectEvent: (eventId, displayEvents) => {
-    set({ selectedEventId: eventId })
+    set({ selectedEventId: eventId, pendingSearchResult: null })
     const nextIndex = displayEvents.findIndex((event) => event.id === eventId)
     if (nextIndex >= 0) {
       set({ currentIndex: nextIndex })
@@ -542,16 +566,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   jumpToSearchResult: (result) => {
     const state = get()
-    set({ replayMode: 'full' })
-    if (result.session_id !== state.selectedSessionId) {
-      set({ selectedSessionId: result.session_id, selectedEventId: result.id })
-    } else {
-      // Same session: use inspectEvent to properly update index
-      const displayEvents = state.replayMode === 'full' ? state.bundle?.events : state.secondaryBundle?.events
-      const events = displayEvents || []
-      const nextIndex = events.findIndex((event) => event.id === result.id)
-      set({ selectedEventId: result.id, currentIndex: nextIndex >= 0 ? nextIndex : 0 })
-    }
+    const sameSession = result.session_id === state.selectedSessionId
+    const events = sameSession ? mergeSessionEvents(state.bundle?.events ?? [], state.liveEvents) : []
+    const nextIndex = events.findIndex((event) => event.id === result.id)
+    set({
+      replayMode: 'full',
+      selectedSessionId: result.session_id,
+      selectedEventId: result.id,
+      currentIndex: Math.max(nextIndex, 0),
+      isPlaying: false,
+      pendingSearchResult: { sessionId: result.session_id, eventId: result.id },
+    })
   },
 
   resetSessionState: () => set({
@@ -565,6 +590,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     streamParseFailures: 0,
     selectedEventId: null,
     focusEventId: null,
+    pendingSearchResult: null,
     selectedCheckpointId: null,
     currentIndex: 0,
     isPlaying: false,

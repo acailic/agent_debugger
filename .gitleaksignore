@@ -1,0 +1,5 @@
+# Synthetic AWS-shaped redaction sentinel; exact historical finding only.
+# CI's Gitleaks 8.24.3 reports aws-access-token; 8.30.1 reports generic-api-key.
+# Keep the fixture and default rules intact; new commits/findings remain scanned.
+7f950460dd0dc543e634b3f158656794a7171bcb:tests/test_redaction_boundary.py:aws-access-token:58
+7f950460dd0dc543e634b3f158656794a7171bcb:tests/test_redaction_boundary.py:generic-api-key:58

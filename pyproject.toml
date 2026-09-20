@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "peaky-peek"
-version = "0.2.0"
+version = "0.4.0"
 description = "Lightweight tracing SDK for AI agents. Capture decisions, tool calls, and LLM events with one context manager."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -90,6 +90,7 @@ timeout = 120
 xfail_strict = true
 markers = [
     "integration: End-to-end tests requiring API keys (deselected by default)",
+    "e2e: Full-stack scenario tests (real server subprocess, real SDK transport, real SQLite)",
 ]
 
 [tool.coverage.run]
@@ -125,6 +126,9 @@ exclude_lines = [
 
 [tool.ruff]
 line-length = 120
+# .claude/skills/ + adws/: vendored factory machinery stamped from the sssf
+# skill — lint it in its source repo, not here.
+exclude = [".claude/skills", "adws"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
