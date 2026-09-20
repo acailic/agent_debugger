@@ -10,7 +10,7 @@ const originalReadFile = host.readFile
 host.readFile = file => Object.hasOwn(overrides, file) ? overrides[file] : originalReadFile(file)
 const program = ts.createProgram([clientPath, typesPath], { noResolve: true, noLib: true }, host)
 const checker = program.getTypeChecker()
-const result = { requests: [], interfaces: {}, unions: {}, errors: [] }
+const result = { requests: [], interfaces: {}, unions: {}, properties: {}, errors: [] }
 
 function resolve(node, seen = new Set()) {
   if (!node || seen.has(node)) throw new Error('Cannot resolve URL expression')
@@ -109,14 +109,71 @@ for (const fn of functions) {
   if (fn.body) visit(fn.body)
   if (!found) result.errors.push(`${fn.name}: exported client function has no recognized HTTP call`)
 }
-for (const node of types.statements) {
-  if (ts.isInterfaceDeclaration(node)) {
-    result.interfaces[node.name.text] = node.members.filter(ts.isPropertySignature).map(member => member.name.getText().replace(/['"]/g, ''))
+// Classify a type node into a JSON-ish kind: string/number/boolean/array/object/
+// union (of literals)/null/unknown, plus whether null is part of the type.
+function classify(node, unionNames) {
+  if (!node) return { kind: 'unknown', nullable: false }
+  if (ts.isParenthesizedTypeNode(node)) return classify(node.type, unionNames)
+  if (ts.isArrayTypeNode(node)) return { kind: 'array', nullable: false }
+  if (ts.isTypeLiteralNode(node) || ts.isIntersectionTypeNode(node)) return { kind: 'object', nullable: false }
+  if (ts.isLiteralTypeNode(node)) {
+    if (node.literal.kind === ts.SyntaxKind.NullKeyword) return { kind: 'null', nullable: true }
+    return { kind: 'union', nullable: false }
   }
+  if (ts.isUnionTypeNode(node)) {
+    const isNull = member => member.kind === ts.SyntaxKind.NullKeyword
+      || (ts.isLiteralTypeNode(member) && member.literal.kind === ts.SyntaxKind.NullKeyword)
+    const rest = node.types.filter(member => !isNull(member))
+    const nullable = node.types.some(isNull)
+    if (rest.length === 0) return { kind: 'null', nullable: true }
+    if (rest.length === 1) {
+      const inner = classify(rest[0], unionNames)
+      return { kind: inner.kind, nullable: nullable || inner.nullable }
+    }
+    return { kind: 'union', nullable }
+  }
+  const keywordKinds = {
+    [ts.SyntaxKind.StringKeyword]: 'string',
+    [ts.SyntaxKind.NumberKeyword]: 'number',
+    [ts.SyntaxKind.BooleanKeyword]: 'boolean',
+    [ts.SyntaxKind.BigIntKeyword]: 'number',
+    [ts.SyntaxKind.NullKeyword]: 'null',
+    [ts.SyntaxKind.UndefinedKeyword]: 'null',
+  }
+  if (node.kind in keywordKinds) {
+    const kind = keywordKinds[node.kind]
+    return { kind, nullable: kind === 'null' }
+  }
+  if (node.kind >= ts.SyntaxKind.FirstKeyword && node.kind <= ts.SyntaxKind.LastKeyword) {
+    return { kind: 'unknown', nullable: false }
+  }
+  if (ts.isTypeReferenceNode(node)) {
+    const name = node.typeName.getText()
+    if (name === 'Array') return { kind: 'array', nullable: false }
+    if (name === 'Record') return { kind: 'object', nullable: false }
+    if (unionNames.has(name)) return { kind: 'union', nullable: false }
+    return { kind: 'object', nullable: false }
+  }
+  return { kind: 'unknown', nullable: false }
+}
+for (const node of types.statements) {
   if (ts.isTypeAliasDeclaration(node) && ts.isUnionTypeNode(node.type)) {
     const members = node.type.types
     if (members.every(member => ts.isLiteralTypeNode(member) && ts.isStringLiteral(member.literal))) {
       result.unions[node.name.text] = members.map(member => member.literal.text)
+    }
+  }
+}
+const unionNames = new Set(Object.keys(result.unions))
+for (const node of types.statements) {
+  if (!ts.isInterfaceDeclaration(node)) continue
+  const members = node.members.filter(ts.isPropertySignature)
+  result.interfaces[node.name.text] = members.map(member => member.name.getText().replace(/['"]/g, ''))
+  result.properties[node.name.text] = {}
+  for (const member of members) {
+    const { kind, nullable } = classify(member.type, unionNames)
+    result.properties[node.name.text][member.name.getText().replace(/['"]/g, '')] = {
+      optional: Boolean(member.questionToken), kind, nullable,
     }
   }
 }
