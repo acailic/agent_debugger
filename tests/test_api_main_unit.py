@@ -142,7 +142,7 @@ def test_request_models_strip_whitespace():
 
 
 @pytest.mark.asyncio
-async def test_lifespan_configures_pipeline_for_sqlite(monkeypatch):
+async def test_lifespan_configures_pipeline_for_sqlite(monkeypatch, tmp_path):
     created_buffers: list[str] = []
     configure_storage = MagicMock()
     configure_event_pipeline = MagicMock()
@@ -154,19 +154,48 @@ async def test_lifespan_configures_pipeline_for_sqlite(monkeypatch):
 
     monkeypatch.setenv("REDIS_URL", "")
 
-    with (
-        patch("storage.engine.get_database_url", return_value="sqlite+aiosqlite:///tmp/test.db"),
-        patch("collector.create_buffer", side_effect=fake_create_buffer),
-        patch("api.main.configure_storage", configure_storage),
-        patch("api.main.configure_event_pipeline", configure_event_pipeline),
-        patch("api.main.prepare_database", prepare_database),
-    ):
-        async with api_main.lifespan(FastAPI()):
-            pass
+    # The lifespan installs a REAL engine into module-global app_context.
+    # Snapshot and restore that state (and dispose the engine), or every
+    # later test in this process would silently share one engine bound to
+    # a fixed path — the root cause of the xdist "no such table" flakes.
+    saved = (
+        app_context.engine,
+        app_context.async_session_maker,
+        app_context.trace_intelligence,
+        app_context._redaction_pipeline,
+    )
+    local_db = f"sqlite+aiosqlite:///{tmp_path / 'lifespan-test.db'}"
+    lifespan_engine = None
+    lifespan_maker = None
+    try:
+        # Force the lifespan to build a fresh engine against the patched URL
+        # (init_app_context keeps an existing engine otherwise).
+        app_context.engine = None
+        app_context.async_session_maker = None
+        with (
+            patch("storage.engine.get_database_url", return_value=local_db),
+            patch("collector.create_buffer", side_effect=fake_create_buffer),
+            patch("api.main.configure_storage", configure_storage),
+            patch("api.main.configure_event_pipeline", configure_event_pipeline),
+            patch("api.main.prepare_database", prepare_database),
+        ):
+            async with api_main.lifespan(FastAPI()):
+                lifespan_engine = app_context.engine
+                lifespan_maker = app_context.async_session_maker
+    finally:
+        if app_context.engine is not None and app_context.engine is not saved[0]:
+            await app_context.engine.dispose()
+        (
+            app_context.engine,
+            app_context.async_session_maker,
+            app_context.trace_intelligence,
+            app_context._redaction_pipeline,
+        ) = saved
 
     assert created_buffers == ["memory"]
-    prepare_database.assert_awaited_once_with(app_context.engine)
-    configure_storage.assert_called_once_with(app_context.async_session_maker)
+    assert lifespan_engine is not None and str(lifespan_engine.url) == local_db
+    prepare_database.assert_awaited_once_with(lifespan_engine)
+    configure_storage.assert_called_once_with(lifespan_maker)
     configure_event_pipeline.assert_called_once()
 
 
