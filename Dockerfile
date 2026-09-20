@@ -19,8 +19,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Copy package definition
-COPY pyproject-server.toml ./
+# Copy package definition — the server pyproject doubles as the build's
+# pyproject.toml, mirroring publish.yml's `cp pyproject-server.toml pyproject.toml`
+COPY pyproject-server.toml ./pyproject.toml
+# README.md is referenced by readme = "README.md" in the server pyproject
+COPY README.md ./README.md
 
 # Copy built frontend from stage 1
 COPY --from=frontend-builder /frontend/dist ./frontend/dist

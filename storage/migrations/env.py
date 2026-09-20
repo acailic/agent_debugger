@@ -14,7 +14,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from storage.models import Base
 
 config = context.config
-if config.config_file_name is not None:
+# Guard on existence, not just non-None: when the server runs from an
+# installed wheel, storage/engine.py points config_file_name at
+# <site-packages>/alembic.ini, which the wheel does not ship (it overrides
+# script_location and sqlalchemy.url explicitly). fileConfig raises
+# FileNotFoundError on a missing file, so without this guard the installed
+# server crashes during lifespan migrations.
+if config.config_file_name is not None and os.path.exists(config.config_file_name):
     fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata

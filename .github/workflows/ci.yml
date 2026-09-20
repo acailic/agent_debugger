@@ -95,6 +95,61 @@ jobs:
           pip install bandit
           bandit -r agent_debugger_sdk/ api/ storage/ collector/ auth/ redaction/ -ll -x "*/tests/*" || true  # Don't fail CI initially
 
+  # Real-service run of the Redis buffer tests. The main test job cannot
+  # exercise these: test_buffer_redis.py skips without the optional 'redis'
+  # pip package, and test_buffer_redis_service.py additionally skips without
+  # a 'redis-server' binary on PATH (it spawns its own ephemeral servers).
+  # The service container provides a real Redis for REDIS_URL consumers;
+  # the apt package provides the binary the service tests require.
+  redis-buffer:
+    name: Redis buffer (real service)
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install redis-server binary
+        run: sudo apt-get update && sudo apt-get install -y redis-server
+
+      - name: Install SDK + server deps
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+          pip install \
+            fastapi \
+            "uvicorn[standard]" \
+            "sqlalchemy[asyncio]" \
+            aiosqlite \
+            alembic \
+            aiofiles \
+            bcrypt \
+            httpx \
+            pytest \
+            pytest-asyncio \
+            pytest-timeout \
+            redis
+
+      - name: Run redis buffer tests (must not skip)
+        env:
+          REDIS_URL: redis://localhost:6379
+        run: |
+          python3 -m pytest -v -ra -o addopts='' tests/test_buffer_redis.py tests/test_buffer_redis_service.py
+
   dep-check:
     name: Dependency security
     runs-on: ubuntu-latest
