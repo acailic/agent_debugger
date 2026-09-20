@@ -61,13 +61,13 @@ for commands, results and limits.
 | Goal drift, success-flow advisory and trust bands | **DONE** | Bounded heuristics implemented; efficacy remains an experiment | [Intelligence audit](research/2026-09-19-intelligence-status.md) |
 | Event replay, filtering, comparison and recorded-event stepping | **DONE** | Inspection of recorded events; no general agent runtime continuation | [Core audit](research/2026-09-19-core-status.md) |
 | Semantic restore through the server API | **DONE** | Copies prefix with remapped references, restore marker and checkpoint | [Core audit](research/2026-09-19-core-status.md) |
-| SDK-to-server restore integration | **PARTIAL** | SDK independently fetches checkpoint and creates context; does not use new semantic restore POST flow | [Core audit](research/2026-09-19-core-status.md) |
+| SDK-to-server restore integration | **DONE 2026-09-20** | SDK POSTs the semantic restore contract with auth, adopts returned ids/provenance, legacy fallback for old servers; runtime continuation remains NOT STARTED (W04) | [Core audit](research/2026-09-19-core-status.md), Q10 |
 | Adapter execution continuation / cached tool replay | **NOT STARTED** | New runtime contract needed beyond restored data | [Core audit](research/2026-09-19-core-status.md) |
 | Failure memory, cross-session clusters and replay ranking | **PARTIAL** | Implemented components; effectiveness, isolation and retention lifecycle are incomplete | [Intelligence](research/2026-09-19-intelligence-status.md), [platform](research/2026-09-19-platform-status.md) |
 | Multi-agent coordination and policy/refusal inspection | **PARTIAL** | Data models, analyses and views exist; distributed causal completeness and validated interpretation remain | [Intelligence audit](research/2026-09-19-intelligence-status.md) |
 | Who&When benchmark | **PARTIAL** | Corrected protocol shipped 2026-09-20: global upstream indexing, exact independent/joint/abstention metrics with denominators, pinned-commit fetch, validated annotations, versioned result manifest (`benchmarks/results/who_when/2026-09-20-global-protocol.json`). Remaining: native-engine attribution is a separate unevaluated claim | [Intelligence audit](research/2026-09-19-intelligence-status.md), [CHANGELOG](../CHANGELOG.md) |
 | Conformal uncertainty as a product guarantee | **UNVERIFIED** | Core calibration utilities exist, but research API paths include confidence-derived heuristics; do not advertise fitted guarantees | [Intelligence audit](research/2026-09-19-intelligence-status.md) |
-| Auth / tenant isolation / redaction everywhere | **PARTIAL** | Clusters tenant-scoping + checkpoint ownership fixed 2026-09-20 with a green two-tenant matrix; analytics auth, absent-key cloud fallback and SSE redaction remain (Q08) | [Platform audit](research/2026-09-19-platform-status.md) |
+| Auth / tenant isolation / redaction everywhere | **PARTIAL** | Clusters tenant-scoping, checkpoint ownership and one-policy redaction across storage/SSE/checkpoints/metadata landed 2026-09-20 (Q06+Q08) with sentinel tests; analytics auth and absent-key cloud fallback remain open | [Platform audit](research/2026-09-19-platform-status.md) |
 | Safe custom breakpoint predicates | **PARTIAL / BLOCKED remote exposure** | Custom expression evaluates in server Python context; replace or disable the path for remote operation | [Platform audit](research/2026-09-19-platform-status.md) |
 | Redis-backed operation | **PARTIAL** | Constructor/URL wiring repaired 2026-09-20 with bounded queues, reconnect and documented durability limits; real-service verification pending where redis-server is available | [Platform audit](research/2026-09-19-platform-status.md), [Q13](#first-implementation-queue) |
 | SDK/server packaging and bundled UI | **PARTIAL** | Separate package definitions and publish workflow exist; clean installed-artifact and container proof needed | [Platform audit](research/2026-09-19-platform-status.md) |
@@ -506,9 +506,9 @@ S/M/L are rough ranges: S ≤3 engineer-days, M 4–7, L 8–15, excluding obser
 | Q05 | DONE (corrections) | Who&When global-index fixtures, passing self-test, named independent/joint metrics and versioned result manifest — shipped 2026-09-20 | — | ✓ |
 | Q06 | DONE 2026-09-20 | Hosted-mode fixture + full route inventory (`docs/hosted-route-inventory.md`); clusters tenant-scoping and checkpoint ownership fixed; two-tenant matrix green; open gaps pinned (analytics auth, absent-key cloud fallback, SSE redaction) → Q08 | — | ✓ |
 | Q07 | DONE 2026-09-20 | Delivered the stronger form: eval replaced by an AST-allowlisted predicate interpreter (no calls/dunders/comprehensions; caps; explicit unsupported-construct errors); 72 attack-surface tests + independent RCE probes blocked (`730d1dc`) | — | ✓ |
-| Q08 | PARTIAL | One redaction policy across storage, SSE, checkpoints and metadata; sentinel scan artifact | Q06 | M |
+| Q08 | DONE 2026-09-20 | One configured policy across persisted rows (data + metadata), buffer/SSE fan-out, checkpoint state/memory, session config and NDJSON spill; sentinel boundary tests + `scripts/scan_redaction_sinks.py` audit artifact; Python 3.10 SSE TimeoutError bug fixed en route (`7f95046`). Policy is opt-in per deployment | Q06 ✓ | ✓ |
 | Q09 | DONE 2026-09-20 | Endpoint-without-key installs unauthenticated delivery; no-endpoint/disabled inert; offline exits cleanly via failure callbacks; real-collector e2e green (`bd37ce0`). Installed-wheel onboarding command check folds into Q12 | Q02 ✓ | ✓ |
-| Q10 | PARTIAL | Authenticated SDK calls semantic restore API and exposes returned provenance/IDs | Q06, Q09 | M |
+| Q10 | DONE 2026-09-20 | SDK restore POSTs the semantic contract (authenticated; unauthenticated local mode), adopts server ids and typed RestoreProvenance, legacy GET fallback marked, no execution (`e61f04d`) | Q06 ✓, Q09 ✓ | ✓ |
 | Q11 | NOT STARTED | Browser scenario from finding to evidence to restore boundary with delayed-response coverage | Q04, Q10 | M |
 | Q12 | PARTIAL | Wheel/server/container smoke in clean environment; restart preserves captured trace | Q09 | M |
 | Q13 | DONE 2026-09-20 | Constructor NameError fixed (lazy import, clear RuntimeError), REDIS_URL wired through, bounded drop-oldest queues, reconnect, durability limit documented; real-service tests skip where redis-server absent (`e8e6696`) | Q06 ✓ | ✓ |
@@ -767,6 +767,11 @@ debugger as the safety enforcement system; implementing every proposed stream
 before testing the main user journey.
 
 ## Shipped history and superseded plans
+
+- 2026-09-20 (agent-team waves): Q06/Q07/Q09/Q13 (wave 1) and Q08/Q10 (wave 2) — hosted-boundary
+  fixes with route inventory and two-tenant matrix, eval-free breakpoint predicates, no-key local
+  SDK delivery, Redis buffer repair, one-policy redaction across sinks with a sentinel scan
+  artifact, SDK semantic restore with provenance; Python 3.10 SSE TimeoutError bug fixed.
 
 - 2026-09-20 (v0.4.0): benchmark-integrity and delivery-recovery release —
   corrected Who&When protocol with published manifest, real API-contract

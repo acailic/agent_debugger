@@ -46,6 +46,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   docstring states the durability limit. Real-service tests activate
   where redis/redis-server exist
 
+
+#### One redaction policy across every sink (Q08)
+- The configured pipeline now covers persisted event rows (data and
+  metadata), the live buffer/SSE fan-out (the collector publishes exactly
+  the redacted object it stores), checkpoint state/memory, session config,
+  and the NDJSON buffer spill — previously only the persisted event copy
+  was redacted, so stored and streamed versions could differ and
+  session/checkpoint payloads bypassed the policy entirely. `from_config`
+  wires redact_pii/redact_tool_payloads (env fallbacks, documented);
+  defaults remain off (opt-in per deployment). New sentinel boundary
+  tests plus `scripts/scan_redaction_sinks.py` for manual audits
+
+#### Fixed: Python 3.10 SSE streams died on quiet periods
+- The stream loop caught the builtin `TimeoutError`, a different class
+  from `asyncio.TimeoutError` on Python 3.10 (aliases only from 3.11),
+  so any quiet period longer than the queue timeout killed the stream
+  with an unhandled timeout; both are now caught and yield keepalives
+
+#### SDK semantic restore with provenance (Q10)
+- `SessionManager.restore_from_checkpoint` / `TraceContext.restore` now
+  POST the server's semantic restore contract (authenticated; works
+  keyless against a local collector), adopt the server-minted session /
+  checkpoint / restore-marker ids, and expose a typed
+  `RestoreProvenance` (mode, source and new ids, copied_event_count,
+  token, timestamp). Servers without the route fall back to the legacy
+  authenticated GET reconstruction, marked `legacy-get`. The source
+  session is preserved unchanged and no agent/tool execution is started
+
 ## [0.4.0] - 2026-09-20
 
 The benchmark-integrity and delivery-recovery release: the Who&When
