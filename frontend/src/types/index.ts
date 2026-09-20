@@ -64,8 +64,6 @@ export interface TraceEvent {
   error_type?: string
   error_message?: string
   stack_trace?: string | null
-  checkpoint_id?: string
-  sequence?: number
   policy_name?: string
   outcome?: SafetyOutcome
   risk_level?: RiskLevel

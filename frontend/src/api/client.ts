@@ -805,7 +805,7 @@ export async function getReplayEvents(
   branchId: string | null = null,
   includeBranchEdits: boolean = true
 ): Promise<{ session_id: string; from_event_id: string; branch_id: string | null; replay_events: TraceEvent[]; replay_count: number }> {
-  const url = new URL(`${API_BASE}/sessions/${sessionId}/reasoning/replay`)
+  const url = new URL(`${API_BASE}/sessions/${sessionId}/reasoning/replay`, window.location.origin)
   url.searchParams.append('from_event_id', fromEventId)
   if (branchId) url.searchParams.append('branch_id', branchId)
   url.searchParams.append('include_branch_edits', String(includeBranchEdits))
@@ -843,7 +843,7 @@ export async function compareScenarios(
   sessionId: string,
   branchIds: string[]
 ): Promise<{ session_id: string; comparison: ScenarioComparison }> {
-  const url = new URL(`${API_BASE}/sessions/${sessionId}/reasoning/scenarios/compare`)
+  const url = new URL(`${API_BASE}/sessions/${sessionId}/reasoning/scenarios/compare`, window.location.origin)
   branchIds.forEach(id => url.searchParams.append('branch_ids', id))
 
   return fetchJSON(url.toString())
@@ -884,7 +884,7 @@ export async function setBreakpoint(
   conditionValue: unknown = null,
   description: string = ''
 ): Promise<BreakpointResponse> {
-  const url = new URL(`${API_BASE}/sessions/${sessionId}/breakpoints`)
+  const url = new URL(`${API_BASE}/sessions/${sessionId}/breakpoints`, window.location.origin)
   url.searchParams.append('breakpoint_type', breakpointType)
   if (conditionValue !== null) {
     url.searchParams.append('condition_value', String(conditionValue))
@@ -940,7 +940,7 @@ export async function stepExecution(
   action: StepAction,
   targetEventId: string | null = null
 ): Promise<StepperResponse> {
-  const url = new URL(`${API_BASE}/sessions/${sessionId}/step`)
+  const url = new URL(`${API_BASE}/sessions/${sessionId}/step`, window.location.origin)
   url.searchParams.append('action', action)
   if (targetEventId) {
     url.searchParams.append('target_event_id', targetEventId)
@@ -967,7 +967,7 @@ export async function createBranch(
   parentEventId: string,
   description: string = ''
 ): Promise<BranchResponse> {
-  const url = new URL(`${API_BASE}/sessions/${sessionId}/branch`)
+  const url = new URL(`${API_BASE}/sessions/${sessionId}/branch`, window.location.origin)
   url.searchParams.append('name', name)
   url.searchParams.append('parent_event_id', parentEventId)
   if (description) {
@@ -1146,7 +1146,11 @@ export async function clusterSessions(params: {
   }
 
   const url = `${API_BASE}/violations/cluster${searchParams.toString() ? '?' + searchParams.toString() : ''}`
-  return fetchJSON(url)
+  const response = await fetchWithRetry(url, { method: 'POST' })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json()
 }
 
 export async function searchViolations(params: {
@@ -1169,7 +1173,11 @@ export async function searchViolations(params: {
   }
 
   const url = `${API_BASE}/violations/search?${searchParams.toString()}`
-  return fetchJSON(url)
+  const response = await fetchWithRetry(url, { method: 'POST' })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json()
 }
 
 export async function detectSparseFailures(params: {
@@ -1241,7 +1249,11 @@ export async function findSimilarSessions(params: {
   if (params.limit !== undefined) searchParams.append('limit', String(params.limit))
 
   const url = `${API_BASE}/violations/session/${params.sessionId}/similar${searchParams.toString() ? '?' + searchParams.toString() : ''}`
-  return fetchJSON(url)
+  const response = await fetchWithRetry(url, { method: 'POST' })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json()
 }
 
 // ============================================================================

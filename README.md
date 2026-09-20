@@ -251,9 +251,17 @@ git clone https://github.com/acailic/agent_debugger
 cd agent_debugger
 pip install -e ".[dev]"
 pip install fastapi "uvicorn[standard]" "sqlalchemy[asyncio]" aiosqlite alembic aiofiles bcrypt
+cd frontend && npm ci && npm run build
+cd ..
 python3 -m pytest -q
-cd frontend && npm install && npm run build
 ```
+
+The contract tests also require Node and the frontend dependencies. After installing
+them, run `python3 scripts/hooks/check_api_contract.py` from the repository root.
+This CI gate checks eight core response field sets, three SDK enum unions, and the
+HTTP methods and paths used by exported functions in `frontend/src/api/client.ts`.
+It exits nonzero on drift or extraction errors. It does not validate payload types,
+query parameters, or runtime route ordering.
 
 ---
 
