@@ -6,6 +6,66 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Fixed
+
+#### Full-suite xdist instability root-caused and fixed (#324 / Q01)
+Three stacked, order-dependent root causes; all reproduced locally:
+- `test_lifespan_configures_pipeline_for_sqlite` patched the database URL
+  to the fixed machine-global path `/tmp/test.db` and executed the real
+  app lifespan, which installs a real engine into module-global
+  `app_context`; the patch exit restored only the URL function, leaking
+  the poisoned engine to every later test in the same process (29–70
+  failures per xdist run depending on test distribution). The test now
+  uses a `tmp_path` URL, resets `app_context` before entering the
+  lifespan, and snapshot/restores (and disposes) everything the lifespan
+  installs
+- Tests using `from conftest import ...` re-execute `tests/conftest.py`
+  under a second module name; the module body ran a second `mkdtemp()`
+  and rewrote `AGENT_DEBUGGER_DB_URL` to a schema-less path mid-worker.
+  The side effects are now idempotent per process, guarded by a PID check
+  so environment inheritance across xdist workers cannot share (and
+  early-delete) one temp directory
+- `tests/conftest.py` read the nonexistent `PYTEST_XDIST_WORKER_ID`
+  (the real variable is `PYTEST_XDIST_WORKER`); the per-worker DB file
+  name now actually differs per worker
+- Verified: the minimal serial reproducer failed 43 tests before and
+  passes after; `-n 1` plus twelve consecutive `-n auto` full-suite runs
+  are green
+
+#### Who&When benchmark protocol corrected (Q05/E0)
+- **Step indexing follows the pinned upstream convention**: `mistake_step`
+  is now read by default as the 0-based index into the whole conversation
+  (upstream prompt at commit `b2bae5c` numbers every entry). All 184
+  annotations are in range globally; 95/184 are out of range under the
+  previous per-agent default, which is retained only as
+  `--step-scope agent` for reproducing the superseded 2026-09-15 result
+- **Metrics renamed and made explicit**: exact independent agent accuracy,
+  exact independent step accuracy, joint agent+step accuracy, and
+  abstention rate, each with numerator/denominator; the old "step
+  accuracy" silently required a correct agent (it was joint accuracy)
+- Corrected full-dataset result (184 records, exact scoring, denominator
+  includes abstentions): **26.6% agent / 15.2% step / 15.2% joint / 46.7%
+  abstentions**; published versioned artifact with corpus hashes,
+  evaluator revision, validation findings, and frozen per-record rows at
+  `benchmarks/results/who_when/2026-09-20-global-protocol.json`. The
+  previous 5.4% step figure was an artifact of the invalid per-agent
+  indexing; the paper's 53.5%/14.2% LLM-judge numbers use substring
+  scoring on a different protocol and are not a matched baseline
+- `--self-test` repaired (the previous-message heuristic fixture no longer
+  contradicts its own annotation) and hardened into a contract check with
+  command-level subprocess tests
+- `scripts/fetch_who_when.py` now fetches the pinned upstream commit by
+  default (was a moving-HEAD shallow clone) and records per-file sha256
+  hashes in the MANIFEST; annotation validation gates metric publication
+  (nonzero exit on any out-of-range or non-integer annotation)
+- Research route descriptions no longer claim "calibrated confidence
+  intervals", "guaranteed coverage probability", or "calibrated
+  probabilities" — the underlying intervals are deterministic
+  confidence-derived heuristics with no held-out calibration fit
+
+
 ## [0.3.0] - 2026-09-15
 
 The operator-decides release: failure narratives, minimal re-execution
