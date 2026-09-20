@@ -127,9 +127,12 @@ async def _wait_for_numsub(
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             counts = await client.pubsub_numsub(channel)
+            # redis-py >= 5.2 returns a list of (name, count) tuples; older
+            # versions (and the sync API) return a dict.
+            pairs = counts.items() if isinstance(counts, dict) else counts
             total = sum(
                 count
-                for name, count in counts.items()
+                for name, count in pairs
                 if name in (channel, channel.encode())
             )
             if minimum is not None and total >= minimum:
