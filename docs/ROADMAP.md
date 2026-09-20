@@ -1,6 +1,6 @@
 # Peaky Peek roadmap
 
-**Last verified: 2026-09-20. Baseline: `main` at `3597b6b`.**
+**Last verified: 2026-09-20. Delivery refresh: `main` at `f9dc240`.**
 
 This is the single source of priorities for the repository. It contains the
 ambitious development plans as workstreams, with their current state, dependencies
@@ -22,6 +22,7 @@ hosting and advanced automation are later extensions of that complete workflow.
 - [Milestone reconciliation](#existing-milestones-reconciled)
 - [Twelve development plans](#development-plans)
 - [First implementation queue](#first-implementation-queue)
+- [Next delivery slices](#next-delivery-slices)
 - [Phases and capacity](#phases-and-capacity)
 - [Research backlog](#research-experiments-reconciled)
 
@@ -34,14 +35,18 @@ hosting and advanced automation are later extensions of that complete workflow.
 | **NOT STARTED** | No implementation of the stated scope was found in the inspected relevant modules. This is not a claim about every branch or external service. |
 | **UNVERIFIED** | Evidence is insufficient to establish the claim; an accepted ADR, screenshot, passing unit test or open PR alone is insufficient. |
 | **BLOCKED** | Execution priority overlay: a prerequisite currently prevents reliable delivery or release. |
+| **READY** | Scheduling overlay: prerequisites for the next bounded slice are met; implementation/review is still pending. |
 
 `[x]` means a completed bounded deliverable; `[ ]` means remaining work. Estimates,
 performance targets and adoption thresholds below are **proposals**, not measured
-baselines or deadlines. The audit inspected the existing dirty working tree as
-well as committed code; pre-existing local contract/UI/CI edits are not counted
-as merged work. Full CI, a browser session and a production deployment were not
-validated in this documentation task. Exact focused checks are in the evidence
-notes; there is no current blanket claim that all tests pass.
+baselines or deadlines. The original capability audit inspected `3597b6b` and
+pre-existing working-tree changes. This refresh verifies the subsequent committed
+CI, contract and benchmark fixes, three successful GitHub CI matrices, and 56
+focused local tests. Historical audit findings remain scoped to their recorded
+revision unless updated here. A browser session, installed artifacts and a
+production deployment were not exercised in this refresh. See the
+[dated delivery evidence](research/2026-09-20-planning-evidence.md#delivery-refresh-after-the-fixes)
+for commands, results and limits.
 
 ## Verified baseline and urgent gaps
 
@@ -67,14 +72,14 @@ notes; there is no current blanket claim that all tests pass.
 | SDK/server packaging and bundled UI | **PARTIAL** | Separate package definitions and publish workflow exist; clean installed-artifact and container proof needed | [Platform audit](research/2026-09-19-platform-status.md) |
 | Browser regression workflows | **NOT STARTED** for seeded full browser coverage | API e2e and component tests exist; they do not prove a browser workflow or hosted auth enforcement | [Platform audit](research/2026-09-19-platform-status.md) |
 | Main CI | **RECOVERED 2026-09-20** | #324 fixed (`09ec3dc`): three consecutive fully green matrices after the fix — `423ab82` (run 35479465055), `07efd4e` (run 35479673383), `2e45fe7` (run 35479946771) — each covering Python 3.10/3.11/3.12 full xdist suite, coverage gate, contract check, frontend build/tests, and dependency security (high-severity `browserslist` cleared in `423ab82`) | [DISCOVERIES](../DISCOVERIES.md) |
-| Type checks and API contracts | **PARTIAL** | Pyright advisory; stronger contract checks exist as local changes, not yet merged proof | [Platform audit](research/2026-09-19-platform-status.md) |
+| Type checks and API contracts | **PARTIAL** | Contract gate committed in `ac819c0` and green: 8 response field sets, 3 enum unions, 72 frontend routes, plus mutation regressions. Runtime payload types/nullability remain Q04; Pyright remains advisory | [Delivery evidence](research/2026-09-20-planning-evidence.md#delivery-refresh-after-the-fixes) |
 | OTel interoperability | **PARTIAL** | Exporter setup exists; native event-to-span wiring and inbound ingestion not established | [Core audit](research/2026-09-19-core-status.md) |
 | Teams, hosted accounts, billing and paid adoption | **NOT STARTED / UNVERIFIED** | Product surfaces absent in inspected app; actual customer adoption not measured | [Platform](research/2026-09-19-platform-status.md), [research](research/2026-09-20-planning-evidence.md) |
 
 ### First release gates
 
-1. **Delivery:** establish reproducible CI failures, fix test isolation and inspect
-   dependency-security failure separately; review one existing threshold-test PR.
+1. **Delivery:** CI recovery is complete (Q01/Q02). Next, review one existing
+   threshold-test PR (Q03) and extend the committed contract gate (Q04).
 2. **Trust boundary:** scope every hosted route, checkpoint write, live stream and
    derived store; remove server-side arbitrary breakpoint evaluation.
 3. **Truthful evaluation:** ~~correct Who&When indexing/metrics and separate its
@@ -115,9 +120,9 @@ not assignments to people who have not agreed to the work.
 
 ### W01 — Reliable delivery and bounded automation
 
-**Current:** delivery recovered 2026-09-20 (Q01 fix + three consecutive green
-CI matrices, Q02 gate met); remaining items are automation hygiene. **Priority:**
-P1. **Owner:** maintainer / quality.
+**Current:** PARTIAL; delivery recovered 2026-09-20 (Q01/Q02). Review, payload
+contracts, typing and automation remain. **Priority:** P1.
+**Owner:** maintainer / quality.
 
 **Outcome:** a failed check identifies a real regression; automation extends an
 existing issue/PR rather than generating repeated copies of blocked work.
@@ -130,23 +135,30 @@ existing issue/PR rather than generating repeated copies of blocked work.
   mid-worker, and cross-process temp-dir sharing — all fixed; `-n 1` plus
   twelve consecutive `-n auto` full runs green. See
   [DISCOVERIES](../DISCOVERIES.md).)*
-- [ ] Review #323 as its own small fix; do not call it resolution of #324.
-  *(Superseded locally: the conftest worker-variable read it targeted is fixed
-  here; the PR still needs review/closure on GitHub.)*
+- [ ] Reconcile #323 as superseded: its worker-variable correction landed in
+  `09ec3dc` alongside the broader Q01 fix. The open PR needs tracker cleanup,
+  not another implementation of that correction.
 - [ ] Reconcile #321/#322/#325 and review one threshold-resolution implementation
   after CI recovery. Record infrastructure blockers separately from code findings.
-- [ ] Promote pre-existing local API-contract improvements after review; extend
-  field/route checks to representative real response payloads and nullability.
+- [x] Commit API-contract field/enum/route checks and prove drift fails CI.
+  *(Done in `ac819c0`; live Pydantic fields, TypeScript AST extraction, mutation
+  regressions and corrected frontend calls. Fresh check: 8 schemas, 3 enums,
+  72 routes, no drift.)*
+- [ ] Extend the committed contract gate to representative serialized response
+  payloads, structural types, required fields and nullability (Q04).
 - [ ] Add changed-code typing protection, then retire the environment-qualified
   debt baseline in increments; make zero-debt pyright blocking when reached.
 - [ ] Give automatic work an issue lease, existing-PR lookup, base-CI preflight,
   retry budget and a durable reason for stopping after repeated identical failure.
 
-**First slice:** instrument one failing worker lifecycle and preserve its artifact.
+**Next slice:** review and consolidate existing threshold-test PRs (Q03), then
+extend payload contracts (Q04). Initial worker diagnosis is complete.
 **Gate:** affected scenarios pass in the full serial and bounded-parallel suites;
 three consecutive CI matrices pass after the fix, with no weakened assertions or
-coverage threshold. This is a release heuristic, not a proof of no future flake.
-**Dependencies:** none. **Estimate:** 1–2 engineer-weeks plus CI observation.
+coverage threshold. **Met 2026-09-20**; see the linked run evidence. This is a
+release heuristic, not a proof of no future flake. Follow-up typing and automation
+remain open even though delivery is unblocked.
+**Dependencies:** none. **Estimate:** Q03 S; Q04 M; estimate automation separately.
 
 ### W02 — Complete capture and accountable delivery
 
@@ -485,13 +497,13 @@ S/M/L are rough ranges: S ≤3 engineer-days, M 4–7, L 8–15, excluding obser
 
 | ID | Starting status | Slice and acceptance artifact | Depends on | Size |
 |---|---|---|---|---|
-| Q01 | DONE (diagnosis+fix) | #324: reproduced locally (leaked `/tmp/test.db` engine in `app_context` from a lifespan unit test); fix landed with serial reproducer + 5 green `-n auto` runs | — | ✓ |
+| Q01 | DONE (diagnosis+fix) | #324: three lifecycle/isolation causes fixed in `09ec3dc`; serial reproducer, `-n 1` and twelve local `-n auto` runs recorded. Issue remains open administratively | — | ✓ |
 | Q02 | DONE | Serial green; `-n 1` + twelve local `-n auto` runs green; three consecutive fully green CI matrices (runs 35479465055, 35479673383, 35479946771) | Q01 | ✓ |
-| Q03 | PARTIAL | Review #323 and choose one #311 test PR; no duplicate implementation; issue closes only on merged passing change | Q02 | S |
-| Q04 | PARTIAL | Integrate existing local contract checker with payload fixtures; mutation proves CI fails on drift | Q02 | M |
+| Q03 | PARTIAL / READY | Review #325 first against #321/#322; #323's worker fix is already on main. Select one threshold-test change and reconcile tracker state after passing review | Q02 ✓ | S |
+| Q04 | PARTIAL / READY | Base checker and mutations DONE in `ac819c0`; extend real payload, structural-type and nullability checks | Q02 ✓ | M |
 | Q05 | DONE (corrections) | Who&When global-index fixtures, passing self-test, named independent/joint metrics and versioned result manifest — shipped 2026-09-20 | — | ✓ |
 | Q06 | PARTIAL | Real hosted-mode fixture and complete auth/ownership route inventory; two-tenant regression matrix | — | M |
-| Q07 | PARTIAL | Restrict breakpoint predicates with explicit unsupported-condition errors; safe-expression tests | Q06 | S |
+| Q07 | PARTIAL / READY | Reject custom Python predicates at API/core/import entry points; preserve built-ins and show explicit errors. Constrained grammar is optional later work | —; Q06 for hosted proof | S |
 | Q08 | PARTIAL | One redaction policy across storage, SSE, checkpoints and metadata; sentinel scan artifact | Q06 | M |
 | Q09 | PARTIAL | No-key local SDK delivers trace; disabled/offline behavior exercised; onboarding command verified | Q02 | M |
 | Q10 | PARTIAL | Authenticated SDK calls semantic restore API and exposes returned provenance/IDs | Q06, Q09 | M |
@@ -502,11 +514,141 @@ S/M/L are rough ranges: S ≤3 engineer-days, M 4–7, L 8–15, excluding obser
 | Q15 | PARTIAL | Adapter capability matrix with real framework tests for first supported version set | Q09 | M |
 | Q16 | UNVERIFIED | Pilot first-value and diagnosis study with raw outcome counts and documented consent | Q11, Q12 | M |
 
-Suggested initial order: ~~Q01~~/Q05/Q06 investigations, then Q02/Q07/Q08/Q09.
-Q05 shipped 2026-09-20; Q01 (CI flake diagnosis) is next, then Q06.
-A single maintainer runs them serially; a second contributor may take independent
-benchmark or route-inventory work. Q03 reuses existing PR effort. Do not open all
-sixteen issues or build all twelve streams concurrently.
+Q01, Q02 and Q05 are complete. **Next order for one maintainer:** Q03 review,
+Q07 rejection of custom expressions, Q06 hosted boundaries, Q08 redaction, Q09
+local delivery, Q04 payload contracts, then Q10 restore and Q11 browser coverage.
+Q12 installed-artifact proof can follow Q09 independently of Q10/Q11.
+Q04 and Q09 are also ready for a second contributor; their completion does not
+authorize shared hosting. Q03 reuses existing PR effort. Do not open all sixteen
+issues or build all twelve streams concurrently.
+
+## Next delivery slices
+
+These briefs expand the existing queue IDs; they do not introduce another queue.
+They describe planned work, not changes implemented by this documentation refresh.
+Start from current main, preserve existing tests, and record the completion commit
+plus a passing acceptance artifact before checking off a slice.
+
+### Q03 — Finish one threshold-test change
+
+**Starting point:** [#325](https://github.com/acailic/agent_debugger/pull/325),
+[#322](https://github.com/acailic/agent_debugger/pull/322) and
+[#321](https://github.com/acailic/agent_debugger/pull/321) add the same test file,
+absent from main. #325 is the first review candidate, not an approved change.
+
+1. Compare all three diffs against `collector/alerts/base.py`; retain the best
+   cases in one existing PR. Check absent/empty/disabled policies, missing and
+   zero-valued thresholds, forwarded arguments and sync/async getter combinations.
+2. Review the sync method's async-getter fallback explicitly: it currently creates
+   an unawaited coroutine. A test that closes that coroutine verifies fallback
+   behavior but does not establish that the production warning is fixed.
+3. Update the chosen branch against recovered main in an isolated checkout; run
+   focused tests with warnings treated as errors and required CI. Old failed
+   checks are not evidence about the new base.
+4. After a reviewed passing merge, reconcile duplicate PRs and #311. Treat #323
+   as superseded by `09ec3dc`; attach Q01/Q02 evidence when reconciling #324.
+
+**Acceptance:** one merged implementation with distinct behavior assertions,
+passing required checks and an explicit warning-handling decision. Tracker
+cleanup is still pending; no merges, comments or closures occurred in this refresh.
+
+### Q07 — Remove the custom-expression execution path
+
+**Files:** `agent_debugger_sdk/core/stepper.py`, `api/stepper_routes.py`,
+`frontend/src/components/StepperPanel.tsx`, and their existing tests.
+
+1. Preserve built-in breakpoint conditions. Reject custom expressions with a
+   clear unsupported-condition error; remove or disable the corresponding UI input.
+2. Apply validation to core creation and imported stepper state, not just HTTP
+   requests. Remove the `eval` path rather than treating evaluation errors as no match.
+3. Exercise supported conditions, invalid numeric inputs and custom expressions
+   through creation/import/API paths. Rejections must occur before state changes.
+
+**Acceptance:** built-ins still stop recorded-event replay; custom expressions
+cannot be created, imported or evaluated, and errors are visible to the caller.
+This slice can ship before Q06; hosted acceptance still uses Q06's real server.
+A constrained expression language needs a separate use case and bounded design.
+
+### Q06 — Establish hosted identity and ownership end to end
+
+**Files:** `auth/middleware.py`, `api/main.py`, `api/cross_session_routes.py`,
+`api/analytics_routes.py`, `collector/server.py`,
+`storage/repositories/checkpoint_repo.py`, and `tests/e2e/conftest.py`.
+
+1. Define validated server-local versus hosted startup configuration independently
+   of SDK credentials. Launch a real hosted subprocess with two tenant keys;
+   retain a separate local/no-key positive control. Check the server's actual mode.
+2. Inventory registered HTTP methods/routes and streaming/derived-data paths.
+   State the intentional public allowlist. Missing, malformed, invalid and revoked
+   keys must fail on protected paths. Adding a protected route without an inventory
+   entry must fail the inventory check.
+3. Replace hard-coded local identity in clustering; close its database session.
+   For non-tenant analytics reads and writes, either add tenant scope or explicitly
+   make them unavailable in hosted mode until scope is implemented.
+4. Validate checkpoint session ownership and referenced-event/session consistency
+   before writes. Exercise read, write, export, restore, stream and derived-data
+   paths with tenant A, tenant B and an unauthenticated caller.
+
+**Acceptance:** own-tenant positive controls pass; cross-tenant operations and
+inconsistent references fail without changing stored rows or emitting private
+events. Record each route's expected status/visibility and actual result. Existing
+API-key-positive scenarios alone do not satisfy this gate. Q08 handles redaction;
+Q06 completion alone does not complete the shared-hosting release gates.
+
+### Q09 — Make the local quickstart deliver a persisted trace
+
+**Files:** `agent_debugger_sdk/config.py`,
+`agent_debugger_sdk/core/context/trace_context.py`,
+`agent_debugger_sdk/transport.py`, SDK/config/transport tests and `tests/e2e/`.
+
+1. Specify transport precedence: configured in-process hooks, selected HTTP
+   destination, and an explicit no-delivery mode. A missing API key must not
+   prevent delivery to a selected local endpoint. Preserve existing hook isolation.
+2. Use the existing HTTP transport without an Authorization header for local
+   delivery. Keep authenticated delivery and concurrent context lifecycles covered.
+3. Start a separate collector with a temporary database. From a standalone SDK
+   process, capture a session/event/checkpoint with no key; query their persisted
+   IDs and final session state over HTTP.
+4. Cover disabled tracing, collector unavailable, shutdown/drain and bounded
+   retry behavior. Show an actionable delivery failure without crashing the agent.
+   Update the quickstart only after its exact command sequence passes.
+
+**Acceptance:** the documented no-key path produces queryable persisted data;
+disabled tracing makes no delivery requests; offline behavior is bounded and
+observable; explicit hooks are not duplicated. Keep clean-wheel proof in Q12.
+
+### Q04 — Check the response shapes the frontend actually receives
+
+**Starting point:** `scripts/hooks/check_api_contract.py`,
+`scripts/hooks/extract_ts_contract.cjs`, `tests/contract/`,
+`tests/test_api_contract.py`, and frontend API contract regressions already exist.
+
+1. Keep the committed field/enum/route checks. Extend the existing TypeScript
+   extraction, or add a bounded compile check, to retain required/optional fields,
+   nullability and structural types for the named response pairs.
+2. Capture real serialized session, event, checkpoint, trace, replay and search
+   responses from seeded API scenarios. Include empty results, nullable parents/end
+   times and nested evidence; fixtures must reflect actual HTTP serialization.
+3. Validate those responses against the frontend contract. Mutate a required field,
+   nullable field, scalar type and nested shape independently to prove each fails.
+
+**Acceptance:** valid response fixtures pass; each incompatible mutation makes CI
+fail with a field/type diagnostic. Existing field-name equality is not sufficient.
+Expand only the named contracts before considering general client generation.
+
+### Follow-on handoffs
+
+| Slice | Input needed | Smallest accepted result |
+|---|---|---|
+| Q08 | Q06 route/identity matrix | One configured policy covers persistence, buffer/SSE, checkpoints and nested metadata; synthetic markers are absent from each forbidden sink and permitted values survive |
+| Q10 | Q06 ownership + Q09 delivery | SDK uses authenticated semantic restore POST, adopts returned IDs/provenance, preserves the source and starts no agent/tool execution |
+| Q11 | Q04 response contracts + Q10 restore | A seeded browser follows finding → correct evidence → restore boundary/comparison; delayed responses retain selection; console/network failures fail CI |
+| Q12 | Q09 local delivery | Build/install SDK and server wheels outside the checkout; bundled UI and trace/query/restart work; container build and writable persistent volume are verified separately |
+| Q14 | Q05 reproducible protocol + Q08 export policy | A sanitized immutable incident case reproduces its expected assertions; baseline/candidate comparison pins data, app and evaluator revisions |
+
+If a slice fails acceptance, record the failing scenario under that same ID.
+Do not create a duplicate PR or reopen completed benchmark/CI diagnosis to mask
+an unrelated failure. Recheck the first-value journey before starting Q16 pilots.
 
 ## Phases and capacity
 
@@ -517,7 +659,7 @@ not release commitments; sequence changes when evidence changes.
 
 | Horizon | Proposed focus | Exit gate | Defer if gate fails |
 |---|---|---|---|
-| First 2–4 weeks | W01 CI diagnosis; W05 benchmark correction; first W10 boundary fixes | Reproducible evaluation and credible delivery signal; exposed unsafe paths closed or disabled | Public shared-hosting promise and new execution features |
+| First 2–4 weeks | W01 review/contract follow-up; W10 boundary fixes; start W02 local delivery. CI recovery and benchmark correction are already complete | Preserve green delivery/evaluation; exposed unsafe paths closed or disabled | Public shared-hosting promise and new execution features |
 | Weeks 5–12 | Local transport, SDK restore, installed-package proof, browser investigation flow | A clean install completes one capture → evidence → restore → comparison journey | Extra frameworks, billing and distributed infrastructure |
 | Months 3–6 | Incident regression lab, measured failure memory, first supported continuation, adapter fidelity | Held-out evaluation and pilot evidence show useful improvements | More advanced models or broader automation if simpler heuristics suffice |
 | Months 6–12 | Distributed causality, interoperability, retention/recovery, demand-led team workspaces | Tested boundaries/operations plus repeated team demand | Managed SaaS if privacy/operations or demand remain unproven |
@@ -624,6 +766,10 @@ before testing the main user journey.
 
 ## Shipped history and superseded plans
 
+- 2026-09-20 (v0.4.0): benchmark-integrity and delivery-recovery release —
+  corrected Who&When protocol with published manifest, real API-contract
+  gate with the client fixes it caught, #324 closed with three consecutive
+  green CI matrices, dependency-audit hygiene.
 - 2026-09-20: xdist flake (#324/Q01) root-caused and fixed — three stacked
   causes (a lifespan unit test leaking a `/tmp/test.db` engine into
   `app_context`; a conftest dual-import rewriting the DB URL mid-worker;
