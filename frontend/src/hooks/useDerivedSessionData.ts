@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useSessionStore, buildReplayBreakpointParams } from '../stores/sessionStore'
 import { useShallow } from 'zustand/react/shallow'
+import { mergeSessionEvents } from '../utils/sessionEvents'
 import type {
   Checkpoint,
   FailureExplanation,
@@ -115,19 +116,10 @@ export function useDerivedSessionData(): DerivedSessionData {
   )
 
   // Merge bundle events with live events
-  const mergedSessionEvents = useMemo(() => {
-    const seen = new Set<string>()
-    const merged = [...(bundle?.events ?? [])]
-    for (const item of merged) seen.add(item.id)
-    for (const event of liveEvents) {
-      if (!seen.has(event.id)) {
-        merged.push(event)
-        seen.add(event.id)
-      }
-    }
-    merged.sort((left, right) => left.timestamp.localeCompare(right.timestamp))
-    return merged
-  }, [bundle?.events, liveEvents])
+  const mergedSessionEvents = useMemo(
+    () => mergeSessionEvents(bundle?.events ?? [], liveEvents),
+    [bundle?.events, liveEvents],
+  )
 
   // Active events based on replay mode
   const activeEvents = replayMode === 'full' ? mergedSessionEvents : replay?.events ?? mergedSessionEvents

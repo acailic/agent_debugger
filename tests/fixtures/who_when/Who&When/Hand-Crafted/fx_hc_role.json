@@ -1,0 +1,11 @@
+{
+  "question_ID": "fx-hc-1",
+  "history": [
+    {"content": "Find nearby climbing gyms.", "name": null, "role": "human"},
+    {"content": "I typed 'climbing gyms near me' into the search box.", "name": null, "role": "WebSurfer"},
+    {"content": "Execution failed: page load timeout", "name": null, "role": "Orchestrator (-> WebSurfer)"}
+  ],
+  "mistake_agent": "WebSurfer",
+  "mistake_step": "1",
+  "mistake_reason": "The search parameters were wrong."
+}

@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { searchTraces } from '../api/client'
 import { formatEventHeadline, SEARCHABLE_EVENT_TYPES } from '../utils/formatting'
 import { useSessionStore } from '../stores/sessionStore'
-import type { SearchScope, TraceEvent } from '../types'
+import type { SearchScope } from '../types'
 import './SearchPanel.css'
 
 export function SearchPanel() {
@@ -21,9 +21,7 @@ export function SearchPanel() {
     setSearchResponse,
     setSearchError,
     setSearchLoading,
-    setReplayMode,
-    setSelectedSessionId,
-    setSelectedEventId,
+    jumpToSearchResult,
   } = useSessionStore()
 
   const searchSessionLookup = useMemo(
@@ -54,16 +52,6 @@ export function SearchPanel() {
     } finally {
       setSearchLoading(false)
     }
-  }
-
-  function jumpToSearchResult(result: TraceEvent) {
-    setReplayMode('full')
-    if (result.session_id !== selectedSessionId) {
-      setSelectedSessionId(result.session_id)
-      setSelectedEventId(result.id)
-      return
-    }
-    setSelectedEventId(result.id)
   }
 
   return (

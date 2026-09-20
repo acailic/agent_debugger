@@ -9,7 +9,7 @@ Quick start:
     uvicorn api.main:app --port 8000
 
     # In another terminal, run this script
-    python examples/hello_agent.py
+    python examples/01_hello.py
 
     # Inspect the trace
     curl http://localhost:8000/api/sessions
@@ -26,7 +26,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agent_debugger_sdk import TraceContext, init
 
-init()  # connects to http://localhost:8000 by default; set AGENT_DEBUGGER_URL to override
+# An api_key is required for the SDK to deliver events over HTTP. Against a
+# locally running server the key value is not checked (local mode trusts
+# localhost), so "local-dev" is fine. Override the endpoint with
+# AGENT_DEBUGGER_URL when the server runs elsewhere.
+init(api_key="local-dev", endpoint="http://127.0.0.1:8000")
 
 
 async def weather_agent(location: str) -> str:

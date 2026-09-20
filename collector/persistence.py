@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from agent_debugger_sdk.core.events import TraceEvent
+
     from .buffer import EventBuffer
 
 logger = logging.getLogger(__name__)
@@ -57,6 +59,9 @@ class PersistenceManager:
         self.flush_interval = flush_interval
         self._task: asyncio.Task | None = None
         self._running = False
+        self._flush_lock = asyncio.Lock()
+        self._pending_events: dict[str, list[TraceEvent]] = {}
+        self._write_task: asyncio.Task[None] | None = None
 
     def _resolve_default_storage_path(self) -> Path:
         """Choose a writable default storage path for local trace files."""
@@ -125,24 +130,58 @@ class PersistenceManager:
         - Each session gets its own file: {storage_path}/{session_id}.json
         - Files are appended to on each flush
         - Events are written as newline-delimited JSON (NDJSON)
+
+        Failed batches remain owned by this manager and are retried before
+        newer events. Cancellation leaves an in-flight write running; the
+        next flush waits for its result before proceeding. Pending events
+        are held in memory, so this does not provide crash durability.
+        A failed append is rolled back before retrying. This requires a
+        single writer per file and a filesystem that permits the rollback;
+        a rollback failure is propagated and may leave a partial batch.
         """
-        session_ids = await self.buffer.get_session_ids()
+        async with self._flush_lock:
+            await self._write_pending_events()
+            session_ids = await self.buffer.get_session_ids()
+            for session_id in session_ids:
+                events = await self.buffer.flush(session_id)
+                if not events:
+                    continue
 
-        if not session_ids:
-            return
+                self._pending_events[session_id] = events
+                await self._write_pending_events()
 
-        for session_id in session_ids:
-            events = await self.buffer.flush(session_id)
-            if not events:
-                continue
-
-            await self._write_session_events(session_id, events)
+    async def _write_pending_events(self) -> None:
+        """Acknowledge a drained batch only after its write has completed."""
+        for session_id in list(self._pending_events):
+            events = self._pending_events[session_id]
+            if self._write_task is None:
+                self._write_task = asyncio.create_task(self._write_session_events(session_id, events))
+                # A cancelled flush may leave nobody awaiting this task until
+                # the next flush. Retrieve failures to avoid unhandled-task
+                # warnings while preserving them for that next await.
+                self._write_task.add_done_callback(self._observe_write_result)
+            try:
+                await asyncio.shield(self._write_task)
+            except asyncio.CancelledError:
+                if self._write_task.cancelled():
+                    self._write_task = None
+                raise
+            except Exception:
+                self._write_task = None
+                raise
+            self._write_task = None
+            del self._pending_events[session_id]
             logger.debug(f"Flushed {len(events)} events for session {session_id}")
+
+    @staticmethod
+    def _observe_write_result(task: asyncio.Task[None]) -> None:
+        if not task.cancelled():
+            task.exception()
 
     async def _write_session_events(
         self,
         session_id: str,
-        events: list,
+        events: list[TraceEvent],
     ) -> None:
         """Write events to a session's JSON file.
 
@@ -165,5 +204,17 @@ class PersistenceManager:
         await asyncio.to_thread(self._write_sync, file_path, lines)
 
     def _write_sync(self, file_path: Path, lines: list[str]) -> None:
-        with file_path.open(mode="a", encoding="utf-8") as f:
-            f.write("\n".join(lines) + "\n")
+        original_size = None
+        try:
+            with file_path.open(mode="a", encoding="utf-8") as f:
+                original_size = f.tell()
+                payload = "\n".join(lines) + "\n"
+                if f.write(payload) != len(payload):
+                    raise OSError("Incomplete trace batch append")
+        except Exception:
+            if original_size is not None:
+                # Close the failed text stream before truncation, so buffered
+                # data cannot be flushed back into the file after rollback.
+                with file_path.open(mode="r+b") as f:
+                    f.truncate(original_size)
+            raise

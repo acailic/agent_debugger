@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from collections.abc import Callable
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 import httpx
 
-from agent_debugger_sdk.core.events import Session, TraceEvent
+from agent_debugger_sdk.core.events import Checkpoint, Session, TraceEvent
 
 logger = logging.getLogger("agent_debugger")
 
@@ -28,11 +31,15 @@ class TransportError(Exception):
 class TransientError(TransportError):
     """Error that may be resolved by retrying (e.g., network timeout, 5xx)."""
 
+    def __init__(
+        self, message: str, *, status_code: int | None = None, retry_after_seconds: float | None = None
+    ) -> None:
+        super().__init__(message, status_code=status_code)
+        self.retry_after_seconds = retry_after_seconds
 
 
 class PermanentError(TransportError):
     """Error that will not be resolved by retrying (e.g., 4xx auth failure)."""
-
 
 
 DeliveryFailureCallback = Callable[[TransportError], None]
@@ -44,6 +51,7 @@ def _get_error_message(status_code: int) -> str:
         401: "Authentication failed. Check your API key configuration.",
         403: "Access denied. Your API key may not have permission for this operation.",
         404: "API endpoint not found. Check that the server URL is correct.",
+        408: "Server timed out receiving the request.",
         429: "Rate limited. Please retry after a brief pause.",
     }
     return messages.get(status_code, f"Client error (status={status_code})")
@@ -52,6 +60,24 @@ def _get_error_message(status_code: int) -> str:
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_INITIAL_BACKOFF_SECONDS = 0.5
 DEFAULT_BACKOFF_MULTIPLIER = 2.0
+DEFAULT_MAX_BACKOFF_SECONDS = 30.0
+
+
+def _retry_after_seconds(value: str | None) -> float | None:
+    """Parse Retry-After delay or HTTP date; ignore malformed headers."""
+    if not isinstance(value, str):
+        return None
+    try:
+        delay = float(value)
+    except ValueError:
+        try:
+            retry_at = parsedate_to_datetime(value)
+            if retry_at.tzinfo is None:
+                retry_at = retry_at.replace(tzinfo=timezone.utc)
+            delay = (retry_at - datetime.now(timezone.utc)).total_seconds()
+        except (ValueError, TypeError, OverflowError):
+            return None
+    return max(0.0, delay) if math.isfinite(delay) else None
 
 
 class RetryConfig:
@@ -62,6 +88,7 @@ class RetryConfig:
         max_retries: int = DEFAULT_MAX_RETRIES,
         initial_backoff_seconds: float = DEFAULT_INITIAL_BACKOFF_SECONDS,
         backoff_multiplier: float = DEFAULT_BACKOFF_MULTIPLIER,
+        max_backoff_seconds: float = DEFAULT_MAX_BACKOFF_SECONDS,
     ) -> None:
         """Initialize retry configuration.
 
@@ -69,20 +96,26 @@ class RetryConfig:
             max_retries: Maximum number of retry attempts for transient errors
             initial_backoff_seconds: Initial backoff delay before first retry
             backoff_multiplier: Multiplier for exponential backoff
+            max_backoff_seconds: Maximum local backoff delay. A longer server
+                Retry-After ends delivery with a failure callback instead of
+                blocking the agent or retrying before the server allows it.
 
         Raises:
             ValueError: If configuration values are invalid
         """
-        if max_retries < 0:
+        if isinstance(max_retries, bool) or not isinstance(max_retries, int) or max_retries < 0:
             raise ValueError(f"max_retries must be non-negative, got: {max_retries}")
-        if initial_backoff_seconds < 0:
+        if not math.isfinite(initial_backoff_seconds) or initial_backoff_seconds < 0:
             raise ValueError(f"initial_backoff_seconds must be non-negative, got: {initial_backoff_seconds}")
-        if backoff_multiplier < 1.0:
+        if not math.isfinite(backoff_multiplier) or backoff_multiplier < 1.0:
             raise ValueError(f"backoff_multiplier must be >= 1.0, got: {backoff_multiplier}")
+        if not math.isfinite(max_backoff_seconds) or max_backoff_seconds < 0:
+            raise ValueError(f"max_backoff_seconds must be finite and non-negative, got: {max_backoff_seconds}")
 
         self.max_retries = max_retries
         self.initial_backoff_seconds = initial_backoff_seconds
         self.backoff_multiplier = backoff_multiplier
+        self.max_backoff_seconds = max_backoff_seconds
 
 
 class HttpTransport:
@@ -161,6 +194,21 @@ class HttpTransport:
             on_delivery_failure=on_delivery_failure,
         )
 
+    async def send_checkpoint(
+        self,
+        checkpoint: Checkpoint,
+        *,
+        on_delivery_failure: DeliveryFailureCallback | None = None,
+    ) -> None:
+        """Deliver a checkpoint to the collector (time-travel state snapshot)."""
+        await self._send_with_retry(
+            method="POST",
+            path="/api/checkpoints",
+            payload=checkpoint.to_dict(),
+            context=f"checkpoint_id={checkpoint.id}",
+            on_delivery_failure=on_delivery_failure,
+        )
+
     async def _execute_request(
         self,
         *,
@@ -177,16 +225,25 @@ class HttpTransport:
             raise ValueError(f"Unsupported HTTP method: {method}")
 
         # Check for HTTP error status codes
-        if response.status_code >= 500:
+        if response.status_code >= 500 or response.status_code in (408, 429):
             raise TransientError(
-                f"Server error (status={response.status_code})",
+                _get_error_message(response.status_code)
+                if response.status_code < 500
+                else f"Server error (status={response.status_code})",
                 status_code=response.status_code,
+                retry_after_seconds=_retry_after_seconds(response.headers.get("Retry-After")),
             )
         elif response.status_code >= 400:
             # Provide specific, actionable error messages for common status codes
             message = _get_error_message(response.status_code)
             raise PermanentError(
                 message,
+                status_code=response.status_code,
+            )
+        elif not 200 <= response.status_code < 300:
+            raise PermanentError(
+                f"Unexpected HTTP status={response.status_code}. Check that the server URL points directly "
+                "to the collector API (redirects are not followed).",
                 status_code=response.status_code,
             )
 
@@ -196,6 +253,8 @@ class HttpTransport:
             return TransientError(f"Request timeout: {exc}"), True
         if isinstance(exc, httpx.NetworkError):
             return TransientError(f"Network error: {exc}"), True
+        if isinstance(exc, httpx.RemoteProtocolError):
+            return TransientError(f"Server disconnected or sent an invalid response: {exc}"), True
         if isinstance(exc, TransientError):
             return exc, True
         if isinstance(exc, PermanentError):
@@ -214,7 +273,7 @@ class HttpTransport:
     ) -> None:
         """Send a request with retry logic for transient errors."""
         last_error: TransportError | None = None
-        backoff = self._retry_config.initial_backoff_seconds
+        backoff = min(self._retry_config.initial_backoff_seconds, self._retry_config.max_backoff_seconds)
 
         for attempt in range(self._retry_config.max_retries + 1):
             try:
@@ -241,8 +300,21 @@ class HttpTransport:
 
                 # Wait and retry if not the last attempt
                 if attempt < self._retry_config.max_retries:
-                    await asyncio.sleep(backoff)
-                    backoff *= self._retry_config.backoff_multiplier
+                    retry_after = last_error.retry_after_seconds if isinstance(last_error, TransientError) else None
+                    if retry_after is not None and retry_after > self._retry_config.max_backoff_seconds:
+                        logger.warning(
+                            "Collector requested Retry-After=%ss, exceeding max_backoff_seconds=%s (%s); "
+                            "delivery failed without retrying early",
+                            retry_after,
+                            self._retry_config.max_backoff_seconds,
+                            context,
+                        )
+                        break
+                    await asyncio.sleep(max(backoff, retry_after or 0.0))
+                    backoff = min(
+                        backoff * self._retry_config.backoff_multiplier,
+                        self._retry_config.max_backoff_seconds,
+                    )
 
         # All retries exhausted or permanent error - invoke callback if provided
         if last_error is not None:
@@ -279,6 +351,7 @@ __all__ = [
     "DEFAULT_MAX_RETRIES",
     "DEFAULT_INITIAL_BACKOFF_SECONDS",
     "DEFAULT_BACKOFF_MULTIPLIER",
+    "DEFAULT_MAX_BACKOFF_SECONDS",
     "DEFAULT_HTTP_TIMEOUT",
     "DEFAULT_CONNECT_TIMEOUT",
 ]
