@@ -84,7 +84,7 @@ tenant's session id.
 | GET /api/sessions/{session_id}/tree | api/session_routes.py:150 | none |
 | GET /api/sessions/{session_id}/checkpoints | api/session_routes.py:163 | none |
 | GET /api/sessions/{session_id}/checkpoints/deltas | api/session_routes.py:176 | none |
-| GET /api/sessions/{session_id}/stream | api/session_routes.py:195 | none (SSE fan-out from event buffer — see open gaps) |
+| GET /api/sessions/{session_id}/stream | api/session_routes.py:195 | none (SSE fan-out from event buffer — redacted since Q08, see "Closed since") |
 | GET /api/sessions/{session_id}/export | api/session_routes.py:212 | none |
 | POST /api/sessions/{session_id}/fix-note | api/session_routes.py:236 | sessions table (:243-245) |
 | GET /api/sessions/{session_id}/similar-failures | api/session_routes.py:249 | none |
@@ -204,6 +204,43 @@ never persisted.
    Regression gate:
    `tests/test_hosted_tenant_matrix.py::test_hosted_checkpoint_write_and_read_isolated_no_mutation`.
 
+## Closed since: one redaction policy across sinks (W10 / Q08)
+
+The redaction gap recorded below as "SSE fan-out is not redacted" is closed,
+along with its siblings:
+
+1. **Buffer/SSE fan-out now publishes the redacted event.** The collector
+   publishes the exact object `_persist_event_if_configured` returned after
+   applying the pipeline (collector/server.py, `_ingest_trace`), so storage
+   and stream can no longer diverge. The in-process path
+   (`api/services/ingestion.py:persist_event`) copies the redacted state
+   back onto the caller's event before its first await, so the SDK emitter's
+   concurrent `buffer.publish` streams the same redacted representation.
+2. **Session config and checkpoint state/memory pass through the same
+   policy** via `RedactionPipeline.scrub_payload` (a carrier event through
+   `apply()` — no second policy format): collector session-create and
+   checkpoint ingest (collector/server.py) and the in-process persisters
+   (api/services/ingestion.py).
+3. **Event metadata joined the scrub path**: `_build_event_payload` now
+   includes `metadata` alongside `data` and typed fields; structural base
+   fields (id, session_id, parent linkage, timestamps) stay excluded so
+   trace linkage survives redaction (redaction/pipeline.py).
+4. **`from_config` wiring** maps `redact_pii` /
+   `redact_tool_payloads` from the SDK config when present, else from
+   `AGENT_DEBUGGER_REDACT_PII` / `AGENT_DEBUGGER_REDACT_TOOL_PAYLOADS`
+   (defaults off; `redact_prompts`/`max_payload_kb` as before). With
+   `redact_pii` on, the scrub now also applies the secret patterns
+   (`SECRET_PATTERNS`) that were defined but never wired in.
+
+Documented exception: original in-memory objects the caller keeps outside
+the persist/stream path (e.g. a running agent's live `Session.config`, or
+the SDK's pre-redaction in-memory event store) may remain unredacted; every
+persisted or streamed copy is scrubbed. Regression gate:
+`tests/test_redaction_boundary.py`. Manual audit artifact:
+`scripts/scan_redaction_sinks.py SESSION_ID MARKER...` scans the sessions/
+events/checkpoints rows (config, data, event_metadata, state, memory) plus
+a captured SSE stream and exits nonzero if a marker survives.
+
 ## Known-open gaps (documented, intentionally not fixed here)
 
 1. **Analytics store is local-only and unauthenticated.**
@@ -221,14 +258,15 @@ never persisted.
    `tests/test_hosted_tenant_matrix.py::test_hosted_invalid_and_absent_key_behavior`.
    Fixing this is owned by W10 ("missing-key behavior in hosted mode") and
    must not regress local single-user mode.
-3. **SSE fan-out is not redacted.** The ingest path applies the redaction
-   pipeline only to the persisted copy (`_persist_event_if_configured`,
-   collector/server.py:202-203; `RedactionPipeline.apply` returns a deep
-   copy, redaction/pipeline.py:54-58), while `buffer.publish` fans out the
-   original event object (collector/server.py:298) and
-   `GET /api/sessions/{id}/stream` serializes it verbatim
-   (api/services/ingestion.py:117-171). In hosted mode a subscriber to a
-   session they own can receive un-redacted payloads.
+3. **Redaction policy remains opt-in per deployment.** The boundary is now
+   uniform (see "Closed since" above), but the pipeline only scrubs when the
+   deployment enables it (`AGENT_DEBUGGER_REDACT_PROMPTS` /
+   `AGENT_DEBUGGER_REDACT_PII` / `AGENT_DEBUGGER_REDACT_TOOL_PAYLOADS`, or
+   the corresponding SDK config fields); a deployment that configures no
+   policy still stores and streams raw payloads. Additionally, the SDK
+   `Config` object does not yet carry `redact_pii`/`redact_tool_payloads`
+   fields — those are environment-only until the SDK grows them (SDK changes
+   out of scope for Q08).
 4. **The e2e suite never runs the server in cloud mode.**
    tests/e2e/conftest.py starts uvicorn without any mode/key environment, so
    the server resolves every caller as tenant `local` and the suite proves

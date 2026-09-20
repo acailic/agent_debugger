@@ -27,7 +27,7 @@ from agent_debugger_sdk.core.events import (
 )
 from agent_debugger_sdk.core.scorer import get_importance_scorer
 from auth.middleware import get_tenant_from_api_key
-from redaction.pipeline import RedactionPipeline
+from redaction.pipeline import RedactionPipeline, apply_payload_redaction
 from storage import TraceRepository
 
 from .buffer import get_event_buffer
@@ -194,13 +194,21 @@ async def _persist_event_if_configured(
     *,
     dependencies: CollectorDependencies | None = None,
     db_session: AsyncSession | None = None,
-) -> None:
+) -> TraceEvent:
+    """Apply the configured redaction policy and persist the event if storage is on.
+
+    Returns the redacted event — the single object that is both stored (when
+    storage is configured) and published to the live buffer, so the stored
+    and streamed representations can never diverge. The caller's original
+    event object is left untouched; only the returned copy is redacted.
+    """
     deps = dependencies or _resolve_dependencies()
-    if deps.session_maker is None and db_session is None:
-        return
 
     pipeline = deps.redaction_pipeline_factory()
     event = pipeline.apply(event)
+
+    if deps.session_maker is None and db_session is None:
+        return event
 
     if db_session is not None:
         repo = TraceRepository(db_session, tenant_id=tenant_id)
@@ -212,7 +220,7 @@ async def _persist_event_if_configured(
             )
         await repo.add_event(event)
         await repo.commit()
-        return
+        return event
 
     assert deps.session_maker is not None
     async with deps.session_maker() as session:
@@ -225,6 +233,7 @@ async def _persist_event_if_configured(
             )
         await repo.add_event(event)
         await repo.commit()
+    return event
 
 
 def _parse_event_type(event_type_str: str) -> EventType:
@@ -291,13 +300,22 @@ async def _ingest_trace(
     if deps.session_maker is not None:
         async with deps.session_maker() as db:
             tenant_id = await deps.tenant_resolver(request, db)
-            await _persist_event_if_configured(event, tenant_id=tenant_id, dependencies=deps, db_session=db)
+            stored_event = await _persist_event_if_configured(
+                event, tenant_id=tenant_id, dependencies=deps, db_session=db
+            )
     else:
-        await _persist_event_if_configured(event, dependencies=deps)
+        stored_event = await _persist_event_if_configured(event, dependencies=deps)
+    if stored_event is None:
+        # Only reachable when the persister is swapped out (test wiring) for
+        # one that returns None; the real persister always returns the
+        # redacted event.
+        stored_event = event
 
-    await deps.buffer.publish(event.session_id, event)
+    # Publish the same redacted object that was (or would be) persisted so
+    # the buffer/SSE fan-out can never leak more than storage does.
+    await deps.buffer.publish(stored_event.session_id, stored_event)
 
-    return TraceEventResponse(event_id=event.id, status="queued")
+    return TraceEventResponse(event_id=stored_event.id, status="queued")
 
 
 @router.post("/traces", response_model=TraceEventResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -315,11 +333,15 @@ async def _create_session(
     dependencies: CollectorDependencies | None = None,
 ) -> SessionResponse:
     deps = dependencies or _resolve_dependencies()
+    # Session config flows through the same redaction policy as event
+    # payloads before it reaches storage (structural fields — agent name,
+    # framework, tags — are kept as delivered).
+    pipeline = deps.redaction_pipeline_factory()
     session = Session(
         id=_resolve_session_id(session_data.id),
         agent_name=session_data.agent_name,
         framework=session_data.framework,
-        config=session_data.config,
+        config=apply_payload_redaction(pipeline, session_data.config),
         tags=session_data.tags,
     )
     if deps.session_maker is not None:
@@ -385,13 +407,17 @@ async def ingest_checkpoint(
     """
     deps = _resolve_dependencies()
     timestamp = _parse_timestamp(checkpoint_data.timestamp)
+    # Checkpoint state and memory flow through the same redaction policy as
+    # event payloads before they reach storage (structural fields — ids,
+    # sequence, timestamps — are kept as delivered).
+    pipeline = deps.redaction_pipeline_factory()
     checkpoint = Checkpoint(
         id=checkpoint_data.id or str(uuid.uuid4()),
         session_id=checkpoint_data.session_id,
         event_id=checkpoint_data.event_id,
         sequence=checkpoint_data.sequence,
-        state=checkpoint_data.state,
-        memory=checkpoint_data.memory,
+        state=apply_payload_redaction(pipeline, checkpoint_data.state),
+        memory=apply_payload_redaction(pipeline, checkpoint_data.memory),
         importance=checkpoint_data.importance,
         **({"timestamp": timestamp} if timestamp is not None else {}),
     )
