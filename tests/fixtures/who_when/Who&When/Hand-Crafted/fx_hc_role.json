@@ -6,6 +6,6 @@
     {"content": "Execution failed: page load timeout", "name": null, "role": "Orchestrator (-> WebSurfer)"}
   ],
   "mistake_agent": "WebSurfer",
-  "mistake_step": "0",
+  "mistake_step": "1",
   "mistake_reason": "The search parameters were wrong."
 }

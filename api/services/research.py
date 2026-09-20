@@ -1,7 +1,7 @@
 """Research-feature computation services.
 
 Pure functions behind the research endpoints (frame lifetime traces,
-conformal uncertainty scoring, risk assessment). Kept deterministic and
+confidence-derived uncertainty scoring, risk assessment). Kept deterministic and
 side-effect free so they can be unit-tested without a database.
 """
 
@@ -82,7 +82,7 @@ def build_frames_report(session_id: str, events: list[TraceEvent]) -> dict[str, 
 
 
 def build_uncertainty_report(session_id: str, events: list[TraceEvent]) -> dict[str, Any]:
-    """Build the conformal uncertainty analysis for a session."""
+    """Build the heuristic (confidence-derived) uncertainty analysis for a session."""
     uncertainty_scores = []
     for event in events:
         confidence = getattr(event, "confidence", None)
@@ -129,7 +129,7 @@ def build_prediction_intervals(
     events: list[TraceEvent],
     confidence_level: float,
 ) -> dict[str, Any]:
-    """Build conformal prediction intervals for a session's decisions."""
+    """Build heuristic prediction intervals for a session's decisions."""
     prediction_intervals = []
     for event in events:
         confidence = getattr(event, "confidence", None)
@@ -184,7 +184,7 @@ def generate_risk_recommendations(risk_level: str, high_risk_ratio: float) -> li
 
 
 def build_risk_assessment(session_id: str, events: list[TraceEvent]) -> dict[str, Any]:
-    """Build the calibrated risk assessment for a session."""
+    """Build the heuristic risk assessment for a session."""
     high_risk_events = []
     medium_risk_events = []
     low_risk_events = []

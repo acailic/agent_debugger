@@ -105,5 +105,4 @@ who-when:
     fi
     uv run scripts/benchmark_who_when.py \
         --data "$CORPUS/algorithm_generated.jsonl" "$CORPUS/hand_crafted.jsonl" \
-        --step-scope agent \
-        --out "$CORPUS/results_agent_scope.json"
+        --out "$CORPUS/results_global_scope.json"

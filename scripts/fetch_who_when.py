@@ -4,11 +4,14 @@
 Fetches the public Who&When dataset (github.com/mingyin1/Agents_Failure_Attribution),
 normalizes every record into the harness schema documented in
 ``collector/audit/who_when.py``, and writes two compact JSONL corpora plus a
-MANIFEST.json recording the source repo, commit sha, and counts.
+MANIFEST.json recording the source repo, requested and resolved commit shas,
+per-file sha256 hashes, and counts. The default fetch is pinned to the
+upstream revision the benchmark protocol references; pass ``--commit`` to
+evaluate a different revision explicitly.
 
 Usage (run from the repo root):
 
-    uv run scripts/fetch_who_when.py                                # clone to a temp dir
+    uv run scripts/fetch_who_when.py                                # pinned fetch to a temp dir
     uv run scripts/fetch_who_when.py --source /path/to/existing/clone
     uv run scripts/fetch_who_when.py --out benchmarks/corpora/who_when
 
@@ -21,6 +24,7 @@ varies between runs.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -28,7 +32,14 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-SOURCE_REPO = "https://github.com/mingyin1/Agents_Failure_Attribution"
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from collector.audit.who_when import UPSTREAM_COMMIT, UPSTREAM_REPO  # noqa: E402
+
+SOURCE_REPO = UPSTREAM_REPO
+PINNED_COMMIT = UPSTREAM_COMMIT
 
 SPLITS: dict[str, str] = {
     "algorithm_generated": "Who&When/Algorithm-Generated",
@@ -74,7 +85,41 @@ def _commit_sha(source: Path) -> str | None:
         return None
 
 
-def run(source: Path, out_dir: Path) -> dict:
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 16), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _fetch_pinned(target: Path, commit: str) -> None:
+    """Materialize exactly ``commit`` from SOURCE_REPO into ``target``.
+
+    Fetches the single revision (GitHub allows fetching arbitrary SHAs) so the
+    seeded corpus is reproducible regardless of upstream's moving HEAD.
+    """
+    target.mkdir(parents=True)
+    steps = [
+        ["git", "init", "-q", str(target)],
+        ["git", "-C", str(target), "remote", "add", "origin", SOURCE_REPO],
+        ["git", "-C", str(target), "fetch", "--depth", "1", "origin", commit],
+        ["git", "-C", str(target), "checkout", "--quiet", "FETCH_HEAD"],
+    ]
+    for step in steps:
+        result = subprocess.run(step, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise FetchError(
+                f"pinned fetch failed at {' '.join(step[:3])}…:\n{result.stderr.strip()}"
+            )
+
+
+def run(
+    source: Path,
+    out_dir: Path,
+    *,
+    requested_commit: str | None = None,
+) -> dict:
     """Normalize the dataset at ``source`` into ``out_dir``; return the manifest.
 
     Raises FetchError with a clear message when the source is missing or a
@@ -119,12 +164,21 @@ def run(source: Path, out_dir: Path) -> dict:
             "source_files": len(files),
             "records": len(records),
             "file": jsonl_path.name,
+            "sha256": _sha256(jsonl_path),
         }
         total_records += len(records)
 
+    resolved = _commit_sha(source)
+    if requested_commit and resolved and resolved != requested_commit:
+        print(
+            f"warning: source HEAD {resolved} != requested {requested_commit}; "
+            "seeding proceeds and both are recorded in the manifest",
+            file=sys.stderr,
+        )
     manifest = {
         "source_repo": SOURCE_REPO,
-        "commit_sha": _commit_sha(source),
+        "requested_commit": requested_commit,
+        "commit_sha": resolved,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "splits": splits_manifest,
         "total_records": total_records,
@@ -140,7 +194,12 @@ def main() -> int:
     parser.add_argument(
         "--source",
         type=Path,
-        help="Existing clone root (the directory containing 'Who&When/'); default: shallow clone",
+        help="Existing clone root (the directory containing 'Who&When/'); default: pinned fetch",
+    )
+    parser.add_argument(
+        "--commit",
+        default=PINNED_COMMIT,
+        help=f"Upstream revision to fetch (default: pinned {PINNED_COMMIT[:12]}…)",
     )
     parser.add_argument(
         "--out",
@@ -152,25 +211,22 @@ def main() -> int:
 
     try:
         if args.source is not None:
-            manifest = run(args.source, args.out)
+            manifest = run(args.source, args.out, requested_commit=args.commit)
         else:
             with tempfile.TemporaryDirectory(prefix="who_when_fetch_") as tmp:
                 clone_path = Path(tmp) / "repo"
-                print(f"Cloning {SOURCE_REPO} (shallow)…")
-                clone = subprocess.run(
-                    ["git", "clone", "--depth", "1", SOURCE_REPO, str(clone_path)],
-                    capture_output=True,
-                    text=True,
-                )
-                if clone.returncode != 0:
-                    print(f"git clone failed:\n{clone.stderr.strip()}", file=sys.stderr)
+                print(f"Fetching {SOURCE_REPO} at pinned commit {args.commit}…")
+                try:
+                    _fetch_pinned(clone_path, args.commit)
+                except FetchError as exc:
+                    print(f"{exc}", file=sys.stderr)
                     print(
                         "Hint: pass --source /path/to/existing/clone "
                         "(e.g. a manual clone of the repo).",
                         file=sys.stderr,
                     )
                     return 2
-                manifest = run(clone_path, args.out)
+                manifest = run(clone_path, args.out, requested_commit=args.commit)
     except FetchError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

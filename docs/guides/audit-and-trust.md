@@ -319,49 +319,71 @@ No schema migration was required — the event model already carried the audit f
 
 ## External validation: the Who&When benchmark
 
-The engine's failure localization can be scored against the public
-[Who&When benchmark](https://github.com/mingyin1/Agents_Failure_Attribution)
-(184 annotated multi-agent failure logs; the paper's best LLM-judge method
-reaches **53.5% agent accuracy / 14.2% step accuracy**). The harness lives
-in `collector/audit/who_when.py` with a CLI wrapper:
+The deterministic failure-localization heuristic can be scored against the
+public [Who&When benchmark](https://github.com/mingyin1/Agents_Failure_Attribution)
+(184 annotated multi-agent failure logs). The harness lives in
+`collector/audit/who_when.py` with a CLI wrapper:
 
 ```bash
-# Offline pipeline smoke test (bundled synthetic records):
+# Offline pipeline contract test (bundled synthetic records):
 python scripts/benchmark_who_when.py --self-test
 
-# Seed the corpora (clones the dataset; or pass --source /path/to/existing/clone),
-# then run the full agent-scope evaluation and write per-record results:
+# Seed the corpora (fetches the pinned upstream commit; or pass
+# --source /path/to/existing/clone), then run the corrected evaluation:
 uv run scripts/fetch_who_when.py
 just who-when
 ```
 
 The corpora land in `benchmarks/corpora/who_when/` (`algorithm_generated.jsonl`,
 `hand_crafted.jsonl`, plus `MANIFEST.json` recording the source repo, commit
-sha, and counts). That directory is runtime state, gitignored — reseed with
-the fetch script. Records are JSONL with a `history` of
-`{content, name, role}` messages plus `mistake_agent` / `mistake_step`
-annotations; messages containing traceback/error markers are converted to
-ERROR events so the engine's deterministic localization has failure signals
-to work with. `mistake_step` is the **0-based** index among the mistake
-agent's own messages (`--step-scope global` switches to 0-based
-whole-history indexing). Algorithm-Generated records carry the speaker in
+sha, per-file hashes, and counts). That directory is runtime state,
+gitignored — reseed with the fetch script. Records are JSONL with a
+`history` of `{content, name, role}` messages plus `mistake_agent` /
+`mistake_step` annotations; messages containing traceback/error markers are
+converted to ERROR events so the heuristic has deterministic failure signals
+to work with.
+
+**Step indexing (corrected 2026-09-20):** `mistake_step` is the **0-based
+index into the whole conversation** — the pinned upstream prompt numbers
+every entry (commit `b2bae5c`, `Automated_FA/Lib/utils.py`). All 184
+annotations are in range under this convention; 95/184 would be out of
+range under the per-agent reading the first implementation assumed.
+`--step-scope agent` reproduces that superseded protocol for labeled legacy
+results only. Algorithm-Generated records carry the speaker in
 `history[].name`; Hand-Crafted records carry it in `history[].role`, where
 parenthetical variants like `Orchestrator (thought)` normalize to
 `Orchestrator`.
 
-Because the harness scores our *deterministic* attribution, its output is
-an external accuracy number that is reproducible by anyone — the claim
-"no LLM judge in the attribution path" becomes measurable.
+The harness is a standalone text-marker heuristic — it does not invoke the
+audit engine, causal analysis, or any native captured evidence, so its
+scores are **not** native-engine accuracy.
 
-### Measured on the full dataset (2026-09-15)
+### Measured on the full dataset (2026-09-20, corrected protocol)
 
 Corpora commit `b2bae5c` — 184 records (126 Algorithm-Generated, 58
-Hand-Crafted), agent scope, deterministic attribution:
+Hand-Crafted), global 0-based indexing, exact scoring, denominator is all
+184 records including abstentions. Published artifact with corpus hashes,
+evaluator revision, and frozen per-record predictions:
+`benchmarks/results/who_when/2026-09-20-global-protocol.json`.
 
-| Method | Agent accuracy | Step accuracy | Localized |
-|---|---|---|---|
-| Paper's best LLM judge | 53.5% | 14.2% | 184/184 |
-| **Peaky Peek harness (deterministic)** | **26.6%** | **5.4%** | 98/184 |
+| Metric (exact, denominator 184) | Result |
+|---|---|
+| Agent accuracy | 49/184 = **26.6%** |
+| Step accuracy (independent of agent) | 28/184 = **15.2%** |
+| Joint agent + step accuracy | 28/184 = **15.2%** |
+| Abstentions (no error marker found) | 86/184 = 46.7% |
+| Invalid annotations under global indexing | **0** |
+
+Per split: Algorithm-Generated 41/126 = 32.5% agent, 22.2% step;
+Hand-Crafted 8/58 = 13.8% agent, 0.0% step. Six annotations point at a step
+spoken by another agent (upstream annotation noise; reported in the
+manifest).
+
+**Not a matched baseline:** the paper's best LLM judge reports 53.5% agent
+/ 14.2% step, but scores by substring membership on a different
+input-information protocol (its prompt includes the task's final answer).
+Our exact-equality numbers are not comparable to those, and the previous
+comparison table has been withdrawn.
 
 Attribution heuristic, in full: a message becomes an ERROR event when its
 content contains one of the wide error markers (tracebacks, `Error:`,
@@ -373,11 +395,12 @@ plain deterministic string/position operations, disclosed here and pinned
 by tests.
 
 Read the numbers honestly: on **post-hoc conversation-only logs**, a
-zero-cost deterministic heuristic reaches about half of what the best LLM
-judge scores — and even that judge is wrong about the responsible agent
-almost every second time. That is precisely the gap this project exists to
-close: attribution from raw conversations is fundamentally underdetermined.
-Peaky Peek's native mode captures decisions, evidence, and tool results
-**at trace time**, where localization becomes structural traversal rather
-than post-hoc reading — deterministic by construction, as the SDK-level
-and end-to-end suites (3,100+ tests) verify on every run.
+zero-cost deterministic heuristic localizes the responsible agent in about
+a quarter of records and abstains on nearly half — and the best LLM judge
+is wrong about the responsible agent almost every second time under its
+own, more permissive protocol. That is precisely the gap this project
+exists to close: attribution from raw conversations is fundamentally
+underdetermined. Peaky Peek's native mode captures decisions, evidence,
+and tool results **at trace time**, where localization becomes structural
+traversal rather than post-hoc reading — deterministic by construction, as
+the SDK-level and end-to-end suites verify on every run.

@@ -33,11 +33,12 @@ Facts you may cite without checking (as of 2026-08-24):
 - 3,100+ tests, CI on Python 3.10–3.12, 70% coverage gate
 - Benchmarked on the public Who&When failure-attribution dataset (184
   annotated multi-agent failure logs): our fully deterministic harness
-  scores 26.6% agent / 5.4% step accuracy post-hoc on raw conversation
-  logs, versus 53.5% / 14.2% for the paper's best LLM judge — the honest
-  read (raw-conversation attribution is underdetermined for everyone; the
-  answer is capturing evidence at trace time) is in
-  docs/guides/audit-and-trust.md
+  scores 26.6% agent / 15.2% step accuracy (exact scoring, global indexing,
+  46.7% abstentions) post-hoc on raw conversation logs; the paper's best
+  LLM judge reports 53.5% / 14.2% under a different, substring-scored
+  protocol — not a matched comparison. The honest read (raw-conversation
+  attribution is underdetermined for everyone; the answer is capturing
+  evidence at trace time) is in docs/guides/audit-and-trust.md
 - Grounded in public research — notes on every paper in `docs/papers/`
 
 ---
@@ -190,11 +191,13 @@ report per session:
   itself become a data leak.
 
 Also a research-flavored side: failure localization is benchmarked against
-the Who&When annotated logs — our deterministic post-hoc harness scores
-26.6% agent accuracy on raw conversations while the paper's best LLM judge
-gets 53.5% (and is still wrong almost every second time), which is exactly
-why Peaky Peek captures decisions and evidence at trace time instead of
-trying to reconstruct them afterwards. Each paper note is in docs/papers/.
+the Who&When annotated logs — our deterministic post-hoc harness localizes
+the responsible agent in 26.6% of raw conversations (and abstains on 46.7%)
+while the paper's best LLM judge reports 53.5% under its own more
+permissive protocol (and is still wrong almost every second time), which is
+exactly why Peaky Peek captures decisions and evidence at trace time
+instead of trying to reconstruct them afterwards. Each paper note is in
+docs/papers/.
 
 `pip install peaky-peek-server && peaky-peek --open` starts the console.
 Happy to dig into how claim verification or the trust score works — both are

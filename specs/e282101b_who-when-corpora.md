@@ -1,5 +1,11 @@
 # Plan — M2.4: Seeded Who&When benchmark corpora + two harness correctness fixes
 
+> **Historical plan — superseded 2026-09-20.** Its per-agent step-index
+> convention was wrong (upstream is global 0-based; 95/184 annotations are
+> out of range per-agent). See `docs/guides/audit-and-trust.md` and
+> `benchmarks/results/who_when/2026-09-20-global-protocol.json` for the
+> corrected protocol.
+
 ## Context
 
 The Who&When harness (`collector/audit/who_when.py` + `scripts/benchmark_who_when.py`) scores the audit engine's deterministic failure localization against the public benchmark. Today every run requires a manual clone and `--data` plumbing. This change seeds reproducible corpora on disk, fixes two correctness bugs found while preparing the full run, and wires a `just who-when` recipe.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import shutil
@@ -70,11 +71,31 @@ def test_run_seeds_jsonl_and_manifest_from_fixture_source(tmp_path: Path):
     # Fixtures are not a git repo -> null commit sha.
     assert manifest["commit_sha"] is None
     assert manifest["generated_at"]
+    # Each seeded corpus file carries its sha256 for result-manifest correlation.
+    for split in manifest["splits"].values():
+        seeded = out_dir / split["file"]
+        assert split["sha256"] == hashlib.sha256(seeded.read_bytes()).hexdigest()
     assert manifest["splits"]["algorithm_generated"]["source_files"] == 1
     assert manifest["splits"]["algorithm_generated"]["records"] == 1
     assert manifest["splits"]["hand_crafted"]["source_files"] == 2
     assert manifest["splits"]["hand_crafted"]["records"] == 2
     assert manifest["total_records"] == 3
+
+
+def test_run_records_requested_commit_for_provenance(tmp_path: Path):
+    source = tmp_path / "source"
+    shutil.copytree(_FIXTURE_ROOT, source)
+
+    manifest = fetch_who_when.run(source, tmp_path / "out", requested_commit="deadbeef")
+
+    assert manifest["requested_commit"] == "deadbeef"
+    assert manifest["commit_sha"] is None  # fixture tree is not a git repo
+
+
+def test_pinned_commit_matches_evaluator_constant():
+    from collector.audit.who_when import UPSTREAM_COMMIT
+
+    assert fetch_who_when.PINNED_COMMIT == UPSTREAM_COMMIT
 
 
 def test_run_jsonl_is_compact_and_sorted(tmp_path: Path):

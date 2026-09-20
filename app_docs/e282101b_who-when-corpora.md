@@ -2,6 +2,16 @@
 
 Seeds reproducible Who&When benchmark corpora on disk, fixes two attribution-correctness bugs in the audit harness found while preparing the full-dataset run, and wires a one-command `just who-when` recipe. 13 files changed (+1251 −38) against `bce2a0d`.
 
+> **Correction (2026-09-20):** claim 1 below was itself wrong. The
+> upstream convention is **global 0-based indexing** (the pinned prompt
+> numbers every conversation entry), not per-agent indexing: 95/184
+> annotations are out of range under the per-agent reading this change
+> installed. The default scope is now `global`, the per-agent scope is
+> kept only for reproducing this superseded result, and metrics are exact
+> independent agent/step/joint with explicit denominators. See
+> `docs/guides/audit-and-trust.md` and
+> `benchmarks/results/who_when/2026-09-20-global-protocol.json`.
+
 ## Why it matters
 
 Previously every benchmark run required a manual clone and `--data` plumbing, and the harness had two bugs that made it silently wrong on roughly half the dataset:
