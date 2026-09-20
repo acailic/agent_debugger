@@ -67,3 +67,22 @@ def get_entity_repository(
     from storage.repositories.entity_repo import EntityRepository
 
     return EntityRepository(session, tenant_id=tenant_id)
+
+
+async def require_hosted_auth(
+    request: Request,
+    db: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Require a valid API key when the server runs in hosted (cloud) mode.
+
+    A minimal mode-conditional gate for routes whose backing store is
+    local-only (e.g. the analytics SQLite file) and therefore has no tenant
+    dimension to scope by: in hosted mode the caller must present a valid
+    Bearer key (401 on a missing/invalid key, via
+    ``auth.middleware.get_tenant_from_api_key``), while local mode stays
+    fully open — keyless, matching the pre-existing behavior. Data-plane
+    routes should keep using ``get_tenant_id``/``get_repository``, which also
+    enforce the local-mode loopback restriction.
+    """
+    if get_config().mode != "local":
+        await get_tenant_from_api_key(request, db)

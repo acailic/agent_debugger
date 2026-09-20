@@ -41,12 +41,19 @@ async def test_resolve_tenant_from_key_raises_for_invalid_key():
 
 
 @pytest.mark.asyncio
-async def test_get_tenant_from_api_key_defaults_to_local_without_header():
+async def test_get_tenant_from_api_key_rejects_missing_header():
+    # Hosted-mode helper: an absent Authorization header must not fall back
+    # to a "local" tenant. Keyless local traffic never reaches this helper —
+    # both callers (api/dependencies.get_tenant_id and
+    # collector.server._get_tenant_id) resolve it before mode-gating on
+    # config.mode == "local".
     request = SimpleNamespace(headers={})
 
-    tenant_id = await get_tenant_from_api_key(request, AsyncMock())
+    with pytest.raises(HTTPException) as exc:
+        await get_tenant_from_api_key(request, AsyncMock())
 
-    assert tenant_id == "local"
+    assert exc.value.status_code == 401
+    assert exc.value.detail == "Authorization header required"
 
 
 @pytest.mark.asyncio

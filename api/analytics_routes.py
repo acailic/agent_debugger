@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from api.analytics_db import get_aggregates, get_daily_breakdown, record_event
-from api.dependencies import get_repository
+from api.dependencies import get_repository, require_hosted_auth
 
 router = APIRouter(tags=["analytics"])
 
@@ -113,11 +113,14 @@ def _calculate_time_saved(aggregates: dict[str, int]) -> float:
 @router.get("/api/analytics", response_model=AnalyticsResponse)
 async def get_analytics(
     range: Literal["7d", "30d", "90d"] = Query(default="30d", description="Time range for analytics"),
+    _auth: None = Depends(require_hosted_auth),
 ) -> AnalyticsResponse:
     """Get aggregated analytics for the specified time range.
 
     Returns metrics about debugging efficiency including raw counts,
-    derived adoption rates, and estimated time saved.
+    derived adoption rates, and estimated time saved. Route exposure is
+    authenticated in hosted/cloud mode (401 without a valid key); the
+    backing analytics store itself remains local-only by design.
     """
     days = RANGE_TO_DAYS[range]
     today = datetime.now(timezone.utc)
@@ -172,11 +175,17 @@ async def get_analytics(
 
 
 @router.post("/api/analytics/events", response_model=RecordEventResponse)
-async def record_analytics_event(request: RecordEventRequest) -> RecordEventResponse:
+async def record_analytics_event(
+    request: RecordEventRequest,
+    _auth: None = Depends(require_hosted_auth),
+) -> RecordEventResponse:
     """Record an analytics event.
 
     This is an internal endpoint for recording events from the SDK or UI.
     Events are recorded fire-and-forget style and don't block the caller.
+    Route exposure is authenticated in hosted/cloud mode (401 without a
+    valid key); the backing analytics store itself remains local-only by
+    design.
     """
     record_event(
         event_type=request.event_type,

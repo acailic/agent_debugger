@@ -11,7 +11,11 @@ Key capabilities:
 - BranchAndReplay: create alternative paths from any breakpoint
 - CUSTOM_CONDITION breakpoints use a restricted predicate language (see
   ``validate_custom_condition``) evaluated without eval/exec, so breakpoint
-  conditions can never execute arbitrary code in the host process
+  conditions can never execute arbitrary code in the host process.
+  Predicates are validated pre-mutation at every materialization boundary
+  (``AgentStepper.set_breakpoint`` and ``AgentStepper.import_state``), and
+  evaluation is bounded (expression size, AST node count, exponents, and
+  sequence repetition/concatenation sizes — see ``validate_custom_condition``)
 """
 
 from __future__ import annotations
@@ -70,6 +74,15 @@ class StepAction(StrEnum):
 
 _MAX_CONDITION_LENGTH = 200
 _MAX_CONDITION_NODES = 100
+# Runtime caps so a grammatically valid expression still cannot make the
+# interpreter do unbounded work or allocate unbounded memory:
+# - sequence repetition count (``event.name * 5000``), applied symmetrically
+#   to ``seq * int`` and ``int * seq``;
+# - total length of any sequence produced by repetition or concatenation
+#   (``+``/``*`` over str/bytes/list/tuple), so balanced ``a + a + ...`` trees
+#   cannot double a large attribute value into gigabytes.
+_MAX_SEQ_REPEAT = 10_000
+_MAX_SEQ_LENGTH = 1_000_000
 
 _UNSUPPORTED = "custom condition uses unsupported construct: {reason}"
 
@@ -211,6 +224,21 @@ def validate_custom_condition(condition: str) -> ast.Expression:
     attribute access, non-literal subscripts, and expressions longer than 200
     characters or containing more than 100 AST nodes.
 
+    Runtime bounds (enforced by ``evaluate_custom_condition`` so a valid
+    expression also cannot do unbounded work): every evaluation applies at
+    most one operator per AST node (≤ 100 per evaluation); ``**`` exponents
+    are capped at magnitude 10 000; sequence repetition (``*`` between a
+    str/bytes/list/tuple and an int, in either operand order) is capped at a
+    repeat count of 10 000 and a produced length of 1 000 000 elements; and
+    sequence concatenation (``+``) is capped at a combined length of
+    1 000 000 elements. Printf-style string formatting (``str % args``) is
+    rejected at evaluation time — its width/precision can demand unbounded
+    allocation — while numeric ``%`` modulo is unaffected. Over-cap
+    operations raise OverflowError before the underlying Python operator
+    runs (no oversized allocation is attempted);
+    ``evaluate_custom_condition`` converts that to a no-match (False), like
+    any other runtime failure.
+
     Args:
         condition: The custom condition expression string
 
@@ -232,6 +260,41 @@ def validate_custom_condition(condition: str) -> ast.Expression:
         raise _unsupported(f"expression exceeds {_MAX_CONDITION_NODES} AST nodes")
     _validate_node(tree.body)
     return tree
+
+
+_SEQUENCE_TYPES = (str, bytes, list, tuple)
+
+
+def _cap_repetition(left: Any, right: Any) -> None:
+    """Reject sequence repetition that would exceed the runtime caps.
+
+    Applies to both ``seq * int`` and ``int * seq`` (Python repeats either
+    way), bounding the repeat count by ``_MAX_SEQ_REPEAT`` and the produced
+    length by ``_MAX_SEQ_LENGTH``. Raises before the operator is invoked so no
+    oversized allocation is attempted.
+    """
+    if isinstance(left, int) and isinstance(right, _SEQUENCE_TYPES):
+        count, seq = left, right
+    elif isinstance(right, int) and isinstance(left, _SEQUENCE_TYPES):
+        count, seq = right, left
+    else:
+        return
+    if abs(count) > _MAX_SEQ_REPEAT:
+        raise OverflowError("sequence repetition too large")
+    if abs(count) * len(seq) > _MAX_SEQ_LENGTH:
+        raise OverflowError("sequence repetition too large")
+
+
+def _cap_concatenation(left: Any, right: Any) -> None:
+    """Reject sequence concatenation beyond ``_MAX_SEQ_LENGTH`` total length.
+
+    Without this, a balanced tree of ``+`` nodes over one large attribute
+    value could double it on every level (up to ~2^50 copies within the
+    100-node cap). Raises before the operator is invoked.
+    """
+    if isinstance(left, _SEQUENCE_TYPES) and isinstance(right, _SEQUENCE_TYPES):
+        if len(left) + len(right) > _MAX_SEQ_LENGTH:
+            raise OverflowError("sequence concatenation too large")
 
 
 def _eval_node(node: ast.AST, event: TraceEvent) -> Any:
@@ -273,13 +336,15 @@ def _eval_node(node: ast.AST, event: TraceEvent) -> Any:
         if isinstance(node.op, ast.Pow) and isinstance(right, (int, float)) and abs(right) > 10000:
             # Cap exponents so a literal like 10**10**10 cannot stall evaluation.
             raise OverflowError("exponent too large")
-        if (
-            isinstance(node.op, ast.Mult)
-            and isinstance(left, (str, bytes, list, tuple))
-            and isinstance(right, int)
-            and abs(right) > 10000
-        ):
-            raise OverflowError("sequence repetition too large")
+        if isinstance(node.op, ast.Mult):
+            _cap_repetition(left, right)
+        elif isinstance(node.op, ast.Add):
+            _cap_concatenation(left, right)
+        elif isinstance(node.op, ast.Mod) and isinstance(left, (str, bytes)):
+            # ``str % args`` is printf-style formatting: a width like
+            # '%999999999d' (attribute-driven, so not visible at validation
+            # time) would allocate gigabytes inside the operator.
+            raise OverflowError("string formatting is not allowed")
         return _ALLOWED_BINOPS[type(node.op)](left, right)
 
     if isinstance(node, ast.Compare):
@@ -577,7 +642,17 @@ class AgentStepper:
 
         Returns:
             The created Breakpoint
+
+        Raises:
+            ValueError: If a CUSTOM_CONDITION predicate is outside the
+                supported grammar (see ``validate_custom_condition``) —
+                raised *before* any state is mutated, so a rejected
+                breakpoint is never appended.
         """
+        if breakpoint_type == BreakpointType.CUSTOM_CONDITION:
+            # Pre-mutation validation: reject at creation instead of failing
+            # on every later step/continue evaluation.
+            validate_custom_condition(str(condition_value))
         breakpoint = Breakpoint(
             breakpoint_type=breakpoint_type,
             condition_value=condition_value,
@@ -882,8 +957,27 @@ class AgentStepper:
 
         Args:
             state_data: Exported state data
+
+        Raises:
+            ValueError: If any CUSTOM_CONDITION breakpoint in the imported
+                state uses a predicate outside the supported grammar (see
+                ``validate_custom_condition``) — raised *before* any state is
+                mutated, so a rejected import leaves the stepper untouched.
         """
-        self.state = StepperState(**state_data.get("state", {}))
+        # Pre-mutation validation: serialized breakpoints arrive as dicts
+        # (see ``Breakpoint.to_dict``), already-created ones as Breakpoint.
+        candidate_state = StepperState(**state_data.get("state", {}))
+        for bp in candidate_state.breakpoints:
+            if isinstance(bp, dict):
+                is_custom = str(bp.get("breakpoint_type")) == str(BreakpointType.CUSTOM_CONDITION)
+                condition = bp.get("condition_value")
+            else:
+                is_custom = str(bp.breakpoint_type) == str(BreakpointType.CUSTOM_CONDITION)
+                condition = bp.condition_value
+            if is_custom:
+                validate_custom_condition(str(condition))
+
+        self.state = candidate_state
         self.branches.clear()
         for branch_data in state_data.get("branches", []):
             branch = BranchPoint(

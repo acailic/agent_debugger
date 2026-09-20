@@ -44,7 +44,14 @@ async def get_tenant_from_api_key(
 ) -> str:
     """Extract and validate API key from Authorization header.
 
-    Returns tenant_id. No auth header → 'local' mode.
+    Reached only in hosted/cloud mode: both callers (api/dependencies.py
+    ``get_tenant_id`` and collector/server.py ``_get_tenant_id``) resolve
+    keyless local traffic to the ``local`` tenant themselves and never call
+    this helper when the configured mode is ``local``. Accordingly, a missing
+    Authorization header is rejected with 401 instead of falling back to a
+    ``local`` tenant — a hosted deployment must not admit unauthenticated
+    callers. Local single-user mode is unaffected (loopback stays keyless).
+
     This is a helper called from get_tenant_id(), not a direct FastAPI dependency.
 
     Args:
@@ -52,14 +59,15 @@ async def get_tenant_from_api_key(
         db: Database session for API key lookup
 
     Returns:
-        The tenant_id, or 'local' if no auth header present
+        The tenant_id for the validated API key
 
     Raises:
-        HTTPException: If the auth header is malformed or the key is invalid
+        HTTPException: 401 if the Authorization header is absent, malformed,
+            or the key is invalid/not found
     """
     auth_header = request.headers.get("Authorization")
     if not auth_header:
-        return "local"
+        raise HTTPException(status_code=401, detail="Authorization header required")
 
     if not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid authorization header")

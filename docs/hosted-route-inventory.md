@@ -18,9 +18,13 @@ Related artifacts:
     `api/dependencies.py:18` + `get_tenant_id` `api/dependencies.py:24`).
   - `tenant entity repo` = `api/dependencies.py:62` `get_entity_repository`.
   - `tenant policy repo` = `api/policy_routes.py:18` (uses `get_tenant_id`).
+  - `hosted auth gate` = `api/dependencies.py:72` `require_hosted_auth`
+    (valid Bearer key required in cloud mode; no-op in local mode — used by
+    routes whose backing store has no tenant dimension).
   - `collector resolver` = `collector/server.py:161` `_get_tenant_id` (local
     mode requires a localhost client; otherwise
-    `auth/middleware.py:41` `get_tenant_from_api_key`).
+    `auth/middleware.py:41` `get_tenant_from_api_key`, which rejects a
+    missing header with 401).
   - `none` = no authentication or tenant resolution at all.
 - **Tenant store**: whether every underlying query/mutation is scoped to the
   resolved tenant. All `TraceRepository` sub-repositories filter on
@@ -60,11 +64,11 @@ Related artifacts:
 
 | Route | Evidence | Auth | Tenant store | Sinks |
 |---|---|---|---|---|
-| GET /api/analytics | api/analytics_routes.py:113 | **none (open gap)** | **no — local-only store** (api/analytics_db.py:10-13) | none (reads analytics.db) |
-| POST /api/analytics/events | api/analytics_routes.py:174 | **none (open gap)** | **no** | analytics.db (api/analytics_db.py:73-96) |
-| GET /api/analytics/patterns | api/analytics_routes.py:246 | `tenant repo` (:254) | yes — PatternRepository(repo.session, repo.tenant_id) (:264); repo contract storage/repositories/pattern_repo.py:18-21 | none |
-| GET /api/analytics/patterns/{pattern_id} | api/analytics_routes.py:309 | `tenant repo` (:312) | yes (:320) | none |
-| GET /api/analytics/health-report | api/analytics_routes.py:348 | `tenant repo` (:352) | yes (:367) | none |
+| GET /api/analytics | api/analytics_routes.py:113 | `hosted auth gate` (:117) — closed since (see below) | **no — local-only store** (api/analytics_db.py:10-13), documented open limitation | none (reads analytics.db) |
+| POST /api/analytics/events | api/analytics_routes.py:177 | `hosted auth gate` (:180) — closed since (see below) | **no** | analytics.db (api/analytics_db.py:73-96) |
+| GET /api/analytics/patterns | api/analytics_routes.py:255 | `tenant repo` (:263) | yes — PatternRepository(repo.session, repo.tenant_id) (:273); repo contract storage/repositories/pattern_repo.py:18-21 | none |
+| GET /api/analytics/patterns/{pattern_id} | api/analytics_routes.py:318 | `tenant repo` (:321) | yes (:329) | none |
+| GET /api/analytics/health-report | api/analytics_routes.py:357 | `tenant repo` (:361) | yes (:376) | none |
 
 ## Sessions (api/session_routes.py)
 
@@ -184,8 +188,10 @@ never persisted.
 
 ## Stepper (api/stepper_routes.py) — `tenant repo` (module owned by another team)
 
-45, 91, 120, 148, 173, 209, 242, 284, 309, 344, 373, 400. All signatures use
-`Depends(get_repository)`.
+45, 101, 130, 158, 183, 219, 252, 294, 319, 354, 383, 410. All signatures use
+`Depends(get_repository)`. CUSTOM_CONDITION predicates are validated at
+creation time and rejected with 422 pre-mutation (api/stepper_routes.py:88-99
+→ agent_debugger_sdk/core/stepper.py `AgentStepper.set_breakpoint`).
 
 ## Closed in this slice
 
@@ -241,24 +247,55 @@ persisted or streamed copy is scrubbed. Regression gate:
 events/checkpoints rows (config, data, event_metadata, state, memory) plus
 a captured SSE stream and exits nonzero if a marker survives.
 
+## Closed since: hosted auth hardening (W10 / Q06 remainder, second slice)
+
+The two security gaps recorded below as "missing-key behavior in hosted
+mode" and "unauthenticated analytics reads" are closed:
+
+1. **Absent API key no longer falls back to the `local` tenant in cloud
+   mode.** `auth/middleware.py:61-70` `get_tenant_from_api_key` now raises
+   401 ("Authorization header required") when the Authorization header is
+   absent, instead of returning `"local"`. The helper is only reached in
+   cloud mode — both callers (`api/dependencies.py:24` `get_tenant_id` and
+   `collector/server.py:161` `_get_tenant_id`) resolve keyless local traffic
+   to the `local` tenant themselves when `config.mode == "local"`, so
+   loopback single-user mode stays keyless. Regression gates:
+   `tests/test_hosted_tenant_matrix.py::test_hosted_invalid_and_absent_key_behavior`
+   (401 on reads, session creation and trace ingestion without a key) and
+   `tests/test_auth_middleware_unit.py::test_get_tenant_from_api_key_rejects_missing_header`.
+2. **Analytics route exposure is authenticated in hosted mode.**
+   `GET /api/analytics` and `POST /api/analytics/events` take the new
+   mode-conditional gate `api/dependencies.py:72` `require_hosted_auth` — a
+   valid Bearer key is required in cloud mode (401 on missing/invalid
+   keys), while local mode remains fully open keyless. Route paths and
+   response shapes are unchanged. Regression gates:
+   `tests/test_hosted_tenant_matrix.py::test_hosted_analytics_routes_require_a_key`
+   and `tests/test_hosted_tenant_matrix.py::test_local_mode_analytics_stay_fully_open`.
+
+Related hardening in the same slice (Q07 remainder): CUSTOM_CONDITION
+breakpoint predicates are validated pre-mutation at every materialization
+boundary (`AgentStepper.set_breakpoint` / `import_state`,
+agent_debugger_sdk/core/stepper.py) and the API returns 422 naming the
+unsupported construct; the predicate interpreter's runtime bounds (AST
+nodes, exponents, symmetric sequence-repetition and concatenation length
+caps) are documented in `validate_custom_condition` and pinned by
+`tests/test_breakpoint_safety.py::TestBoundedEvaluation` /
+`TestPreMutationValidation` plus route-level
+`tests/test_stepper_route_conditions.py`.
+
 ## Known-open gaps (documented, intentionally not fixed here)
 
-1. **Analytics store is local-only and unauthenticated.**
-   `GET /api/analytics` and `POST /api/analytics/events`
-   (api/analytics_routes.py:113, :174) carry no auth dependency, and the
-   analytics store is a separate SQLite file with no `tenant_id` dimension
-   (api/analytics_db.py:10-13, storage/repositories/analytics_repo.py).
-   Additionally, tenant-authenticated routes write usage counters into this
-   shared local store (e.g. replay_started, api/replay_routes.py:64). Pinned
-   by `tests/test_hosted_tenant_matrix.py::test_hosted_analytics_route_is_local_only_open_gap`.
-2. **Absent API key falls back to the `local` tenant in cloud mode.**
-   `auth/middleware.py:61-62` returns `"local"` when the Authorization header
-   is missing, so a hosted deployment admits unauthenticated callers as the
-   `local` tenant instead of rejecting them. Pinned by
-   `tests/test_hosted_tenant_matrix.py::test_hosted_invalid_and_absent_key_behavior`.
-   Fixing this is owned by W10 ("missing-key behavior in hosted mode") and
-   must not regress local single-user mode.
-3. **Redaction policy remains opt-in per deployment.** The boundary is now
+1. **Analytics store is local-only and not tenant-isolated.** Route
+   *exposure* is now authenticated in hosted mode (see "Closed since"
+   above), but the store itself remains a separate SQLite file with no
+   `tenant_id` dimension (api/analytics_db.py:10-13,
+   storage/repositories/analytics_repo.py), so authenticated tenants share
+   one local analytics dataset, and tenant-authenticated routes still write
+   usage counters into it (e.g. replay_started, api/replay_routes.py:64).
+   Pinned by
+   `tests/test_hosted_tenant_matrix.py::test_hosted_analytics_routes_require_a_key`
+   (valid keys share the same store).
+2. **Redaction policy remains opt-in per deployment.** The boundary is now
    uniform (see "Closed since" above), but the pipeline only scrubs when the
    deployment enables it (`AGENT_DEBUGGER_REDACT_PROMPTS` /
    `AGENT_DEBUGGER_REDACT_PII` / `AGENT_DEBUGGER_REDACT_TOOL_PAYLOADS`, or
@@ -267,9 +304,13 @@ a captured SSE stream and exits nonzero if a marker survives.
    `Config` object does not yet carry `redact_pii`/`redact_tool_payloads`
    fields — those are environment-only until the SDK grows them (SDK changes
    out of scope for Q08).
-4. **The e2e suite never runs the server in cloud mode.**
+3. **The e2e suite never runs the server in cloud mode.**
    tests/e2e/conftest.py starts uvicorn without any mode/key environment, so
    the server resolves every caller as tenant `local` and the suite proves
    transport, not auth enforcement. The in-process hosted fixture in
    `tests/test_hosted_tenant_matrix.py` covers the gap at the ASGI layer; a
-   real-process hosted e2e remains open.
+   real-process hosted e2e (uvicorn subprocess in cloud mode) remains open.
+4. **Checkpoint event/session consistency.** `POST /api/checkpoints`
+   verifies the parent session is visible to the caller's tenant, but
+   `storage/repositories/checkpoint_repo.py` still copies the supplied event
+   ID without checking that the event belongs to the checkpoint's session.

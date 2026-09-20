@@ -8,16 +8,19 @@ allowed predicates keep working through ``Breakpoint.should_trigger`` and every
 forbidden construct fails with an explicit ValueError.
 """
 
+import ast
 from datetime import datetime, timezone
 
 import pytest
 
+import agent_debugger_sdk.core.stepper as stepper_module
 from agent_debugger_sdk.core.events import EventType, TraceEvent
 from agent_debugger_sdk.core.stepper import (
     AgentStepper,
     Breakpoint,
     BreakpointType,
     StepAction,
+    _eval_node,
     evaluate_custom_condition,
     validate_custom_condition,
 )
@@ -225,3 +228,168 @@ class TestBehaviorPreservation:
         event = make_event(importance=0.9)
         assert evaluate_custom_condition("event.importance > 0.7", event) is True
         assert evaluate_custom_condition("event.importance < 0.7", event) is False
+
+
+class TestPreMutationValidation:
+    """Breakpoints are rejected at creation/import time, not during evaluation."""
+
+    def test_set_breakpoint_rejects_invalid_condition_without_mutating_state(self):
+        stepper = AgentStepper([make_event()])
+        with pytest.raises(ValueError, match="custom condition uses unsupported construct"):
+            stepper.set_breakpoint(
+                breakpoint_type=BreakpointType.CUSTOM_CONDITION,
+                condition_value="len(event.data) > 0",
+            )
+        assert stepper.state.breakpoints == [], "rejected breakpoint must not be appended"
+
+    def test_set_breakpoint_accepts_valid_condition(self):
+        stepper = AgentStepper([make_event()])
+        bp = stepper.set_breakpoint(
+            breakpoint_type=BreakpointType.CUSTOM_CONDITION,
+            condition_value="event.importance > 0.5",
+        )
+        assert bp.condition_value == "event.importance > 0.5"
+        assert len(stepper.state.breakpoints) == 1
+
+    @staticmethod
+    def _state_with_breakpoint(condition: str) -> dict:
+        return {
+            "state": {
+                "current_event_index": 0,
+                "current_event_id": "",
+                "breakpoints": [
+                    {
+                        "breakpoint_id": "bp-import",
+                        "breakpoint_type": "custom_condition",
+                        "condition_value": condition,
+                        "description": "",
+                        "enabled": True,
+                        "hit_count": 0,
+                        "created_at": "2026-09-20T00:00:00+00:00",
+                    }
+                ],
+                "step_history": [],
+                "paused": True,
+                "completed": False,
+            },
+            "branches": [],
+            "events_count": 1,
+        }
+
+    def test_import_state_rejects_invalid_condition_without_mutating_state(self):
+        stepper = AgentStepper([make_event()])
+        with pytest.raises(ValueError, match="custom condition uses unsupported construct"):
+            stepper.import_state(self._state_with_breakpoint("len(event.data) > 0"))
+        assert stepper.state.breakpoints == [], "rejected import must leave state untouched"
+
+    def test_import_state_accepts_valid_condition_round_trip(self):
+        source = AgentStepper([make_event()])
+        source.set_breakpoint(
+            breakpoint_type=BreakpointType.CUSTOM_CONDITION,
+            condition_value="event.importance > 0.5",
+        )
+        target = AgentStepper([make_event()])
+        target.import_state(source.export_state())
+        imported = target.state.breakpoints[0]
+        assert imported["condition_value"] == "event.importance > 0.5"
+
+
+class TestBoundedEvaluation:
+    """Runtime caps close the residual unbounded-work vectors.
+
+    Size/node caps bound the expression text, not the work an evaluation can
+    do. These tests pin the operator-level caps (repetition count, produced
+    sequence length) and prove each rejection happens *before* the real
+    Python operator runs, using a recording operator stub that fails the test
+    if it is ever invoked.
+    """
+
+    @staticmethod
+    def _forbidden_operator(calls: list):
+        """Replace a binop entry: record and fail if the real operator runs."""
+
+        def _op(left, right):
+            calls.append((left, right))
+            raise AssertionError("operator invoked before bound check")
+
+        return _op
+
+    def test_repetition_count_cap_is_symmetric(self, monkeypatch):
+        # Historically only `seq * int` was capped; `int * seq` repeated too.
+        calls: list = []
+        monkeypatch.setitem(
+            stepper_module._ALLOWED_BINOPS, ast.Mult, self._forbidden_operator(calls)
+        )
+        event = make_event(name="n" * 16)
+
+        tree = validate_custom_condition("20000 * event.name")
+        with pytest.raises(OverflowError, match="sequence repetition too large"):
+            _eval_node(tree.body, event)
+        assert calls == [], "bound check must fire before the multiplication"
+
+    def test_repetition_result_length_cap(self, monkeypatch):
+        calls: list = []
+        monkeypatch.setitem(
+            stepper_module._ALLOWED_BINOPS, ast.Mult, self._forbidden_operator(calls)
+        )
+        # 500 repeats of a 600k-char attribute value -> 300M chars: the
+        # repeat count is small, only the produced length is over budget.
+        event = make_event(data={"pad": "a" * 600_000})
+
+        tree = validate_custom_condition("event.data['pad'] * 500")
+        with pytest.raises(OverflowError, match="sequence repetition too large"):
+            _eval_node(tree.body, event)
+        assert calls == []
+
+    def test_concatenation_length_cap_blocks_balanced_doubling(self, monkeypatch):
+        calls: list = []
+        monkeypatch.setitem(
+            stepper_module._ALLOWED_BINOPS, ast.Add, self._forbidden_operator(calls)
+        )
+        # Without a total-length cap, a balanced tree of `+` nodes could
+        # double one large attribute value on every level (~2^50 copies).
+        event = make_event(data={"pad": "a" * 600_000})
+
+        tree = validate_custom_condition("event.data['pad'] + event.data['pad']")
+        with pytest.raises(OverflowError, match="sequence concatenation too large"):
+            _eval_node(tree.body, event)
+        assert calls == []
+
+    def test_printf_style_formatting_is_rejected_before_the_operator(self, monkeypatch):
+        calls: list = []
+        monkeypatch.setitem(
+            stepper_module._ALLOWED_BINOPS, ast.Mod, self._forbidden_operator(calls)
+        )
+        # An attribute-driven format string like '%999999999d' would allocate
+        # gigabytes inside str.__mod__; the grammar cannot see operand types,
+        # so the runtime rejects str/bytes % outright.
+        event = make_event(data={"fmt": "%" + "9" * 9 + "d"})
+
+        tree = validate_custom_condition("event.data['fmt'] % 2")
+        with pytest.raises(OverflowError, match="string formatting is not allowed"):
+            _eval_node(tree.body, event)
+        assert calls == []
+
+    def test_numeric_modulo_still_works(self):
+        event = make_event(importance=0.5)
+        assert evaluate_custom_condition("event.importance % 2 == 0.5", event) is True
+
+    def test_over_cap_operations_are_no_match_not_crash(self):
+        event = make_event(name="n" * 16, data={"pad": "a" * 600_000})
+        # evaluate_custom_condition treats runtime failures as no-match.
+        assert evaluate_custom_condition("20000 * event.name", event) is False
+        assert evaluate_custom_condition("event.data['pad'] * 500", event) is False
+        assert evaluate_custom_condition("event.data['pad'] + event.data['pad']", event) is False
+        assert (
+            Breakpoint(
+                breakpoint_type=BreakpointType.CUSTOM_CONDITION,
+                condition_value="20000 * event.name",
+            ).should_trigger(event)
+            is False
+        )
+
+    def test_small_repetition_and_concatenation_still_work(self):
+        event = make_event(name="Decision")
+        assert evaluate_custom_condition("'ab' * 3 == 'ababab'", event) is True
+        assert evaluate_custom_condition("event.name + '!' == 'Decision!'", event) is True
+        assert evaluate_custom_condition("event.name * 2 == 'DecisionDecision'", event) is True

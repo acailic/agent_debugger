@@ -8,10 +8,10 @@ SSE stream, cross-session clustering, analytics — the matrix asserts
 positive isolation: tenant A cannot see or attach to tenant B's session
 ids (404 with no mutation).
 
-Routes that are intentionally local-only today (analytics store) and the
-absent-API-key fallback are pinned with explicit tests documenting the
-current behavior as a known-open gap (see docs/hosted-route-inventory.md);
-they are not silently skipped.
+Routes that remain local-only by design (the analytics store behind the
+routes) carry an explicit test documenting that limitation, and the negative
+auth gates — absent API key in cloud mode, unauthenticated analytics access
+— are enforced here (see docs/hosted-route-inventory.md).
 """
 
 from __future__ import annotations
@@ -195,23 +195,21 @@ async def test_hosted_invalid_and_absent_key_behavior(matrix, tenants):
     )
     assert resp.status_code == 401
 
-    # KNOWN-OPEN GAP (auth/middleware.py get_tenant_from_api_key): an absent
-    # Authorization header in cloud mode falls back to the "local" tenant
-    # instead of being rejected. Pinned here as current behavior; fixing it
-    # is owned by roadmap W10 ("missing-key behavior in hosted mode") and
-    # must not be done in this slice.
-    unauth_session = await _create_session_anonymously(matrix)
-    assert unauth_session  # created under the implicit "local" tenant
-    leaked = await matrix.get(f"/api/sessions/{unauth_session}", headers=alpha.headers)
-    assert leaked.status_code == 404, "tenant key must not see local-tenant sessions"
-
-
-async def _create_session_anonymously(client: AsyncClient) -> str:
-    resp = await client.post(
+    # Closed gap (auth/middleware.py get_tenant_from_api_key): an absent
+    # Authorization header in cloud mode is rejected with 401 instead of
+    # falling back to the implicit "local" tenant. Reads and writes alike.
+    assert (await matrix.get("/api/sessions")).status_code == 401
+    anonymous_create = await matrix.post(
         "/api/sessions", json={"agent_name": "anon-agent", "framework": "pytest"}
     )
-    assert resp.status_code == 201, resp.text
-    return resp.json()["id"]
+    assert anonymous_create.status_code == 401, "unauthenticated session creation must be rejected"
+
+    # The collector ingestion path resolves tenants through the same helper
+    # and must reject unauthenticated writes too.
+    anonymous_trace = await matrix.post(
+        "/api/traces", json={"session_id": "any", "event_type": "tool_call", "name": "x"}
+    )
+    assert anonymous_trace.status_code == 401
 
 
 # ---------------------------------------------------------------------------
@@ -415,18 +413,55 @@ async def test_hosted_cross_session_clustering_isolated(matrix, tenants):
 
 
 # ---------------------------------------------------------------------------
-# Analytics — intentionally local-only (known-open gap, do not fix here)
+# Analytics — route exposure authenticated in hosted mode (store stays
+# local-only by design; that limitation is documented, not fixed here)
 # ---------------------------------------------------------------------------
 
 
-async def test_hosted_analytics_route_is_local_only_open_gap(matrix, tenants, isolated_analytics_db):
+async def test_hosted_analytics_routes_require_a_key(matrix, tenants, isolated_analytics_db):
     alpha, _ = tenants
-    # KNOWN-OPEN GAP: GET /api/analytics has no auth dependency and its store
-    # (api/analytics_db.py) is documented local-only / not tenant-isolated.
-    # Pinned as current behavior for the W10 inventory; tenant-scoped
-    # analytics is deferred (see docs/hosted-route-inventory.md).
-    authed = await matrix.get("/api/analytics", headers=alpha.headers)
-    assert authed.status_code == 200
-    unauthed = await matrix.get("/api/analytics")
-    assert unauthed.status_code == 200
-    assert authed.json()["range"] == unauthed.json()["range"] == "30d"
+    # Closed gap: GET/POST /api/analytics* carried no auth dependency. They
+    # now share the hosted-mode gate (api.dependencies.require_hosted_auth),
+    # so a missing or invalid key is rejected with 401 in cloud mode.
+    assert (await matrix.get("/api/analytics")).status_code == 401
+    assert (
+        await matrix.post(
+            "/api/analytics/events", json={"event_type": "why_button_click"}
+        )
+    ).status_code == 401
+    assert (
+        await matrix.get("/api/analytics", headers={"Authorization": "Bearer ad_test_unknown"})
+    ).status_code == 401
+
+    # A valid key reaches the routes (the underlying store remains the
+    # shared local analytics.db — a documented, separate limitation).
+    authed_read = await matrix.get("/api/analytics", headers=alpha.headers)
+    assert authed_read.status_code == 200
+    assert authed_read.json()["range"] == "30d"
+
+    authed_write = await matrix.post(
+        "/api/analytics/events",
+        json={"event_type": "why_button_click"},
+        headers=alpha.headers,
+    )
+    assert authed_write.status_code == 200
+    assert authed_write.json()["recorded"] is True
+
+
+async def test_local_mode_analytics_stay_fully_open(isolated_analytics_db):
+    """Loopback/local mode keeps the analytics routes keyless, as before."""
+    from httpx import ASGITransport, AsyncClient
+
+    from agent_debugger_sdk import config as cfg_mod
+    from api.main import create_app
+
+    cfg_mod._global_config = cfg_mod.Config._create_unvalidated(mode="local")
+    transport = ASGITransport(app=create_app())  # loopback client by default
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        read = await client.get("/api/analytics")
+        assert read.status_code == 200, read.text
+        assert read.json()["range"] == "30d"
+
+        write = await client.post("/api/analytics/events", json={"event_type": "nl_query"})
+        assert write.status_code == 200
+        assert write.json()["recorded"] is True

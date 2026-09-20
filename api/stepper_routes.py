@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from agent_debugger_sdk.core.stepper import (
     AgentStepper,
@@ -69,17 +69,27 @@ async def set_breakpoint(
 
     Returns:
         Created breakpoint with stepper state
+
+    Raises:
+        HTTPException: 422 if a custom_condition predicate is outside the
+            supported grammar (validated pre-mutation — nothing is created)
     """
     # Verify session exists
     await require_session(repo, session_id)
 
-    # Get stepper and set breakpoint
+    # Get stepper and set breakpoint. AgentStepper.set_breakpoint validates
+    # CUSTOM_CONDITION predicates via validate_custom_condition before
+    # mutating state; surface that rejection as an explicit 4xx instead of
+    # letting it fail later during step/continue (or as a 500).
     stepper = _get_stepper(session_id)
-    breakpoint = stepper.set_breakpoint(
-        breakpoint_type=breakpoint_type,
-        condition_value=condition_value,
-        description=description,
-    )
+    try:
+        breakpoint = stepper.set_breakpoint(
+            breakpoint_type=breakpoint_type,
+            condition_value=condition_value,
+            description=description,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     return {
         "session_id": session_id,
