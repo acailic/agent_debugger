@@ -74,6 +74,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   authenticated GET reconstruction, marked `legacy-get`. The source
   session is preserved unchanged and no agent/tool execution is started
 
+
+#### Contract gate: payload fixtures, nullability and type checks (Q04)
+- The gate now validates required/nullability compatibility between live
+  Pydantic fields and TS properties, structural type kinds, and eight
+  real response payload fixtures captured verbatim from the in-process
+  app (committed as a static artifact with a regeneration script); 56
+  mutation tests including TS-source mutations and CLI exit codes
+
+#### Hosted auth hardened; breakpoint conditions validated at creation (Q06/Q07)
+- Absent Authorization header in cloud mode is rejected with 401 instead
+  of falling back to the 'local' tenant; analytics routes require a valid
+  key in hosted mode and stay open in local mode; custom breakpoint
+  conditions are validated when set/imported (422 naming the unsupported
+  construct) and the predicate interpreter closes residual unbounded-work
+  vectors (repetition/concatenation caps, printf-style formatting
+  rejected)
+
+#### Installed-artifact and container repair (Q12 first slice)
+- scripts/install_smoke.sh proves the full first-value journey from
+  built wheels in a clean venv outside the checkout — server start with
+  explicit data dir, keyless local SDK trace, query, restart with the
+  trace intact, bundled UI — and the same inside a Docker container.
+  Fixed en route: the installed server crashed because wheels don't ship
+  alembic.ini (migrations env now guards on existence), and the
+  Dockerfile copied pyproject-server.toml under the wrong name and never
+  copied the README its metadata references. CI gains a real-service
+  Redis buffer job (redis:7-alpine + redis-server binary) so the Redis
+  tests run without skips (Q13 acceptance)
+
+#### Tracker reconciliation (Q03)
+- #325 landed (AlertDeriver threshold tests, 12 cases, via local review),
+  #321/#322/#323/#309 closed with documented rationale, #311 closed;
+  dependabot #307/#308/#310/#306 merged on green CI; TypeScript 7 bump
+  (#309) blocked by typescript-eslint's peer range (<6.1.0), not by this
+  repo
+
 ## [0.4.0] - 2026-09-20
 
 The benchmark-integrity and delivery-recovery release: the Who&When
