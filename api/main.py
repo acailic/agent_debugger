@@ -59,8 +59,13 @@ async def lifespan(app: FastAPI):
     # Initialize analytics database (local-only, fire-and-forget)
     init_analytics_db()
 
-    buffer_backend = "redis" if os.environ.get("REDIS_URL") else "memory"
-    buffer = create_buffer(backend=buffer_backend)
+    redis_url = os.environ.get("REDIS_URL")
+    if redis_url:
+        # Pass the configured endpoint through so the redis backend connects
+        # to it instead of silently falling back to its default URL.
+        buffer = create_buffer(backend="redis", redis_url=redis_url)
+    else:
+        buffer = create_buffer(backend="memory")
 
     configure_storage(app_context.require_session_maker())
     configure_event_pipeline(
