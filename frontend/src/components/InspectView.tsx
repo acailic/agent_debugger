@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { useSessionStore } from '../stores/sessionStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useDerivedSessionData } from '../hooks/useDerivedSessionData'
 import { useInspectEvent } from '../hooks/useInspectEvent'
 import { useDriftData } from '../hooks/useDriftData'
@@ -64,7 +65,7 @@ export function InspectView() {
     evidenceGraphLoading,
     evidenceGraphError,
   } = useSessionStore(
-    (state) => ({
+    useShallow((state) => ({
       selectedSessionId: state.selectedSessionId,
       selectedEventId: state.selectedEventId,
       selectedCheckpointId: state.selectedCheckpointId,
@@ -88,7 +89,7 @@ export function InspectView() {
       evidenceGraph: state.evidenceGraph,
       evidenceGraphLoading: state.evidenceGraphLoading,
       evidenceGraphError: state.evidenceGraphError,
-    }),
+    })),
   )
 
   const {
@@ -98,13 +99,13 @@ export function InspectView() {
     setSelectedCheckpointId,
     setReplayMode,
   } = useSessionStore(
-    (state) => ({
+    useShallow((state) => ({
       setSelectedEventId: state.setSelectedEventId,
       setSelectedSessionId: state.setSelectedSessionId,
       setSecondarySessionId: state.setSecondarySessionId,
       setSelectedCheckpointId: state.setSelectedCheckpointId,
       setReplayMode: state.setReplayMode,
-    }),
+    })),
   )
 
   // Auto-select default checkpoint when bundle/replay changes

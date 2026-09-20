@@ -29,7 +29,9 @@ def _parse_bool(value: str | None, default: bool = False) -> bool:
 @dataclass(frozen=True)
 class Config:
     api_key: str | None = None
-    endpoint: str = "http://localhost:8000"
+    # None means "no collector configured": the SDK records events in memory
+    # only and never opens a connection (inert local mode).
+    endpoint: str | None = None
     enabled: bool = True
     redact_prompts: bool = False
     max_payload_kb: int = 100
@@ -49,11 +51,11 @@ class Config:
         Raises:
             ValueError: If any configuration value is invalid.
         """
-        if not self.endpoint:
-            raise ValueError("endpoint_url must be non-empty")
-
-        if not self.endpoint.startswith(("http://", "https://")):
-            raise ValueError(f"endpoint_url must start with http:// or https://, got: {self.endpoint}")
+        if self.endpoint:
+            if not self.endpoint.startswith(("http://", "https://")):
+                raise ValueError(
+                    f"endpoint_url must start with http:// or https://, got: {self.endpoint}"
+                )
 
         if not isinstance(self.max_payload_kb, int) or self.max_payload_kb <= 0:
             raise ValueError(f"max_payload_kb must be a positive integer, got: {self.max_payload_kb}")
@@ -69,7 +71,7 @@ class Config:
         # Use object.__setattr__ for frozen dataclass
         if self.api_key and not self._skip_validation:
             object.__setattr__(self, "mode", "cloud")
-            if self.endpoint == "http://localhost:8000":
+            if not self.endpoint or self.endpoint == "http://localhost:8000":
                 object.__setattr__(self, "endpoint", "https://api.agentdebugger.dev")
 
         # Validate unless explicitly skipped (for testing)
@@ -108,8 +110,11 @@ def init(
     """Initialize the Agent Debugger SDK.
 
     Call once at application startup. If no api_key is provided,
-    falls back to AGENT_DEBUGGER_API_KEY env var. If still no key,
-    runs in local mode.
+    falls back to AGENT_DEBUGGER_API_KEY env var. With an endpoint
+    (argument or AGENT_DEBUGGER_URL) the SDK delivers events over
+    HTTP: unauthenticated in local mode, with a Bearer key in cloud
+    mode. Without an endpoint the SDK stays inert — events are only
+    recorded in memory.
     """
     global _global_config
 
@@ -118,10 +123,13 @@ def init(
             return _global_config
 
         resolved_key = api_key or os.environ.get("AGENT_DEBUGGER_API_KEY")
+        # No endpoint fallback in local mode: delivering to a guessed
+        # localhost port would silently fail (or worse, succeed against
+        # the wrong server). Local users configure the collector explicitly.
         resolved_endpoint = (
             endpoint
             or os.environ.get("AGENT_DEBUGGER_URL")
-            or ("https://api.agentdebugger.dev" if resolved_key else "http://localhost:8000")
+            or ("https://api.agentdebugger.dev" if resolved_key else None)
         )
 
         resolved_enabled = enabled and _parse_bool(os.environ.get("AGENT_DEBUGGER_ENABLED"), default=True)

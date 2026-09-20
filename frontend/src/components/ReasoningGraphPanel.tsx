@@ -126,7 +126,9 @@ function SequentialView({ steps, selectedEventId, onSelectEvent }: SequentialVie
             className={`sequential-item ${step.event.id === selectedEventId ? 'selected' : ''}`}
             onClick={() => onSelectEvent(step.event.id)}
           >
-            <div className="sequential-number">{step.event.sequence || step.event.timestamp.slice(-6)}</div>
+            <div className="sequential-number">
+              {typeof step.event.data.sequence === 'number' ? step.event.data.sequence : step.event.timestamp.slice(-6)}
+            </div>
             <div className="sequential-content">
               <div className="sequential-header">
                 <span className="sequential-type">{step.event.event_type.replace(/_/g, ' ')}</span>

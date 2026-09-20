@@ -1,5 +1,10 @@
 # Research Features Completion Implementation Plan
 
+> **Historical plan; reconciled 2026-09-20.** Existing research components and
+> remaining validation are inventoried in the [living roadmap](../../ROADMAP.md)
+> and [progress snapshot](../../guides/progress.md). Use their current queue
+> before acting on the old unchecked steps below.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Complete Phases 3-6 of the Research Implementation Plan

@@ -133,6 +133,11 @@ Use targeted tests when possible, for example:
 python3 -m pytest -q tests/test_api_contract.py -k sessions
 ```
 
+Full-stack scenario tests live in `tests/e2e/` (marker `e2e`): they start a
+real uvicorn subprocess with a temp SQLite database and drive the SDK over
+real HTTP. They run as part of the default suite; opt out with
+`-m 'not e2e'`. Run them alone with `python3 -m pytest -q tests/e2e`.
+
 ### Frontend changes
 
 ```bash

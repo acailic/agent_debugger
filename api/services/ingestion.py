@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import os
+from dataclasses import fields, replace
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -14,25 +15,48 @@ from api import app_context
 from api.services.sessions import analyze_session, should_refresh_replay_value
 from collector.buffer import EventBuffer, get_event_buffer
 from collector.intelligence.facade import TraceIntelligence
-from redaction.pipeline import RedactionPipeline
+from redaction.pipeline import RedactionPipeline, apply_payload_redaction
 from storage import TraceRepository
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_SSE_TIMEOUT = int(os.getenv("AGENT_DEBUGGER_SSE_TIMEOUT", "300"))
 
+
+def _resolve_pipeline(redaction_pipeline: RedactionPipeline | None) -> RedactionPipeline:
+    """Return the injected pipeline or the single configured one."""
+    return redaction_pipeline if redaction_pipeline is not None else app_context._get_redaction_pipeline()
+
+
+def _copy_redacted_state(event: TraceEvent, redacted: TraceEvent) -> None:
+    """Overwrite ``event``'s fields in place with the redacted copy's values.
+
+    The SDK emitter hands the SAME event object to the persister and to
+    ``buffer.publish`` (scheduled via ``asyncio.gather``, persister first).
+    Copying the redacted state back — before the persister's first await —
+    means the concurrent buffer publish streams exactly what the database
+    stores: one policy, one representation, no divergent copies.
+    """
+    for field_info in fields(event):
+        setattr(event, field_info.name, getattr(redacted, field_info.name))
+
 async def persist_session_start(
     session: Session,
     *,
     session_maker: async_sessionmaker[AsyncSession] | None = None,
+    redaction_pipeline: RedactionPipeline | None = None,
 ) -> None:
+    pipeline = _resolve_pipeline(redaction_pipeline)
+    # Persist a scrubbed copy of the config; the caller's live Session keeps
+    # its original config (documented in-process exception).
+    to_create = replace(session, config=apply_payload_redaction(pipeline, session.config))
     sm = session_maker or app_context.require_session_maker()
     async with sm() as db_session:
         try:
             repo = TraceRepository(db_session)
             existing = await repo.get_session(session.id)
             if existing is None:
-                await repo.create_session(session)
+                await repo.create_session(to_create)
                 await repo.commit()
                 # Record analytics event (fire-and-forget)
                 from api.analytics_db import record_event
@@ -48,7 +72,9 @@ async def persist_session_update(
     *,
     session_maker: async_sessionmaker[AsyncSession] | None = None,
     intelligence: TraceIntelligence | None = None,
+    redaction_pipeline: RedactionPipeline | None = None,
 ) -> None:
+    pipeline = _resolve_pipeline(redaction_pipeline)
     sm = session_maker or app_context.require_session_maker()
     async with sm() as db_session:
         try:
@@ -70,7 +96,9 @@ async def persist_session_update(
                 llm_calls=session.llm_calls,
                 errors=session.errors,
                 replay_value=replay_value,
-                config=session.config,
+                # Scrubbed copy: the persisted config carries no more than
+                # the policy permits, while the live Session is untouched.
+                config=apply_payload_redaction(pipeline, session.config),
                 tags=session.tags,
             )
             await repo.commit()
@@ -85,8 +113,13 @@ async def persist_event(
     session_maker: async_sessionmaker[AsyncSession] | None = None,
     redaction_pipeline: RedactionPipeline | None = None,
 ) -> None:
-    pipeline = redaction_pipeline or app_context._get_redaction_pipeline()
-    event = pipeline.apply(event)
+    pipeline = _resolve_pipeline(redaction_pipeline)
+    # Apply the single configured policy and copy the redacted state back
+    # onto the caller's event so the concurrent buffer publish (and the
+    # NDJSON spill fed from the buffer) sees the redacted representation.
+    # Values already captured by the SDK's in-memory event store are the
+    # documented exception — every persisted or streamed copy is redacted.
+    _copy_redacted_state(event, pipeline.apply(event))
     sm = session_maker or app_context.require_session_maker()
     async with sm() as db_session:
         try:
@@ -102,12 +135,20 @@ async def persist_checkpoint(
     checkpoint: Checkpoint,
     *,
     session_maker: async_sessionmaker[AsyncSession] | None = None,
+    redaction_pipeline: RedactionPipeline | None = None,
 ) -> None:
+    pipeline = _resolve_pipeline(redaction_pipeline)
+    # Persist a scrubbed copy; the caller's Checkpoint object is untouched.
+    to_store = replace(
+        checkpoint,
+        state=apply_payload_redaction(pipeline, checkpoint.state),
+        memory=apply_payload_redaction(pipeline, checkpoint.memory),
+    )
     sm = session_maker or app_context.require_session_maker()
     async with sm() as db_session:
         try:
             repo = TraceRepository(db_session)
-            await repo.create_checkpoint(checkpoint)
+            await repo.create_checkpoint(to_store)
             await repo.commit()
         except Exception:
             await db_session.rollback()
@@ -163,7 +204,10 @@ async def event_generator(
                 event = await asyncio.wait_for(queue.get(), timeout=timeout)
                 event_data = json.dumps(event.to_dict())
                 yield f"data: {event_data}\n\n"
-            except TimeoutError:
+            # Python 3.11+ aliases asyncio.TimeoutError with the builtin
+            # TimeoutError; on 3.10 they are distinct classes, so catch both
+            # or a quiet period kills the stream mid-response.
+            except (TimeoutError, asyncio.TimeoutError):
                 yield ": keepalive\n\n"
     except asyncio.CancelledError:
         raise

@@ -159,16 +159,18 @@ async def get_uncertainty_analysis(
     session_id: str,
     repo: TraceRepository = Depends(get_repository),
 ) -> dict:
-    """Get conformal prediction uncertainty analysis.
+    """Get heuristic uncertainty analysis.
 
-    CROP (Conformal Risk Optimization) provides uncertainty quantification
-    for agent decisions with calibrated confidence intervals.
+    Deterministic uncertainty quantification for agent decisions with
+    confidence-derived intervals. These are heuristic scores — no held-out
+    calibration fit backs them, so they are not calibrated confidence
+    intervals.
 
     Args:
         session_id: Session to analyze
 
     Returns:
-        Dict with uncertainty scores, confidence intervals, and risk assessment
+        Dict with uncertainty scores, heuristic intervals, and risk assessment
     """
     await require_session(repo, session_id)
     events = await repo.get_event_tree(session_id)
@@ -181,17 +183,18 @@ async def get_prediction_intervals(
     confidence_level: float = Query(default=0.9, ge=0.5, le=0.99),
     repo: TraceRepository = Depends(get_repository),
 ) -> dict:
-    """Get conformal prediction intervals for agent decisions.
+    """Get heuristic prediction intervals for agent decisions.
 
-    Provides statistically valid prediction intervals with guaranteed
-    coverage probability.
+    Intervals are derived deterministically from the requested confidence
+    level and event confidence metadata. No nonconformity distribution is
+    fitted on held-out data, so no coverage probability is guaranteed.
 
     Args:
         session_id: Session to analyze
-        confidence_level: Target confidence level (0.5 to 0.99)
+        confidence_level: Requested confidence level (0.5 to 0.99)
 
     Returns:
-        Dict with prediction intervals and coverage statistics
+        Dict with prediction intervals and interval summary statistics
     """
     await require_session(repo, session_id)
     events = await repo.get_event_tree(session_id)
@@ -203,16 +206,17 @@ async def get_risk_assessment(
     session_id: str,
     repo: TraceRepository = Depends(get_repository),
 ) -> dict:
-    """Get comprehensive risk assessment using conformal prediction.
+    """Get heuristic risk assessment.
 
-    Combines uncertainty quantification with safety analysis to provide
-    a calibrated risk assessment.
+    Combines uncertainty scoring with safety analysis into a deterministic
+    risk assessment. The probabilities are heuristic component scores, not
+    calibrated probabilities of an unsafe outcome.
 
     Args:
         session_id: Session to analyze
 
     Returns:
-        Dict with risk assessment, calibrated probabilities, and recommendations
+        Dict with risk assessment, heuristic risk scores, and recommendations
     """
     await require_session(repo, session_id)
     events = await repo.get_event_tree(session_id)

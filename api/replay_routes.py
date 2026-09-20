@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import copy
 import uuid
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query
 
+from agent_debugger_sdk.checkpoints import serialize_checkpoint_state, validate_checkpoint_state
+from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
 from api.analytics_db import record_event
 from api.dependencies import get_repository
 from api.exceptions import NotFoundError
@@ -145,22 +148,127 @@ async def get_checkpoint(
     )
 
 
+def _copy_event(event: TraceEvent, new_session_id: str, id_map: dict[str, str]) -> TraceEvent:
+    """Copy one event into a new session with a fresh id and remapped references.
+
+    Typed event fields (e.g. ``DecisionEvent.evidence_event_ids``) are merged
+    into the storage payload by ``to_storage_data()`` and split back out by
+    ``from_data``, so remapping them inside the payload keeps typed structure
+    intact. ``upstream_event_ids`` lives in ``metadata`` on the storage side, so
+    it is remapped via the keyword route instead.
+
+    References pointing outside the copied prefix are dropped: ``parent_id``
+    becomes ``None`` and out-of-prefix ids are filtered from the id lists.
+    """
+    data = event.to_storage_data()
+    if isinstance(data.get("evidence_event_ids"), list):
+        data["evidence_event_ids"] = [id_map[e] for e in data["evidence_event_ids"] if e in id_map]
+    return TraceEvent.from_data(
+        event.event_type,
+        {
+            "id": id_map[event.id],
+            "session_id": new_session_id,
+            "parent_id": id_map.get(event.parent_id) if event.parent_id else None,
+            "timestamp": event.timestamp,
+            "name": event.name,
+            "metadata": {
+                key: value for key, value in event.metadata.items() if key != "upstream_event_ids"
+            },
+            "importance": event.importance,
+            "upstream_event_ids": [id_map[e] for e in event.upstream_event_ids if e in id_map],
+        },
+        data,
+    )
+
+
+def _copy_prefix_events(
+    source_events: list[TraceEvent], anchor_event_id: str, new_session_id: str
+) -> tuple[list[TraceEvent], dict[str, str]]:
+    """Copy the events up to and including the anchor event into a new session.
+
+    Event ids are a global primary key, so every copied event gets a new id;
+    the returned old-to-new id map remaps in-prefix ``parent_id`` /
+    ``upstream_event_ids`` / ``evidence_event_ids`` references. If the anchor
+    id does not match any event of the source session (e.g. a checkpoint
+    created with an empty ``event_id``), the prefix is empty and the restored
+    session starts from the restore marker alone.
+    """
+    anchor_index = next((i for i, event in enumerate(source_events) if event.id == anchor_event_id), None)
+    prefix = source_events[: anchor_index + 1] if anchor_index is not None else []
+    id_map = {event.id: str(uuid.uuid4()) for event in prefix}
+    return [_copy_event(event, new_session_id, id_map) for event in prefix], id_map
+
+
+def _build_restore_marker(
+    new_session_id: str,
+    checkpoint: Checkpoint,
+    restore_token: str,
+    copied_count: int,
+    prefix: list[TraceEvent],
+    restored_at: str,
+) -> TraceEvent:
+    """Build the first event of a restored session marking its provenance.
+
+    The marker reuses ``EventType.AGENT_START`` (storage strictly parses event
+    types and a dedicated restore type would require SDK changes) and is
+    identifiable by ``name == "session_restored"`` plus its structured data.
+    Its timestamp is strictly earlier than every copied event so it reliably
+    lists first (event listing orders by timestamp only).
+    """
+    timestamp = (
+        min(event.timestamp for event in prefix) - timedelta(microseconds=1)
+        if prefix
+        else datetime.now(timezone.utc)
+    )
+    return TraceEvent(
+        id=str(uuid.uuid4()),
+        session_id=new_session_id,
+        parent_id=None,
+        event_type=EventType.AGENT_START,
+        timestamp=timestamp,
+        name="session_restored",
+        importance=1.0,
+        data={
+            "restore_token": restore_token,
+            "source_checkpoint_id": checkpoint.id,
+            "source_session_id": checkpoint.session_id,
+            "copied_event_count": copied_count,
+            "restored_at": restored_at,
+        },
+    )
+
+
 @router.post("/api/checkpoints/{checkpoint_id}/restore", response_model=RestoreResponse)
 async def restore_checkpoint(
     checkpoint_id: str,
     request: RestoreRequest,
     repo: TraceRepository = Depends(get_repository),
 ) -> RestoreResponse:
-    """Restore execution from a checkpoint by creating a new session."""
+    """Restore execution from a checkpoint by creating a new session.
+
+    The new session carries the source session's history up to and including
+    the checkpoint's anchor event (copied with fresh ids and remapped internal
+    references), a leading restore-marker event, and an initial checkpoint
+    holding the source checkpoint's state and memory — so the restored run
+    keeps its auditability and can be continued from a known state.
+    """
+    from agent_debugger_sdk.core.events import Session
+
     checkpoint = await repo.get_checkpoint(checkpoint_id)
     if checkpoint is None:
         raise NotFoundError(f"Checkpoint {checkpoint_id} not found")
 
-    from agent_debugger_sdk.core.events import Session
+    source_events = await repo.get_event_tree(checkpoint.session_id)
 
     new_session_id = request.session_id or str(uuid.uuid4())
     restore_token = str(uuid.uuid4())
-    restored_at = datetime.now(timezone.utc).isoformat()
+    restored_at_dt = datetime.now(timezone.utc)
+    restored_at = restored_at_dt.isoformat()
+
+    copied_events, id_map = _copy_prefix_events(source_events, checkpoint.event_id, new_session_id)
+    marker = _build_restore_marker(
+        new_session_id, checkpoint, restore_token, len(copied_events), copied_events, restored_at
+    )
 
     new_session = Session(
         id=new_session_id,
@@ -173,6 +281,22 @@ async def restore_checkpoint(
         },
     )
     await repo.create_session(new_session)
+    if copied_events:
+        await repo.add_events_batch(copied_events)
+    await repo.add_event(marker)
+
+    wrapped_state = serialize_checkpoint_state(validate_checkpoint_state(checkpoint.state or {}))
+    initial_checkpoint = Checkpoint(
+        id=str(uuid.uuid4()),
+        session_id=new_session_id,
+        event_id=id_map.get(checkpoint.event_id, marker.id),
+        sequence=1,
+        state=wrapped_state,
+        memory=copy.deepcopy(checkpoint.memory or {}),
+        timestamp=restored_at_dt,
+        importance=checkpoint.importance,
+    )
+    await repo.create_checkpoint(initial_checkpoint)
     await repo.commit()
 
     return RestoreResponse(
@@ -182,4 +306,7 @@ async def restore_checkpoint(
         restored_at=restored_at,
         state=checkpoint.state,
         restore_token=restore_token,
+        copied_event_count=len(copied_events),
+        new_checkpoint_id=initial_checkpoint.id,
+        restore_event_id=marker.id,
     )

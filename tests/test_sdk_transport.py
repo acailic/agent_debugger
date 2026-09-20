@@ -1,12 +1,15 @@
 """Tests for SDK HTTP transport."""
 
 import logging
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from agent_debugger_sdk.core.events import EventType, Session, TraceEvent
-from agent_debugger_sdk.transport import HttpTransport
+from agent_debugger_sdk.transport import HttpTransport, PermanentError, RetryConfig, TransientError
 
 
 def _make_event() -> TraceEvent:
@@ -128,3 +131,126 @@ async def test_transport_close():
         mock_client.aclose = AsyncMock()
         await transport.close()
         mock_client.aclose.assert_called_once()
+
+
+@pytest.mark.parametrize("status_code", [408, 429, 503])
+async def test_transport_recovers_from_temporary_http_failure(status_code):
+    failure = MagicMock()
+    async with HttpTransport("http://localhost:8000", on_delivery_failure=failure) as transport:
+        with (
+            patch.object(transport._client, "post", new_callable=AsyncMock) as post,
+            patch("agent_debugger_sdk.transport.asyncio.sleep", new_callable=AsyncMock) as sleep,
+        ):
+            post.side_effect = [httpx.Response(status_code), httpx.Response(202)]
+            await transport.send_event(_make_event())
+
+        assert post.call_count == 2
+        assert post.call_args_list[0] == post.call_args_list[1]
+        sleep.assert_awaited_once_with(0.5)
+        failure.assert_not_called()
+
+
+@pytest.mark.parametrize("status_code", [301, 302, 307, 308])
+async def test_transport_reports_redirect_as_delivery_failure(status_code):
+    failure = MagicMock()
+    async with HttpTransport("http://localhost:8000", on_delivery_failure=failure) as transport:
+        with patch.object(transport._client, "post", new_callable=AsyncMock) as post:
+            post.return_value = httpx.Response(status_code, headers={"Location": "https://other.example"})
+            await transport.send_event(_make_event())
+
+        post.assert_awaited_once()
+        failure.assert_called_once()
+        error = failure.call_args.args[0]
+        assert isinstance(error, PermanentError)
+        assert error.status_code == status_code
+        assert "server URL" in str(error)
+
+
+async def test_transport_retries_remote_disconnect():
+    failure = MagicMock()
+    async with HttpTransport("http://localhost:8000", on_delivery_failure=failure) as transport:
+        with (
+            patch.object(transport._client, "post", new_callable=AsyncMock) as post,
+            patch("agent_debugger_sdk.transport.asyncio.sleep", new_callable=AsyncMock),
+        ):
+            post.side_effect = [httpx.RemoteProtocolError("Server disconnected"), httpx.Response(202)]
+            await transport.send_event(_make_event())
+
+        assert post.call_count == 2
+        failure.assert_not_called()
+
+
+@pytest.mark.parametrize("status_code", [429, 503])
+@pytest.mark.parametrize("header,expected_delay", [("3", 3), ("invalid", 0.5), ("NaN", 0.5), ("-1", 0.5)])
+async def test_transport_observes_retry_after(status_code, header, expected_delay):
+    async with HttpTransport("http://localhost:8000") as transport:
+        with (
+            patch.object(transport._client, "post", new_callable=AsyncMock) as post,
+            patch("agent_debugger_sdk.transport.asyncio.sleep", new_callable=AsyncMock) as sleep,
+        ):
+            post.side_effect = [httpx.Response(status_code, headers={"Retry-After": header}), httpx.Response(202)]
+            await transport.send_event(_make_event())
+        assert post.call_count == 2
+        sleep.assert_awaited_once_with(expected_delay)
+
+
+async def test_transport_observes_retry_after_http_date():
+    now = datetime(2026, 9, 15, tzinfo=timezone.utc)
+    async with HttpTransport("http://localhost:8000") as transport:
+        with (
+            patch.object(transport._client, "post", new_callable=AsyncMock) as post,
+            patch("agent_debugger_sdk.transport.asyncio.sleep", new_callable=AsyncMock) as sleep,
+            patch("agent_debugger_sdk.transport.datetime") as clock,
+        ):
+            clock.now.return_value = now
+            post.side_effect = [
+                httpx.Response(429, headers={"Retry-After": format_datetime(now + timedelta(seconds=10))}),
+                httpx.Response(202),
+            ]
+            await transport.send_event(_make_event())
+        sleep.assert_awaited_once_with(10)
+
+
+async def test_transport_reports_long_retry_after_without_waiting_or_retrying_early():
+    failure = MagicMock()
+    async with HttpTransport("http://localhost:8000", on_delivery_failure=failure) as transport:
+        with (
+            patch.object(transport._client, "post", new_callable=AsyncMock) as post,
+            patch("agent_debugger_sdk.transport.asyncio.sleep", new_callable=AsyncMock) as sleep,
+        ):
+            post.return_value = httpx.Response(429, headers={"Retry-After": "3600"})
+            await transport.send_event(_make_event())
+        post.assert_awaited_once()
+        sleep.assert_not_awaited()
+        failure.assert_called_once()
+        assert isinstance(failure.call_args.args[0], TransientError)
+        assert failure.call_args.args[0].retry_after_seconds == 3600
+
+
+async def test_transport_bounds_backoff_and_reports_exhausted_retries_once():
+    failure = MagicMock()
+    retry = RetryConfig(max_retries=3, initial_backoff_seconds=2, max_backoff_seconds=3)
+    async with HttpTransport("http://localhost:8000", retry_config=retry, on_delivery_failure=failure) as transport:
+        with (
+            patch.object(transport._client, "post", new_callable=AsyncMock) as post,
+            patch("agent_debugger_sdk.transport.asyncio.sleep", new_callable=AsyncMock) as sleep,
+        ):
+            post.return_value = httpx.Response(429)
+            await transport.send_event(_make_event())
+        assert post.call_count == 4
+        assert [call.args[0] for call in sleep.await_args_list] == [2, 3, 3]
+        failure.assert_called_once()
+        assert failure.call_args.args[0].status_code == 429
+
+
+@pytest.mark.parametrize("field", ["initial_backoff_seconds", "backoff_multiplier", "max_backoff_seconds"])
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -1])
+def test_retry_configuration_rejects_unbounded_delays(field, value):
+    with pytest.raises(ValueError):
+        RetryConfig(**{field: value})
+
+
+@pytest.mark.parametrize("value", [-1, 1.5, True])
+def test_retry_configuration_requires_nonnegative_integer_attempts(value):
+    with pytest.raises(ValueError):
+        RetryConfig(max_retries=value)

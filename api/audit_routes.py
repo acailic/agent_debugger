@@ -18,10 +18,11 @@ from api.schemas_analysis import (
     DecisionJustificationResponse,
     EvidenceGraphResponse,
     PortfolioAuditResponse,
+    ReexecutionSetResponse,
     SessionAuditResponse,
 )
 from api.services import analyze_session, require_session
-from collector.audit import SessionAuditEngine
+from collector.audit import SessionAuditEngine, build_reexecution_set
 from storage import TraceRepository
 
 router = APIRouter(tags=["audit"])
@@ -107,6 +108,48 @@ async def get_decision_justification(
         session_id=session_id,
         event_id=event_id,
         justification=justification,
+    )
+
+
+@router.get(
+    "/api/sessions/{session_id}/decisions/{event_id}/reexecution-set",
+    response_model=ReexecutionSetResponse,
+)
+async def get_decision_reexecution_set(
+    session_id: str,
+    event_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> ReexecutionSetResponse:
+    """Return the minimal re-execution set for a suspect decision.
+
+    The smallest sub-graph that would need to re-run to confirm or
+    invalidate the decision's claim: the decision, its cited evidence, the
+    tool calls producing that evidence, and the downstream subtree that
+    consumed the decision's output — each marked read-only vs
+    required-rerun. Deterministic; nothing is executed.
+    """
+    session = await require_session(repo, session_id)
+    try:
+        events, _checkpoints, analysis, _ = await analyze_session(repo, session_id)
+        report = _audit_engine.audit(
+            events,
+            session=_session_dict(session),
+            failure_explanations=analysis.get("failure_explanations", []),
+        )
+        reexecution_set = build_reexecution_set(events, report, event_id)
+        if reexecution_set is None:
+            raise NotFoundError(
+                f"Decision {event_id} not found in session {session_id}"
+            )
+        await repo.commit()
+    except Exception:
+        await repo.rollback()
+        raise
+    record_event("decision_reexecution_set_viewed", session_id=session_id)
+    return ReexecutionSetResponse(
+        session_id=session_id,
+        event_id=event_id,
+        reexecution_set=reexecution_set,
     )
 
 

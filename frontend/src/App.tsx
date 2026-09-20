@@ -56,11 +56,9 @@ function App() {
     })),
   )
 
-  const { setReplay, setCurrentIndex, setIsPlaying, setLoading, setCompareLoading, setError } = useSessionStore(
+  const { setReplay, setLoading, setCompareLoading, setError } = useSessionStore(
     useShallow((state) => ({
       setReplay: state.setReplay,
-      setCurrentIndex: state.setCurrentIndex,
-      setIsPlaying: state.setIsPlaying,
       setLoading: state.setLoading,
       setCompareLoading: state.setCompareLoading,
       setError: state.setError,
@@ -340,7 +338,7 @@ function App() {
 
   // Load replay data when session/mode/params change
   useEffect(() => {
-    if (!selectedSessionId || !bundle) return
+    if (!selectedSessionId || bundle?.session.id !== selectedSessionId) return
     const sessionId = selectedSessionId
     let ignore = false
     async function loadReplay() {
@@ -353,12 +351,6 @@ function App() {
         })
         if (ignore) return
         setReplay(response)
-        if (response.stopped_at_breakpoint && response.stopped_at_index !== null) {
-          setCurrentIndex(response.stopped_at_index)
-        } else {
-          setCurrentIndex(0)
-        }
-        setIsPlaying(false)
       } catch (err) {
         if (!ignore) {
           setError(err instanceof Error ? err.message : 'Failed to load replay')
@@ -378,8 +370,6 @@ function App() {
     collapseThreshold,
     replayBreakpointParams,
     setReplay,
-    setCurrentIndex,
-    setIsPlaying,
     setError,
   ])
 

@@ -1,5 +1,10 @@
 # Replay Depth L1 + L2 Implementation Plan
 
+> **Historical plan; reconciled 2026-09-20.** Checkpoint schemas and server
+> semantic restore exist. SDK integration remains Q10; agent execution
+> continuation remains W04 in the [living roadmap](../../ROADMAP.md).
+> Use that roadmap before acting on the old unchecked steps below.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Implement standardized checkpoint schemas and manual restore API for execution restoration from checkpoints.
