@@ -1,5 +1,12 @@
 # Platform, delivery and operator-experience evidence audit
 
+> **Delivery update (2026-09-20):** the contract/CI changes described below as
+> working-tree-only landed in `ac819c0`; coverage XML generation is configured.
+> Q01/Q02 CI recovery is complete. See the
+> [delivery refresh](2026-09-20-planning-evidence.md#delivery-refresh-after-the-fixes).
+> The original observations below retain their audit revision; hosted, browser
+> and installed-artifact gaps remain separate work.
+
 Audit started **2026-09-19**, completed **2026-09-20** (Europe/Belgrade). Baseline: **`3597b6b`**. This is an evidence note supporting the [living roadmap](../ROADMAP.md), not a second prioritization source. No product code, deployment, private traces, or secrets were changed or examined. Public-cloud readiness and the value of a hosted offering remain separate decisions; [ADR-002](../decisions/ADR-002-deployment-model.md), [ADR-005](../decisions/ADR-005-architecture-for-scale.md), [ADR-008](../decisions/ADR-008-security-auth-privacy.md), and the superseded [pricing ADR](../decisions/ADR-003-pricing-strategy.md) contain conflicting assumptions that need an explicit decision before cloud investment.
 
 ## Meaning of the labels

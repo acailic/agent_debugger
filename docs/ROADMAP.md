@@ -1,6 +1,7 @@
 # Peaky Peek roadmap
 
-**Last verified: 2026-09-20. Delivery refresh: `main` at `f9dc240`.**
+**Last verified: 2026-09-20. Source/release: `main` at `5a807cf` (v0.4.0).
+Focused local validation: `f9dc240`.**
 
 This is the single source of priorities for the repository. It contains the
 ambitious development plans as workstreams, with their current state, dependencies
@@ -71,7 +72,7 @@ for commands, results and limits.
 | Redis-backed operation | **PARTIAL / BLOCKED runtime** | Implementation exists; constructor/config wiring defects found | [Platform audit](research/2026-09-19-platform-status.md) |
 | SDK/server packaging and bundled UI | **PARTIAL** | Separate package definitions and publish workflow exist; clean installed-artifact and container proof needed | [Platform audit](research/2026-09-19-platform-status.md) |
 | Browser regression workflows | **NOT STARTED** for seeded full browser coverage | API e2e and component tests exist; they do not prove a browser workflow or hosted auth enforcement | [Platform audit](research/2026-09-19-platform-status.md) |
-| Main CI | **RECOVERED 2026-09-20** | #324 fixed (`09ec3dc`): three consecutive fully green matrices after the fix — `423ab82` (run 35479465055), `07efd4e` (run 35479673383), `2e45fe7` (run 35479946771) — each covering Python 3.10/3.11/3.12 full xdist suite, coverage gate, contract check, frontend build/tests, and dependency security (high-severity `browserslist` cleared in `423ab82`) | [DISCOVERIES](../DISCOVERIES.md) |
+| Main CI | **RECOVERED 2026-09-20** | #324 fixed (`09ec3dc`) and closed. Q02's three consecutive green matrices: `423ab82` (35479465055), `07efd4e` (35479673383), `2e45fe7` (35479946771); `f9dc240` also passed (35480122316). Covers Python 3.10/3.11/3.12 with `-k "not integration"`, coverage, contract checks, frontend build/tests and dependency security; advisory checks remain nonblocking | [Delivery evidence](research/2026-09-20-planning-evidence.md#delivery-refresh-after-the-fixes) |
 | Type checks and API contracts | **PARTIAL** | Contract gate committed in `ac819c0` and green: 8 response field sets, 3 enum unions, 72 frontend routes, plus mutation regressions. Runtime payload types/nullability remain Q04; Pyright remains advisory | [Delivery evidence](research/2026-09-20-planning-evidence.md#delivery-refresh-after-the-fixes) |
 | OTel interoperability | **PARTIAL** | Exporter setup exists; native event-to-span wiring and inbound ingestion not established | [Core audit](research/2026-09-19-core-status.md) |
 | Teams, hosted accounts, billing and paid adoption | **NOT STARTED / UNVERIFIED** | Product surfaces absent in inspected app; actual customer adoption not measured | [Platform](research/2026-09-19-platform-status.md), [research](research/2026-09-20-planning-evidence.md) |
@@ -278,12 +279,13 @@ compared against a reproducible baseline before release.
 - [ ] Support optional model judges only after deterministic baselines, with
   pinned prompts, cost ceilings, repeated runs and human disagreement analysis.
 
-**First slice:** self-test plus small hand-checked global-index corpus with expected
-agent/step labels, then rerun the pinned full corpus under the corrected protocol.
+**Next slice:** define held-out native-engine cases and their label provenance;
+build incident-to-regression export under Q14 after Q08. The corrected self-test,
+global-index fixtures and pinned-corpus manifest are already delivered.
 **Gate:** a fresh environment reproduces published counts; every metric states its
 scope and denominator; candidate and baseline share data/evaluator versions.
 **Dependencies:** none for corrections; W02/W03 for native datasets; W10 for export.
-**Estimate:** 1–2 engineer-weeks for protocol correction; 3–6 for regression workflow.
+**Estimate:** protocol correction complete; 3–6 engineer-weeks for regression workflow.
 
 ### W06 — Useful failure memory and adaptive investigation
 
@@ -497,7 +499,7 @@ S/M/L are rough ranges: S ≤3 engineer-days, M 4–7, L 8–15, excluding obser
 
 | ID | Starting status | Slice and acceptance artifact | Depends on | Size |
 |---|---|---|---|---|
-| Q01 | DONE (diagnosis+fix) | #324: three lifecycle/isolation causes fixed in `09ec3dc`; serial reproducer, `-n 1` and twelve local `-n auto` runs recorded. Issue remains open administratively | — | ✓ |
+| Q01 | DONE (diagnosis+fix) | #324: three lifecycle/isolation causes fixed in `09ec3dc`; serial reproducer, `-n 1` and twelve local `-n auto` runs recorded. Issue closed, verified 2026-09-20 | — | ✓ |
 | Q02 | DONE | Serial green; `-n 1` + twelve local `-n auto` runs green; three consecutive fully green CI matrices (runs 35479465055, 35479673383, 35479946771) | Q01 | ✓ |
 | Q03 | PARTIAL / READY | Review #325 first against #321/#322; #323's worker fix is already on main. Select one threshold-test change and reconcile tracker state after passing review | Q02 ✓ | S |
 | Q04 | PARTIAL / READY | Base checker and mutations DONE in `ac819c0`; extend real payload, structural-type and nullability checks | Q02 ✓ | M |
@@ -546,11 +548,11 @@ absent from main. #325 is the first review candidate, not an approved change.
    focused tests with warnings treated as errors and required CI. Old failed
    checks are not evidence about the new base.
 4. After a reviewed passing merge, reconcile duplicate PRs and #311. Treat #323
-   as superseded by `09ec3dc`; attach Q01/Q02 evidence when reconciling #324.
+   as superseded by `09ec3dc`. #324 is already closed with Q01/Q02 evidence.
 
 **Acceptance:** one merged implementation with distinct behavior assertions,
 passing required checks and an explicit warning-handling decision. Tracker
-cleanup is still pending; no merges, comments or closures occurred in this refresh.
+cleanup is still pending; this planning task performed no merges, comments or closures.
 
 ### Q07 — Remove the custom-expression execution path
 
@@ -732,12 +734,12 @@ Presence of similarly named code is not proof of the paper's scientific result.
 
 | Measure | Present evidence | Proposed next measurement |
 |---|---|---|
-| CI reliability | Failed observed main run; focused tests are not full CI | Matrix pass rate and reproducible failure categories over subsequent runs |
+| CI reliability | Q02 three-run gate met; subsequent `f9dc240` and v0.4.0 release CI also passed | Matrix pass rate and reproducible failure categories over subsequent runs; keep excluded/advisory scope explicit |
 | First useful local trace | Documentation promise, wiring gap found | Median and failure count from five clean-install pilot sessions |
 | Capture completeness | Recovery tests; no crash-durable universal guarantee | Ack/durable/drop/retry counts under declared failure injections |
 | Diagnosis usefulness | Implemented heuristics and narratives | Correctness plus paired task time; report all pilot outcomes |
 | Native failure-localization accuracy | Not established by Who&When helper | Held-out native traces with independently reviewed cause/step labels |
-| Benchmark accuracy | Historical default-scope result has methodology defects | ~~Corrected, pinned evaluator artifacts~~ done 2026-09-20: `benchmarks/results/who_when/2026-09-20-global-protocol.json`; next is native-engine evaluation (E1) |
+| Benchmark accuracy | Corrected global-index manifest: 49/184 exact agent, 28/184 exact step/joint, 86/184 abstentions; standalone heuristic | Held-out native-engine evaluation (E1), with versioned data and independently reviewed labels |
 | Large-trace UX | No fresh browser/performance measurement in this audit | Reference machine, 10k-event data, p50/p95 navigation and memory |
 | Hosting readiness | Scoped auth/privacy/runtime gaps | Real hosted-mode route matrix, recovery drill and retention deletion proof |
 | Adoption/revenue | Not measured | Consenting repeat users, completed investigations and willingness-to-pay study |

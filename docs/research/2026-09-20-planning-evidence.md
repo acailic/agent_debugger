@@ -3,7 +3,8 @@
 Audit started 2026-09-19 and completed 2026-09-20 (Europe/Belgrade).
 Local baseline: `main`, commit `3597b6b`. This is a research snapshot, not a
 release certification. [ROADMAP](../ROADMAP.md) owns priorities; these notes
-record the evidence behind them.
+record the evidence behind them. The [delivery refresh](#delivery-refresh-after-the-fixes)
+below supersedes the original delivery snapshot after fixes landed on main.
 
 ## Evidence map
 
@@ -15,7 +16,7 @@ record the evidence behind them.
 | Is delivery currently healthy? | GitHub observations below | Current issue/PR/run states, independent of historical test-count claims |
 | Which external patterns are useful? | Official documentation below | Design inputs; not evidence that Peaky Peek implements them |
 
-## GitHub delivery snapshot
+## Original GitHub delivery snapshot (historical)
 
 Read-only verification through `gh-axi issue list`, `pr list`,
 `issue view 324 --full`, `issue view 311`, `pr view 323`, `pr view 325`,
@@ -35,6 +36,98 @@ requests/types, README and DISCOVERIES, plus untracked contract tests. They are
 **local work in progress**, not new work from this planning task and not proof of
 a merged release. The [platform audit](2026-09-19-platform-status.md) distinguishes
 this boundary. No GitHub writes were performed.
+
+## Delivery refresh after the fixes
+
+Focused checks ran on 2026-09-20 against clean local and remote `main` at `f9dc240`,
+before the documentation edits. Concurrent work then released `5a807cf` as
+v0.4.0 (version/changelog/documentation changes) and closed #324; final source and
+tracker observations incorporate those changes. GitHub observations used read-only
+`gh-axi` run, issue and PR views/diffs/checks. Source inspection establishes what
+landed; focused checks below establish only their tested scope.
+
+### Completed work
+
+| Deliverable | Commit / artifact | Verified boundary |
+|---|---|---|
+| Q01: full-suite xdist isolation repair | [`09ec3dc`](https://github.com/acailic/agent_debugger/commit/09ec3dcfaa4f29105e61dacc26b256230796cb85), [root causes](../../DISCOVERIES.md) | Lifespan engine cleanup, per-process conftest initialization and worker naming corrected. Earlier twelve local parallel runs are recorded evidence, not reruns in this refresh |
+| Q02: three consecutive green CI matrices | [`423ab82` run](https://github.com/acailic/agent_debugger/actions/runs/35479465055), [`07efd4e` run](https://github.com/acailic/agent_debugger/actions/runs/35479673383), [`2e45fe7` run](https://github.com/acailic/agent_debugger/actions/runs/35479946771) | All three Python jobs (3.10/3.11/3.12) and dependency security succeeded in each run. Q02's observation gate is met |
+| Contract gate foundation | [`ac819c0`](https://github.com/acailic/agent_debugger/commit/ac819c03de43e2e62b5a5c6ba080d58992662b87) | Live Pydantic field sets, SDK enum unions, TypeScript AST route/method extraction, failing-on-drift behavior and mutation tests committed. Q04 payload/type/nullability extension remains |
+| Q05/E0: corrected Who&When protocol | [`9c2bd04`](https://github.com/acailic/agent_debugger/commit/9c2bd04537ec1c9c696702b8ba974802804485e7), [published result manifest](../../benchmarks/results/who_when/2026-09-20-global-protocol.json) | Global indexing, pinned source, explicit denominators and repaired self-test. Artifact contains 184 rows: agent 49/184, step 28/184, joint 28/184, abstentions 86/184; zero invalid indices and six reported speaker mismatches |
+| Frontend dependency audit repair | `423ab82`, successful dependency jobs above | The prior high-severity browserslist audit failure was cleared. Advisory tools remain advisory |
+
+CI still uses `-k "not integration"`; its green status is not proof of all optional
+integration modes. Pyright, Bandit, dependency review and Codecov upload remain
+advisory/nonblocking under the inspected workflow. No browser, Docker, installed
+wheel, Redis or PostgreSQL acceptance run was added by this refresh. The newer
+[`f9dc240` run](https://github.com/acailic/agent_debugger/actions/runs/35480122316)
+also completed successfully; Q02 had already been met by the prior three runs.
+
+[v0.4.0](https://github.com/acailic/agent_debugger/releases/tag/v0.4.0) is published
+on GitHub, and its [PyPI publish workflow](https://github.com/acailic/agent_debugger/actions/runs/35480455352)
+reports both SDK and server publication jobs successful. Clean installed-package
+behavior was not checked. Release-commit
+[CI](https://github.com/acailic/agent_debugger/actions/runs/35480454666) also
+completed successfully at final lookup: Python 3.10/3.11/3.12 and dependency
+security all passed. This adds release evidence beyond the completed Q02 gate.
+
+### Tracker state and remaining review
+
+| Item | State at refresh | Next action |
+|---|---|---|
+| [#324](https://github.com/acailic/agent_debugger/issues/324) | CLOSED at final lookup; implementation and CI recovery gates complete | No remaining implementation or tracker task under Q01/Q02 |
+| [#323](https://github.com/acailic/agent_debugger/pull/323) | OPEN; its functional worker-variable change is already on main | Reconcile as superseded; do not implement or merge the same correction again |
+| [#311](https://github.com/acailic/agent_debugger/issues/311) | OPEN; dedicated threshold test file absent from main | Complete one reviewed test PR before closing |
+| [#321](https://github.com/acailic/agent_debugger/pull/321) | OPEN; 9 tests; only GitGuardian result shown | Compare overlap; no full CI success established |
+| [#322](https://github.com/acailic/agent_debugger/pull/322) | OPEN; 9 tests; three Python jobs and dependency security failing | Compare overlap; old checks predate recovered main |
+| [#325](https://github.com/acailic/agent_debugger/pull/325) | OPEN; 12 tests; Python 3.11 passed, Python 3.10/3.12 and dependency security failed | First review candidate because it covers more fallback cases; update against main and obtain fresh CI before approval |
+
+All three threshold PRs add `tests/alerts/test_alert_deriver_base.py`. #321's
+async-getter fallback test leaves a coroutine unawaited; #322 suppresses the
+warning; #325 closes test-created coroutines. None proves the production sync
+fallback avoids that warning. Review this explicitly and fill any missing async
+fallback/argument-forwarding cases. #325's
+[old CI failure](https://github.com/acailic/agent_debugger/actions/runs/35403101890)
+does not establish whether it passes on the repaired base.
+
+Dependency PRs #306–310 also remain open. This planning task performed no GitHub
+writes. Concurrent release work closed #324 and published v0.4.0; the final
+read-only refresh verified those changes.
+
+### Fresh local validation
+
+```bash
+.venv-ci/bin/python scripts/hooks/check_api_contract.py
+# pass: 8 schemas, 3 enums, 72 routes; no drift
+
+.venv-ci/bin/python scripts/benchmark_who_when.py --self-test
+# self-test OK; two fixture records, global indexing
+
+.venv-ci/bin/python -m pytest -q tests/contract \
+  tests/test_benchmark_who_when_cli.py tests/test_fetch_who_when.py \
+  tests/test_who_when.py --maxfail=3
+# 56 passed in 4.11s
+```
+
+The full benchmark corpus was not rerun; its recorded rates above come from the
+committed manifest. It evaluates a standalone text-marker heuristic, not the
+native audit/causal engine. The local self-test result is a fixture check, not a
+replacement corpus score.
+
+### Source-checked gaps retained in the plan
+
+- `TraceContext.__aenter__` still requires `config.api_key` to install transport
+  hooks: Q09's standalone no-key delivery remains partial.
+- Hosted auth still falls back to local identity without credentials; clustering
+  hard-codes local scope; analytics and checkpoint reference checks remain Q06.
+- Custom stepper conditions still use `eval`, including a state-import path:
+  Q07 can reject this capability before the broader Q06 work finishes.
+- The contract extractor still checks names/unions/routes, not payload structural
+  types or nullability: the completed foundation does not close Q04.
+
+The [next delivery briefs](../ROADMAP.md#next-delivery-slices) specify file scope,
+implementation steps and acceptance. Earlier broad capability audits remain
+historical evidence; only the named delivery/source findings were refreshed here.
 
 ## External research
 

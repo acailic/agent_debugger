@@ -1,5 +1,11 @@
 # Intelligence, audit, and research status audit
 
+> **Benchmark update (2026-09-20):** Q05/E0 protocol corrections and the repaired
+> self-test landed in `9c2bd04`; a corrected result manifest is committed. See the
+> [delivery refresh](2026-09-20-planning-evidence.md#delivery-refresh-after-the-fixes).
+> The protocol defects below describe the original audit revision. Native-engine
+> attribution and held-out effectiveness remain unevaluated.
+
 Audit started 2026-09-19 and completed 2026-09-20 (Europe/Belgrade), against
 `3597b6b` plus the existing working tree. This is an evidence note supporting
 the [living roadmap](../ROADMAP.md), not a competing delivery plan. No product

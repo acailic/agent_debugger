@@ -1,120 +1,72 @@
-# Progress
+# Implementation progress
 
-This page records actual repo progress so the documentation does not drift behind the code.
+**Verified: 2026-09-20. Source/release: `main` at `5a807cf` (v0.4.0).
+Focused local validation: `f9dc240`.**
 
-Snapshot date: `2026-03-24`
+The [roadmap](../ROADMAP.md) owns priorities and acceptance gates. This page is
+its concise implementation snapshot, replacing the March claims that cloud
+hardening and replay depth were complete. Existing components do not establish a
+complete installed, hosted or execution-continuation workflow.
 
-## Current Status
+## Completed, within the stated scope
 
-| Area | Status | Notes |
-|------|--------|-------|
-| Core trace event model | Implemented | Typed events, provenance fields, checkpoints, and serialization are in place. |
-| Trace capture runtime | Implemented | `TraceContext`, decorators, async context management, and framework adapters are working. |
-| Local live debugger path | Implemented | Event buffer, persistence hooks, FastAPI query routes, SSE, replay helpers, and frontend views work together. |
-| Research-grade analysis features | Implemented | Ranking, replay slicing, failure clustering, loop-style alerts, safety/policy event types, and seeded demo sessions are present. |
-| SDK initialization/config | Implemented | `init()` supports env-driven local/cloud configuration and prompt redaction flags. |
-| API key primitives | Implemented | Key generation, bcrypt hashing, auth ORM models, and FastAPI auth helpers are in place and wired into API routes. |
-| Redaction pipeline | Implemented | Prompt, tool-payload, and regex PII scrubbing are implemented, tested, and wired into the event persistence path. |
-| Multi-tenant enforcement | Implemented | `tenant_id` is on all trace models and enforced by `TraceRepository` on all queries. |
-| SDK cloud transport | Implemented | SDK config detects cloud mode, uses HTTP transport with API key auth for remote event delivery. |
-| Cloud-ready infrastructure | Implemented | PostgreSQL migrations, Redis buffer, and retention logic exist. |
-| CLI | Implemented | `peaky-peek` command with `--host`, `--port`, `--open`, `--version` flags via `cli.py`. |
-| Pricing module | Implemented | `agent_debugger_sdk/pricing.py` with model cost table; `LLMResponseEvent` auto-calculates cost on creation. |
-| Bundled UI | Implemented | Frontend built to `frontend/dist/`, served at `/ui/` by FastAPI when present. |
-| JSON export | Implemented | `GET /api/sessions/{id}/export` returns portable session bundle (session + events + checkpoints). |
-| Examples | Implemented | 8 annotated examples in `examples/` covering hello world, research agent, LangChain, PydanticAI, checkpoint replay, safety audit, loop detection, and live streaming. |
-| Getting started guide | Implemented | `docs/guides/getting-started.md` covers install, start, first trace, UI tour, and export in 5 minutes. |
-| Replay depth L1 | Implemented | Typed checkpoint schemas: `BaseCheckpointState`, `LangChainCheckpointState`, `CustomCheckpointState` with validation and serialization helpers. |
-| Replay depth L2 | Implemented | `TraceContext.restore()` classmethod fetches checkpoint from server and creates a new context with restored state. REST endpoints: `GET /api/checkpoints/{id}` and `POST /api/checkpoints/{id}/restore`. |
+| Capability | What is complete | Evidence / remaining boundary |
+|---|---|---|
+| CI isolation repair (Q01) | Lifespan engine cleanup, idempotent per-process test setup and correct xdist worker variable | `09ec3dc`; [root-cause record](../../DISCOVERIES.md). Issue #324 is closed |
+| CI recovery gate (Q02) | Three consecutive successful Python 3.10/3.11/3.12 matrices and dependency-security jobs | [Run evidence](../research/2026-09-20-planning-evidence.md#delivery-refresh-after-the-fixes); optional integrations and advisory tools are outside this claim |
+| Contract gate foundation | Live model fields, enums, frontend HTTP routes/methods and mutation regressions | `ac819c0`; 8 schemas, 3 enums and 72 routes pass. Payload types/nullability remain Q04 |
+| Who&When protocol correction (Q05/E0) | Global indexing, exact named metrics, pinned corpus provenance and result manifest | [Artifact](../../benchmarks/results/who_when/2026-09-20-global-protocol.json); native-engine accuracy remains unevaluated |
+| Trace model and manual recording | Typed events, decisions, checkpoints, context and recording primitives | [Core audit](../research/2026-09-19-core-status.md); complete delivery is separate |
+| Recorded-event investigation | Session inspection, replay/filtering/comparison and recorded-event stepping | [Core audit](../research/2026-09-19-core-status.md); these operations do not resume agent execution |
+| Semantic restore server API | Copies a source prefix with remapped references, restore marker and checkpoint | [Core audit](../research/2026-09-19-core-status.md); SDK integration remains partial |
+| Deterministic analysis surfaces | Audit, claim verification, evidence graph, narratives, drift and advisory trust bands | [Intelligence audit](../research/2026-09-19-intelligence-status.md); usefulness and calibrated probabilities are separate claims |
 
-## What Shipped
+[v0.4.0](https://github.com/acailic/agent_debugger/releases/tag/v0.4.0) was
+published during this refresh by concurrent release work. Its publish workflow
+succeeded; this does not replace Q12's clean-install acceptance.
 
-### Core debugger (complete)
+## Partial or not yet verified
 
-- Local trace capture through SDK context, decorators, and adapters
-- Database-backed session/event/checkpoint persistence
-- FastAPI query surface for sessions, traces, search, analysis, replay, and SSE
-- Frontend debugger views for sessions, timeline/tree inspection, replay, and analysis
-- Benchmark/demo seeding and targeted tests around contracts, adapters, auth helpers, redaction, and config
+| Area | Current limitation | Roadmap work |
+|---|---|---|
+| SDK local first run | Standalone no-key initialization does not select HTTP delivery; configuration and transport exist | Q09 / W02 |
+| Delivery recovery | Retry and partial-write recovery exist; pending memory batches are not crash-durable | W02 / W11 |
+| SDK semantic restore | Existing SDK restore does not use the complete server restore contract | Q10 / W04 |
+| Framework continuation | Generic runtime continuation and cached tool/model replay are not implemented | W04 |
+| Hosted identity and ownership | Auth/repository primitives exist; route, checkpoint-reference, stream and derived-data coverage is incomplete | Q06 / W10 |
+| Breakpoint conditions | Custom Python expressions still evaluate in the server context | Q07 / W10 |
+| Redaction | Persisted event filtering exists; consistent live-buffer, checkpoint and metadata policy coverage remains | Q08 / W10 |
+| Clean installed artifacts | SDK/server package definitions and bundled UI paths exist; wheel/container first-run and restart proof is missing | Q12 / W11 |
+| Redis/PostgreSQL | Redis has concrete constructor/URL wiring gaps; real-service database migration/recovery is unverified | Q13 / W11 |
+| Browser workflows | API scenarios and component tests exist; seeded browser acceptance in CI remains open | Q11 / W08 |
+| Failure memory and clustering | Components exist; measured retrieval quality, tenant scope and retention/deletion lifecycle remain | W06 / W10 / W11 |
+| Framework and OTel coverage | Adapters/exporter setup exist; real version/capability tests and native-event span wiring remain | Q15 / W07 |
+| Teams, billing and adoption | Hosted product surfaces are not implemented; repeat use and willingness to pay are unmeasured | Q16 / W12 |
 
-### Cloud-hardening layer (complete)
+The docs/site/examples already exist. The old plan's “build a landing page” and
+“start comparison/clustering” labels are not a reliable inventory. Keep the
+existing surfaces and finish their validated workflows.
 
-- SDK cloud configuration and API key awareness with HTTP transport
-- API key auth lookup helpers and supporting auth models, wired into API routes
-- Redaction pipeline wired into the persistence path
-- Buffer abstraction with Redis-backed implementation for cloud event fan-out
-- Repository-enforced tenant isolation on sessions, events, and checkpoints
-- API routes that consistently resolve tenant identity from auth
-- Alembic migrations for PostgreSQL schema management
+## Next work
 
-### Quick wins (complete)
+Follow the [implementation queue](../ROADMAP.md#first-implementation-queue) and
+[file-level delivery briefs](../ROADMAP.md#next-delivery-slices). Begin by reviewing
+one threshold-test PR (Q03); #325 is the candidate, not an approved or merged change.
+The worker-variable change in #323 is already on main and needs reconciliation.
+The next code slices address custom predicates, hosted boundaries/redaction and
+local delivery. Contract, restore, browser and package gates complete the first
+useful investigation journey before pilot recruitment or hosted product expansion.
 
-- `peaky-peek` CLI command (install and run in one step)
-- Model pricing table with auto-cost calculation on LLM response events
-- Bundled frontend served directly from the pip package
-- JSON export endpoint for portable session bundles
-- 8 examples covering all major SDK features
-- 5-minute getting started guide
+## Validation and maintenance
 
-### Replay depth (complete)
+Fresh local validation: **56 tests passed**, the Who&When CLI self-test passed,
+and the contract checker reported **8 schemas / 3 enums / 72 routes, no drift**.
+Commands, run links and limits are in the
+[delivery evidence](../research/2026-09-20-planning-evidence.md#delivery-refresh-after-the-fixes).
+The complete suite was not rerun locally during this documentation refresh;
+its delivery evidence is the inspected GitHub runs. No browser, clean package,
+container or production deployment was exercised.
 
-- Standardized checkpoint schemas (`agent_debugger_sdk/checkpoints/`)
-- `validate_checkpoint_state()` and `serialize_checkpoint_state()` helpers
-- `TraceContext.restore(checkpoint_id)` for manual execution restoration
-- `create_checkpoint()` now accepts and validates typed dataclass state
-- REST endpoints for checkpoint fetch and restore
-
-## What Is Next
-
-### Replay depth L3+ (not started)
-
-Planned in `docs/improvement-roadmap.md`:
-
-- Deterministic restore hooks per framework adapter (LangChain, PydanticAI)
-- State-drift markers when replay diverges from the original run
-- Expose replay provenance and restore boundaries in the UI
-
-### Phase 2: Auth + Teams + Landing Page (not started)
-
-Planned in `docs/decisions/ADR-011-build-sequence.md`:
-
-- Clerk integration (signup, login, OAuth)
-- API key management UI (create, list, rotate, revoke)
-- Stripe integration (billing tiers)
-- Team creation and shared session access
-- Public landing page (positioning, demo GIF, pricing, CTA)
-- Documentation site
-
-### Phase 3: Beta Launch (not started)
-
-Planned in `docs/decisions/ADR-011-build-sequence.md`:
-
-- Private beta invite (20-50 developers)
-- CrewAI adapter
-- Feedback collection
-- Session comparison (side-by-side debugging)
-
-### Intelligence improvements (not started)
-
-Planned in `docs/improvement-roadmap.md`:
-
-- Cross-session failure clustering
-- Richer ranking signals (retry churn, latency spikes, policy escalation)
-- Representative trace surfacing per cluster
-
-## Decision Progress
-
-The ADR set in [`docs/decisions/`](../decisions/README.md) is visible in code:
-
-- ADR-006 is visible through `init()` and env-based configuration.
-- ADR-008 is visible through API key helpers, auth models, and the redaction pipeline, with tenant isolation enforced in the repository.
-- ADR-011 Phase 1 is complete: cloud-hardening, SDK polish, CLI, pricing, bundled UI, and examples are all shipped. Phase 2 (auth/teams/landing) has not started.
-
-## Validation
-
-Current local verification on `2026-03-24`:
-
-- `frontend`: `npm run build` passes
-- `python tests`: `pytest tests/ -v` passes — 365 passed, 1 skipped, 1 pre-existing failure (`test_version_exists` — package metadata not installed in dev env)
-- Redis tests are skipped automatically if redis package is not installed
-- All cloud-readiness tests for tenant isolation and engine factory pass
+Update this page when a roadmap acceptance gate passes or new evidence changes a
+capability's scope. Link the commit and validation artifact. Accepted ADRs record
+decisions; they do not prove delivery. Keep historical audit dates visible.

@@ -1,347 +1,99 @@
-# Planning Status Report - 2026-03-24 16:20
-
-## Executive Summary
-
-**Overall Progress**: Phase 1 (Cloud-Ready Backend) is **COMPLETE** ✅  
-**Next Phase**: Phase 2 (Auth + Teams + Landing Page) - **NOT STARTED**  
-**Research Features**: 6 phases planned, most are **PARTIALLY COMPLETE**
-
----
-
-## Phase 1: Cloud-Ready Backend + Polished SDK ✅ COMPLETE
-
-### What Was Planned (Weeks 1-4)
-
-**SDK Work:**
-- ✅ Implement `agent_debugger.init()` auto-configuration entry point
-- ✅ Add LangChain auto-instrumentation
-- ✅ Graceful degradation (SDK never crashes)
-- ✅ PyPI packaging as `agent-debugger`
-- ✅ Environment-based configuration
-- ✅ Harden PydanticAI adapter
-
-**Backend Work:**
-- ✅ PostgreSQL support via SQLAlchemy
-- ✅ Database migrations with Alembic
-- ✅ API key authentication
-- ✅ tenant_id on all models, enforced at repository layer
-- ✅ Redis-backed EventBuffer for cloud
-- ✅ Health check endpoints
-
-**Frontend Work:**
-- ✅ Polish three core workflows
-- ✅ Session virtualization
-- ✅ Shareable URLs
-- ✅ Dark theme
-
-**Exit Milestone**: ✅ Deploy to Fly.io. One test user can pip install and see traces.
-
-### What Actually Shipped
-
-From `docs/progress.md`:
-- Core trace event model - **Implemented**
-- Trace capture runtime - **Implemented**
-- Local live debugger path - **Implemented**
-- Research-grade analysis features - **Implemented**
-- SDK initialization/config - **Implemented**
-- API key primitives - **Implemented**
-- Redaction pipeline - **Implemented**
-- Multi-tenant enforcement - **Implemented**
-- SDK cloud transport - **Implemented**
-- Cloud-ready infrastructure - **Implemented**
-- CLI - **Implemented**
-- Pricing module - **Implemented**
-- Bundled UI - **Implemented**
-- JSON export - **Implemented**
-- Examples (8) - **Implemented**
-- Replay depth L1 & L2 - **Implemented**
-
-**Status**: ✅ **PHASE 1 IS 100% COMPLETE**
-
----
-
-## Phase 2: Auth + Teams + Landing Page ⏸️ NOT STARTED
-
-### What Was Planned (Weeks 5-7)
-
-**Auth & Billing:**
-- ❌ Clerk integration (signup, login, OAuth)
-- ❌ API key management UI
-- ❌ Stripe integration (billing tiers)
-- ❌ Soft event volume limits
-- ❌ Data retention enforcement
-
-**Team Features:**
-- ❌ Team creation and member management
-- ❌ Shared session access
-- ❌ Team-level API keys
-- ❌ Basic usage dashboard
-
-**Marketing & Landing:**
-- ❌ Landing page
-- ❌ Documentation site
-- ❌ Comparison page
-- ❌ Blog post
-
-**Status**: ⏸️ **NOT STARTED - Ready to begin**
-
----
-
-## Phase 3: Beta Launch ⏸️ NOT STARTED
-
-### What Was Planned (Weeks 8-10)
-
-**Launch Activities:**
-- ❌ Private beta (20-50 developers)
-- ❌ Public beta announcement
-- ❌ CrewAI adapter
-- ❌ Feedback collection
-
-**Status**: ⏸️ **BLOCKED - Depends on Phase 2**
-
----
-
-## Research Implementation Plan Status
-
-From `docs/research-implementation-plan.md`:
-
-### Phase 1: Contract And Query Cleanup ✅
-**Status**: Complete
-
-### Phase 2: One Complete Research-Backed Debugger Flow ✅
-**Status**: Mostly Complete
-- ✅ Session list
-- ✅ Timeline with safety/refusal indicators
-- ✅ Event detail panel
-- ✅ Decision provenance panel
-- ✅ Decision tree
-- ⚠️ Selecting events and jumping to checkpoints (partial)
-
-### Phase 3: Selective Replay ⚠️
-**Status**: Partially Complete
-- ✅ Replay entrypoints from error/decision/checkpoint
-- ⚠️ Replay breakpoints (partial)
-- ⚠️ Collapse low-value segments (partial)
-
-### Phase 4: Adaptive Ranking And Retention ⚠️
-**Status**: Partially Complete
-- ✅ Session-level replay value
-- ⚠️ Retention tiers (partial)
-- ⚠️ Cluster repeated failures (partial)
-
-### Phase 5: Multi-Agent And Prompt-Policy Views ⚠️
-**Status**: Partially Complete in UI
-- ✅ Conversation view for agent turns
-- ✅ Speaker and turn goal visibility
-- ✅ Two-session comparison view
-- ⚠️ Benchmarked comparison semantics (missing)
-- ⚠️ Stronger metrics (missing)
-
-### Phase 6: Real-Time Monitoring And Alerts ⚠️
-**Status**: Partially Complete in UI
-- ✅ Behavior alerts
-- ✅ SSE subscription
-- ✅ Live session pulse panel
-- ⚠️ Stronger rolling summaries (missing)
-- ⚠️ Explicit loop alerts (missing)
-
----
-
-## Improvement Roadmap Status
-
-From `docs/improvement-roadmap.md`:
-
-### 1. Deepen Replay ⚠️
-**Status**: Partial (L1 & L2 complete, L3+ not started)
-- ✅ Standardized checkpoint schemas
-- ✅ TraceContext.restore()
-- ❌ Deterministic restore hooks per framework
-- ❌ State-drift markers
-
-### 2. Strengthen Adaptive Trace Intelligence ⚠️
-**Status**: Partial
-- ✅ Basic ranking
-- ⚠️ Cross-session clustering (partial)
-- ❌ Richer signals (retry churn, latency spikes)
-
-### 3. Expand Research Benchmarks ⚠️
-**Status**: Partial
-- ✅ Basic benchmark seeds
-- ⚠️ Larger corpus (partial)
-- ❌ Regression assertions in CI
-
-### 4. Finish Cloud + Security Path ✅
-**Status**: Complete
-- ✅ API key auth
-- ✅ tenant_id enforcement
-- ✅ Redaction on persistence
-- ✅ SDK cloud transport
-- ✅ PostgreSQL support
-
-### 5. Expand Product Surface ⚠️
-**Status**: Partial
-- ❌ Side-by-side comparison (planned Phase 3)
-- ⚠️ Search (partial)
-- ❌ Saved views
-- ❌ Richer drill-down
-
----
-
-## Test Status
-
-From `docs/progress.md`:
-- Frontend: `npm run build` passes ✅
-- Python tests: 365 passed, 1 skipped, 1 pre-existing failure ✅
-- Redis tests: Skip automatically if redis not installed ✅
-- Cloud-readiness tests: All pass ✅
-
----
-
-## What's Next: Three Strategic Options
-
-### Option A: Continue with Original Plan (Phase 2)
-**Pros**: Clear path, builds business foundation  
-**Cons**: Heavy infra work (Clerk, Stripe), slower to new features  
-**Timeline**: 3 weeks  
-**Risk**: May launch with good infra but undifferentiated features
-
-### Option B: Implement Top 5 No-Brainer Features First
-**Pros**: Immediate user value, viral potential, differentiation  
-**Cons**: Delays business infra  
-**Timeline**: 3 months  
-**Risk**: May have great features but no monetization path
-
-### Option C: Hybrid Approach (RECOMMENDED)
-Combine the best of both:
-
-**Week 1-2**:
-- ✅ Implement Feature 1 ("Why Did It Fail?" button)
-- ✅ Start Phase 2 (Clerk integration)
-
-**Week 3-4**:
-- ✅ Feature 2 (Failure Memory Search)
-- ✅ Landing page + documentation
-
-**Week 5-6**:
-- ✅ Feature 3 (Smart Replay Highlights)
-- ✅ Stripe integration
-
-**Week 7-8**:
-- ✅ Beta launch with 3 killer features
-- ✅ Collect feedback
-
-**Week 9-12**:
-- ✅ Features 4 & 5 (Behavior Alerts, Natural Language)
-- ✅ Iterate based on feedback
-
-**Why This Works**:
-- Ships value immediately (Feature 1 in 2 weeks)
-- Builds business foundation in parallel
-- Beta launch with differentiation
-- Feedback-driven iteration
-
----
-
-## Completion Metrics
-
-| Category | Planned | Complete | Partial | Not Started | Completion % |
-|----------|---------|----------|---------|-------------|--------------|
-| **Phase 1: Cloud Backend** | 15 items | 15 | 0 | 0 | **100%** |
-| **Phase 2: Auth/Teams** | 12 items | 0 | 0 | 12 | **0%** |
-| **Phase 3: Beta** | 4 items | 0 | 0 | 4 | **0%** |
-| **Research Plan** | 6 phases | 2 | 4 | 0 | **33% complete, 67% partial** |
-| **Improvements** | 5 items | 1 | 3 | 1 | **20% complete, 60% partial** |
-
----
-
-## Key Achievements ✅
-
-1. **Solid Foundation**: Complete cloud-ready backend with 365+ passing tests
-2. **Research-Backed**: Core debugger with causal analysis, evidence tracking, replay
-3. **Production Ready**: Multi-tenant, auth, redaction, PostgreSQL support
-4. **Developer Experience**: CLI, 8 examples, 5-minute getting started guide
-5. **Replay System**: L1 & L2 depth with checkpoint restoration
-
----
-
-## Critical Gaps ⚠️
-
-1. **No Business Infra**: Auth, billing, teams not started
-2. **Incomplete Research Features**: Most are 50-70% complete
-3. **Missing Differentiation**: No killer features that make users say "I need this"
-4. **No Landing Page**: Can't convert visitors to users
-5. **No Feedback Loop**: Haven't tested with real users yet
-
----
-
-## Recommended Next Steps
-
-### Immediate (This Week)
-1. ✅ **Decide on approach**: Hybrid (Option C) recommended
-2. ✅ **Start Feature 1**: "Why Did It Fail?" button (highest impact)
-3. ✅ **Begin Clerk integration**: Signup/login foundation
-
-### Short-term (Weeks 1-4)
-1. Ship Feature 1 + Feature 2
-2. Complete landing page
-3. Start documentation site
-
-### Medium-term (Weeks 5-8)
-1. Ship Feature 3
-2. Complete Stripe integration
-3. Beta launch with 3 differentiating features
-
-### Long-term (Weeks 9-12)
-1. Ship Features 4 & 5
-2. Iterate based on beta feedback
-3. Scale to 10+ paying customers
-
----
-
-## Success Criteria for Next Phase
-
-**Phase 2 + Features Hybrid**:
-- [ ] 3 no-brainer features shipped
-- [ ] Landing page live with demo
-- [ ] Signup → first trace in < 5 minutes
-- [ ] 20+ beta users
-- [ ] First paying customer
-- [ ] Clear signal on product-market fit
-
----
-
-## Risk Assessment
-
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Features take longer than planned | Medium | High | Start with highest-impact feature first |
-| Auth/billing integration delays | Medium | Medium | Use managed services (Clerk, Stripe) |
-| Low beta adoption | Medium | High | Focus on viral demo + community outreach |
-| Competition catches up | Low | High | Move fast, build research moat |
-| Scope creep | High | Medium | Stick to plan, defer nice-to-haves |
-
----
-
-## Summary
-
-**What's Done**: 
-- ✅ Phase 1: Cloud-Ready Backend (100%)
-- ✅ Strong technical foundation
-- ✅ 365+ tests passing
-
-**What's Partial**:
-- ⚠️ Research features (50-70% complete)
-- ⚠️ Replay depth (L1-L2 done, L3+ pending)
-- ⚠️ Intelligence features (basic ranking done)
-
-**What's Next**:
-- 🔜 Phase 2: Auth + Teams + Landing OR
-- 🔜 Top 5 No-Brainer Features OR
-- 🔜 **Hybrid approach** (recommended)
-
-**Bottom Line**: You have a solid foundation. Now you need to choose: build business infra first (Phase 2), ship killer features first (Top 5), or do both in parallel (Hybrid). The hybrid approach gives you the best chance of launching with both differentiation and a monetization path.
-
----
-
-**Report Generated**: 2026-03-24 16:20  
-**Next Review**: After Feature 1 completion or Phase 2 kickoff
+# Planning status report — 2026-09-20
+
+**Audience:** project maintainers and contributors.
+
+**Verified source/release:** `main` at `5a807cf` (v0.4.0).
+
+**Focused local validation:** `f9dc240`, before the concurrent release's version/documentation changes.
+
+CI recovery and benchmark-protocol repair are complete. The contract checker has
+also landed. The next work is to consolidate existing test PRs, close the concrete
+hosted-boundary gaps, and complete the local capture → evidence → restore journey.
+[v0.4.0](https://github.com/acailic/agent_debugger/releases/tag/v0.4.0) was published
+by concurrent release work during this refresh; issue #324 is now closed.
+The release's [CI](https://github.com/acailic/agent_debugger/actions/runs/35480454666)
+and [SDK/server publication jobs](https://github.com/acailic/agent_debugger/actions/runs/35480455352)
+passed; clean-install behavior still needs Q12 validation.
+
+This report replaces the 2026-03-24 report. Its “100% cloud-ready,” blanket replay
+completion and fixed SaaS-launch schedule were not supported by the later audit.
+The [roadmap](../ROADMAP.md) remains the only priority queue; this report summarizes
+evidence and links to the detailed implementation plans.
+
+## What is done
+
+| Item | Evidence | Exact completion boundary |
+|---|---|---|
+| Q01 — xdist failure diagnosis and repair | `09ec3dc`, [DISCOVERIES](../../DISCOVERIES.md) | Three isolation/lifecycle causes fixed; earlier serial and twelve local parallel runs recorded |
+| Q02 — CI recovery observation | [Run 1](https://github.com/acailic/agent_debugger/actions/runs/35479465055), [run 2](https://github.com/acailic/agent_debugger/actions/runs/35479673383), [run 3](https://github.com/acailic/agent_debugger/actions/runs/35479946771) | Each passed Python 3.10/3.11/3.12 jobs and dependency security; three-run gate met |
+| Q04 foundation — contract CI | `ac819c0`; fresh check passes 8 schemas, 3 enums, 72 routes | Field/enum/route checking and mutation tests shipped; payload/nullability coverage is still planned |
+| Q05/E0 — Who&When correction | `9c2bd04` and [versioned manifest](../../benchmarks/results/who_when/2026-09-20-global-protocol.json) | Corrected global-index protocol and explicit metrics; native audit-engine effectiveness remains unmeasured |
+| Earlier debugger capabilities | [Core](../research/2026-09-19-core-status.md) and [intelligence](../research/2026-09-19-intelligence-status.md) audits | Recording, evidence inspection, deterministic analysis, event replay and server semantic restore exist |
+
+These are bounded completions, not a project-wide percentage. Three of sixteen
+queue items are complete; several others contain substantial delivered components.
+Counting modules, tests or checkboxes would conceal the remaining integration gaps.
+
+## What is still open
+
+| Area | Remaining result needed |
+|---|---|
+| Threshold tests (Q03) | One reviewed, passing merged PR. #321/#322/#325 all add the same absent-on-main test file; review #325 first |
+| Contract coverage (Q04) | Real serialized responses validated for structural types, required fields and nullability; deliberate drift must fail CI |
+| Hosted boundaries (Q06–Q08) | Real hosted-mode/two-tenant tests, checkpoint ownership, scoped derived data, no Python breakpoint evaluation and consistent redaction |
+| Local capture and SDK restore (Q09/Q10) | No-key standalone SDK produces persisted data; SDK semantic restore uses authenticated server results and provenance |
+| Browser and installed artifacts (Q11/Q12) | Seeded browser journey plus clean wheel/container startup and persistent restart |
+| Optional scale/runtime work (Q13/Q15, W04/W11) | Real Redis/framework compatibility, PostgreSQL recovery, retention execution and one controlled continuation |
+| Regression lab and pilot (Q14/Q16) | Sanitized reproducible incident comparison, then measured first value and repeat use |
+
+See the [current capability snapshot](../guides/progress.md) for scope and the
+[roadmap](../ROADMAP.md#next-delivery-slices) for file-level steps and acceptance.
+No customer, benchmark-effectiveness or hosted-readiness claim follows from green CI.
+
+## Tracker reconciliation
+
+- **#324 is closed:** its code fix and CI recovery are delivered; closure was
+  verified in the final tracker refresh.
+- **#323 remains open:** the worker-variable correction is already in `09ec3dc`.
+  It needs reconciliation as superseded, not another implementation.
+- **#311 remains open:** none of the three threshold-test PRs is merged. #325's
+  twelve cases make it the first review candidate; refresh against main, review
+  async fallback/argument coverage and obtain new required checks.
+- **#306–310 remain open:** evaluate dependency changes separately using recovered CI.
+
+All tracker actions by this planning task were read-only. Concurrent release work
+closed #324 and published v0.4.0; those changes were preserved and rechecked.
+This task did not create, comment on, review, merge or close issues/PRs.
+Old PR failures predate main's
+repairs and do not establish whether a refreshed branch will pass.
+
+## Next delivery plan
+
+The [roadmap queue](../ROADMAP.md#first-implementation-queue) specifies sequence.
+The [next delivery briefs](../ROADMAP.md#next-delivery-slices) now cover Q03, Q07,
+Q06, Q09 and Q04, including touched modules, implementation steps and acceptance.
+Follow-on handoffs cover redaction, restore, browser tests, packaging and regression
+cases. Q07 can disable custom expressions independently; Q06 is required for its
+hosted acceptance evidence. Q04 and Q09 can proceed on recovered main.
+
+Keep one delivery slice plus one research experiment active per maintainer.
+Additional framework support, teams/billing and runtime execution wait for their
+specific evidence gates, rather than the superseded ten-week schedule.
+
+## Validation and maintenance
+
+Fresh local checks:
+
+- 56 contract/benchmark tests passed in 4.11 seconds.
+- Contract checker passed: 8 schemas, 3 enums, 72 routes, no drift.
+- Offline Who&When CLI self-test passed.
+
+[Delivery evidence](../research/2026-09-20-planning-evidence.md#delivery-refresh-after-the-fixes)
+contains commands, commits, tracker observations and run links. Full CI results
+were inspected remotely; no full local suite, browser, installed wheel, container
+or production deployment was run for this refresh. Advisory checks and excluded
+optional integrations remain outside the green-CI claim.
+
+Refresh this report after a queue acceptance gate, a merged PR or a material
+failed validation. Update the roadmap and progress page together. Preserve dated
+audit evidence and distinguish implementation completion from tracker closure.
