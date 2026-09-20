@@ -66,7 +66,7 @@ notes; there is no current blanket claim that all tests pass.
 | Redis-backed operation | **PARTIAL / BLOCKED runtime** | Implementation exists; constructor/config wiring defects found | [Platform audit](research/2026-09-19-platform-status.md) |
 | SDK/server packaging and bundled UI | **PARTIAL** | Separate package definitions and publish workflow exist; clean installed-artifact and container proof needed | [Platform audit](research/2026-09-19-platform-status.md) |
 | Browser regression workflows | **NOT STARTED** for seeded full browser coverage | API e2e and component tests exist; they do not prove a browser workflow or hosted auth enforcement | [Platform audit](research/2026-09-19-platform-status.md) |
-| Main CI | **RECOVERY IN PROGRESS (2/3 green)** | Post-fix matrix on `739fecc`: Python 3.10/3.11/3.12 all green (the #324 fix confirmed in real CI); that run failed overall only on the frontend high-severity `browserslist` audit finding, cleared by a lockfile update in `423ab82`. Fully green consecutive runs so far: `423ab82` (run 35479465055) and `07efd4e` (run 35479673383) — one more completes the Q02 gate | [Delivery evidence](research/2026-09-20-planning-evidence.md), [DISCOVERIES](../DISCOVERIES.md) |
+| Main CI | **RECOVERED 2026-09-20** | #324 fixed (`09ec3dc`): three consecutive fully green matrices after the fix — `423ab82` (run 35479465055), `07efd4e` (run 35479673383), `2e45fe7` (run 35479946771) — each covering Python 3.10/3.11/3.12 full xdist suite, coverage gate, contract check, frontend build/tests, and dependency security (high-severity `browserslist` cleared in `423ab82`) | [DISCOVERIES](../DISCOVERIES.md) |
 | Type checks and API contracts | **PARTIAL** | Pyright advisory; stronger contract checks exist as local changes, not yet merged proof | [Platform audit](research/2026-09-19-platform-status.md) |
 | OTel interoperability | **PARTIAL** | Exporter setup exists; native event-to-span wiring and inbound ingestion not established | [Core audit](research/2026-09-19-core-status.md) |
 | Teams, hosted accounts, billing and paid adoption | **NOT STARTED / UNVERIFIED** | Product surfaces absent in inspected app; actual customer adoption not measured | [Platform](research/2026-09-19-platform-status.md), [research](research/2026-09-20-planning-evidence.md) |
@@ -115,7 +115,9 @@ not assignments to people who have not agreed to the work.
 
 ### W01 — Reliable delivery and bounded automation
 
-**Current:** PARTIAL / BLOCKED. **Priority:** P0. **Owner:** maintainer / quality.
+**Current:** delivery recovered 2026-09-20 (Q01 fix + three consecutive green
+CI matrices, Q02 gate met); remaining items are automation hygiene. **Priority:**
+P1. **Owner:** maintainer / quality.
 
 **Outcome:** a failed check identifies a real regression; automation extends an
 existing issue/PR rather than generating repeated copies of blocked work.
@@ -484,7 +486,7 @@ S/M/L are rough ranges: S ≤3 engineer-days, M 4–7, L 8–15, excluding obser
 | ID | Starting status | Slice and acceptance artifact | Depends on | Size |
 |---|---|---|---|---|
 | Q01 | DONE (diagnosis+fix) | #324: reproduced locally (leaked `/tmp/test.db` engine in `app_context` from a lifespan unit test); fix landed with serial reproducer + 5 green `-n auto` runs | — | ✓ |
-| Q02 | PARTIAL | Fix demonstrated lifecycle bug; serial/parallel matrix plus three successful CI runs | Q01 | M |
+| Q02 | DONE | Serial green; `-n 1` + twelve local `-n auto` runs green; three consecutive fully green CI matrices (runs 35479465055, 35479673383, 35479946771) | Q01 | ✓ |
 | Q03 | PARTIAL | Review #323 and choose one #311 test PR; no duplicate implementation; issue closes only on merged passing change | Q02 | S |
 | Q04 | PARTIAL | Integrate existing local contract checker with payload fixtures; mutation proves CI fails on drift | Q02 | M |
 | Q05 | DONE (corrections) | Who&When global-index fixtures, passing self-test, named independent/joint metrics and versioned result manifest — shipped 2026-09-20 | — | ✓ |
