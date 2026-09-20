@@ -1,4 +1,15 @@
-"""TraceContext class for managing async-safe state during agent execution tracing."""
+"""TraceContext class for managing async-safe state during agent execution tracing.
+
+``TraceContext.restore`` delegates to ``SessionManager.restore_from_checkpoint``
+and therefore runs in one of two modes: the authenticated semantic restore
+(POST ``/api/checkpoints/{id}/restore``, whose returned session/checkpoint/
+marker ids and provenance are adopted onto the context — see
+``ctx.restore_provenance``), or the legacy GET-based local reconstruction
+(``restore_mode="legacy-get"``) used when the server predates the semantic
+route. Either way the source session is preserved untouched and NO execution
+is started: the restore path performs read/copy requests only and never calls
+a runner, tool, or model.
+"""
 
 from __future__ import annotations
 
@@ -24,7 +35,7 @@ from agent_debugger_sdk.core.events import (
 from agent_debugger_sdk.core.recorders import RecordingMixin
 
 from .pipeline import _get_default_event_buffer
-from .session_manager import SessionManager
+from .session_manager import RestoreProvenance, SessionManager
 from .vars import (
     _current_context,
     _current_parent_id,
@@ -131,6 +142,7 @@ class TraceContext(RecordingMixin):
         # attribute access (e.g. ctx.replayed_events.append) is safe without a
         # getattr fallback on freshly constructed contexts.
         self.replayed_events: list[dict[str, Any]] = []
+        self._restore_provenance: RestoreProvenance | None = None
         self._drift_detector: Any | None = None
         self._drift_decision_index: int = 0
         self._hook_errors: list[Exception] = []
@@ -155,9 +167,33 @@ class TraceContext(RecordingMixin):
         Creates a new TraceContext pre-populated with checkpoint state.
         The restored session references the original in its config.
 
+        Restore modes (see :attr:`restore_provenance`):
+
+        - **semantic** (default): ``SessionManager.restore_from_checkpoint``
+          POSTs the server's semantic restore endpoint
+          (``/api/checkpoints/{id}/restore``) with the configured
+          Authorization header when an API key is set (unauthenticated in
+          no-key local mode). The server creates a NEW session copying the
+          source prefix and returns the new ids — the context adopts the
+          server-assigned session id and exposes the returned provenance
+          (new checkpoint id, restore marker id, copied event count, ...)
+          via ``ctx.restore_provenance``.
+        - **legacy** (``restore_mode="legacy-get"``): when the server answers
+          404/405 (old server without the semantic route) or is unreachable,
+          the checkpoint is fetched via GET and the context is reconstructed
+          locally, exactly as before.
+
+        Both modes preserve the source session (nothing is mutated or
+        deleted) and start NO execution — no runner, tool, or model call is
+        made anywhere in the restore path. The restored context carries state
+        and provenance only; continuing execution from it is the caller's
+        (and W04 execution work's) business.
+
         Args:
             checkpoint_id: ID of checkpoint to restore from.
-            session_id: Optional session ID for the restored session (new UUID if None).
+            session_id: Optional session ID for the restored session. In
+                semantic mode this is passed to the server (which mints one
+                if None); the id the server returns is what the context adopts.
             server_url: Server URL (uses configured endpoint if None).
             label: Label for the restored session.
             replay_events: If True, fetch and replay events recorded after the
@@ -173,12 +209,14 @@ class TraceContext(RecordingMixin):
                 cancel the remainder of the replay.
 
         Returns:
-            TraceContext with restored state accessible via ctx.restored_state.
+            TraceContext with restored state accessible via ctx.restored_state
+            and restore provenance via ctx.restore_provenance.
 
         Example:
             async with await TraceContext.restore("cp-abc123") as ctx:
                 state = ctx.restored_state  # LangChainCheckpointState
                 messages = state.messages   # Pre-populated history
+                info = ctx.restore_provenance  # RestoreProvenance
         """
         import logging
 
@@ -198,6 +236,10 @@ class TraceContext(RecordingMixin):
             config=session.config,
         )
         ctx._restored_state = restored_state
+        # Adopt the restore provenance (semantic: server-minted ids for the
+        # new session / initial checkpoint / restore marker; legacy: local
+        # reconstruction marker) onto the restored context.
+        ctx._restore_provenance = getattr(session, "restore_provenance", None)
         ctx.replayed_events = []
         ctx._drift_detector = None
         ctx._drift_decision_index = 0
@@ -222,9 +264,10 @@ class TraceContext(RecordingMixin):
 
         # Auto-replay post-checkpoint events if requested
         if replay_events:
-            from .session_manager import _resolve_restore_server_url
+            from .session_manager import _resolve_restore_server_url, _restore_auth_headers
 
             resolved_url = _resolve_restore_server_url(server_url)
+            auth_headers = _restore_auth_headers()
             orig_session_id = (
                 original_session_id
                 or session.config.get("original_session_id", "")
@@ -243,7 +286,9 @@ class TraceContext(RecordingMixin):
                 if on_replay_event(restore_start_event) is False:
                     return ctx
 
-            # Fetch recorded events from the original session
+            # Fetch recorded events from the original session (read-only; the
+            # same auth semantics as delivery: Bearer header when an API key
+            # is configured, unauthenticated in no-key local mode).
             raw_events: list[dict[str, Any]] = []
             try:
                 import httpx
@@ -257,7 +302,8 @@ class TraceContext(RecordingMixin):
                     while True:
                         response = await client.get(
                             f"{base_url}/api/sessions/{orig_session_id}/traces",
-                            params={"limit": limit, "offset": offset}
+                            params={"limit": limit, "offset": offset},
+                            headers=auth_headers,
                         )
                         response.raise_for_status()
                         page_traces = response.json().get("traces", [])
@@ -310,6 +356,26 @@ class TraceContext(RecordingMixin):
     def restored_state(self) -> BaseCheckpointState | None:
         """The checkpoint state this context was restored from, if any."""
         return self._restored_state
+
+    @property
+    def restore_provenance(self) -> RestoreProvenance | None:
+        """Provenance of the restore that produced this context, if any.
+
+        ``restore_mode == "semantic-post"`` means the authenticated semantic
+        restore ran server-side and every id below is a server-minted value
+        adopted by this context: the new session id (== ``self.session_id``),
+        the initial checkpoint id (``new_checkpoint_id``), the leading
+        ``session_restored`` marker event id (``restore_event_id``), and how
+        many source events were copied (``copied_event_count``), plus the
+        source checkpoint/session ids, restore token, and timestamp.
+
+        ``restore_mode == "legacy-get"`` marks the fallback used with old
+        servers without the semantic route: the context was reconstructed
+        locally from ``GET /api/checkpoints/{id}``, so only the source and
+        new session ids are populated. The same data is mirrored as a
+        JSON-safe dict in ``self.session.config["restore_provenance"]``.
+        """
+        return self._restore_provenance
 
     @property
     def restored_target(self) -> Any:
