@@ -6,14 +6,14 @@ No API keys required. Demonstrates the core trace model in ~50 lines.
 Quick start:
     # Install and start the server
     pip install peaky-peek-server
-    uvicorn api.main:app --port 8000
+    peaky-peek --open
 
     # In another terminal, run this script
     python examples/01_hello.py
 
     # Inspect the trace
     curl http://localhost:8000/api/sessions
-    # Or open http://localhost:5173 for the visual UI
+    # Or open http://localhost:8000/ui/ for the visual UI
 """
 
 from __future__ import annotations
@@ -26,11 +26,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agent_debugger_sdk import TraceContext, init
 
-# An api_key is required for the SDK to deliver events over HTTP. Against a
-# locally running server the key value is not checked (local mode trusts
-# localhost), so "local-dev" is fine. Override the endpoint with
-# AGENT_DEBUGGER_URL when the server runs elsewhere.
-init(api_key="local-dev", endpoint="http://127.0.0.1:8000")
+# An endpoint is all the SDK needs to deliver events over HTTP — no API key
+# for a local collector (loopback delivery is unauthenticated). Override the
+# endpoint with AGENT_DEBUGGER_URL when the server runs elsewhere.
+init(endpoint="http://127.0.0.1:8000")
 
 
 async def weather_agent(location: str) -> str:
@@ -67,7 +66,7 @@ async def main() -> None:
     print(f"\nAnswer: {answer}")
     print("\nView the trace:")
     print("  curl http://localhost:8000/api/sessions")
-    print("  http://localhost:5173  (visual UI)")
+    print("  http://localhost:8000/ui/  (visual UI)")
 
 
 if __name__ == "__main__":

@@ -4,11 +4,15 @@ Focused, self-contained scenarios for testing and exploring Peaky Peek.
 
 ## Prerequisites
 
+Examples run from a repo checkout (each inserts the repo root on `sys.path`).
 Start the API server before running any example:
 
     # From the repo root
     uvicorn api.main:app --port 8000
-    # Optional: open the UI at http://localhost:5173
+    # Or, using the installed server wheel: peaky-peek --open
+
+The bundled UI is served by the server at http://localhost:8000/ui/
+(the Vite dev server at http://localhost:5173 is only for frontend development).
 
 Then in a second terminal:
 

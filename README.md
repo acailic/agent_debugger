@@ -54,15 +54,21 @@ Every claim is classified deterministically as **verified · partially verified 
 
 ## Quick Start
 
-### Option 1: Decorator (simplest)
+One installation path (verified by `scripts/install_smoke.sh`, see [docs/research/2026-09-20-install-smoke.md](./docs/research/2026-09-20-install-smoke.md)):
 
 ```bash
 pip install peaky-peek-server
 peaky-peek --open   # launches API + UI at http://localhost:8000
 ```
 
+Then pick an instrumentation style. In every style the SDK needs an endpoint to deliver — `init(endpoint=...)` with no API key sends unauthenticated to your local server; with no endpoint at all the SDK stays inert (events in memory only, nothing sent).
+
+### Option 1: Decorator (simplest)
+
 ```python
-from agent_debugger_sdk import trace
+from agent_debugger_sdk import init, trace
+
+init(endpoint="http://localhost:8000")  # keyless local delivery
 
 @trace
 async def my_agent(prompt: str) -> str:
@@ -73,7 +79,9 @@ async def my_agent(prompt: str) -> str:
 ### Option 2: Context Manager
 
 ```python
-from agent_debugger_sdk import trace_session
+from agent_debugger_sdk import init, trace_session
+
+init(endpoint="http://localhost:8000")
 
 async with trace_session("weather_agent") as ctx:
     await ctx.record_decision(
@@ -90,10 +98,10 @@ async with trace_session("weather_agent") as ctx:
 
 ```bash
 # Set env var, then run your agent normally
-PEAKY_PEEK_AUTO_PATCH=true python my_agent.py
+PEAKY_PEEK_AUTO_PATCH=all python my_agent.py
 ```
 
-Works with **PydanticAI, LangChain, OpenAI SDK, CrewAI, AutoGen, LlamaIndex, and Anthropic** — no imports or decorators needed.
+Works with **PydanticAI, LangChain, OpenAI SDK, CrewAI, AutoGen, LlamaIndex, and Anthropic** — no imports or decorators needed. Use `all`, or a comma-separated adapter list (e.g. `openai,anthropic`); any other value patches nothing.
 
 ---
 
@@ -106,7 +114,7 @@ from pydantic_ai import Agent
 from agent_debugger_sdk import init
 from agent_debugger_sdk.adapters import PydanticAIAdapter
 
-init()
+init(endpoint="http://localhost:8000")
 
 agent = Agent("openai:gpt-4o")
 adapter = PydanticAIAdapter(agent, agent_name="support_agent")
@@ -118,7 +126,7 @@ adapter = PydanticAIAdapter(agent, agent_name="support_agent")
 from agent_debugger_sdk import init
 from agent_debugger_sdk.adapters import LangChainTracingHandler
 
-init()
+init(endpoint="http://localhost:8000")
 
 handler = LangChainTracingHandler(session_id="my-session")
 # Pass handler to your LangChain agent's callbacks
@@ -129,13 +137,15 @@ handler = LangChainTracingHandler(session_id="my-session")
 No code needed — just set the environment variable:
 
 ```bash
-PEAKY_PEEK_AUTO_PATCH=true python my_openai_agent.py
+PEAKY_PEEK_AUTO_PATCH=all python my_openai_agent.py
 ```
 
 Or use the simplified decorator:
 
 ```python
-from agent_debugger_sdk import trace
+from agent_debugger_sdk import init, trace
+
+init(endpoint="http://localhost:8000")
 
 @trace(name="openai_agent", framework="openai")
 async def my_agent(prompt: str) -> str:
@@ -241,8 +251,10 @@ peaky-peek --open
 
 ```bash
 docker build -t peaky-peek .
-docker run -p 8000:8000 -v ./traces:/app/traces peaky-peek
+docker run -p 8000:8000 -v ./data:/app/data peaky-peek
 ```
+
+The container's database defaults to `/app/data/agent_debugger.db`, so mount the volume at `/app/data` (not `/app/traces`) for persistence across restarts — verified by the container slice of `scripts/install_smoke.sh`.
 
 ### Development
 
@@ -284,11 +296,11 @@ flowchart TB
 
     subgraph SERVER[" "]
         direction TB
-        API["<b>🌐  API Server</b><br/><small>FastAPI + SSE</small><br/><sub>11 routers: sessions · traces · replay · search · analytics · compare</sub>"]:::layer
+        API["<b>🌐  API Server</b><br/><small>FastAPI + SSE</small><br/><sub>20 routers: sessions · traces · replay · search · analytics · audit · compare</sub>"]:::layer
         STORE["<b>💾  Storage</b><br/><small>SQLite WAL · async</small><br/><sub>Events · Checkpoints · Analytics · Embeddings</sub>"]:::layer
     end
 
-    UI["<b>🖥️  Frontend</b><br/><small>React · TypeScript · Vite</small><br/><sub>8 panels: decision tree · timeline · tools · replay · search · analytics · compare · live</sub>"]:::layer
+    UI["<b>🖥️  Frontend</b><br/><small>React · TypeScript · Vite</small><br/><sub>3 tabs: trace · inspect · analytics — decision tree, timeline, audit, replay, live</sub>"]:::layer
 
     AGENT ==>|"decorate"| SDK
     SDK ==>|"emit"| INTEL
@@ -371,9 +383,11 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for full module breakdown.
 - **Agent audit & trust** — deterministic 5-questions report, claim verification, risk signals, explainable trust score (API + Audit UI panel)
 - **Core debugger** — local path end-to-end, stable
 - **SDK** — `@trace`, `trace_session()`, auto-patch for 7 frameworks
-- **API** — 12 routers: sessions, traces, replay, search, analytics, cost, comparison, **audit**
-- **Frontend** — 9 specialized panels (decision tree, replay, checkpoints, search, **audit**)
-- **Tests** — 2900+ passing, CI on Python 3.10/3.11/3.12
+- **API** — 20 routers: sessions, traces, replay, search, analytics, cost, comparison, **audit**, auth, entities, policies, cross-session, research, stepper, swimlanes, violations, system, UI
+- **Frontend** — three main tabs (Trace · Inspect · Analytics) over decision tree, timeline, audit, replay, and live panels
+- **Tests** — the full suite runs in [CI](https://github.com/acailic/agent_debugger/actions/workflows/ci.yml) on Python 3.10/3.11/3.12 with a 70% coverage gate; run counts change weekly, so check CI rather than a number here
+
+The three maintained operator workflows — capture → inspect, checkpoint restore, incident → regression bundle — are documented with their proving artifacts in the [Getting Started guide](./docs/guides/getting-started.md#operator-workflows).
 
 ---
 

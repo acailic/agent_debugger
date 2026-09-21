@@ -30,7 +30,7 @@ Facts you may cite without checking (as of 2026-08-24):
   uncited-fact callouts, cross-session audit portfolio
 - Debugging toolkit: replay with checkpoints, causal graph / root-cause
   analysis, session comparison, multi-agent swimlanes, stepper
-- 3,100+ tests, CI on Python 3.10–3.12, 70% coverage gate
+- 3,400+ tests, CI on Python 3.10–3.12, 70% coverage gate
 - Benchmarked on the public Who&When failure-attribution dataset (184
   annotated multi-agent failure logs): our fully deterministic harness
   scores 26.6% agent / 15.2% step accuracy (exact scoring, global indexing,
@@ -149,7 +149,7 @@ is a place where these results compose on the same trace.
 
 The roadmap is public: minimal re-execution set (re-run the smallest sub-graph
 to confirm or invalidate a suspect claim), replay clustering, and an external
-accuracy number on the Who&When benchmark. The repo has 3,100+ tests and CI
+accuracy number on the Who&When benchmark. The repo has 3,400+ tests and CI
 across Python 3.10–3.12; the audit engine is deterministic by design and I'd
 like to keep it that way.
 
@@ -252,7 +252,7 @@ it's all structural analysis of the trace, no model calls.
   classifies every decision as verified/unsupported/stale/contradicted from
   the trace itself (no LLM judge, fully local), localizes failures to a
   root-cause suspect, and gives each session an explainable trust score +
-  verdict card. 3,100+ tests, MIT. Would love feedback from people running
+  verdict card. 3,400+ tests, MIT. Would love feedback from people running
   agents in prod: https://github.com/acailic/agent_debugger
 
 **PydanticAI Discord (has a first-class adapter — lead with that):**

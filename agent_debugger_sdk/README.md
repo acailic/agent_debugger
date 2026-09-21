@@ -36,11 +36,11 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-Run the backend locally to receive and inspect the events:
+Run the backend locally to receive and inspect the events (canonical launch path, verified by `scripts/install_smoke.sh`):
 
 ```bash
 pip install peaky-peek-server
-uvicorn api.main:app --reload --port 8000
+peaky-peek --open   # API + bundled UI at http://localhost:8000
 ```
 
 ## Configuration
@@ -101,7 +101,7 @@ import asyncio
 
 from agent_debugger_sdk import TraceContext, init
 
-init()
+init(endpoint="http://localhost:8000")
 
 
 async def main() -> None:
@@ -121,7 +121,7 @@ Use decorators when your code already has clear boundaries:
 ```python
 from agent_debugger_sdk import init, trace_agent, trace_tool
 
-init()
+init(endpoint="http://localhost:8000")
 
 @trace_tool(name="search_docs")
 async def search_docs(query: str) -> list[str]:
@@ -142,7 +142,7 @@ from pydantic_ai import Agent
 from agent_debugger_sdk import init
 from agent_debugger_sdk.adapters import PydanticAIAdapter
 
-init()
+init(endpoint="http://localhost:8000")
 
 agent = Agent("openai:gpt-4o")
 adapter = PydanticAIAdapter(agent, agent_name="support_agent")
@@ -154,7 +154,7 @@ adapter = PydanticAIAdapter(agent, agent_name="support_agent")
 from agent_debugger_sdk import TraceContext, init
 from agent_debugger_sdk.adapters import LangChainTracingHandler
 
-init()
+init(endpoint="http://localhost:8000")
 
 context = TraceContext(session_id="demo", agent_name="langchain_agent", framework="langchain")
 handler = LangChainTracingHandler(session_id="demo")
@@ -164,7 +164,7 @@ handler.set_context(context)
 Important:
 
 - the current LangChain path is handler-based
-- `init()` does not currently auto-patch LangChain for zero-code instrumentation
+- `init()` does not auto-patch any framework; zero-code instrumentation is the separate `PEAKY_PEEK_AUTO_PATCH` env var (`all` or a comma-separated adapter list such as `openai,anthropic`)
 
 ## Environment Variables
 

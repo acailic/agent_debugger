@@ -16,9 +16,8 @@ Usage:
     # Terminal 2: run this script
     python examples/mock_research_agent.py
 
-    # Terminal 3: start the frontend (optional)
-    cd frontend && npm run dev
-    # open http://localhost:5173
+    # Then open the bundled UI:
+    # open http://localhost:8000/ui/
 
     # Or inspect via API directly:
     curl http://localhost:8000/api/sessions
@@ -126,7 +125,8 @@ async def research_agent(question: str) -> str:
 async def main() -> None:
     # Use 127.0.0.1 (not localhost) so the SDK keeps the custom endpoint
     # and switches to HTTP transport mode to POST events to the server.
-    init(api_key="local-dev", endpoint="http://127.0.0.1:8000")
+    # No API key needed: an endpoint alone enables keyless local delivery.
+    init(endpoint="http://127.0.0.1:8000")
 
     questions = [
         "What is agentic AI?",
@@ -141,7 +141,7 @@ async def main() -> None:
         print(f"A: {answer}\n")
 
     print("Done. Open http://localhost:8000/api/sessions to see recorded sessions.")
-    print("Or open http://localhost:5173 for the visual debugger UI.")
+    print("Or open http://localhost:8000/ui/ for the visual debugger UI.")
 
 
 if __name__ == "__main__":

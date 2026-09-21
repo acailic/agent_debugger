@@ -4,7 +4,7 @@ This page shows the simplest supported ways to integrate the debugger with your 
 
 ## Local Setup
 
-Run the backend first:
+The supported install is the server wheel (see [Getting Started](./getting-started.md)); the checkout below is the development path:
 
 ```bash
 pip install -e .
@@ -24,6 +24,7 @@ Default local addresses:
 
 - API: `http://localhost:8000`
 - FastAPI docs: `http://localhost:8000/docs`
+- Bundled UI (served by the server when `frontend/dist` is built): `http://localhost:8000/ui/`
 - Frontend dev UI: `http://localhost:5173`
 
 ## SDK Configuration
@@ -33,15 +34,15 @@ The SDK configuration entry point is `init()`:
 ```python
 from agent_debugger_sdk import init
 
-init()
+init(endpoint="http://localhost:8000")
 ```
 
 That resolves local versus cloud mode, endpoint, enablement, sampling, and prompt-redaction settings.
 
 Important:
 
-- `init()` is the configuration surface
-- it does not currently provide finished zero-code auto-instrumentation for LangChain or other frameworks
+- the SDK delivers over HTTP only when an endpoint is configured (argument or `AGENT_DEBUGGER_URL`): keyless against a local collector, with a Bearer key in cloud mode. Without an endpoint it stays inert — events are recorded in memory only
+- `init()` itself does not auto-patch frameworks; zero-code instrumentation is the separate `PEAKY_PEEK_AUTO_PATCH` mechanism below
 
 Cloud-style configuration uses the same entry point:
 
@@ -69,7 +70,7 @@ import asyncio
 
 from agent_debugger_sdk import TraceContext, init
 
-init()
+init(endpoint="http://localhost:8000")
 
 
 async def my_agent(question: str) -> str:
@@ -99,7 +100,7 @@ Use this when you want lighter instrumentation around an existing flow.
 ```python
 from agent_debugger_sdk import init, trace_agent, trace_tool
 
-init()
+init(endpoint="http://localhost:8000")
 
 
 @trace_tool(name="search_docs")
@@ -133,7 +134,7 @@ from pydantic_ai import Agent
 from agent_debugger_sdk import init
 from agent_debugger_sdk.adapters import PydanticAIAdapter
 
-init()
+init(endpoint="http://localhost:8000")
 
 
 async def main() -> None:
@@ -156,14 +157,14 @@ Use the tracing handler with your callback flow:
 from agent_debugger_sdk import TraceContext, init
 from agent_debugger_sdk.adapters import LangChainTracingHandler
 
-init()
+init(endpoint="http://localhost:8000")
 
 context = TraceContext(session_id="demo", agent_name="langchain_agent", framework="langchain")
 handler = LangChainTracingHandler(session_id="demo")
 handler.set_context(context)
 ```
 
-The current LangChain path is handler-based. The auto-patching registry exists in the repo, but the actual zero-code patching path is still unfinished.
+The current LangChain path is handler-based. For zero-code instrumentation across frameworks (OpenAI, Anthropic, LangChain, PydanticAI, CrewAI, AutoGen, LlamaIndex), set `PEAKY_PEEK_AUTO_PATCH=all` before running your agent — see the [auto-patch module](../../agent_debugger_sdk/auto_patch/__init__.py) for the environment knobs.
 
 ## Which Option To Pick
 

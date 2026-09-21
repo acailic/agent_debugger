@@ -9,7 +9,7 @@ What you'll see:
 Run:
     uvicorn api.main:app --port 8000          # Terminal 1
     python examples/07_loop_detection.py      # Terminal 2
-    # Open http://localhost:5173 → select the session → Live / Alerts tab
+    # Open http://localhost:8000/ui/ → select the session → Live / Alerts tab
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agent_debugger_sdk import TraceContext, init
 
-init()
+init(endpoint="http://127.0.0.1:8000")
 
 
 async def stuck_agent(query: str) -> None:
@@ -57,7 +57,7 @@ async def stuck_agent(query: str) -> None:
 async def main() -> None:
     await stuck_agent("latest AI research papers")
     print("\nDone. Open the UI to see the loop detection alert:")
-    print("  http://localhost:5173")
+    print("  http://localhost:8000/ui/")
     print("  Navigate to: session → Alerts tab or Live panel")
 
 

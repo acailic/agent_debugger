@@ -15,7 +15,7 @@ Usage:
     # Terminal 3 — run this demo
     python examples/demo_safety_audit.py
 
-Open http://localhost:5173, pick any of the three sessions, and filter to
+Open http://localhost:8000/ui/, pick any of the three sessions, and filter to
 "Safety checks", "Refusals", or "Policy violations" to see the audit trail.
 """
 
@@ -284,11 +284,11 @@ async def run_looping_detection_demo() -> None:
 
 
 async def main() -> None:
-    init(api_key="local-dev", endpoint="http://127.0.0.1:8000")
+    init(endpoint="http://127.0.0.1:8000")
 
     print("Safety Audit Demo")
     print("=" * 50)
-    print("Open http://localhost:5173 and filter events by:")
+    print("Open http://localhost:8000/ui/ and filter events by:")
     print("  • Safety checks  • Policy violations  • Refusals")
     print("=" * 50)
 
@@ -302,7 +302,7 @@ async def main() -> None:
 
     print("\n" + "=" * 50)
     print("Done. Three safety audit sessions created.")
-    print("Open http://localhost:5173 to inspect each one.")
+    print("Open http://localhost:8000/ui/ to inspect each one.")
 
 
 if __name__ == "__main__":

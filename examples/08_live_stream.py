@@ -14,7 +14,7 @@ Usage:
     # Terminal 3 — run this demo
     python examples/demo_live_stream.py
 
-Open http://localhost:5173, select the live session, and watch events appear
+Open http://localhost:8000/ui/, select the live session, and watch events appear
 in real time in the Timeline and Live Summary panels.
 """
 
@@ -237,10 +237,10 @@ DEMO_TICKETS = [
 
 
 async def main() -> None:
-    init(api_key="local-dev", endpoint="http://127.0.0.1:8000")
+    init(endpoint="http://127.0.0.1:8000")
 
     print("Support Triage Demo — Live Stream\n")
-    print("Open http://localhost:5173 and watch events appear in real time.\n")
+    print("Open http://localhost:8000/ui/ and watch events appear in real time.\n")
     print("-" * 50)
 
     for ticket in DEMO_TICKETS:
@@ -251,7 +251,7 @@ async def main() -> None:
 
     print("\n" + "-" * 50)
     print("Done. Open http://localhost:8000/api/sessions to inspect all sessions.")
-    print("Or open http://localhost:5173 for the visual debugger UI.")
+    print("Or open http://localhost:8000/ui/ for the visual debugger UI.")
 
 
 if __name__ == "__main__":

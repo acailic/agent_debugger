@@ -8,7 +8,7 @@ What you'll see:
 Run:
     uvicorn api.main:app --port 8000          # Terminal 1
     python examples/04_pydantic_ai.py         # Terminal 2
-    # Open http://localhost:5173 or: curl http://localhost:8000/api/sessions
+    # Open http://localhost:8000/ui/ or: curl http://localhost:8000/api/sessions
 
 Note: For a real run, set OPENAI_API_KEY and swap the mock trace calls for:
     adapter = PydanticAIAdapter(agent, agent_name="my_agent")
@@ -33,7 +33,7 @@ if not PYDANTIC_AI_AVAILABLE:
 
 from agent_debugger_sdk.adapters.pydantic_ai import PydanticAIAdapter  # noqa: E402, F401
 
-init()
+init(endpoint="http://127.0.0.1:8000")
 
 
 async def main() -> None:
@@ -56,7 +56,7 @@ async def main() -> None:
         print("[trace] → LLM response recorded")
 
     print(f"\nDone. View trace at: http://localhost:8000/api/sessions/{ctx.session_id}")
-    print("Or open the UI: http://localhost:5173")
+    print("Or open the UI: http://localhost:8000/ui/")
 
 
 if __name__ == "__main__":

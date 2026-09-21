@@ -8,7 +8,7 @@ What you'll see:
 Run:
     uvicorn api.main:app --port 8000          # Terminal 1
     python examples/03_langchain.py           # Terminal 2
-    # Open http://localhost:5173 or: curl http://localhost:8000/api/sessions
+    # Open http://localhost:8000/ui/ or: curl http://localhost:8000/api/sessions
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ if not LANGCHAIN_AVAILABLE:
 # LLMResult is only importable when langchain-core is present
 from langchain_core.outputs import LLMResult  # noqa: E402
 
-init()
+init(endpoint="http://127.0.0.1:8000")
 
 
 async def main() -> None:
@@ -73,7 +73,7 @@ async def main() -> None:
         print("[trace] → on_tool_start / on_tool_end fired")
 
     print(f"\nDone. View trace at: http://localhost:8000/api/sessions/{ctx.session_id}")
-    print("Or open the UI: http://localhost:5173")
+    print("Or open the UI: http://localhost:8000/ui/")
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ What you'll see:
 Run:
     uvicorn api.main:app --port 8000          # Terminal 1
     python examples/05_checkpoint_replay.py   # Terminal 2
-    # Open http://localhost:5173 → select the session → Checkpoints tab
+    # Open http://localhost:8000/ui/ → select the session → Checkpoints tab
 
 To replay from a checkpoint:
     POST http://localhost:8000/api/sessions/{session_id}/replay
@@ -27,7 +27,7 @@ import httpx
 
 from agent_debugger_sdk import TraceContext, init
 
-init(api_key="local-dev", endpoint="http://127.0.0.1:8000")
+init(endpoint="http://127.0.0.1:8000")
 
 
 async def run_agent_with_checkpoint() -> str:
