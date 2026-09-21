@@ -859,6 +859,14 @@ before testing the main user journey.
 
 ## Shipped history and superseded plans
 
+- 2026-09-21 (v0.5.0): enforced-boundaries and regression-lab release — hosted-mode auth
+  (401s, authenticated analytics, AGENT_DEBUGGER_MODE bootstrap), checkpoint reference
+  consistency, redaction across all sinks with a scan artifact, no-key local delivery,
+  SDK semantic restore with typed provenance, incident bundles + runner + baseline
+  comparison (Q14 first slice), real-framework adapter matrix (Q15), SSE Last-Event-ID
+  recovery, install/container smoke with packaging fixes, browser + framework + Redis
+  CI gates, DecisionTree stability fix, secret-scan baselines resolved.
+
 - 2026-09-20 (agent-team waves): Q03 tracker reconciliation (zero open PRs), Q04 payload/nullability gate, Q06 hosted-auth hardening, Q07 creation-time validation, Q08/Q10 (wave 2), Q12 install smoke with packaging fixes, Q13 real-service CI green — see earlier entry;
   plus wave 1: Q06/Q07/Q09/Q13 — hosted-boundary
   fixes with route inventory and two-tenant matrix, eval-free breakpoint predicates, no-key local

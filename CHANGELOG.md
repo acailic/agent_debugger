@@ -6,7 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased]
+## [0.5.0] - 2026-09-21
+
+The enforced-boundaries and regression-lab release: hosted-mode auth and
+reference consistency, one redaction policy across every sink, no-key
+local delivery, SDK semantic restore with provenance, the
+incident-to-regression laboratory, real-framework adapter capability
+proof, SSE reconnect recovery — and CI gates that exercise real
+browsers, real Redis and real framework packages on every push.
 
 ### Fixed
 
