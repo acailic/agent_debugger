@@ -3,3 +3,47 @@
 # Keep the fixture and default rules intact; new commits/findings remain scanned.
 7f950460dd0dc543e634b3f158656794a7171bcb:tests/test_redaction_boundary.py:aws-access-token:58
 7f950460dd0dc543e634b3f158656794a7171bcb:tests/test_redaction_boundary.py:generic-api-key:58
+
+# Historical test/documentation fixtures (March/April commits), resolved
+# 2026-09-21 against the classified inventory in
+# docs/research/2026-09-20-delivery-followup.md. Exact commit:file:rule:line
+# fingerprints from the checksum-verified Gitleaks 8.24.3 complete HEAD-history
+# scan; every finding matched an inventory row 1:1. These are exact-value
+# exceptions only: a different value at the same path/line still fails.
+
+# docs-site/docs/api-reference.md:21 - explicit user-supplied placeholder in an authentication example
+549f59d5593fc5d86d2d62009f55be49405314d6:docs-site/docs/api-reference.md:curl-auth-header:21
+
+# tests/test_api_validation.py:227,230 - PEM begin headers only, without key bodies; regex fixtures
+5319d6520f87593795772713d013edd797a6ce36:tests/test_api_validation.py:private-key:227
+5319d6520f87593795772713d013edd797a6ce36:tests/test_api_validation.py:private-key:230
+
+# tests/test_api_validation.py:213 - conventional public demonstration JWT; local signature check matches its public example HMAC secret
+5319d6520f87593795772713d013edd797a6ce36:tests/test_api_validation.py:jwt:213
+
+# tests/test_api_validation.py:249-254,263 - patterned API-format and minimum-length test inputs
+5319d6520f87593795772713d013edd797a6ce36:tests/test_api_validation.py:generic-api-key:249
+5319d6520f87593795772713d013edd797a6ce36:tests/test_api_validation.py:generic-api-key:250
+5319d6520f87593795772713d013edd797a6ce36:tests/test_api_validation.py:generic-api-key:251
+5319d6520f87593795772713d013edd797a6ce36:tests/test_api_validation.py:generic-api-key:252
+5319d6520f87593795772713d013edd797a6ce36:tests/test_api_validation.py:generic-api-key:253
+5319d6520f87593795772713d013edd797a6ce36:tests/test_api_validation.py:generic-api-key:254
+5319d6520f87593795772713d013edd797a6ce36:tests/test_api_validation.py:generic-api-key:263
+
+# TESTING_QUICK_START.md:52 - patterned synthetic input in a documented redaction test
+f93eee7b197a1b7de45f75d3ad8daa383253a2eb:TESTING_QUICK_START.md:generic-api-key:52
+
+# tests/test_sdk_config.py:32 - test-labelled literal selects cloud defaults
+0341fe616d9374e1ac17970859b05786955ac0c1:tests/test_sdk_config.py:generic-api-key:32
+
+# tests/test_sdk_config.py:15,17 - same synthetic input in initialization and its equality assertion
+c55f8c8ffb5b8615ae6b42cd455b9466bfc703a2:tests/test_sdk_config.py:generic-api-key:15
+c55f8c8ffb5b8615ae6b42cd455b9466bfc703a2:tests/test_sdk_config.py:generic-api-key:17
+
+# old_docs/superpowers/plans/2026-03-23-agent-debugger-cloud-evolution.md:792,794 - historical copy of that SDK unit-test example
+5b9b3100eea7b59f94b08911e9116f285d9d1df9:old_docs/superpowers/plans/2026-03-23-agent-debugger-cloud-evolution.md:generic-api-key:792
+5b9b3100eea7b59f94b08911e9116f285d9d1df9:old_docs/superpowers/plans/2026-03-23-agent-debugger-cloud-evolution.md:generic-api-key:794
+
+# docs/superpowers/plans/2026-03-23-agent-debugger-cloud-evolution.md:792,794 - another historical copy of the same example
+ea6b4bac9787cd806dc0057c4e9de604d159e952:docs/superpowers/plans/2026-03-23-agent-debugger-cloud-evolution.md:generic-api-key:792
+ea6b4bac9787cd806dc0057c4e9de604d159e952:docs/superpowers/plans/2026-03-23-agent-debugger-cloud-evolution.md:generic-api-key:794

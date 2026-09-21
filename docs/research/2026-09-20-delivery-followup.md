@@ -97,9 +97,37 @@ are omitted below. Counts refer to historical findings, not distinct credentials
 | `generic-api-key` ×2 | `old_docs/superpowers/plans/2026-03-23-agent-debugger-cloud-evolution.md:792,794` | `5b9b3100eea7` | Historical copy of that SDK unit-test example |
 | `generic-api-key` ×2 | `docs/superpowers/plans/2026-03-23-agent-debugger-cloud-evolution.md:792,794` | `ea6b4bac9787` | Another historical copy of the same example |
 
-Keep their cleanup separate: reproduce the full-history result, review each exact
-fingerprint against this inventory, and retain a failing new-value control before
-claiming that broader scan is clean. Do not infer exceptions from a file's name.
+That cleanup rule has now been executed. **Historical baseline resolved
+2026-09-21** in the primary checkout (working tree, not committed) using the
+CI-matched **Gitleaks 8.24.3** official linux-amd64 release binary downloaded
+from the gitleaks GitHub releases page, with its published checksum verified:
+sha256 `9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c`
+for `gitleaks_8.24.3_linux_x64.tar.gz`, matching `gitleaks_8.24.3_checksums.txt`.
+
+The reproduced complete-history scan (`gitleaks git . --log-opts=HEAD
+--exit-code=2 --redact --no-banner`) exited 2 with exactly 19 findings, and
+every finding mapped 1:1 onto the inventory rows above by rule, path, line and
+commit — no finding was uncovered by the table and no row lacked a finding.
+All **19 exact `commit:file:rule:line` fingerprints** were appended to
+[`.gitleaksignore`](../../.gitleaksignore) under a commented
+historical-fixture section, each with a one-line reason from this inventory's
+classification; the two sentinel entries are unchanged. Re-runs on the same
+checkout: `--log-opts=HEAD` now exits 0 with "no leaks found" across 670
+commits, and the push range `--no-merges --first-parent eb0e8a2^..8a00a891`
+exits 0 across 17 commits.
+
+The failing new-value control was retained in a disposable clone under /tmp
+(this checkout untouched): with the updated `.gitleaksignore` committed, one
+further commit changed the flagged `tests/test_api_validation.py:249` value to
+a different synthetic value that was first confirmed detector-visible (a
+candidate the 8.24.3 detector did not flag was rejected as a control value).
+`gitleaks git . --log-opts='HEAD~1..HEAD'` on that clone exits 2 with one
+`generic-api-key` finding at the new commit, and the clone's own
+`--log-opts=HEAD` scan reports exactly that one finding — the fingerprints are
+exact-value exceptions, not blanket path ignores. The clone was then
+discarded; no matched values are recorded here. No new GitHub run has yet
+validated this broader-scan correction, so W01's new-CI-evidence item above
+still stands.
 
 ## Fresh validation
 
