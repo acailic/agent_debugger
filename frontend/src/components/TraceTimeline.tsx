@@ -191,6 +191,7 @@ export function TraceTimeline({
               <div
                 key={event.id}
                 className={`timeline-event ${event.event_type} ${event.id === selectedEventId ? 'selected' : ''} ${isHighlight ? 'highlight' : ''} ${blocked ? 'blocked' : ''} ${auditRank ? `audit-flag audit-flag--${auditRank}` : ''}`}
+                data-event-name={event.name}
                 onClick={() => onSelectEvent(event.id)}
               >
                 <div className="event-marker" />
