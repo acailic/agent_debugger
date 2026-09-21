@@ -20,9 +20,13 @@ Usage::
     #    (e.g. before/after engine tuning). Exit 1 when anything regressed.
     python scripts/regression_cli.py compare --baseline base.json --candidate cand.json [--json]
 
+    # 4. Run every bundle in a directory (the committed regression suite) and
+    #    report a combined verdict. Exit 1 when any bundle fails.
+    python scripts/regression_cli.py run-suite --dir benchmarks/regression/ [--json]
+
 Exit codes: 0 = pass / nothing regressed, 1 = failed assertions or a
 regression was found, 2 = operational error (missing session, tampered
-bundle, mismatched bundles, ...).
+bundle, mismatched bundles, empty suite directory, ...).
 """
 
 from __future__ import annotations
@@ -153,6 +157,66 @@ def _compare(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# run-suite (the committed regression suite)
+# ---------------------------------------------------------------------------
+
+
+def _run_suite(args: argparse.Namespace) -> int:
+    """Run every ``*.json`` bundle in *args.dir*; one combined verdict."""
+    directory = Path(args.dir)
+    bundle_paths = sorted(directory.glob("*.json"))
+    if not bundle_paths:
+        print(f"ERROR: no *.json incident bundles found in {directory}", file=sys.stderr)
+        return 2
+
+    results = []
+    for path in bundle_paths:
+        result = run_bundle(load_bundle(path))
+        results.append((path, result))
+        verdict = "PASS" if result["verdict"] == "pass" else "FAIL"
+        print(
+            f"{path.name}: {verdict} — {result['passed']}/{result['total']} assertions passed "
+            f"({result['failed']} failed)"
+        )
+        for row in result["assertions"]:
+            if not row["passed"]:
+                print(
+                    f"  [FAIL] {row['path']}: expected {row['expected']!r}, got {row['actual']!r}"
+                )
+
+    failed_bundles = sum(1 for _, result in results if result["verdict"] != "pass")
+    total = sum(result["total"] for _, result in results)
+    passed = sum(result["passed"] for _, result in results)
+    suite_verdict = "PASS" if failed_bundles == 0 else "FAIL"
+    print(
+        f"Suite verdict {suite_verdict}: {len(results) - failed_bundles}/{len(results)} bundles "
+        f"passed, {passed}/{total} assertions passed"
+    )
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "verdict": suite_verdict.lower(),
+                    "bundle_count": len(results),
+                    "failed_bundles": failed_bundles,
+                    "passed": passed,
+                    "total": total,
+                    "bundles": [
+                        {"file": path.name, **{key: result[key] for key in (
+                            "session_id", "bundle_hash", "verdict", "passed", "failed", "total"
+                        )}}
+                        for path, result in results
+                    ],
+                },
+                indent=2,
+                sort_keys=True,
+                default=str,
+            )
+        )
+    return 0 if failed_bundles == 0 else 1
+
+
+# ---------------------------------------------------------------------------
 # entry point
 # ---------------------------------------------------------------------------
 
@@ -180,12 +244,24 @@ def main(argv: list[str] | None = None) -> int:
     compare_parser.add_argument("--candidate", required=True, help="Candidate run-result file (JSON)")
     compare_parser.add_argument("--json", action="store_true", help="Print the comparison as JSON")
 
+    suite_parser = subparsers.add_parser(
+        "run-suite", help="Run every bundle in a directory and report a combined verdict"
+    )
+    suite_parser.add_argument(
+        "--dir",
+        default="benchmarks/regression",
+        help="Directory of incident bundles to run (default: benchmarks/regression)",
+    )
+    suite_parser.add_argument("--json", action="store_true", help="Print the suite summary as JSON")
+
     args = parser.parse_args(argv)
     try:
         if args.command == "export":
             return asyncio.run(_export_async(args))
         if args.command == "run":
             return _run(args)
+        if args.command == "run-suite":
+            return _run_suite(args)
         return _compare(args)
     except Exception as exc:  # operational failure, not a regression verdict
         print(f"ERROR: {exc}", file=sys.stderr)

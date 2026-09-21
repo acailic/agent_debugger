@@ -136,11 +136,14 @@ Only the pinned behaviours your change moved show up.
 # 3. Compare candidate vs baseline; exit 1 when anything regressed
 .venv-ci/bin/python scripts/regression_cli.py compare \
     --baseline baseline-run.json --candidate candidate-run.json [--json]
+
+# 4. Run every committed bundle (the regression suite); exit 1 when any bundle fails
+.venv-ci/bin/python scripts/regression_cli.py run-suite --dir benchmarks/regression/ [--json]
 ```
 
 Exit codes: `0` = pass / nothing regressed, `1` = failed assertions or a
 regression, `2` = operational error (missing session, tampered bundle,
-mismatched bundles, ...).
+mismatched bundles, empty suite directory, ...).
 
 ### Python API
 
@@ -174,23 +177,108 @@ exercises — and an `engine_version` label to record for that run.
 4. **Commit.** The reviewed bundle is committed like any other test
    fixture. Because the export is deterministic and hashed, the file never
    churns and cannot drift silently.
-5. **Run.** Locally, in code review, and (next slice) in CI: the runner
-   replays the bundle against whatever the current engine does and reports
-   exactly which pinned assertions moved.
+5. **Run.** Locally, in code review, and in CI: the committed suite under
+   `benchmarks/regression/` is replayed by the ordinary pytest gate (and by
+   `run-suite`), reporting exactly which pinned assertions moved.
 6. **Compare.** For an engine or analysis change, record the baseline run
    before the change and compare the candidate run after — the regressed
    cases are the review checklist for the change.
+
+## CI gate: the committed regression suite
+
+The lab's second hypothesis — *a saved failure is useful as a regression* —
+is wired into the normal test suite. `benchmarks/regression/` holds
+committed incident bundles, and `tests/test_regression_baseline.py` replays
+every `*.json` bundle in that directory through the current audit engine
+**in-process** (it imports `collector.regression.runner` directly — no
+subprocess, no database) and fails on any assertion drift. Because it is an
+ordinary pytest file, it runs wherever the suite already runs — locally and
+in CI's existing matrix — with zero new CI configuration.
+
+The gate today:
+
+- `benchmarks/regression/baseline_session.json` — a sanitized, synthetic
+  error-chain incident (session `regbase-session-0001`) whose 7 assertions
+  cover all six assertion kinds: a `verified` claim (decision citing a
+  successful search), an `unsupported` claim (decision with no evidence),
+  two failure findings (failing `deploy` tool result + chained `error`
+  event), the `runtime_error` narrative mechanism, trust band/score, and
+  the `fail` verdict.
+- A drifted engine fails `test_committed_regression_bundle_passes_*` with
+  the per-assertion diff — expected vs actual for each pinned path that
+  moved (e.g. `[trust_band] trust.band: expected 'medium', got 'low'`).
+  A fixture edited after export fails as *tampering* first, because the
+  gate loads bundles through the content-hash check.
+
+`run-suite` gives the same multi-bundle verdict from the CLI:
+
+```
+.venv-ci/bin/python scripts/regression_cli.py run-suite --dir benchmarks/regression/
+# baseline_session.json: PASS — 7/7 assertions passed (0 failed)
+# Suite verdict PASS: 1/1 bundles passed, 7/7 assertions passed
+```
+
+It exits `1` when any bundle fails (printing each failed assertion) and
+`2` when the directory holds no bundles at all — an empty suite is an
+operational error, not a silent pass.
+
+### Adding more baselines
+
+1. **Export** the incident (captured session) as a sanitized bundle:
+   `regression_cli.py export --session-id <id> --out benchmarks/regression/<name>.json`.
+   For the synthetic baseline specifically, `scripts/seed_regression_baseline.py`
+   regenerates it end-to-end (see below).
+2. **Review** the bundle — the sanitized events, the audit report, the
+   derived assertions. Deliberately adjust an expectation and re-sign with
+   `content_hash()` if needed; the edit is then visible in the fixture diff.
+3. **Commit** the file. The parametrized gate test picks up every
+   `*.json` in `benchmarks/regression/` automatically, and `run-suite`
+   includes it in the combined verdict. No test or CI changes required.
+
+`benchmarks/regression/` is deliberately *not* gitignored (unlike the
+runtime `benchmarks/corpora/`): committed bundles are the fixture.
+
+### Regenerating the synthetic baseline (determinism)
+
+The committed baseline is reproducible byte-for-byte — fixed ids, fixed
+timestamps, no wall-clock, and the redaction-policy environment pinned to
+the repo defaults:
+
+```
+.venv-ci/bin/python scripts/seed_regression_baseline.py
+# Baseline bundle ready: benchmarks/regression/baseline_session.json
+#   session: regbase-session-0001  content_hash: fe99b689ecf07b006f366f25fa22e95044490a33ec5a7831ae541a01dc8093d9
+#   events: 8  checkpoints: 1  assertions: 7
+```
+
+Re-running the script must print the same `content_hash` (the lab's
+determinism tests pin this property; the regeneration is the manual
+re-check). If the hash changes after an *engine* change, that is the gate
+telling you the baseline needs a deliberate, reviewed re-export.
+
+### Limit of the committed data
+
+The committed baseline is **synthetic**: a hand-built session seeded by
+`scripts/seed_regression_baseline.py` (obviously synthetic ids/payloads —
+`regbase-*`, `regbase@example.com`) with no real incident data, user
+content, or secrets. It is sanitized (`sanitized: true` with the policy
+recorded) like every shareable bundle, but sanitization here is belt and
+braces — there was nothing real to sanitize. Real captured incidents enter
+the suite only through the export → review → commit path above, where a
+human reads exactly what is being committed.
 
 ## Current limits (this slice)
 
 - **Analysis only.** The runner re-audits captured events; it never
   re-executes tools, agents, or models. Re-execution divergence is W04
   (restore/continuation) territory.
-- **Single-session scope.** One bundle = one session. Multi-baseline
-  suites (a directory of bundles aggregated into one verdict) are the next
-  slice.
-- **CI wiring is manual.** Run the CLI in CI yourself for now; a dedicated
-  job/matrix over committed bundles comes with the suite support above.
+- **Single-session scope per bundle.** One bundle = one session; the
+  committed suite (`run-suite` + the parametrized gate test) aggregates a
+  directory of them into one verdict, but there is no cross-session
+  scenario assertion yet.
+- **CI coverage = the committed suite.** The gate runs whatever bundles are
+  committed under `benchmarks/regression/` in the normal pytest matrix; a
+  dedicated nightly job over larger corpora is future work.
 - **Assertion kinds are report-level.** They pin the audit verdict's
   headline fields, not every number in the report. Scenario-family
   assertions (retry loops, stale evidence, restore divergence, ...) follow
@@ -198,3 +286,6 @@ exercises — and an `engine_version` label to record for that run.
 - **Evaluator versioning is a constant.** `AUDIT_ENGINE_VERSION` is bumped
   by hand when audit semantics change; there is no automatic fingerprint of
   the engine code yet.
+- **The committed baseline is synthetic.** It pins engine behaviour on a
+  hand-built error chain, not on real incident data (see "Limit of the
+  committed data" above).

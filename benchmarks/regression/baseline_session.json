@@ -1,0 +1,557 @@
+{
+  "audit_report": {
+    "claims": [
+      {
+        "alternatives_considered": 0,
+        "claim": "answer",
+        "confidence": 0.9,
+        "contradicted": false,
+        "event_id": "regbase-decision",
+        "event_type": "decision",
+        "evidence_refs": [
+          "regbase-search-result"
+        ],
+        "evidence_sources": [],
+        "headline": "synthetic_decision",
+        "rationale": "grounded in the synthetic search results",
+        "timestamp": "2026-07-01T09:03:00",
+        "verification_basis": "backed by a successful tool result",
+        "verification_status": "verified"
+      },
+      {
+        "alternatives_considered": 0,
+        "claim": "deploy",
+        "confidence": 0.8,
+        "contradicted": false,
+        "event_id": "regbase-decision-2",
+        "event_type": "decision",
+        "evidence_refs": [],
+        "evidence_sources": [],
+        "headline": "synthetic_decision",
+        "rationale": "assumed the deploy would succeed",
+        "timestamp": "2026-07-01T09:07:00",
+        "verification_basis": "confident claim made with no evidence",
+        "verification_status": "unsupported"
+      }
+    ],
+    "critical_decisions": [
+      {
+        "alternatives_considered": 0,
+        "claim": "answer",
+        "confidence": 0.9,
+        "contradicted": false,
+        "event_id": "regbase-decision",
+        "event_type": "decision",
+        "evidence_refs": [
+          "regbase-search-result"
+        ],
+        "evidence_sources": [],
+        "headline": "synthetic_decision",
+        "rationale": "grounded in the synthetic search results",
+        "timestamp": "2026-07-01T09:03:00",
+        "verification_basis": "backed by a successful tool result",
+        "verification_status": "verified"
+      },
+      {
+        "alternatives_considered": 0,
+        "claim": "deploy",
+        "confidence": 0.8,
+        "contradicted": false,
+        "event_id": "regbase-decision-2",
+        "event_type": "decision",
+        "evidence_refs": [],
+        "evidence_sources": [],
+        "headline": "synthetic_decision",
+        "rationale": "assumed the deploy would succeed",
+        "timestamp": "2026-07-01T09:07:00",
+        "verification_basis": "confident claim made with no evidence",
+        "verification_status": "unsupported"
+      }
+    ],
+    "failure_narrative": {
+      "available": true,
+      "confidence": 0.8528,
+      "evidence": [
+        {
+          "event_id": "regbase-decision",
+          "event_type": "decision",
+          "label": "answer",
+          "why": "localized root-cause suspect"
+        },
+        {
+          "event_id": "regbase-error",
+          "event_type": "error",
+          "label": "synthetic_error",
+          "why": "the observed failure"
+        }
+      ],
+      "headline": "runtime error:  raised with ",
+      "mechanism": {
+        "cause_chain": [
+          {
+            "event_id": "regbase-decision",
+            "event_type": "decision",
+            "label": "answer",
+            "role": "cause"
+          },
+          {
+            "event_id": "regbase-error",
+            "event_type": "error",
+            "label": "synthetic_error",
+            "role": "failure"
+          }
+        ],
+        "cause_event_id": "regbase-decision",
+        "contributing_factors": [
+          {
+            "event_id": "regbase-decision-2",
+            "label": "claim asserted without evidence",
+            "text": "Decision \"synthetic_decision\" asserted at confidence 0.80 without any evidence.",
+            "type": "unsupported_claim"
+          }
+        ],
+        "first_bad_decision": "regbase-decision",
+        "localized": true,
+        "text": "decision \"synthetic_decision\" appears upstream via inferred decision at confidence 0.90 without evidence."
+      },
+      "narrative": "Symptom:  raised with . Mechanism: decision \"synthetic_decision\" appears upstream via inferred decision at confidence 0.90 without evidence.. Contributing factors: claim asserted without evidence. Next inspection point: event regbase-decision — Open the decision justification and compare its cited evidence against what the action needed.",
+      "next_inspection": {
+        "event_id": "regbase-decision",
+        "suggested_action": "Open the decision justification and compare its cited evidence against what the action needed.",
+        "why": "The suspected origin is a decision — check whether its evidence justified the action."
+      },
+      "symptom": {
+        "failure_event_id": "regbase-error",
+        "mechanism_category": "runtime_error",
+        "mode": "upstream_runtime_error",
+        "text": " raised with "
+      },
+      "weakness": null
+    },
+    "failures": [
+      {
+        "confidence": 0.8528,
+        "event_id": "regbase-error",
+        "event_type": "error",
+        "headline": "synthetic_error",
+        "likely_cause": "decision \"synthetic_decision\" appears upstream via inferred decision at confidence 0.90 without evidence.",
+        "likely_cause_event_id": "regbase-decision",
+        "mode": "upstream_runtime_error",
+        "position": 6,
+        "supporting_event_ids": [
+          "regbase-error",
+          "regbase-decision"
+        ],
+        "symptom": " raised with "
+      },
+      {
+        "confidence": 0.8444,
+        "event_id": "regbase-deploy-result",
+        "event_type": "tool_result",
+        "headline": "synthetic_tool_result",
+        "likely_cause": "decision \"synthetic_decision\" appears upstream via inferred decision at confidence 0.90 without evidence.",
+        "likely_cause_event_id": "regbase-decision",
+        "mode": "ungrounded_decision",
+        "position": 5,
+        "supporting_event_ids": [
+          "regbase-deploy-result",
+          "regbase-decision"
+        ],
+        "symptom": "Tool \"synthetic_tool_result\" failed with connection reset by peer"
+      }
+    ],
+    "final_outcome": "session ended in error",
+    "goal_drift": {
+      "adherence_series": [
+        {
+          "adherent": true,
+          "event_id": "regbase-decision",
+          "name": "synthetic_decision",
+          "steps_since_reference": 0
+        },
+        {
+          "adherent": false,
+          "event_id": "regbase-decision-2",
+          "name": "synthetic_decision",
+          "steps_since_reference": 1
+        }
+      ],
+      "decisions": 2,
+      "decisions_after_last_reference": 1,
+      "drifted": false,
+      "first_drift_event_id": null,
+      "objective": "Synthetic baseline: summarize the demo quarter report",
+      "objective_referenced": true
+    },
+    "objective": "Synthetic baseline: summarize the demo quarter report",
+    "questions": {
+      "evidence": {
+        "coverage_of_decisions": 0.5,
+        "evidence_sources": [],
+        "retrieved_facts": 0,
+        "tool_backed_facts": 1,
+        "user_input_facts": 1
+      },
+      "outcome": {
+        "failed_tool_results": 1,
+        "failure_count": 2,
+        "failures": [
+          {
+            "event_id": "regbase-error",
+            "likely_cause_event_id": "regbase-decision",
+            "mode": "upstream_runtime_error",
+            "symptom": " raised with "
+          },
+          {
+            "event_id": "regbase-deploy-result",
+            "likely_cause_event_id": "regbase-decision",
+            "mode": "ungrounded_decision",
+            "symptom": "Tool \"synthetic_tool_result\" failed with connection reset by peer"
+          }
+        ],
+        "state_snapshots": 1,
+        "success_count": 1
+      },
+      "what_happened": {
+        "decisions": 2,
+        "edits": 0,
+        "event_count": 8,
+        "llm_calls": 0,
+        "retries": 0,
+        "summary": "8 events: 2 tool calls, 0 model calls, 2 decisions, 0 retries, 2 failures.",
+        "tool_calls": 2,
+        "tool_results": 2
+      },
+      "where_it_failed": {
+        "failures": 2,
+        "first_bad_decision": "regbase-decision",
+        "first_failure": "regbase-deploy-result",
+        "top_signals": [
+          {
+            "message": "Confidence 0.80 is unjustified: no evidence attached.",
+            "severity": "high",
+            "type": "confidence_evidence_mismatch"
+          },
+          {
+            "message": "Decision \"synthetic_decision\" asserted at confidence 0.80 without any evidence.",
+            "severity": "high",
+            "type": "unsupported_claim"
+          }
+        ]
+      },
+      "why": {
+        "decisions_with_rationale": [
+          {
+            "alternatives_considered": 0,
+            "confidence": 0.9,
+            "event_id": "regbase-decision",
+            "headline": "synthetic_decision",
+            "rationale": "grounded in the synthetic search results"
+          },
+          {
+            "alternatives_considered": 0,
+            "confidence": 0.8,
+            "event_id": "regbase-decision-2",
+            "headline": "synthetic_decision",
+            "rationale": "assumed the deploy would succeed"
+          }
+        ]
+      }
+    },
+    "review_points": [
+      {
+        "event_id": "regbase-decision-2",
+        "priority": "high",
+        "reason": "Decision \"synthetic_decision\" is unsupported (confidence 0.80)."
+      },
+      {
+        "event_id": "regbase-deploy-result",
+        "priority": "high",
+        "reason": "Failure (ungrounded_decision): Tool \"synthetic_tool_result\" failed with connection reset by peer"
+      },
+      {
+        "event_id": "regbase-error",
+        "priority": "high",
+        "reason": "Failure (upstream_runtime_error):  raised with "
+      },
+      {
+        "event_id": "regbase-decision-2",
+        "priority": "medium",
+        "reason": "confidence_evidence_mismatch: Confidence 0.80 is unjustified: no evidence attached."
+      },
+      {
+        "event_id": "regbase-decision-2",
+        "priority": "medium",
+        "reason": "unsupported_claim: Decision \"synthetic_decision\" asserted at confidence 0.80 without any evidence."
+      }
+    ],
+    "session_id": "regbase-session-0001",
+    "signals": [
+      {
+        "event_id": "regbase-decision-2",
+        "message": "Confidence 0.80 is unjustified: no evidence attached.",
+        "severity": "high",
+        "type": "confidence_evidence_mismatch"
+      },
+      {
+        "event_id": "regbase-decision-2",
+        "message": "Decision \"synthetic_decision\" asserted at confidence 0.80 without any evidence.",
+        "severity": "high",
+        "type": "unsupported_claim"
+      }
+    ],
+    "summary": {
+      "markdown": "# Audit summary — verdict: FAIL\n\nObjective: Synthetic baseline: summarize the demo quarter report\nOutcome: session ended in error\n\nTrust 0.47 (medium) — evidence_coverage=0.50, verification_rate=0.50, policy_compliance=1.00, recovery_rate=0.00, failure_severity=1.00.\n\n## Claims needing review\n- [unsupported] \"synthetic_decision\" (confidence 0.80)\n\n## Failures & root causes\n- (upstream_runtime_error)  raised with  — likely cause: decision \"synthetic_decision\" appears upstream via inferred decision at confidence 0.90 without evidence.\n- (ungrounded_decision) Tool \"synthetic_tool_result\" failed with connection reset by peer — likely cause: decision \"synthetic_decision\" appears upstream via inferred decision at confidence 0.90 without evidence.\n\n## Evidence relied on\nCoverage 50% of decisions; verification rate 50%; 2 decision(s), 2 failure(s).\n\n## Recommended human review\n- [high] Decision \"synthetic_decision\" is unsupported (confidence 0.80).\n- [high] Failure (ungrounded_decision): Tool \"synthetic_tool_result\" failed with connection reset by peer\n- [high] Failure (upstream_runtime_error):  raised with \n- [medium] confidence_evidence_mismatch: Confidence 0.80 is unjustified: no evidence attached.\n- [medium] unsupported_claim: Decision \"synthetic_decision\" asserted at confidence 0.80 without any evidence.",
+      "stakes": {
+        "mutating": true,
+        "read_like_calls": 1,
+        "tool_calls": 2,
+        "write_like_calls": 1
+      },
+      "stakes_line": "2 tool call(s), 1 mutating — this run changed state outside itself.",
+      "tldr": "Synthetic baseline: summarize the demo quarter report — session ended in error. Trust 0.47 (medium): 1 unsupported, 0 contradicted, 2 failure(s).",
+      "trust_band_label": "verify-first",
+      "trust_line": "Trust 0.47 (medium) — evidence_coverage=0.50, verification_rate=0.50, policy_compliance=1.00, recovery_rate=0.00, failure_severity=1.00.",
+      "verdict": "fail"
+    },
+    "trust": {
+      "band": "medium",
+      "components": {
+        "contradiction_count": 0,
+        "contradiction_rate": 0.0,
+        "decision_count": 2,
+        "evidence_coverage": 0.5,
+        "failure_count": 2,
+        "failure_severity": 1.0,
+        "policy_compliance": 1.0,
+        "recovery_rate": 0.0,
+        "verification_rate": 0.5
+      },
+      "explanation": "trust=0.47 (medium) from evidence_coverage=0.50, verification_rate=0.50, policy_compliance=1.00, recovery_rate=0.00, failure_severity=1.00, contradictions=0.",
+      "score": 0.475
+    }
+  },
+  "bundle_kind": "agent_debugger.incident_bundle",
+  "checkpoint_count": 1,
+  "checkpoints": [
+    {
+      "event_id": "regbase-search-result",
+      "id": "regbase-checkpoint-1",
+      "importance": 0.8,
+      "memory": {
+        "last_tool": "search"
+      },
+      "sequence": 1,
+      "session_id": "regbase-session-0001",
+      "state": {
+        "stage": 1
+      },
+      "timestamp": "2026-07-01T09:02:00"
+    }
+  ],
+  "content_hash": "fe99b689ecf07b006f366f25fa22e95044490a33ec5a7831ae541a01dc8093d9",
+  "engine": {
+    "audit_engine_version": "1"
+  },
+  "event_count": 8,
+  "events": [
+    {
+      "data": {
+        "content": "Synthetic baseline: summarize the demo quarter report"
+      },
+      "event_type": "agent_start",
+      "id": "regbase-start",
+      "importance": 0.5,
+      "metadata": {},
+      "name": "synthetic_agent_start",
+      "parent_id": null,
+      "session_id": "regbase-session-0001",
+      "timestamp": "2026-07-01T09:00:00",
+      "upstream_event_ids": []
+    },
+    {
+      "arguments": {},
+      "data": {},
+      "event_type": "tool_call",
+      "id": "regbase-search-call",
+      "importance": 0.5,
+      "metadata": {},
+      "name": "synthetic_tool_call",
+      "parent_id": null,
+      "session_id": "regbase-session-0001",
+      "timestamp": "2026-07-01T09:01:00",
+      "tool_name": "search",
+      "upstream_event_ids": []
+    },
+    {
+      "data": {},
+      "duration_ms": 0.0,
+      "error": null,
+      "event_type": "tool_result",
+      "id": "regbase-search-result",
+      "importance": 0.5,
+      "metadata": {},
+      "name": "synthetic_tool_result",
+      "parent_id": "regbase-search-call",
+      "result": {
+        "rows": 3
+      },
+      "session_id": "regbase-session-0001",
+      "timestamp": "2026-07-01T09:02:00",
+      "tool_name": "search",
+      "upstream_event_ids": []
+    },
+    {
+      "alternatives": [],
+      "chosen_action": "answer",
+      "confidence": 0.9,
+      "data": {},
+      "event_type": "decision",
+      "evidence": [],
+      "evidence_event_ids": [
+        "regbase-search-result"
+      ],
+      "id": "regbase-decision",
+      "importance": 0.5,
+      "metadata": {},
+      "name": "synthetic_decision",
+      "parent_id": null,
+      "reasoning": "grounded in the synthetic search results",
+      "session_id": "regbase-session-0001",
+      "timestamp": "2026-07-01T09:03:00",
+      "upstream_event_ids": []
+    },
+    {
+      "arguments": {},
+      "data": {},
+      "event_type": "tool_call",
+      "id": "regbase-deploy-call",
+      "importance": 0.5,
+      "metadata": {},
+      "name": "synthetic_tool_call",
+      "parent_id": null,
+      "session_id": "regbase-session-0001",
+      "timestamp": "2026-07-01T09:04:00",
+      "tool_name": "deploy",
+      "upstream_event_ids": []
+    },
+    {
+      "data": {},
+      "duration_ms": 0.0,
+      "error": "connection reset by peer",
+      "event_type": "tool_result",
+      "id": "regbase-deploy-result",
+      "importance": 0.5,
+      "metadata": {},
+      "name": "synthetic_tool_result",
+      "parent_id": "regbase-deploy-call",
+      "result": null,
+      "session_id": "regbase-session-0001",
+      "timestamp": "2026-07-01T09:05:00",
+      "tool_name": "deploy",
+      "upstream_event_ids": []
+    },
+    {
+      "data": {
+        "error": "deploy failed: connection reset by peer"
+      },
+      "error_message": "",
+      "error_type": "",
+      "event_type": "error",
+      "id": "regbase-error",
+      "importance": 0.5,
+      "metadata": {},
+      "name": "synthetic_error",
+      "parent_id": "regbase-deploy-result",
+      "session_id": "regbase-session-0001",
+      "stack_trace": null,
+      "timestamp": "2026-07-01T09:06:00",
+      "upstream_event_ids": [
+        "regbase-deploy-call"
+      ]
+    },
+    {
+      "alternatives": [],
+      "chosen_action": "deploy",
+      "confidence": 0.8,
+      "data": {},
+      "event_type": "decision",
+      "evidence": [],
+      "evidence_event_ids": [],
+      "id": "regbase-decision-2",
+      "importance": 0.5,
+      "metadata": {},
+      "name": "synthetic_decision",
+      "parent_id": null,
+      "reasoning": "assumed the deploy would succeed",
+      "session_id": "regbase-session-0001",
+      "timestamp": "2026-07-01T09:07:00",
+      "upstream_event_ids": []
+    }
+  ],
+  "expected_assertions": [
+    {
+      "expected": "medium",
+      "kind": "trust_band",
+      "path": "trust.band"
+    },
+    {
+      "expected": 0.475,
+      "kind": "trust_score",
+      "path": "trust.score"
+    },
+    {
+      "expected": "verified",
+      "kind": "claim_verification_status",
+      "path": "claims.regbase-decision.verification_status",
+      "subject": "regbase-decision"
+    },
+    {
+      "expected": "unsupported",
+      "kind": "claim_verification_status",
+      "path": "claims.regbase-decision-2.verification_status",
+      "subject": "regbase-decision-2"
+    },
+    {
+      "expected": [
+        "regbase-deploy-result",
+        "regbase-error"
+      ],
+      "kind": "failure_event_ids",
+      "path": "failures.event_ids"
+    },
+    {
+      "expected": "runtime_error",
+      "kind": "failure_narrative_mechanism",
+      "path": "failure_narrative.symptom.mechanism_category"
+    },
+    {
+      "expected": "fail",
+      "kind": "summary_verdict",
+      "path": "summary.verdict"
+    }
+  ],
+  "redaction": {
+    "max_payload_kb": 100,
+    "redact_pii": false,
+    "redact_prompts": false,
+    "redact_tool_payloads": false
+  },
+  "sanitized": true,
+  "schema_version": 1,
+  "session": {
+    "agent_name": "regression-baseline-agent",
+    "config": {
+      "contact": "regbase@example.com",
+      "purpose": "synthetic CI baseline"
+    },
+    "ended_at": "2026-07-01T09:07:00",
+    "framework": "synthetic",
+    "id": "regbase-session-0001",
+    "started_at": "2026-07-01T09:00:00",
+    "status": "error",
+    "tags": [
+      "regression-baseline"
+    ]
+  }
+}
