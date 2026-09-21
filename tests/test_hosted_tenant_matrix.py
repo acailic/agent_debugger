@@ -300,6 +300,104 @@ async def test_hosted_checkpoint_write_and_read_isolated_no_mutation(matrix, ten
     assert read.json()["id"] == checkpoint_id
 
 
+async def _store_checkpoint(
+    client: AsyncClient,
+    tenant: Tenant,
+    *,
+    session_id: str,
+    event_id: str,
+    checkpoint_id: str,
+):
+    return await client.post(
+        "/api/checkpoints",
+        json={
+            "id": checkpoint_id,
+            "session_id": session_id,
+            "event_id": event_id,
+            "sequence": 1,
+            "state": {"step": 1},
+            "memory": {},
+        },
+        headers=tenant.headers,
+    )
+
+
+async def test_hosted_checkpoint_event_reference_must_match_session(matrix, tenants):
+    """Same-tenant event/session consistency at the HTTP ingest boundary.
+
+    A checkpoint may only reference an event that exists AND belongs to the
+    checkpoint's session (platform-audit gap). An anchor event from another
+    session of the SAME tenant is a 422 with no rows written; a nonexistent
+    event id is a 404 with no rows written.
+    """
+    alpha, _beta = tenants
+    session_a = await _create_session(matrix, alpha, "alpha-agent")
+    session_b = await _create_session(matrix, alpha, "alpha-agent")  # same tenant
+
+    anchor_b = _uid("hosted-ev")
+    anchored = await _ingest_event(matrix, alpha, session_b, event_id=anchor_b)
+    assert anchored.status_code == 202, anchored.text
+
+    # Same-tenant valid pair passes.
+    anchor_a = _uid("hosted-ev")
+    anchored_a = await _ingest_event(matrix, alpha, session_a, event_id=anchor_a)
+    assert anchored_a.status_code == 202, anchored_a.text
+    ok = await _store_checkpoint(
+        matrix, alpha, session_id=session_a, event_id=anchor_a, checkpoint_id=_uid("hosted-cp")
+    )
+    assert ok.status_code == 202, ok.text
+
+    # Event from ANOTHER session of the same tenant: rejected, no mutation.
+    mismatched = await _store_checkpoint(
+        matrix, alpha, session_id=session_a, event_id=anchor_b, checkpoint_id=_uid("hosted-cp")
+    )
+    assert mismatched.status_code == 422, mismatched.text
+    assert anchor_b in mismatched.json()["detail"]
+
+    # Nonexistent event id: rejected, no mutation.
+    missing = await _store_checkpoint(
+        matrix,
+        alpha,
+        session_id=session_a,
+        event_id=_uid("hosted-ev-never"),
+        checkpoint_id=_uid("hosted-cp"),
+    )
+    assert missing.status_code == 404, missing.text
+
+    stored = (
+        await matrix.get(f"/api/sessions/{session_a}/checkpoints", headers=alpha.headers)
+    ).json()["checkpoints"]
+    assert len(stored) == 1, "only the consistent checkpoint may persist"
+    assert stored[0]["event_id"] == anchor_a
+
+    # The anchor event's own session is unaffected too.
+    other_session_checkpoints = (
+        await matrix.get(f"/api/sessions/{session_b}/checkpoints", headers=alpha.headers)
+    ).json()["checkpoints"]
+    assert other_session_checkpoints == []
+
+
+async def test_hosted_checkpoint_cannot_reference_other_tenants_event(matrix, tenants):
+    """An event id owned by another tenant is invisible: 404, nothing stored."""
+    alpha, beta = tenants
+    alpha_session = await _create_session(matrix, alpha, "alpha-agent")
+    beta_session = await _create_session(matrix, beta, "beta-agent")
+
+    beta_event = _uid("hosted-ev")
+    ok = await _ingest_event(matrix, beta, beta_session, event_id=beta_event)
+    assert ok.status_code == 202, ok.text
+
+    denied = await _store_checkpoint(
+        matrix, alpha, session_id=alpha_session, event_id=beta_event, checkpoint_id=_uid("hosted-cp")
+    )
+    assert denied.status_code == 404, denied.text
+
+    stored = (
+        await matrix.get(f"/api/sessions/{alpha_session}/checkpoints", headers=alpha.headers)
+    ).json()["checkpoints"]
+    assert stored == [], "checkpoint anchored on another tenant's event must not persist"
+
+
 # ---------------------------------------------------------------------------
 # Replay
 # ---------------------------------------------------------------------------

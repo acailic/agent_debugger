@@ -71,11 +71,16 @@ async def test_persist_event_applies_redaction(db_session_maker):
 @pytest.mark.asyncio
 async def test_persist_checkpoint_saves_to_injected_db(db_session_maker):
     """persist_checkpoint with injected session_maker should save the checkpoint."""
-    from api.services import persist_checkpoint, persist_session_start
+    from api.services import persist_checkpoint, persist_event, persist_session_start
 
     # Create parent session first (tenant isolation)
     session = _make_session(session_id="cp-test")
     await persist_session_start(session, session_maker=db_session_maker)
+
+    # The checkpoint's event reference must anchor on a real event of the
+    # same session (consistency rule shared with the collector ingest path).
+    anchor = _make_event(session_id="cp-test", id="e1")
+    await persist_event(anchor, session_maker=db_session_maker)
 
     cp = Checkpoint(
         session_id="cp-test",
@@ -91,6 +96,74 @@ async def test_persist_checkpoint_saves_to_injected_db(db_session_maker):
         checkpoints = await repo.list_checkpoints("cp-test")
     assert len(checkpoints) == 1
     assert checkpoints[0].sequence == 1
+
+
+@pytest.mark.asyncio
+async def test_persist_checkpoint_allows_empty_event_reference(db_session_maker):
+    """An empty event_id carries no reference and must stay accepted.
+
+    The SDK's TraceContext emits checkpoints with ``event_id=""`` when no
+    parent event is active, so the consistency rule cannot require one.
+    """
+    from api.services import persist_checkpoint, persist_session_start
+
+    await persist_session_start(_make_session(session_id="cp-empty"), session_maker=db_session_maker)
+
+    await persist_checkpoint(
+        Checkpoint(session_id="cp-empty", event_id="", sequence=1),
+        session_maker=db_session_maker,
+    )
+
+    from storage import TraceRepository
+
+    async with db_session_maker() as db:
+        repo = TraceRepository(db)
+        checkpoints = await repo.list_checkpoints("cp-empty")
+    assert [cp.sequence for cp in checkpoints] == [1]
+
+
+@pytest.mark.asyncio
+async def test_persist_checkpoint_rejects_event_from_another_session(db_session_maker):
+    """A checkpoint may only reference an event of its own session (API path)."""
+    from api.services import persist_checkpoint, persist_event, persist_session_start
+
+    await persist_session_start(_make_session(session_id="cp-a"), session_maker=db_session_maker)
+    await persist_session_start(_make_session(session_id="cp-b"), session_maker=db_session_maker)
+    # Same tenant, but the anchor event lives in session cp-b.
+    await persist_event(_make_event(session_id="cp-b", id="ev-b"), session_maker=db_session_maker)
+
+    with pytest.raises(ValueError, match="does not belong to session cp-a"):
+        await persist_checkpoint(
+            Checkpoint(session_id="cp-a", event_id="ev-b", sequence=1),
+            session_maker=db_session_maker,
+        )
+
+    from storage import TraceRepository
+
+    async with db_session_maker() as db:
+        repo = TraceRepository(db)
+        assert await repo.list_checkpoints("cp-a") == [], "rejected checkpoint must not persist"
+        assert await repo.list_checkpoints("cp-b") == []
+
+
+@pytest.mark.asyncio
+async def test_persist_checkpoint_rejects_nonexistent_event(db_session_maker):
+    """A checkpoint referencing an event id that does not exist is rejected."""
+    from api.services import persist_checkpoint, persist_session_start
+
+    await persist_session_start(_make_session(session_id="cp-missing"), session_maker=db_session_maker)
+
+    with pytest.raises(ValueError, match="does not belong to session cp-missing"):
+        await persist_checkpoint(
+            Checkpoint(session_id="cp-missing", event_id="ev-never-created", sequence=1),
+            session_maker=db_session_maker,
+        )
+
+    from storage import TraceRepository
+
+    async with db_session_maker() as db:
+        repo = TraceRepository(db)
+        assert await repo.list_checkpoints("cp-missing") == [], "rejected checkpoint must not persist"
 
 
 @pytest.mark.asyncio

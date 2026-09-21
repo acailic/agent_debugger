@@ -347,6 +347,20 @@ class TestCollectorHttpBoundary:
     async def test_checkpoint_state_and_memory_are_redacted(self, boundary_db, monkeypatch):
         session_id = _uid("ses")
         await _seed_session(boundary_db, session_id, tenant_id="tenant-red")
+        # Consistent anchor event: checkpoint event references must resolve
+        # to an event of the checkpoint's own session.
+        anchor_id = _uid("evt")
+        async with boundary_db() as db:
+            repo = TraceRepository(db, tenant_id="tenant-red")
+            await repo.add_event(
+                TraceEvent(
+                    id=anchor_id,
+                    session_id=session_id,
+                    event_type=EventType.TOOL_CALL,
+                    name="boundary_anchor",
+                )
+            )
+            await repo.commit()
         monkeypatch.setattr(collector_server, "_session_maker", boundary_db)
         monkeypatch.setattr(
             collector_server, "_get_redaction_pipeline", lambda: _full_policy()
@@ -360,7 +374,7 @@ class TestCollectorHttpBoundary:
             collector_server.CheckpointIngest(
                 id=checkpoint_id,
                 session_id=session_id,
-                event_id="evt-1",
+                event_id=anchor_id,
                 sequence=7,
                 state={
                     "stage": "transformed",
@@ -456,9 +470,24 @@ class TestInProcessBoundary:
             session, session_maker=boundary_db, redaction_pipeline=pipeline
         )
 
+        # Anchor event of the same session — checkpoint event references
+        # must be consistent since the platform-audit gap closed.
+        anchor_id = _uid("evt")
+        await persist_event(
+            TraceEvent(
+                id=anchor_id,
+                session_id=session.id,
+                event_type=EventType.TOOL_CALL,
+                name="boundary_anchor",
+                data={"contact": MARKER_EMAIL},
+            ),
+            session_maker=boundary_db,
+            redaction_pipeline=pipeline,
+        )
+
         checkpoint = Checkpoint(
             session_id=session.id,
-            event_id="evt-1",
+            event_id=anchor_id,
             sequence=3,
             state={"stage": "transformed", "contact": MARKER_EMAIL, "aggregates": 84},
             memory={"note": f"ping {MARKER_EMAIL}", "last_table": "revenue_daily"},

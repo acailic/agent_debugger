@@ -148,8 +148,21 @@ async def persist_checkpoint(
     async with sm() as db_session:
         try:
             repo = TraceRepository(db_session)
+            # Same consistency rule as the collector ingest boundary
+            # (collector/server.py ingest_checkpoint): within the tenant, a
+            # non-empty event reference must resolve to an event of the
+            # checkpoint's own session. An empty event_id carries no
+            # reference and stays accepted. Inconsistent checkpoints are
+            # rejected before any write, so nothing persists.
+            if checkpoint.event_id:
+                anchor = await repo.get_event(checkpoint.event_id)
+                if anchor is None or anchor.session_id != checkpoint.session_id:
+                    raise ValueError(
+                        f"Checkpoint event {checkpoint.event_id} does not belong to "
+                        f"session {checkpoint.session_id}"
+                    )
             await repo.create_checkpoint(to_store)
-            await repo.commit()
+            await db_session.commit()
         except Exception:
             await db_session.rollback()
             raise

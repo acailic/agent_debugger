@@ -433,6 +433,26 @@ async def ingest_checkpoint(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Session {checkpoint.session_id} not found",
                 )
+            # Consistency check (platform-audit gap): within the caller's
+            # tenant, a non-empty event reference must resolve to an event of
+            # the checkpoint's own session. An empty event_id carries no
+            # reference (the SDK emits those when no parent event is active)
+            # and stays accepted, so legitimate callers are unaffected.
+            if checkpoint.event_id:
+                anchor = await repo.get_event(checkpoint.event_id)
+                if anchor is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Event {checkpoint.event_id} not found",
+                    )
+                if anchor.session_id != checkpoint.session_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=(
+                            f"Event {checkpoint.event_id} belongs to session "
+                            f"{anchor.session_id}, not {checkpoint.session_id}"
+                        ),
+                    )
             await repo.create_checkpoint(checkpoint)
             await repo.commit()
     return {"checkpoint_id": checkpoint.id, "status": "stored"}

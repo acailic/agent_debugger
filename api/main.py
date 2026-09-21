@@ -46,6 +46,27 @@ from storage.engine import get_database_url, prepare_database
 logger = logging.getLogger(__name__)
 
 
+def _bootstrap_server_mode() -> None:
+    """Select the server's auth mode from the environment before first use.
+
+    The API server process never calls the SDK's ``init()`` — historically it
+    consumed ``get_config()``'s local-mode default, so a deployed (hosted)
+    server had no way to switch on key-based multi-tenant auth.
+    ``AGENT_DEBUGGER_MODE=cloud`` (case-insensitive) closes that gap; any
+    other value, or unset, leaves the keyless local-mode default unchanged
+    (loopback single-user behavior is identical). An SDK ``init()`` that
+    already ran in this process takes precedence, mirroring
+    ``get_config()``'s install-once semantics. Applied in ``create_app()``
+    so both the uvicorn entrypoint and in-process ``api.main:app`` honor it.
+    """
+    if os.environ.get("AGENT_DEBUGGER_MODE", "").strip().lower() != "cloud":
+        return
+    from agent_debugger_sdk import config as cfg_mod
+
+    if cfg_mod._global_config is None:
+        cfg_mod._global_config = cfg_mod.Config._create_unvalidated(mode="cloud")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan context manager."""
@@ -81,6 +102,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    _bootstrap_server_mode()
     _ = get_config()
 
     app = FastAPI(

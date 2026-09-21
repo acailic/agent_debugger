@@ -10,6 +10,11 @@ Related artifacts:
 - Two-tenant regression matrix: `tests/test_hosted_tenant_matrix.py`
 - Closed in this slice: the `/api/clusters` hard-coded local tenant and the
   unverified checkpoint parent-session ownership (see "Closed in this slice").
+- Synchronization gate: `tests/test_route_inventory_sync.py` parses the route
+  tables below and asserts set equality with the routes registered on the real
+  app (every app route documented; every documented route registered). When it
+  fails after a route change, update this doc — only change the code when the
+  code itself is wrong.
 
 ## How to read the table
 
@@ -39,10 +44,10 @@ Related artifacts:
 
 | Route | Evidence | Auth | Tenant store | Sinks |
 |---|---|---|---|---|
-| POST /api/traces | collector/server.py:303 | collector resolver (:293) | yes — ownership check `get_session` before write, collector/server.py:207-212 | events table; session.error counters (storage/repository.py:199-217); event buffer publish (collector/server.py:298) |
-| POST /api/sessions | collector/server.py:354 | collector resolver (:327) | yes — repo scoped to resolved tenant (:328); explicit ids rejected in hosted mode (:178-188) | sessions table |
-| POST /api/checkpoints | collector/server.py:375 | collector resolver (:400) | yes — parent-session ownership check (:405-409, added this slice) | checkpoints table |
-| GET /api/health | collector/server.py:415 | none | n/a | none |
+| POST /api/traces | collector/server.py:321 | collector resolver (:293) | yes — ownership check `get_session` before write, collector/server.py:215-234 | events table; session.error counters (storage/repository.py:199-217); event buffer publish (collector/server.py:316) |
+| POST /api/sessions | collector/server.py:376 | collector resolver (:327) | yes — repo scoped to resolved tenant (:328); explicit ids rejected in hosted mode (:178-188) | sessions table |
+| POST /api/checkpoints | collector/server.py:397 | collector resolver (:426) | yes — parent-session ownership check (:431-435) plus event/session consistency check (:437-455, see "Closed since") | checkpoints table |
+| GET /api/health | collector/server.py:461 | none | n/a | none |
 
 ## System / UI
 
@@ -50,7 +55,7 @@ Related artifacts:
 |---|---|---|---|---|
 | GET /health | api/system_routes.py:16 | none | n/a | none (read-only `SELECT 1` connectivity probe) |
 | GET / | api/ui_routes.py:15 | none | n/a | none (static UI) |
-| GET /api/version | api/main.py:165 | none | n/a | none |
+| GET /api/version | api/main.py:187 | none | n/a | none |
 
 ## Auth (prefix /api/auth)
 
@@ -59,6 +64,17 @@ Related artifacts:
 | POST /api/auth/keys | api/auth_routes.py:36 | `get_tenant_id` | yes — key bound to caller tenant (auth/service.py:19-46) | api_keys table |
 | GET /api/auth/keys | api/auth_routes.py:61 | `get_tenant_id` | yes — filtered `tenant_id == caller` (auth/service.py:49-68) | none |
 | DELETE /api/auth/keys/{key_id} | api/auth_routes.py:81 | `get_tenant_id` | yes — lookup constrained to caller tenant (auth/service.py:71-95) | api_keys table (deactivate) |
+
+## Audit (api/audit_routes.py) — `tenant repo`, read-only
+
+| Route | Evidence | Sinks |
+|---|---|---|
+| GET /api/sessions/{session_id}/audit | api/audit_routes.py:33 | none |
+| GET /api/sessions/{session_id}/decisions/{event_id}/justification | api/audit_routes.py:73 | none |
+| GET /api/sessions/{session_id}/decisions/{event_id}/reexecution-set | api/audit_routes.py:114 | none |
+| GET /api/sessions/{session_id}/evidence-graph | api/audit_routes.py:156 | none |
+| GET /api/sessions/{session_id}/success-flow | api/audit_routes.py:188 | none |
+| GET /api/audit/portfolio | api/audit_routes.py:261 | none |
 
 ## Analytics
 
@@ -135,23 +151,43 @@ storage/repository.py:67).
 
 ## Comparison (api/comparison_routes.py) — all `tenant repo`, read-only
 
-56 (compare), 310, 353, 389, 425 (divergence variants), 461 (baseline
-divergence), 520 (divergence summary). Each signature uses
-`Depends(get_repository)`.
+| Route | Evidence | Sinks |
+|---|---|---|
+| GET /api/compare/{primary_id}/{secondary_id} | api/comparison_routes.py:56 | none |
+| GET /api/compare/{primary_id}/{secondary_id}/divergence | api/comparison_routes.py:310 | none |
+| GET /api/compare/{primary_id}/{secondary_id}/divergence/behavioral | api/comparison_routes.py:425 | none |
+| GET /api/compare/{primary_id}/{secondary_id}/divergence/structural | api/comparison_routes.py:353 | none |
+| GET /api/compare/{primary_id}/{secondary_id}/divergence/temporal | api/comparison_routes.py:389 | none |
+| GET /api/sessions/{session_id}/divergence/baseline | api/comparison_routes.py:461 | none |
+| GET /api/sessions/{session_id}/divergence/summary | api/comparison_routes.py:520 | none |
 
 ## Cost (api/cost_routes.py) — all `tenant repo`, read-only
 
-75 (summary), 106 (top-sessions), 126 (session cost).
+| Route | Evidence | Sinks |
+|---|---|---|
+| GET /api/cost/summary | api/cost_routes.py:75 | none |
+| GET /api/cost/top-sessions | api/cost_routes.py:106 | none |
+| GET /api/cost/sessions/{session_id} | api/cost_routes.py:126 | none |
 
 ## Search (api/search_routes.py) — all `tenant repo`, read-only
 
-79 (GET /api/search), 119 (POST /api/search natural language).
+| Route | Evidence | Sinks |
+|---|---|---|
+| GET /api/search | api/search_routes.py:79 | none |
+| POST /api/search | api/search_routes.py:119 | none |
 
 ## Entities (api/entity_routes.py) — all `tenant entity repo`, read-only
 
-54 (entities), 83 (tools), 105 (errors), 127 (models), 148 (summary).
 Tenant scoping via `EntityRepository(session, tenant_id)`
 (api/dependencies.py:62-69; storage/repositories/entity_repo.py:25-34).
+
+| Route | Evidence | Sinks |
+|---|---|---|
+| GET /api/entities | api/entity_routes.py:54 | none |
+| GET /api/entities/tools | api/entity_routes.py:83 | none |
+| GET /api/entities/errors | api/entity_routes.py:105 | none |
+| GET /api/entities/models | api/entity_routes.py:127 | none |
+| GET /api/entities/summary | api/entity_routes.py:148 | none |
 
 ## Alert policies (api/policy_routes.py) — `tenant policy repo`
 
@@ -165,33 +201,77 @@ Tenant scoping via `EntityRepository(session, tenant_id)`
 
 ## Reasoning editor (api/reasoning_routes.py) — `tenant repo` reads, no persistence
 
-107 (edit), 160 (branch), 232 (replay), 280 (hierarchical), 321 (scenarios),
-356 (scenario), 390 (compare), 427 (export), 462 (import). Each request
-builds an ephemeral `ReasoningEditor` over tenant-scoped events
+Each request builds an ephemeral `ReasoningEditor` over tenant-scoped events
 (api/reasoning_routes.py:132 et al.); edits/branches are request-scoped and
 never persisted.
 
+| Route | Evidence | Sinks |
+|---|---|---|
+| POST /api/sessions/{session_id}/reasoning/edit | api/reasoning_routes.py:107 | none |
+| POST /api/sessions/{session_id}/reasoning/branch | api/reasoning_routes.py:160 | none |
+| GET /api/sessions/{session_id}/reasoning/replay | api/reasoning_routes.py:232 | none |
+| GET /api/sessions/{session_id}/reasoning/hierarchical | api/reasoning_routes.py:280 | none |
+| GET /api/sessions/{session_id}/reasoning/scenarios | api/reasoning_routes.py:321 | none |
+| GET /api/sessions/{session_id}/reasoning/scenarios/{branch_id} | api/reasoning_routes.py:356 | none |
+| GET /api/sessions/{session_id}/reasoning/scenarios/compare | api/reasoning_routes.py:390 | none |
+| POST /api/sessions/{session_id}/reasoning/scenarios/import | api/reasoning_routes.py:462 | none |
+| GET /api/sessions/{session_id}/reasoning/scenarios/{branch_id}/export | api/reasoning_routes.py:427 | none |
+
 ## Swimlanes (api/swimlane_routes.py) — `tenant repo`, read-only
 
-32 (swimlane), 63 (messages), 98 (coordination-analysis), 135
-(emergent-behaviors), 172 (multi-agent-analysis).
+| Route | Evidence | Sinks |
+|---|---|---|
+| GET /api/sessions/{session_id}/swimlane | api/swimlane_routes.py:32 | none |
+| GET /api/sessions/{session_id}/messages | api/swimlane_routes.py:63 | none |
+| POST /api/sessions/{session_id}/coordination-analysis | api/swimlane_routes.py:98 | none |
+| POST /api/sessions/{session_id}/emergent-behaviors | api/swimlane_routes.py:135 | none |
+| GET /api/sessions/{session_id}/multi-agent-analysis | api/swimlane_routes.py:172 | none |
 
 ## Research (api/research_routes.py) — `tenant repo`, read-only
 
-35 (frames), 56 (frames/tree), 82 (failure causes), 116 (similar failures),
-157 (uncertainty), 180 (prediction intervals), 204 (risk assessment).
+| Route | Evidence | Sinks |
+|---|---|---|
+| GET /api/sessions/{session_id}/frames | api/research_routes.py:35 | none |
+| GET /api/sessions/{session_id}/frames/tree | api/research_routes.py:56 | none |
+| GET /api/sessions/{session_id}/failures/causes | api/research_routes.py:82 | none |
+| GET /api/sessions/{session_id}/failures/similar | api/research_routes.py:116 | none |
+| GET /api/sessions/{session_id}/uncertainty | api/research_routes.py:157 | none |
+| GET /api/sessions/{session_id}/prediction-intervals | api/research_routes.py:180 | none |
+| GET /api/sessions/{session_id}/risk-assessment | api/research_routes.py:204 | none |
 
 ## Violations (api/violation_routes.py) — `tenant repo`, read-only
 
-47 (cluster), 126 (search), 196 (sparse), 265 (detail), 287 (dashboard), 411
-(session embedding), 436 (session similar).
+| Route | Evidence | Sinks |
+|---|---|---|
+| POST /api/violations/cluster | api/violation_routes.py:47 | none |
+| POST /api/violations/search | api/violation_routes.py:126 | none |
+| GET /api/violations/sparse | api/violation_routes.py:196 | none |
+| GET /api/violations/{violation_id} | api/violation_routes.py:265 | none |
+| GET /api/violations/dashboard | api/violation_routes.py:287 | none |
+| GET /api/violations/session/{session_id}/embedding | api/violation_routes.py:411 | none |
+| POST /api/violations/session/{session_id}/similar | api/violation_routes.py:436 | none |
 
 ## Stepper (api/stepper_routes.py) — `tenant repo` (module owned by another team)
 
-45, 101, 130, 158, 183, 219, 252, 294, 319, 354, 383, 410. All signatures use
-`Depends(get_repository)`. CUSTOM_CONDITION predicates are validated at
-creation time and rejected with 422 pre-mutation (api/stepper_routes.py:88-99
-→ agent_debugger_sdk/core/stepper.py `AgentStepper.set_breakpoint`).
+All signatures use `Depends(get_repository)`. CUSTOM_CONDITION predicates
+are validated at creation time and rejected with 422 pre-mutation
+(api/stepper_routes.py:88-99 → agent_debugger_sdk/core/stepper.py
+`AgentStepper.set_breakpoint`).
+
+| Route | Evidence | Sinks |
+|---|---|---|
+| POST /api/sessions/{session_id}/breakpoints | api/stepper_routes.py:45 | none |
+| DELETE /api/sessions/{session_id}/breakpoints/{breakpoint_id} | api/stepper_routes.py:101 | none |
+| DELETE /api/sessions/{session_id}/breakpoints | api/stepper_routes.py:130 | none |
+| GET /api/sessions/{session_id}/breakpoints | api/stepper_routes.py:158 | none |
+| POST /api/sessions/{session_id}/step | api/stepper_routes.py:183 | none |
+| GET /api/sessions/{session_id}/state | api/stepper_routes.py:219 | none |
+| POST /api/sessions/{session_id}/branch | api/stepper_routes.py:252 | none |
+| GET /api/sessions/{session_id}/branches | api/stepper_routes.py:294 | none |
+| GET /api/sessions/{session_id}/branches/{branch_id} | api/stepper_routes.py:319 | none |
+| DELETE /api/sessions/{session_id}/branches/{branch_id} | api/stepper_routes.py:354 | none |
+| POST /api/sessions/{session_id}/stepper/reset | api/stepper_routes.py:383 | none |
+| GET /api/sessions/{session_id}/stepper/context | api/stepper_routes.py:410 | none |
 
 ## Closed in this slice
 
@@ -283,6 +363,54 @@ caps) are documented in `validate_custom_condition` and pinned by
 `TestPreMutationValidation` plus route-level
 `tests/test_stepper_route_conditions.py`.
 
+## Closed since: checkpoint event/session consistency (Q06 remainder)
+
+The gap recorded below as "Checkpoint event/session consistency" is closed.
+Within one tenant, a checkpoint may now only reference an event that exists
+AND belongs to the checkpoint's session; an empty `event_id` (what the SDK
+emits when no parent event is active) carries no reference and stays
+accepted, so legitimate callers and the wire contract are unchanged.
+
+1. **HTTP ingest boundary** — `POST /api/checkpoints`
+   (collector/server.py `ingest_checkpoint`) resolves the caller-supplied
+   `event_id` through the tenant-scoped repository after the parent-session
+   ownership check: a nonexistent event id is rejected with 404, an event
+   from another session of the same tenant with 422, and nothing is
+   written. An event id owned by another tenant is invisible to the scoped
+   lookup and yields the same 404. Regression gates:
+   `tests/test_hosted_tenant_matrix.py::test_hosted_checkpoint_event_reference_must_match_session`
+   and
+   `...::test_hosted_checkpoint_cannot_reference_other_tenants_event`.
+2. **In-process API persistence path** —
+   `api/services/ingestion.py persist_checkpoint` (the pipeline the server
+   wires for in-process SDK checkpoints, and any direct caller) applies the
+   identical rule before writing and raises `ValueError` with no rows
+   persisted. Regression gates:
+   `tests/test_services_unit.py::test_persist_checkpoint_rejects_event_from_another_session`
+   and
+   `...::test_persist_checkpoint_rejects_nonexistent_event`
+   (positive/empty-reference cases alongside them).
+
+The SDK transport already treats 4xx checkpoint delivery as a
+`PermanentError` (no retry), so mismatched references surface instead of
+looping.
+
+## Closed since: hosted startup selectable by environment (Q06 remainder)
+
+The gap recorded below as "The e2e suite never runs the server in cloud
+mode" had a root cause worth recording: the server process had no path at
+all into cloud mode — `init()` is SDK-side, so `get_config()` always
+returned the local-mode default in a deployed server. `create_app()`
+now bootstraps from `AGENT_DEBUGGER_MODE=cloud` (api/main.py
+`_bootstrap_server_mode`): any other value or unset keeps the keyless
+local-mode default bit-for-bit, and an SDK `init()` that already ran takes
+precedence. A real-process hosted e2e now starts uvicorn with that single
+environment variable and pins the startup behavior over real HTTP —
+valid-key 200/201, absent-key 401 on protected and analytics routes,
+cross-tenant session reads 404 — with the plain local-mode server kept as a
+keyless control:
+`tests/e2e/test_hosted_startup.py` (fixture `hosted_server`, 5 tests).
+
 ## Known-open gaps (documented, intentionally not fixed here)
 
 1. **Analytics store is local-only and not tenant-isolated.** Route
@@ -304,13 +432,12 @@ caps) are documented in `validate_custom_condition` and pinned by
    `Config` object does not yet carry `redact_pii`/`redact_tool_payloads`
    fields — those are environment-only until the SDK grows them (SDK changes
    out of scope for Q08).
-3. **The e2e suite never runs the server in cloud mode.**
-   tests/e2e/conftest.py starts uvicorn without any mode/key environment, so
-   the server resolves every caller as tenant `local` and the suite proves
-   transport, not auth enforcement. The in-process hosted fixture in
-   `tests/test_hosted_tenant_matrix.py` covers the gap at the ASGI layer; a
-   real-process hosted e2e (uvicorn subprocess in cloud mode) remains open.
-4. **Checkpoint event/session consistency.** `POST /api/checkpoints`
-   verifies the parent session is visible to the caller's tenant, but
-   `storage/repositories/checkpoint_repo.py` still copies the supplied event
-   ID without checking that the event belongs to the checkpoint's session.
+3. **The e2e suite's scenario servers run in local mode only.**
+   tests/e2e/conftest.py starts its uvicorn without any mode environment,
+   so that server resolves every caller as tenant `local`. Hosted-mode
+   startup IS now covered by a real-process e2e — tests/e2e/test_hosted_startup.py
+   starts its own uvicorn subprocess with `AGENT_DEBUGGER_MODE=cloud` and
+   asserts the auth gates over real HTTP (see "Closed since: hosted startup
+   selectable by environment") — but the shared scenario server remains
+   local-mode, so the *scenario* suites still prove transport under local
+   mode rather than exercising multi-tenant flows end to end.
