@@ -47,3 +47,7 @@ c55f8c8ffb5b8615ae6b42cd455b9466bfc703a2:tests/test_sdk_config.py:generic-api-ke
 # docs/superpowers/plans/2026-03-23-agent-debugger-cloud-evolution.md:792,794 - another historical copy of the same example
 ea6b4bac9787cd806dc0057c4e9de604d159e952:docs/superpowers/plans/2026-03-23-agent-debugger-cloud-evolution.md:generic-api-key:792
 ea6b4bac9787cd806dc0057c4e9de604d159e952:docs/superpowers/plans/2026-03-23-agent-debugger-cloud-evolution.md:generic-api-key:794
+
+# Synthetic redaction sentinel in the regression-lab tests (same pattern as
+# tests/test_redaction_boundary.py); exact historical finding only.
+c61c838f8e379a5d16714bd60566544a71c6f693:tests/test_regression_lab.py:generic-api-key:54
