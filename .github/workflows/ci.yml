@@ -150,6 +150,91 @@ jobs:
         run: |
           python3 -m pytest -v -ra -o addopts='' tests/test_buffer_redis.py tests/test_buffer_redis_service.py
 
+  # Real-framework adapter capability tests. They skip cleanly without the
+  # frameworks (see docs/adapters/capability-matrix.md for the verified
+  # capability rows); this job installs the tested version set so they run.
+  framework-adapters:
+    name: Framework adapters (real packages)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install SDK + server deps + tested frameworks
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+          pip install \
+            fastapi \
+            "uvicorn[standard]" \
+            "sqlalchemy[asyncio]" \
+            aiosqlite \
+            alembic \
+            aiofiles \
+            bcrypt \
+            httpx \
+            pytest \
+            pytest-asyncio \
+            pytest-timeout \
+            "langchain-core==1.6.3" \
+            "pydantic-ai==2.46.0"
+
+      - name: Run framework capability tests (must not skip)
+        run: |
+          python3 -m pytest -v -ra -o addopts='' tests/adapters/framework_capability_matrix.py 2>&1 | tee /tmp/framework_tests.log
+          ! grep -q "SKIPPED" /tmp/framework_tests.log
+
+  # Real-browser smoke journey: seeds a contradicted-evidence session and a
+  # restored session, then drives the bundled UI end-to-end (finding ->
+  # evidence -> restore boundary) with a delayed-response check and a
+  # zero-console-error gate. See docs/research/2026-09-20-browser-smoke.md.
+  browser-smoke:
+    name: Browser smoke (real chromium)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+
+      - name: Install SDK + server deps
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+          pip install \
+            fastapi \
+            "uvicorn[standard]" \
+            "sqlalchemy[asyncio]" \
+            aiosqlite \
+            alembic \
+            aiofiles \
+            bcrypt \
+            httpx
+
+      - name: Build frontend bundle
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Playwright + chromium
+        run: |
+          npm install -g playwright@1.58.2
+          npx --yes playwright@1.58.2 install chromium --with-deps
+
+      - name: Run browser smoke journey
+        run: node scripts/browser_smoke.mjs
+
   dep-check:
     name: Dependency security
     runs-on: ubuntu-latest

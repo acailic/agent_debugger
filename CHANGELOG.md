@@ -133,6 +133,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   session showing the session_restored provenance marker, a delayed API
   response survived via its loading state, zero console errors; 15
   asserted steps, verified repeatedly
+
+#### Incident-to-regression laboratory, first slice (Q14)
+- Export a session as a deterministic, sanitized, content-hashed incident
+  bundle carrying the audit report and derived expected assertions; run it
+  back through the current engine with actual-vs-expected rows; compare
+  baseline vs candidate with a shared-data gate (mismatched hashes or
+  engine versions are refused). CLI: scripts/regression_cli.py
+  (export/run/compare). 13 tests including determinism, sentinel
+  sanitization, tamper rejection and exact-regression detection
+
+#### Real-framework adapter capability matrix (Q15)
+- Sixteen tests run the LangChain and PydanticAI adapters against the
+  real installed packages (langchain-core 1.6.3, pydantic-ai 2.46.0),
+  skipping cleanly where absent; the LangChain handler gains four
+  minimal >=1.0 compatibility fixes; docs/adapters/capability-matrix.md
+  publishes per-adapter capability rows with honest VERIFIED / MOCKED /
+  NOT SUPPORTED statuses. CI gains framework-adapters and browser-smoke
+  jobs (the real-chromium journey now gates every push)
+
+#### SSE reconnect recovery + UI stability
+- SSE blocks carry event ids and honor Last-Event-ID: a reconnect replays
+  the persisted gap (unknown cursor replays the whole session),
+  deduplicated against the live stream — disconnects no longer silently
+  skip events. The DecisionTree ResizeObserver feedback loop that grew
+  the Inspect page unboundedly is fixed; the browser smoke now uses
+  normal Playwright clicks
 ## [0.4.0] - 2026-09-20
 
 The benchmark-integrity and delivery-recovery release: the Who&When

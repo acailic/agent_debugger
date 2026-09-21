@@ -697,7 +697,11 @@ async def test_event_generator_emits_event_and_keepalive_and_unsubscribes():
         second = await anext(generator)
         await generator.aclose()
 
-    assert first.startswith("data: ")
-    assert '"tool_name": "search"' in first
+    # Event blocks carry an id line (Last-Event-ID cursor support) followed
+    # by the data line.
+    id_line, _, data_line = first.partition("\n")
+    assert id_line.startswith("id: ")
+    assert data_line.startswith("data: ")
+    assert '"tool_name": "search"' in data_line
     assert second == ": keepalive\n\n"
     unsubscribe.assert_awaited_once()
