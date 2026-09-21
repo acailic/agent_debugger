@@ -237,6 +237,59 @@ def derive_expected_assertions(report: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Decision-node identity (spectrum keys)
+# ---------------------------------------------------------------------------
+
+
+def decision_node_keys(report: dict[str, Any]) -> list[dict[str, str]]:
+    """Derive the stable identity of every decision node in an audit report.
+
+    Decision nodes are the report's *claims* — one row per captured decision
+    event, each already carrying the identity fields this derivation reuses
+    (nothing is invented here). Two identities are recorded per node because
+    no single one is stable in every corpus the regression lab ranks
+    (Tarantula note, ``docs/papers/tarantula-test-information-fault-localization.md``:
+    many runs turn a causal chain into a spectrum):
+
+    * ``key`` — the decision's event id. A bundle pins its events, so the id
+      is stable across every run of the *same* bundle and is the primary
+      identity.
+    * ``normalized_key`` — ``"{event_type}:{headline}"`` where ``event_type``
+      is the claim's recorded type and ``headline`` the report's own decision
+      headline (the causal-analyzer clip of the event name). Repeated
+      recordings of one scenario exported as *separate bundles* mint fresh
+      event ids per recording, so ids differ across those runs; type +
+      headline is the identity that survives. DERIVATION RULE (documented
+      cost): two decisions that share event type and headline collapse to a
+      single node under this key — a repeated same-named decision counts
+      once, never as two suspects.
+
+    Claims without an event id are skipped (mirroring
+    :func:`derive_expected_assertions`). Rows are sorted by ``key`` so the
+    output is deterministic for a fixed report.
+
+    CAUTION (Tarantula note): SBFL ranks, it does not convict. These keys
+    exist to *order* first-bad-decision candidates; suspiciousness computed
+    over them is never a verification status and must never feed the trust
+    score.
+    """
+    keys: list[dict[str, str]] = []
+    for claim in report.get("claims", []) or []:
+        event_id = str(claim.get("event_id") or "")
+        if not event_id:
+            continue
+        event_type = str(claim.get("event_type") or "decision")
+        headline = str(claim.get("headline") or claim.get("claim") or "")
+        keys.append(
+            {
+                "key": event_id,
+                "normalized_key": f"{event_type}:{headline}",
+            }
+        )
+    return sorted(keys, key=lambda node: node["key"])
+
+
+# ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------
 

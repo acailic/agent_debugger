@@ -75,6 +75,8 @@ Related artifacts:
 | GET /api/sessions/{session_id}/evidence-graph | api/audit_routes.py:156 | none |
 | GET /api/sessions/{session_id}/success-flow | api/audit_routes.py:188 | none |
 | GET /api/audit/portfolio | api/audit_routes.py:261 | none |
+| GET /api/sessions/{session_id}/slices | api/audit_routes.py:311 | none |
+| GET /api/sessions/{session_id}/damage-radius | api/audit_routes.py:350 | none |
 
 ## Analytics
 

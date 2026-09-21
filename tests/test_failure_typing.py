@@ -98,13 +98,14 @@ def _detail(events: list[TraceEvent]) -> dict | None:
 
 def test_detail_shape_on_unsupported_decision():
     # A confident evidence-free decision is unsupported -> the first bad
-    # decision; the detail record carries exactly the five typing fields.
+    # decision; the detail record carries the five typing fields (superset:
+    # the MAST slice adds mast_mode/mast_category additively).
     report = SessionAuditEngine().audit([_decision("ftyp-shape-d1", confidence=0.9)])
 
     where = report["questions"]["where_it_failed"]
     assert where["first_bad_decision"] == "ftyp-shape-d1"
     detail = where["first_bad_decision_detail"]
-    assert set(detail) == {
+    assert set(detail) >= {
         "event_id",
         "uca_type",
         "fault_side",

@@ -11,10 +11,19 @@ same verdict, deterministically.
 bundle (the W05 gate: candidate and baseline share data/evaluator versions)
 and reports which assertions regressed, improved or stayed unchanged — the
 "candidate vs baseline" view for a code change such as engine tuning.
+
+:func:`summarize_bundle_runs` aggregates the many-runs view of one bundle —
+the deterministic Tarantula/Ochiai suspiciousness spectrum
+(:func:`compute_run_spectrum`) and the τ-bench pass^k reliability figure
+(:func:`compute_run_reliability`) over already-recorded run verdicts. Both
+are arithmetic over recorded output (no model calls, no re-runs), and the
+spectrum only ever ranks decision-node candidates — never a verification
+status, never an input to the trust score.
 """
 
 from __future__ import annotations
 
+import math
 from collections import Counter
 from datetime import datetime
 from typing import Any
@@ -31,11 +40,18 @@ from .bundles import (
     ASSERTION_TRUST_SCORE,
     AUDIT_ENGINE_VERSION,
     MalformedBundleError,
+    decision_node_keys,
     parse_bundle,
 )
 
 #: Version of the run-result shape (also the compare input shape).
 RUN_RESULT_VERSION = 1
+
+#: Version of the bundle-run report shape (:func:`summarize_bundle_runs`).
+BUNDLE_REPORT_VERSION = 1
+
+#: Maximum number of entries in a spectrum's ``top_suspects`` list.
+SPECTRUM_TOP_SUSPECTS_CAP = 10
 
 #: Base event field names consumed explicitly when rebuilding an event; every
 #: other key in the stored dict is event payload the typed class folds back.
@@ -172,7 +188,12 @@ def run_bundle(
 
     Returns:
         A run-result dict: verdict plus per-assertion rows with the actual vs
-        expected values. Deterministic for a fixed bundle + engine.
+        expected values. Deterministic for a fixed bundle + engine. The
+        additive ``decision_nodes`` field records the stable identity
+        (:func:`~collector.regression.bundles.decision_node_keys`) of every
+        decision node in the fresh report — the per-run evidence the
+        Tarantula/Ochiai spectrum in :func:`compute_run_spectrum` counts; it
+        ranks candidates only and never feeds the trust score.
     """
     bundle = parse_bundle(bundle)
     events = events_from_bundle(bundle)
@@ -207,6 +228,7 @@ def run_bundle(
         "failed": failed,
         "total": len(rows),
         "assertions": rows,
+        "decision_nodes": decision_node_keys(report),
     }
 
 
@@ -324,4 +346,208 @@ def compare_run_results(baseline: Any, candidate: Any) -> dict[str, Any]:
         },
         "rows": rows,
         "verdict": verdict,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Spectrum + reliability (the bundle-run report)
+# ---------------------------------------------------------------------------
+
+
+def _run_passed(run: dict[str, Any]) -> bool:
+    """The per-run verdict exactly as the runner recorded it (never re-derived)."""
+    return run.get("verdict") == "pass"
+
+
+def _claim_subjects(run: dict[str, Any]) -> set[str]:
+    """Event ids of a run's claim assertions — the pre-``decision_nodes`` identity."""
+    return {
+        str(row.get("subject"))
+        for row in run.get("assertions", []) or []
+        if row.get("kind") == ASSERTION_CLAIM_STATUS and row.get("subject")
+    }
+
+
+def _run_node_keys(run: dict[str, Any], *, normalized: bool) -> set[str]:
+    """The decision-node key set one run contributes to the spectrum.
+
+    Runs recorded by :func:`run_bundle` carry ``decision_nodes`` rows with
+    both identities from :func:`~collector.regression.bundles.decision_node_keys`.
+    Runs recorded before that field existed (saved baseline run results)
+    contribute the event ids of their claim assertions instead — the same
+    primary identity — so an older corpus still counts.
+    """
+    nodes = run.get("decision_nodes") or []
+    if not nodes:
+        return _claim_subjects(run)
+    field = "normalized_key" if normalized else "key"
+    return {str(node.get(field)) for node in nodes if node.get(field)}
+
+
+def _ochiai(failed_hits: int, passed_hits: int, total_failed: int) -> float:
+    """Ochiai suspiciousness: failed_hits / sqrt(total_failed * (failed + passed hits)).
+
+    The denominator is guarded to 0.0 on divide-by-zero (no failed run in the
+    corpus, or the node appeared nowhere) so a node with no evidence scores
+    nothing rather than raising.
+    """
+    denominator = math.sqrt(total_failed * (failed_hits + passed_hits))
+    if denominator <= 0:
+        return 0.0
+    return failed_hits / denominator
+
+
+def compute_run_spectrum(runs: list[dict[str, Any]] | None) -> dict[str, Any] | None:
+    """Compute the Tarantula/Ochiai suspiciousness spectrum across a bundle's runs.
+
+    A single session gives a causal chain; a bundle of many runs of the same
+    scenario gives a spectrum (Tarantula note,
+    ``docs/papers/tarantula-test-information-fault-localization.md``). Each
+    run's verdict is the pass/fail the runner already recorded — it is read,
+    never re-derived — and each run's decision nodes are the identities it
+    recorded at run time. For every node key the function counts in how many
+    passed and failed runs it appeared and scores it with Ochiai:
+    ``failed(hit) / sqrt(total_failed * (failed(hit) + passed(hit)))``, the
+    divide-by-zero case guarded to 0.0. A node that appears only in failed
+    runs scores 1.0 and tops the ranking.
+
+    Node identity: within runs of one bundle the decision's event id is
+    stable (a bundle pins its events), so primary ``key`` values are used.
+    When the corpus spans more than one bundle — repeated recordings of the
+    same scenario mint fresh event ids per recording — ids differ across
+    runs, and the ``normalized_key`` derivation
+    (``"{event_type}:{headline}"``; see
+    :func:`~collector.regression.bundles.decision_node_keys`) is used
+    instead, so the same decision aggregates across recordings.
+
+    Field shape (the additive ``spectrum`` field of
+    :func:`summarize_bundle_runs`)::
+
+        {"scenarios": n_or_null, "runs": total_runs, "passed_runs": p,
+         "failed_runs": f, "top_suspects": [{"key", "suspiciousness"
+         (4 decimal places), "failed_hits", "passed_hits"}, ...]}
+
+    * ``scenarios`` — the number of distinct bundle hashes (recordings) the
+      runs span, or ``None`` when any run carries no bundle hash and the
+      corpus therefore cannot be counted reliably (treated as ungrouped).
+    * ``top_suspects`` — sorted by suspiciousness descending then key
+      ascending, capped at :data:`SPECTRUM_TOP_SUSPECTS_CAP` (10).
+
+    Computed only when the corpus has BOTH a passed and a failed run — a
+    corpus without both carries no ranking information. Otherwise the
+    function returns ``None`` (documented choice: an absent spectrum rather
+    than an empty one, so consumers never mistake "no evidence" for "no
+    suspects").
+
+    CAUTION (Tarantula note): SBFL ranks, it does not convict. A decision
+    that correlates with failure may be a symptom, not the cause.
+    Suspiciousness is an ordering heuristic over decision nodes, never a
+    verification status, and must never feed the trust score.
+    """
+    run_list = list(runs or [])
+    hashes = [run.get("bundle_hash") for run in run_list]
+    known_hashes = sorted({value for value in hashes if value})
+    scenarios: int | None = None
+    if all(value is not None for value in hashes):
+        scenarios = len(known_hashes)
+
+    passed_runs = sum(1 for run in run_list if _run_passed(run))
+    failed_runs = len(run_list) - passed_runs
+    if passed_runs == 0 or failed_runs == 0:
+        return None
+
+    # Event ids are recording-specific the moment the corpus spans more than
+    # one bundle: aggregate on the normalized type+headline identity instead.
+    normalized = len(known_hashes) > 1
+    hits: dict[str, dict[str, int]] = {}
+    for run in run_list:
+        bucket = "failed" if not _run_passed(run) else "passed"
+        for node_key in _run_node_keys(run, normalized=normalized):
+            row = hits.setdefault(node_key, {"failed": 0, "passed": 0})
+            row[bucket] += 1
+
+    suspects = [
+        {
+            "key": key,
+            "suspiciousness": round(_ochiai(counts["failed"], counts["passed"], failed_runs), 4),
+            "failed_hits": counts["failed"],
+            "passed_hits": counts["passed"],
+        }
+        for key, counts in hits.items()
+    ]
+    suspects.sort(key=lambda row: (-row["suspiciousness"], row["key"]))
+    return {
+        "scenarios": scenarios,
+        "runs": len(run_list),
+        "passed_runs": passed_runs,
+        "failed_runs": failed_runs,
+        "top_suspects": suspects[:SPECTRUM_TOP_SUSPECTS_CAP],
+    }
+
+
+def compute_run_reliability(runs: list[dict[str, Any]] | None) -> dict[str, Any]:
+    """Compute the τ-bench pass^k reliability of a bundle's recorded runs.
+
+    Worst-of-k gating over the *already recorded* runs of one scenario
+    (τ-bench note, ``docs/papers/tau-bench-pass-k-reliability.md``): ``k`` is
+    the number of trials, ``passes`` the count of runs whose recorded verdict
+    is ``pass`` (read, never re-derived), and ``pass_hat_k`` is True only
+    when every trial passed (``passes == k``) — a bundle that passes 7 of 8
+    trials is a failing bundle under pass^8; the mean pass rate hides that
+    failure, worst-of-k does not.
+
+    Computed from already-recorded run results only: this slice is the
+    metric, not re-run machinery (the ROADMAP W05 next experiment wires
+    re-running scenarios k times into CI).
+
+    An empty corpus reports ``{"k": 0, "passes": 0, "pass_hat_k": False}``:
+    zero trials claim no reliability, and worst-of-k must not pass a gate
+    vacuously on missing evidence.
+    """
+    run_list = list(runs or [])
+    trials = len(run_list)
+    passes = sum(1 for run in run_list if _run_passed(run))
+    return {"k": trials, "passes": passes, "pass_hat_k": trials > 0 and passes == trials}
+
+
+def summarize_bundle_runs(runs: list[dict[str, Any]] | None) -> dict[str, Any]:
+    """Aggregate one bundle's run results into the bundle report.
+
+    The many-runs companion to the existing report shapes — the single-run
+    result (:func:`run_bundle`) and the two-run comparison
+    (:func:`compare_run_results`) are unchanged. Core keys:
+    ``bundle_report_version``, ``bundle_hash`` (the single recording the runs
+    replay, or ``None`` when they span several or none), ``runs``,
+    ``passed_runs``, ``failed_runs`` and ``verdict`` (``pass`` / ``fail`` /
+    ``empty`` — the worst-of-k view, not the mean). Additive paper-note keys:
+
+    * ``spectrum`` — :func:`compute_run_spectrum` over all runs, or ``None``
+      when the corpus has both no passed-and-failed mix to rank with.
+    * ``reliability`` — :func:`compute_run_reliability`, the τ-bench pass^k
+      figure ("reliability: pass^k" at a glance).
+
+    Every run is validated like a compare input (:func:`compare_run_results`
+    precondition), so a dict that is not a run result raises
+    :class:`MalformedBundleError` instead of silently skewing the counts.
+    Runs may span several recordings of the same scenario (several bundle
+    hashes); the spectrum then aggregates on normalized node identity.
+
+    CAUTION: the spectrum ranks first-bad-decision candidates; it is never a
+    verification status and must never feed the trust score.
+    """
+    run_list = list(runs or [])
+    for index, run in enumerate(run_list):
+        _run_identity(run, f"runs[{index}]")
+    hashes = sorted({run.get("bundle_hash") for run in run_list if run.get("bundle_hash")})
+    passed_runs = sum(1 for run in run_list if _run_passed(run))
+    failed_runs = len(run_list) - passed_runs
+    return {
+        "bundle_report_version": BUNDLE_REPORT_VERSION,
+        "bundle_hash": hashes[0] if len(hashes) == 1 else None,
+        "runs": len(run_list),
+        "passed_runs": passed_runs,
+        "failed_runs": failed_runs,
+        "verdict": "empty" if not run_list else ("pass" if failed_runs == 0 else "fail"),
+        "spectrum": compute_run_spectrum(run_list),
+        "reliability": compute_run_reliability(run_list),
     }

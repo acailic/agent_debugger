@@ -15,14 +15,22 @@ from api.analytics_db import record_event
 from api.dependencies import get_repository
 from api.exceptions import NotFoundError
 from api.schemas_analysis import (
+    DamageRadiusResponse,
     DecisionJustificationResponse,
     EvidenceGraphResponse,
     PortfolioAuditResponse,
     ReexecutionSetResponse,
     SessionAuditResponse,
+    SessionSliceResponse,
 )
 from api.services import analyze_session, require_session
 from collector.audit import SessionAuditEngine, build_reexecution_set
+from collector.audit.slices import (
+    BACKWARD,
+    backward_slice,
+    damage_radius,
+    forward_slice,
+)
 from storage import TraceRepository
 
 router = APIRouter(tags=["audit"])
@@ -297,3 +305,98 @@ async def get_audit_portfolio(
     summary = _audit_engine.aggregate_audits(reports, sessions_meta=sessions_meta)
     record_event("audit_portfolio_viewed")
     return PortfolioAuditResponse(summary=summary)
+
+
+@router.get(
+    "/api/sessions/{session_id}/slices",
+    response_model=SessionSliceResponse,
+)
+async def get_session_slice(
+    session_id: str,
+    node_id: str = Query(..., min_length=1),
+    direction: str = Query(BACKWARD, pattern="^(backward|forward)$"),
+    repo: TraceRepository = Depends(get_repository),
+) -> SessionSliceResponse:
+    """Return a program slice for one node (Weiser, 1984).
+
+    Backward = everything that fed the node ("why did the agent believe
+    X"); forward = everything it fed. The slice is the exact projection of
+    one recorded execution — what DID influence the node in this run —
+    computed by traversal over the evidence-provenance graph, never
+    re-derived or inferred. Deterministic; no LLM.
+    """
+    session = await require_session(repo, session_id)
+    try:
+        events, _checkpoints, analysis, _ = await analyze_session(repo, session_id)
+        graph = _audit_engine.build_evidence_graph(
+            events,
+            session=_session_dict(session),
+            failure_explanations=analysis.get("failure_explanations", []),
+        )
+        result = (
+            backward_slice(events, graph, node_id)
+            if direction == BACKWARD
+            else forward_slice(events, graph, node_id)
+        )
+        await repo.commit()
+    except Exception:
+        await repo.rollback()
+        raise
+    record_event("session_slice_viewed", session_id=session_id)
+    return SessionSliceResponse(session_id=session_id, slice=result)
+
+
+@router.get(
+    "/api/sessions/{session_id}/damage-radius",
+    response_model=DamageRadiusResponse,
+)
+async def get_damage_radius(
+    session_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> DamageRadiusResponse:
+    """Return the forward slice from the session's first bad decision.
+
+    Weiser's downstream-damage localization made precise: every node the
+    localized first bad decision fed, in this run. When the audit localized
+    no first bad decision the response says so explicitly
+    (``available: false``) rather than returning an empty radius that
+    would read as "no damage". Deterministic; no LLM.
+    """
+    session = await require_session(repo, session_id)
+    try:
+        events, checkpoints, analysis, _ = await analyze_session(repo, session_id)
+        session_dict = _session_dict(session)
+        report = _audit_engine.audit(
+            events,
+            checkpoints,
+            session=session_dict,
+            failure_explanations=analysis.get("failure_explanations", []),
+        )
+        first_bad = (
+            (report.get("questions", {}).get("where_it_failed", {}) or {})
+            .get("first_bad_decision")
+        )
+        if not first_bad:
+            radius = {
+                "available": False,
+                "first_bad_decision": None,
+                "reason": (
+                    "no first bad decision was localized for this session"
+                ),
+            }
+        else:
+            graph = _audit_engine.build_evidence_graph(
+                events,
+                session=session_dict,
+                failure_explanations=analysis.get("failure_explanations", []),
+            )
+            radius = damage_radius(events, graph, str(first_bad))
+            # Normalize with the unavailable branch's shape so callers can
+            # branch on `available` without knowing which path answered.
+            radius["available"] = True
+        await repo.commit()
+    except Exception:
+        await repo.rollback()
+        raise
+    record_event("damage_radius_viewed", session_id=session_id)
+    return DamageRadiusResponse(session_id=session_id, radius=radius)

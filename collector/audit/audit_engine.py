@@ -105,6 +105,84 @@ _CLAIM_STATUS_LINE_LABELS: tuple[tuple[str, str], ...] = (
 #: (docs/papers/engineering-a-safer-world-stamp.md).
 GUARDRAIL_FAILURE_MODES = frozenset({"guardrail_block", "policy_mismatch"})
 
+# ---------------------------------------------------------------------------
+# MAST failure-mode vocabulary (Cemri et al., arXiv:2503.13657)
+# ---------------------------------------------------------------------------
+
+#: The honest "no mapping" verdict — failure evidence that no MAST mode
+#: names. Mirrors the "undetermined" discipline: never force a guess (see
+#: docs/papers/why-do-multi-agent-llm-systems-fail-mast.md, Caution).
+MAST_UNMAPPED: dict[str, str | None] = {"mast_mode": "unmapped", "mast_category": None}
+
+#: Mapping from trace-fact-derivable failure evidence to MAST's vocabulary
+#: (14 modes, 3 categories; see docs/papers/why-do-multi-agent-llm-systems-
+#: fail-mast.md). The taxonomy ONLY is adopted — never MAST's LLM-as-judge
+#: annotator: every row below names the recorded trace fact that fires it,
+#: and evidence no mode honestly covers maps to :data:`MAST_UNMAPPED`.
+#:
+#: Categories: ``C1`` system design issues, ``C2`` inter-agent misalignment,
+#: ``C3`` task verification. The map is restricted to modes derivable from
+#: single-agent traces: the six C2 modes (conversation reset, fail to ask
+#: for clarification, task derailment, information withholding, ignored
+#: other agent's input, reasoning-action mismatch) all require a second
+#: agent, so no row carries ``C2`` and a single-agent trace can never emit
+#: an inter-agent label. The remaining unmapped C1/C3 modes (disobey role
+#: specification, loss of conversation history, unaware of termination
+#: conditions, premature termination) name behaviors this engine's evidence
+#: vocabulary does not record; verified claims are passes, and
+#: partially-verified / unverified are risk grades, not failure facts —
+#: all fall through to :data:`MAST_UNMAPPED`.
+MAST_MODE_MAP: dict[str, dict[str, str | None]] = {
+    # --- failure modes (collector/failure_diagnostics.py failure_mode()) ---
+    # Fact: a BEHAVIOR_ALERT with alert_type "tool_loop" — repeated tool
+    # invocations recorded. MAST FM-1.3 "Step repetition" (C1): unnecessary
+    # reiteration of previously completed steps.
+    "looping_behavior": {"mast_mode": "step_repetition", "mast_category": "C1"},
+    # Fact: the same tool_name carries >= 2 error results (the repeated
+    # failed-strategy scan in _build_signals). Same FM-1.3 derivation.
+    "repeated_failed_strategy": {"mast_mode": "step_repetition", "mast_category": "C1"},
+    # Fact: a REFUSAL event or a SAFETY_CHECK whose outcome != "pass" — the
+    # record names a constraint the attempted action did not adhere to.
+    # MAST FM-1.1 "Disobey task specification" (C1): failure to adhere to
+    # the specified constraints or requirements of the task.
+    "guardrail_block": {"mast_mode": "disobey_task_specification", "mast_category": "C1"},
+    # Fact: a POLICY_VIOLATION event — its violation_type names the specific
+    # constraint breached. Same FM-1.1 derivation.
+    "policy_mismatch": {"mast_mode": "disobey_task_specification", "mast_category": "C1"},
+    # Fact: a failed TOOL_RESULT blamed on a DECISION with confidence < 0.4
+    # or no evidence — deciding without the information the action needed.
+    # The conceptual neighbor FM-2.2 "fail to ask for clarification" is
+    # inter-agent (C2); with no second agent in these traces there is no
+    # honest mapping, so the row stays unmapped rather than forced.
+    "ungrounded_decision": MAST_UNMAPPED,
+    # Fact: a failed TOOL_RESULT with no agent-mishandling candidate — a
+    # tool-side error. MAST's 14 modes classify agent behavior; none names
+    # a tool error.
+    "tool_execution_failure": MAST_UNMAPPED,
+    # Fact: an ERROR event — a harness/runtime exception, outside MAST's
+    # agent-behavior vocabulary.
+    "upstream_runtime_error": MAST_UNMAPPED,
+    # Fact: a BEHAVIOR_ALERT that is not a tool loop — no specific behavior
+    # that a MAST mode names is recorded.
+    "behavior_anomaly": MAST_UNMAPPED,
+    # Fact: none — the fallback mode carries no failure-specific fact.
+    "diagnostic_review": MAST_UNMAPPED,
+    # --- claim verification statuses (this module's taxonomy) ---
+    # Fact: STALE — a strictly newer concrete fact existed at decision time
+    # and was not cited; the decision was validated against superseded
+    # state. MAST FM-3.3 "Incorrect verification" (C3): failure to
+    # adequately validate or cross-check crucial information.
+    "stale": {"mast_mode": "incorrect_verification", "mast_category": "C3"},
+    # Fact: CONTRADICTED — the decision's causal subtree contains a failure
+    # event; the outcome disagreed with the confident claim and no recorded
+    # check caught it. MAST FM-3.2 "No or incomplete verification" (C3):
+    # omission of proper checking of task outcomes.
+    "contradicted": {"mast_mode": "no_or_incomplete_verification", "mast_category": "C3"},
+    # Fact: UNSUPPORTED — a claim asserted at confidence >= 0.5 with no
+    # evidence recorded at all. Same FM-3.2 verification-absent derivation.
+    "unsupported": {"mast_mode": "no_or_incomplete_verification", "mast_category": "C3"},
+}
+
 # Claim/decision confidence threshold above which a missing-evidence claim is
 # treated as "unsupported" rather than merely "unverified".
 UNSUPPORTED_CONFIDENCE_THRESHOLD = 0.5
@@ -1272,12 +1350,16 @@ class SessionAuditEngine:
             "failure_count": len(failures),
             "failed_tool_results": failed_tools,
             "state_snapshots": len(checkpoints),
+            # Additive MAST typing per failure entry (mode -> MAST_MODE_MAP;
+            # paper note docs/papers/why-do-multi-agent-llm-systems-fail-
+            # mast.md) — "unmapped"/None when no honest MAST mode exists.
             "failures": [
                 {
                     "event_id": failure["event_id"],
                     "mode": failure["mode"],
                     "symptom": failure["symptom"],
                     "likely_cause_event_id": failure["likely_cause_event_id"],
+                    **_mast_entry(failure.get("mode")),
                 }
                 for failure in failures
             ],
@@ -1949,7 +2031,7 @@ def _classify_first_bad_decision(
 ) -> dict[str, Any]:
     """Type the first bad decision from recorded trace facts only.
 
-    Two axes, both deterministic ordered rule lists (first match wins):
+    Three axes, all deterministic ordered rule lists (first match wins):
 
     * ``uca_type`` — the four unsafe control actions from Leveson's
       *Engineering a Safer World* (STAMP/STPA; see
@@ -1964,6 +2046,13 @@ def _classify_first_bad_decision(
       artifact originated (``model_produced`` / ``harness_recorded`` /
       ``tool_returned``), with ``undetermined`` as an honest value when the
       trace cannot decide — never a guessed attribution.
+    * ``mast_mode`` / ``mast_category`` — the MAST failure taxonomy (see
+      docs/papers/why-do-multi-agent-llm-systems-fail-mast.md): which of
+      MAST's 14 modes the same recorded facts support, restricted to the
+      single-agent-applicable vocabulary in :data:`MAST_MODE_MAP`. The
+      taxonomy only, never MAST's LLM-judge annotator — and ``unmapped``
+      (category ``None``) when no honest mapping exists, mirroring the
+      ``undetermined`` discipline.
 
     ``interaction_edge`` names the two components the bad step connects
     (parent event type -> bad event type), or ``None`` when the parent does
@@ -2008,14 +2097,69 @@ def _classify_first_bad_decision(
             "was taken (STAMP wrong)",
         ),
     ]
-    uca_type, derivation = (
+    uca_type, uca_derivation = (
         "undetermined",
         "uca rule 5: no earlier rule matched — the trace does not decide a "
         "UCA category",
     )
     for matched, type_, why in uca_rules:
         if matched:
-            uca_type, derivation = type_, why
+            uca_type, uca_derivation = type_, why
+            break
+
+    # mast_mode / mast_category: ordered MAST rules over the same recorded
+    # facts, first match wins (vocabulary + per-row derivation rules:
+    # MAST_MODE_MAP). uca rule 4's {UNSUPPORTED, CONTRADICTED} split in two
+    # here — the contradicted verdict carries the stronger outcome-
+    # disagreed fact, so it claims its rule first.
+    mast_rules: list[tuple[bool, dict[str, str | None], str]] = [
+        (
+            claim_status == STALE,
+            _mast_entry(STALE),
+            "mast rule 1: claim status is stale — the decision was validated "
+            "against superseded state (MAST FM-3.3 incorrect verification, "
+            "C3 task verification)",
+        ),
+        (
+            guardrail_fact is not None,
+            _mast_entry("guardrail_block"),
+            f"mast rule 2: {guardrail_fact} — the attempted action did not "
+            "adhere to a recorded constraint (MAST FM-1.1 disobey task "
+            "specification, C1 system design)",
+        ),
+        (
+            any(
+                _is_looping_signal(signal) and signal.get("event_id") == event_id
+                for signal in signals
+            ),
+            _mast_entry("repeated_failed_strategy"),
+            "mast rule 3: a repeated_failed_strategy / tool-loop signal "
+            "references this event — a step was reiterated without progress "
+            "(MAST FM-1.3 step repetition, C1 system design)",
+        ),
+        (
+            claim_status == CONTRADICTED,
+            _mast_entry(CONTRADICTED),
+            "mast rule 4: claim status is contradicted — the outcome "
+            "disagreed with the claim and no recorded check caught it "
+            "(MAST FM-3.2 no or incomplete verification, C3 task verification)",
+        ),
+        (
+            claim_status == UNSUPPORTED,
+            _mast_entry(UNSUPPORTED),
+            "mast rule 5: claim status is unsupported — asserted with no "
+            "evidence or check recorded (MAST FM-3.2 no or incomplete "
+            "verification, C3 task verification)",
+        ),
+    ]
+    mast_entry, mast_derivation = (
+        MAST_UNMAPPED,
+        "mast rule 6: no earlier rule matched — no MAST mode is honestly "
+        "derivable from the recorded trace facts",
+    )
+    for matched, entry, why in mast_rules:
+        if matched:
+            mast_entry, mast_derivation = entry, why
             break
 
     # fault_side: ordered Model-or-Harness rules, first match wins. A bad
@@ -2059,7 +2203,9 @@ def _classify_first_bad_decision(
         "uca_type": uca_type,
         "fault_side": fault_side,
         "interaction_edge": interaction_edge,
-        "derivation": derivation,
+        "derivation": f"{uca_derivation}; {mast_derivation}",
+        "mast_mode": mast_entry["mast_mode"],
+        "mast_category": mast_entry["mast_category"],
     }
 
 
@@ -2115,6 +2261,16 @@ def _is_looping_signal(signal: dict[str, Any]) -> bool:
     return signal.get("type") == "plan_drift" and "tool-loop" in str(
         signal.get("message", "")
     ).lower()
+
+
+def _mast_entry(evidence: Any) -> dict[str, str | None]:
+    """MAST mode/category pair for a failure-evidence token.
+
+    Looks the token up in :data:`MAST_MODE_MAP` (failure modes, signal
+    types, claim verification statuses) and falls back to
+    :data:`MAST_UNMAPPED` — an unknown token never yields a guessed mode.
+    """
+    return MAST_MODE_MAP.get(str(evidence), MAST_UNMAPPED)
 
 
 # ---------------------------------------------------------------------------

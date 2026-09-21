@@ -564,6 +564,30 @@ class EvidenceGraphResponse(BaseModel):
     graph: EvidenceGraphSchema
 
 
+class SessionSliceResponse(BaseModel):
+    """Response schema for the program-slice endpoint (Weiser).
+
+    Wraps :func:`collector.audit.slices.backward_slice` /
+    :func:`collector.audit.slices.forward_slice` — the exact "what did
+    influence, in this run" projection of one recorded execution.
+    """
+
+    session_id: str
+    slice: dict[str, Any]
+
+
+class DamageRadiusResponse(BaseModel):
+    """Response schema for the damage-radius endpoint.
+
+    The forward slice from the session's first bad decision — Weiser's
+    downstream-damage localization made precise. ``radius.available`` is
+    false when the audit localized no first bad decision.
+    """
+
+    session_id: str
+    radius: dict[str, Any]
+
+
 class PortfolioSessionRowSchema(BaseModel):
     """One session's audit summary in the cross-session portfolio view."""
 

@@ -6,6 +6,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.6.0] - 2026-09-21
+
+#### Scientific foundations, verified and wired in
+- 17 new paper notes (docs/papers) verified against primary sources
+  (arXiv/DOI/publisher records): systems classics (Zeller delta debugging,
+  Weiser slicing, Tarantula SBFL, Dapper, rr, ROME), trust and safety
+  science (Lee & See, Leveson STAMP, Reason, FreshQA, Liu et al.
+  verifiability), and 2025-26 agent-failure research (MAST, TRAIL,
+  tau-bench pass^k, AgentRewind, agentic fault taxonomy, Model-or-Harness);
+  README Scientific Foundations reorganized into five pillars (32 notes),
+  candidates digest with per-work verification in docs/research
+
+#### Deterministic failure typing (STAMP + Model-or-Harness + MAST)
+- first_bad_decision_detail on the where-it-failed answer: uca_type
+  (omitted/wrong/mistimed/overlong — stale is formally mistimed),
+  fault_side (model_produced/tool_returned/harness_recorded/undetermined),
+  interaction_edge, and a derivation string naming the rule that fired;
+  plus MAST mast_mode/mast_category typed from the paper's Appendix-A
+  vocabulary (4 modes derivable from single-agent facts; unmapped is an
+  honest value, never a guess)
+- Reason active/latent split in the failure narrative:
+  mechanism.latent_conditions from the completeness pass (missing events,
+  orphaned parents, truncation, non-monotonic timestamps) plus
+  stale-evidence/unsupported-claim/goal-drift conditions, with the active
+  failure excluded; empty stays silent ("none found", never "none existed")
+- Liu et al. verifiability measurement: claim_status_fractions on the
+  audit report (all six statuses, counts + fractions + total) with a
+  headline "Claim verification:" line in the summary markdown
+
+#### Program slices (Weiser) over the evidence graph
+- collector/audit/slices.py: backward_slice ("what fed this"), forward_slice
+  ("what it fed"), damage_radius (forward slice from the first bad
+  decision) — exact dynamic slices of one recorded execution ("what DID
+  influence, in this run"), traversal only, edges never re-derived
+- New API routes GET /api/sessions/{id}/slices?node_id=&direction= and
+  GET /api/sessions/{id}/damage-radius (route inventory updated); the
+  unavailable radius says so explicitly instead of reading as "no damage"
+
+#### Regression-lab spectrum and reliability (Tarantula, tau-bench)
+- Bundle reports gain spectrum.top_suspects — Ochiai suspiciousness per
+  decision node across a bundle's passed/failed runs (deterministic
+  arithmetic; ranks, never convicts, never feeds the trust score) — and
+  reliability {k, passes, pass_hat_k} worst-of-k gating; per-run
+  decision_nodes identity (event id within a bundle, normalized
+  type:headline across bundles)
 
 #### Regression gate in CI (Q14 follow-up)
 - A committed synthetic baseline bundle (sanitized, deterministic,
