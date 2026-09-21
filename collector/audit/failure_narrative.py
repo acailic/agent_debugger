@@ -9,6 +9,10 @@ explanation bundle the XAI-for-coding-agent-failures note calls for:
 * **mechanism** — why it happened: the cause chain from the localized
   root-cause suspect down to the failure, the first bad decision, and the
   deterministic signals that contributed (drift, loops, contradictions...).
+  The first bad decision is the ACTIVE failure; the dormant upstream
+  weaknesses that made it likely — recorder gaps, stale evidence, missing
+  instrumentation — are the LATENT conditions, reported alongside it (the
+  human-error (Reason) latent-failures note's active/latent split).
 * **evidence** — anchored links back to the underlying events, so the
   narrative is auditable rather than a wall of generated text.
 * **next inspection point** — the single best place for the operator to look
@@ -20,6 +24,9 @@ Design rules (same as the audit engine):
 * Compression layer only — every claim in the narrative resolves to an event
   id in the trace, and uncertainty is stated explicitly via ``weakness``
   when localization is weak (per the note's caution).
+* Blame the active error, hunt the latent conditions. A latent condition is
+  named mechanistically (superseded fact, dropped event) and never excuses
+  the decision; an empty list reads "none found", never "none existed".
 """
 
 from __future__ import annotations
@@ -28,6 +35,7 @@ from typing import Any
 
 from agent_debugger_sdk.core.events import EventType, TraceEvent
 
+from ..completeness import compute_session_completeness
 from ..intelligence.helpers import event_label, event_value
 
 # Normalized mechanism taxonomy (paper takeaway #2: failure modes should be
@@ -55,6 +63,20 @@ CONTRIBUTING_SIGNAL_LABELS: dict[str, str] = {
     "goal_drift": "goal drift",
 }
 
+# Latent-condition labels for the evidence-system signal types — the
+# human-error (Reason) latent-failures note's mechanistic vocabulary
+# (superseded fact, missing check), never claims about model intention.
+# Capture-side conditions carry their labels where they are built, next to
+# the completeness field that fires them.
+LATENT_EVIDENCE_SIGNAL_LABELS: dict[str, str] = {
+    "stale_evidence": "acted on superseded evidence",
+    "unsupported_claim": "assertion without evidence",
+}
+
+# The goal-drift latent condition keys off report["goal_drift"] rather than a
+# signal row, so its label lives here instead of in the map above.
+LATENT_GOAL_DRIFT_LABEL = "objective no longer referenced"
+
 # Confidence ceiling for a narrative whose primary failure has no localized
 # upstream cause — honest "symptom-only" explanation, never overstated.
 UNLOCALIZED_CONFIDENCE_CAP = 0.4
@@ -62,6 +84,7 @@ UNLOCALIZED_CONFIDENCE_CAP = 0.4
 MAX_EVIDENCE_EVENTS = 6
 MAX_CONTRIBUTING_FACTORS = 4
 MAX_CAUSE_CHAIN = 8
+MAX_LATENT_CONDITIONS = 4
 
 
 def build_failure_narrative(
@@ -72,7 +95,9 @@ def build_failure_narrative(
     ``report`` is the dict produced by
     :meth:`collector.audit.SessionAuditEngine.audit`. The narrative focuses on
     the primary failure (highest-confidence localized failure, matching the
-    report's own ordering). Pure function of (events, report) — no I/O.
+    report's own ordering) and reports the first bad decision as the active
+    failure with its latent conditions alongside (Reason's active/latent
+    split). Pure function of (events, report) — no I/O.
     """
     failures = report.get("failures", []) or []
     if not failures:
@@ -99,9 +124,9 @@ def build_failure_narrative(
 
     cause_chain = _cause_chain(primary, position, id_lookup)
     contributing = _contributing_factors(report)
-    first_bad_decision = (
-        report.get("questions", {}).get("where_it_failed", {}) or {}
-    ).get("first_bad_decision")
+    where_failed = (report.get("questions") or {}).get("where_it_failed", {}) or {}
+    first_bad_decision = where_failed.get("first_bad_decision")
+    first_bad_decision_detail = where_failed.get("first_bad_decision_detail")
 
     symptom = {
         "text": str(primary.get("symptom") or ""),
@@ -116,7 +141,13 @@ def build_failure_narrative(
         "cause_chain": cause_chain,
         "first_bad_decision": first_bad_decision,
         "contributing_factors": contributing,
+        "latent_conditions": _latent_conditions(events, report, first_bad_decision),
     }
+    # Sibling detail for the active failure, added by the where-it-failed
+    # pass; passed through untouched and omitted entirely when the report
+    # predates it, so old reports serialize identically.
+    if first_bad_decision_detail is not None:
+        mechanism["first_bad_decision_detail"] = first_bad_decision_detail
     evidence = _evidence_entries(primary, cause_event_id, position, id_lookup)
 
     localized = cause_event_id is not None
@@ -142,6 +173,7 @@ def build_failure_narrative(
         symptom=symptom,
         mechanism=mechanism,
         contributing=contributing,
+        latent=mechanism["latent_conditions"],
         next_inspection=next_inspection,
     )
     headline = (
@@ -256,6 +288,133 @@ def _contributing_factors(report: dict[str, Any]) -> list[dict[str, Any]]:
     return factors
 
 
+def _latent_conditions(
+    events: list[TraceEvent],
+    report: dict[str, Any],
+    first_bad_decision: Any,
+) -> list[dict[str, Any]]:
+    """Dormant upstream weaknesses that made the first bad decision likely.
+
+    The human-error (Reason) latent-failures note's active/latent split: the
+    first bad decision is the ACTIVE failure, so signals anchored on it are
+    excluded — they describe the decision, not a condition behind it. Two
+    deterministic sources, capture conditions first because they undermine
+    trust in the whole narrative:
+
+    * capture conditions — recorder holes in this very event list, from the
+      same pure completeness pass the operator sees (``compute_session_completeness``);
+    * evidence-system conditions — the report's own stale-evidence /
+      unsupported-claim signals (minus the active failure) and goal drift.
+
+    Each group keeps a fixed deterministic order (capture: severity of the
+    trust damage; evidence: severity then first appearance, mirroring
+    :func:`_contributing_factors`). Empty reads "none found", never "none
+    existed" — callers must stay silent then (the note's caution).
+    """
+    conditions: list[dict[str, Any]] = []
+
+    # Capture conditions — silent recorder gap, then the progressively
+    # narrower fidelity losses, then ordering sanity.
+    completeness = compute_session_completeness(events)
+    if completeness.missing_sequence_count > 0:
+        conditions.append(
+            {
+                "type": "missing_events",
+                "label": "silent recorder gap — sequence numbers missing",
+                "text": (
+                    f"{completeness.missing_sequence_count} emission sequence "
+                    "position(s) never landed in the captured trace."
+                ),
+                "event_id": None,
+            }
+        )
+    if completeness.missing_parents_count > 0:
+        conditions.append(
+            {
+                "type": "orphaned_events",
+                "label": "orphaned events — capture holes",
+                "text": (
+                    f"{completeness.missing_parents_count} event(s) reference a "
+                    "parent id absent from the session."
+                ),
+                "event_id": None,
+            }
+        )
+    if completeness.truncated:
+        conditions.append(
+            {
+                "type": "truncated_events",
+                "label": "truncated events — detail lost at capture",
+                "text": (
+                    f"{completeness.truncated_event_count} event payload(s) "
+                    "truncated at ingestion."
+                ),
+                "event_id": None,
+            }
+        )
+    if completeness.non_monotonic_timestamp_count > 0:
+        conditions.append(
+            {
+                "type": "non_monotonic_timestamps",
+                "label": "non-monotonic timestamps — ordering untrustworthy",
+                "text": (
+                    f"{completeness.non_monotonic_timestamp_count} timestamp(s) "
+                    "regress relative to emission order."
+                ),
+                "event_id": None,
+            }
+        )
+
+    # Evidence-system conditions — how the agent treated evidence, minus the
+    # active failure itself (a signal on the first bad decision IS the
+    # decision, not a condition behind it).
+    first_bad_id = str(first_bad_decision) if first_bad_decision else None
+    candidates = [
+        signal
+        for signal in report.get("signals", []) or []
+        if signal.get("type") in LATENT_EVIDENCE_SIGNAL_LABELS
+        and (first_bad_id is None or signal.get("event_id") != first_bad_id)
+    ]
+    severity_rank = {"high": 0, "medium": 1, "low": 2}
+    candidates.sort(
+        key=lambda signal: (
+            severity_rank.get(str(signal.get("severity")), 3),
+            str(signal.get("type")),
+        )
+    )
+    seen_types: set[str] = set()
+    for signal in candidates:
+        signal_type = str(signal.get("type"))
+        if signal_type in seen_types:
+            continue
+        seen_types.add(signal_type)
+        conditions.append(
+            {
+                "type": signal_type,
+                "label": LATENT_EVIDENCE_SIGNAL_LABELS[signal_type],
+                "text": str(signal.get("message") or ""),
+                "event_id": signal.get("event_id"),
+            }
+        )
+
+    drift = report.get("goal_drift", {}) or {}
+    if drift.get("drifted"):
+        conditions.append(
+            {
+                "type": "goal_drift",
+                "label": LATENT_GOAL_DRIFT_LABEL,
+                "text": (
+                    "Objective stopped being referenced "
+                    f"{drift.get('decisions_after_last_reference')} decisions "
+                    "before the run ended."
+                ),
+                "event_id": drift.get("first_drift_event_id"),
+            }
+        )
+
+    return conditions[:MAX_LATENT_CONDITIONS]
+
+
 def _evidence_entries(
     primary: dict[str, Any],
     cause_event_id: Any,
@@ -356,6 +515,7 @@ def _narrative_text(
     symptom: dict[str, Any],
     mechanism: dict[str, Any],
     contributing: list[dict[str, Any]],
+    latent: list[dict[str, Any]],
     next_inspection: dict[str, Any],
 ) -> str:
     """Compact prose paragraph tying the bundle together (pure template)."""
@@ -371,6 +531,11 @@ def _narrative_text(
     if contributing:
         labels = ", ".join(factor["label"] for factor in contributing)
         parts.append(f"Contributing factors: {labels}.")
+    # Silent when empty: the note's caution — an empty list reads "none
+    # found", never "none existed", so no text may claim absence.
+    if latent:
+        labels = ", ".join(condition["label"] for condition in latent)
+        parts.append(f"Latent conditions: {labels}.")
     if next_inspection.get("event_id"):
         parts.append(
             f"Next inspection point: event {next_inspection['event_id']} — "
@@ -381,6 +546,7 @@ def _narrative_text(
 
 __all__ = [
     "CONTRIBUTING_SIGNAL_LABELS",
+    "LATENT_EVIDENCE_SIGNAL_LABELS",
     "MECHANISM_CATEGORIES",
     "UNLOCALIZED_CONFIDENCE_CAP",
     "build_failure_narrative",

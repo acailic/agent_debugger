@@ -816,17 +816,17 @@ Presence of similarly named code is not proof of the paper's scientific result.
 | [Tarantula](papers/tarantula-test-information-fault-localization.md) | NOT STARTED | — | Suspiciousness ranking of decision nodes across one bundle's pass/fail runs; W05 |
 | [Dapper](papers/dapper-distributed-tracing.md) | NOT STARTED for the design audit | Recorder and SDK events exist | Document per-event no-payload policy; audit trace/span id propagation; W09/W10 |
 | [Lee & See](papers/trust-in-automation-lee-see.md) | NOT STARTED | Trust score and verdict postures exist | Audit trust-score explanation against performance/process/purpose bases; W08 |
-| [Leveson STAMP](papers/engineering-a-safer-world-stamp.md) | NOT STARTED | Stale verdict covers mistimed actions | Type localized bad decisions omitted/wrong/mistimed/overlong; W03 |
+| [Leveson STAMP](papers/engineering-a-safer-world-stamp.md) | DONE typing | `uca_type` rule list on the first-bad-decision detail (stale = mistimed) | Hand-classify a dozen failed runs against the four types; check coverage; W03 |
 | [TRAIL](papers/trail-trace-issue-localization.md) | NOT STARTED | First-bad-decision localizer | Agreement with TRAIL human annotations via an explicit node mapping; E1 |
 | [rr record/replay](papers/rr-engineering-record-and-replay.md) | PARTIAL | Session bundles and replay UI | Replay checker verifying a re-run reproduces the recorded causal chain; W04 |
 | [τ-bench pass^k](papers/tau-bench-pass-k-reliability.md) | PARTIAL | Baseline bundle gate in CI | Worst-of-k reliability metric on bundle reports; W05 |
 | [AgentRewind](papers/agentrewind-recoverable-execution.md) | PARTIAL | Adaptive replay | Environment fingerprints at decision points; refuse unsafe rewinds; W04 |
 | [FreshQA](papers/freshllms-freshqa-staleness.md) | PARTIAL | Stale-evidence verdict | Record volatility class per evidence item; restrict cross-checks to the volatile class; W03 |
-| [Verifiability](papers/verifiability-generative-search-engines.md) | PARTIAL | Claim-verification taxonomy | Per-run verified/unsupported fractions and corpus-explicitness per claim; W03 |
+| [Verifiability](papers/verifiability-generative-search-engines.md) | DONE fractions | Per-run `claim_status_fractions` + summary line; resolved evidence refs per claim | Render the checked-against corpus per claim in the verification view; W03 |
 | [ROME](papers/rome-locating-factual-associations.md) | NOT STARTED | — | Evidence ablation on one decision: swap the superseding fact, report sensitivity; W03 |
-| [Reason](papers/human-error-reason-latent-failures.md) | NOT STARTED | Failure narrative | Split narrative into active error vs latent conditions; W03/W08 |
+| [Reason](papers/human-error-reason-latent-failures.md) | DONE narrative split | `latent_conditions` in the failure narrative (capture + evidence sources, active failure excluded) | Operator check: name an enabling condition per do-not-act verdict; W03/W08 |
 | [Agentic fault taxonomy](papers/agentic-ai-fault-taxonomy.md) | PARTIAL | Completeness diagnostics | Inject harness-fault symptom classes; assert sessions are flagged incomplete; W02 |
-| [Model or Harness](papers/model-or-harness-fault-side-taxonomy.md) | NOT STARTED | First-bad-decision localizer | Derive interaction_edge and fault_side fields from trace facts; W03 |
+| [Model or Harness](papers/model-or-harness-fault-side-taxonomy.md) | DONE fields | `interaction_edge` + `fault_side` trace-derived on the first-bad-decision detail | Measure the undetermined rate on recorded sessions; capture missing origins; W03 |
 
 ### Stop or redesign an experiment when
 

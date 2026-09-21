@@ -36,6 +36,7 @@ from typing import Any
 from agent_debugger_sdk.core.events import Checkpoint, EventType, TraceEvent
 
 from ..causal_analysis import CausalAnalyzer
+from ..completeness import _event_is_redacted, _event_is_truncated
 from ..failure_diagnostics import FailureDiagnostics
 from ..intelligence.helpers import event_label, event_value
 from .failure_narrative import build_failure_narrative
@@ -73,6 +74,36 @@ USER_SOURCES = frozenset({"user_input", "user", "human", "operator"})
 RETRIEVED_SOURCES = frozenset(
     {"retrieved", "retrieval", "document", "search", "memory", "rag"}
 )
+
+#: Canonical reporting order for the six claim verification statuses. The
+#: ``claim_status_fractions`` report field and the summary's claim
+#: verification line both iterate this tuple so the two surfaces stay
+#: aligned and deterministic (Liu et al. verifiability note — see
+#: docs/papers/verifiability-generative-search-engines.md).
+CLAIM_STATUS_ORDER: tuple[str, ...] = (
+    VERIFIED,
+    PARTIALLY_VERIFIED,
+    CONTRADICTED,
+    UNSUPPORTED,
+    UNVERIFIED,
+    STALE,
+)
+
+#: Short labels for the summary markdown's claim verification line, in the
+#: same canonical order as :data:`CLAIM_STATUS_ORDER`.
+_CLAIM_STATUS_LINE_LABELS: tuple[tuple[str, str], ...] = (
+    (VERIFIED, "verified"),
+    (PARTIALLY_VERIFIED, "partially"),
+    (CONTRADICTED, "contradicted"),
+    (UNSUPPORTED, "unsupported"),
+    (UNVERIFIED, "unverified"),
+    (STALE, "stale"),
+)
+
+#: FailureDiagnostics failure modes that mark a failure as a guardrail or
+#: policy block (the refusal family) — STAMP's "required action not taken"
+#: (docs/papers/engineering-a-safer-world-stamp.md).
+GUARDRAIL_FAILURE_MODES = frozenset({"guardrail_block", "policy_mismatch"})
 
 # Claim/decision confidence threshold above which a missing-evidence claim is
 # treated as "unsupported" rather than merely "unverified".
@@ -133,6 +164,9 @@ class SessionAuditReport:
     summary: dict[str, Any] = field(default_factory=dict)
     goal_drift: dict[str, Any] = field(default_factory=dict)
     failure_narrative: dict[str, Any] = field(default_factory=dict)
+    # Per-status claim counts + fractions of the claim total (Liu et al.
+    # verifiability note: verification outcomes as per-run fractions).
+    claim_status_fractions: dict[str, Any] = field(default_factory=dict)
 
 
 class SessionAuditEngine:
@@ -202,6 +236,7 @@ class SessionAuditEngine:
             user_input_ids=user_input_ids,
             retrieved_ids=retrieved_ids,
         )
+        claim_status_fractions = _claim_status_fractions(claims)
         signals = self._build_signals(events, claims)
         failures = self._build_failures(events, explanations)
         critical_decisions = self._build_critical_decisions(claims)
@@ -262,6 +297,7 @@ class SessionAuditEngine:
             review_points=review_points,
             summary=summary,
             goal_drift=goal_drift,
+            claim_status_fractions=claim_status_fractions,
         )
         result = _report_to_dict(report)
         # First-class explanation surface (M2): symptom / mechanism / evidence
@@ -1247,9 +1283,27 @@ class SessionAuditEngine:
             ],
         }
 
+        # STAMP unsafe-control-action typing + Model-or-Harness fault
+        # attribution on the first bad decision (paper notes:
+        # docs/papers/engineering-a-safer-world-stamp.md and
+        # docs/papers/model-or-harness-fault-side-taxonomy.md). The bare
+        # event-id string stays unchanged for backward compatibility; the
+        # detail record is additive.
+        first_bad = _first_bad_decision(claims, failures)
         where_failed = {
             "first_failure": failures[-1]["event_id"] if failures else None,
-            "first_bad_decision": _first_bad_decision(claims, failures),
+            "first_bad_decision": first_bad,
+            "first_bad_decision_detail": (
+                _classify_first_bad_decision(
+                    first_bad,
+                    events=events,
+                    claims=claims,
+                    failures=failures,
+                    signals=signals,
+                )
+                if first_bad is not None
+                else None
+            ),
             "failures": len(failures),
             "top_signals": [
                 {"type": signal["type"], "severity": signal["severity"], "message": signal["message"]}
@@ -1346,6 +1400,10 @@ class SessionAuditEngine:
         lines.append(f"Outcome: {final_outcome}")
         lines.append("")
         lines.append(trust_line)
+        # Headline claim-verification row (Liu et al. verifiability note):
+        # per-status counts, each recomputable from the per-claim results
+        # beneath it.
+        lines.append(_claim_verification_line(claims))
         lines.append("")
 
         if unsupported or contradicted:
@@ -1876,6 +1934,243 @@ def _first_bad_decision(
     return bad[0]["event_id"]
 
 
+# ---------------------------------------------------------------------------
+# First-bad-decision typing (STAMP UCA categories + Model-or-Harness side)
+# ---------------------------------------------------------------------------
+
+
+def _classify_first_bad_decision(
+    event_id: str,
+    *,
+    events: list[TraceEvent],
+    claims: list[dict[str, Any]],
+    failures: list[dict[str, Any]],
+    signals: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Type the first bad decision from recorded trace facts only.
+
+    Two axes, both deterministic ordered rule lists (first match wins):
+
+    * ``uca_type`` — the four unsafe control actions from Leveson's
+      *Engineering a Safer World* (STAMP/STPA; see
+      docs/papers/engineering-a-safer-world-stamp.md): a required action not
+      taken (``omitted``), a wrong action (``wrong``), an action at the wrong
+      time (``mistimed`` — the formal home of the stale verdict), and an
+      action applied too long (``overlong``). No LLM judge — every rule is a
+      structural check over the claim's verification status, the failure
+      records, and the report's signals.
+    * ``fault_side`` — the Model-or-Harness interaction taxonomy (see
+      docs/papers/model-or-harness-fault-side-taxonomy.md): where the bad
+      artifact originated (``model_produced`` / ``harness_recorded`` /
+      ``tool_returned``), with ``undetermined`` as an honest value when the
+      trace cannot decide — never a guessed attribution.
+
+    ``interaction_edge`` names the two components the bad step connects
+    (parent event type -> bad event type), or ``None`` when the parent does
+    not resolve in the trace.
+    """
+    id_lookup = {event.id: event for event in events}
+    event = id_lookup.get(event_id)
+    claim = next((item for item in claims if item["event_id"] == event_id), None)
+    claim_status = str(claim.get("verification_status")) if claim else None
+
+    # uca_type: ordered STAMP rules, first match wins. The stale verdict is
+    # the mistimed subtype (acted on evidence a newer fact superseded — an
+    # action at the wrong time relative to the state of the world).
+    guardrail_fact = _refusal_or_guardrail_fact(event_id, event, failures, id_lookup)
+    uca_rules: list[tuple[bool, str, str]] = [
+        (
+            claim_status == STALE,
+            "mistimed",
+            "uca rule 1: claim status is stale — acted on superseded evidence, "
+            "an action at the wrong time (STAMP mistimed)",
+        ),
+        (
+            guardrail_fact is not None,
+            "omitted",
+            f"uca rule 2: {guardrail_fact} — the required action was not "
+            "taken (STAMP omitted)",
+        ),
+        (
+            any(
+                _is_looping_signal(signal) and signal.get("event_id") == event_id
+                for signal in signals
+            ),
+            "overlong",
+            "uca rule 3: a repeated_failed_strategy / tool-loop signal "
+            "references this event — the strategy was applied too long "
+            "(STAMP overlong)",
+        ),
+        (
+            claim_status in {UNSUPPORTED, CONTRADICTED},
+            "wrong",
+            f"uca rule 4: claim status is {claim_status} — a wrong action "
+            "was taken (STAMP wrong)",
+        ),
+    ]
+    uca_type, derivation = (
+        "undetermined",
+        "uca rule 5: no earlier rule matched — the trace does not decide a "
+        "UCA category",
+    )
+    for matched, type_, why in uca_rules:
+        if matched:
+            uca_type, derivation = type_, why
+            break
+
+    # fault_side: ordered Model-or-Harness rules, first match wins. A bad
+    # step whose corrupt data was tool-returned or harness-recorded
+    # exonerates the model; where the trace cannot show the origin, the
+    # answer is "undetermined" (a completeness finding, not a failure).
+    if event is not None and event.event_type == EventType.TOOL_RESULT and event_value(
+        event, "error"
+    ):
+        fault_side = "tool_returned"
+    elif event is not None and (
+        _event_is_truncated(event)
+        or _event_is_redacted(event)
+        or (event.parent_id is not None and event.parent_id not in id_lookup)
+    ):
+        fault_side = "harness_recorded"
+    elif event is not None and event.event_type in {
+        EventType.DECISION,
+        EventType.LLM_RESPONSE,
+    }:
+        fault_side = "model_produced"
+    else:
+        fault_side = "undetermined"
+
+    # interaction_edge: the two components the bad step connects. Component
+    # names are the lowercase event_type strings; a parent that does not
+    # resolve in the trace yields None (honest missing-edge, per the note).
+    parent = (
+        id_lookup.get(event.parent_id)
+        if event is not None and event.parent_id
+        else None
+    )
+    interaction_edge = (
+        f"{str(parent.event_type)}->{str(event.event_type)}"
+        if event is not None and parent is not None
+        else None
+    )
+
+    return {
+        "event_id": event_id,
+        "uca_type": uca_type,
+        "fault_side": fault_side,
+        "interaction_edge": interaction_edge,
+        "derivation": derivation,
+    }
+
+
+def _refusal_or_guardrail_fact(
+    event_id: str,
+    event: TraceEvent | None,
+    failures: list[dict[str, Any]],
+    id_lookup: dict[str, TraceEvent],
+) -> str | None:
+    """First recorded fact tying the bad decision to a refusal or a
+    guardrail/policy block, or ``None``.
+
+    Checked against the failure records whose causal chain (failure event,
+    localized cause, supporting ids) includes the bad decision, plus the bad
+    event itself — every refusal-shaped trace fact within reach of the
+    decision that STAMP would type as an omitted action.
+    """
+    if event is not None and event.event_type in {
+        EventType.REFUSAL,
+        EventType.POLICY_VIOLATION,
+    }:
+        return f"the bad event itself is a {event.event_type} event"
+    for failure in failures:
+        chain = {
+            str(failure.get("event_id")),
+            str(failure.get("likely_cause_event_id")),
+            *(str(eid) for eid in failure.get("supporting_event_ids", []) or []),
+        }
+        if event_id not in chain:
+            continue
+        mode = str(failure.get("mode") or "")
+        if mode in GUARDRAIL_FAILURE_MODES:
+            return (
+                "a failure blaming this decision has guardrail/policy "
+                f"failure mode '{mode}'"
+            )
+        failure_type = str(failure.get("event_type") or "")
+        if failure_type in {"refusal", "policy_violation"}:
+            return f"a failure blaming this decision is a {failure_type} event"
+        cause = id_lookup.get(str(failure.get("likely_cause_event_id") or ""))
+        if cause is not None and cause.event_type in {
+            EventType.REFUSAL,
+            EventType.POLICY_VIOLATION,
+        }:
+            return f"the localized cause event is a {cause.event_type} event"
+    return None
+
+
+def _is_looping_signal(signal: dict[str, Any]) -> bool:
+    """Whether a report signal is a looping / repeated-strategy signal."""
+    if signal.get("type") == "repeated_failed_strategy":
+        return True
+    return signal.get("type") == "plan_drift" and "tool-loop" in str(
+        signal.get("message", "")
+    ).lower()
+
+
+# ---------------------------------------------------------------------------
+# Claim-status fractions (Liu et al. verifiability note)
+# ---------------------------------------------------------------------------
+
+
+def _claim_status_counts(claims: list[dict[str, Any]]) -> Counter[str]:
+    """Count claims per verification status across the taxonomy."""
+    return Counter(str(claim.get("verification_status")) for claim in claims)
+
+
+def _claim_status_fractions(claims: list[dict[str, Any]]) -> dict[str, Any]:
+    """Per-status claim counts and fractions of the claim total.
+
+    Liu et al. verifiability measurement model (see
+    docs/papers/verifiability-generative-search-engines.md): verification
+    outcomes are reported as per-run fractions instead of a wall of per-claim
+    results, each fraction recomputable from the claims beneath it. All six
+    taxonomy statuses are always present so the field is a stable schema;
+    fractions are 0.0 when the run made no claims.
+    """
+    counts = _claim_status_counts(claims)
+    total = len(claims)
+    fractions: dict[str, Any] = {
+        status: {
+            "count": counts.get(status, 0),
+            "fraction": round(counts.get(status, 0) / total, 4) if total else 0.0,
+        }
+        for status in CLAIM_STATUS_ORDER
+    }
+    fractions["total_claims"] = total
+    return fractions
+
+
+def _claim_verification_line(claims: list[dict[str, Any]]) -> str:
+    """Headline claim-verification row for the summary markdown block.
+
+    Liu et al. verifiability note, takeaway #1: per-status counts belong on
+    the verdict card as one row. Zero-count statuses are skipped except
+    ``verified``; the claim total is always named so an empty run reads
+    honestly.
+    """
+    counts = _claim_status_counts(claims)
+    total = len(claims)
+    parts = [f"{counts.get(VERIFIED, 0)} verified"]
+    for status, label in _CLAIM_STATUS_LINE_LABELS[1:]:
+        count = counts.get(status, 0)
+        if count:
+            parts.append(f"{count} {label}")
+    return (
+        f"Claim verification: {', '.join(parts)} "
+        f"({total} claim{'s' if total != 1 else ''} total)"
+    )
+
+
 def _report_to_dict(report: SessionAuditReport) -> dict[str, Any]:
     return {
         "session_id": report.session_id,
@@ -1883,6 +2178,7 @@ def _report_to_dict(report: SessionAuditReport) -> dict[str, Any]:
         "final_outcome": report.final_outcome,
         "questions": report.questions,
         "claims": report.claims,
+        "claim_status_fractions": report.claim_status_fractions,
         "signals": report.signals,
         "failures": report.failures,
         "critical_decisions": report.critical_decisions,

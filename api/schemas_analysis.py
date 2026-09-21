@@ -451,6 +451,8 @@ class SessionAuditReportSchema(BaseModel):
     signals: list[AuditSignalSchema]
     failures: list[AuditFailureSchema]
     critical_decisions: list[AuditClaimSchema]
+    # Per-status claim counts + fractions of total claims (Liu et al. verifiability note).
+    claim_status_fractions: dict[str, Any] = Field(default_factory=dict)
     trust: TrustScoreSchema
     review_points: list[AuditReviewPointSchema]
     summary: AuditSummarySchema
