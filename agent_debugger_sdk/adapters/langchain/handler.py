@@ -121,6 +121,31 @@ class LangChainTracingHandler(AsyncCallbackHandler):
         self._context: TraceContext | None = None
         self._run_map: dict[str, str] = {}
         self._start_times: dict[str, float] = {}
+        # run_id -> framework-declared labels, remembered at start so the
+        # matching end/error callbacks can use them even when the current
+        # framework version does not repeat them in the end-callback kwargs
+        # (langchain-core >= 1.0 passes no ``name`` to ``on_tool_error`` and
+        # passes ``serialized=None`` for many runnables).
+        self._run_names: dict[str, str] = {}
+        self._run_models: dict[str, str] = {}
+
+    @staticmethod
+    def _resolve_model_label(
+        invocation_params: dict[str, Any],
+        serialized: dict[str, Any] | None,
+        kwargs: dict[str, Any],
+    ) -> str:
+        """Best-effort model label from invocation params, serialized config, or run name.
+
+        langchain-core >= 1.0 chat models frequently pass no ``model`` key in
+        ``invocation_params``; falling back to the serialized/config ``name``
+        (e.g. ``"GenericFakeChatModel"``, ``"ChatOpenAI"``) keeps the event
+        labelled instead of ``"unknown"``.
+        """
+        model = invocation_params.get("model") or invocation_params.get("model_name")
+        if not model:
+            model = (serialized or {}).get("name") or kwargs.get("name")
+        return model or "unknown"
 
     def set_context(self, context: TraceContext) -> None:
         """Set the trace context for event emission.
@@ -160,7 +185,8 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             self._start_times[run_id_str] = _perf_counter()
 
             invocation_params = kwargs.get("invocation_params", {})
-            model = invocation_params.get("model", invocation_params.get("model_name", "unknown"))
+            model = self._resolve_model_label(invocation_params, serialized, kwargs)
+            self._run_models[run_id_str] = model
 
             messages = [{"role": "user", "content": prompt} for prompt in prompts]
 
@@ -220,7 +246,11 @@ class LangChainTracingHandler(AsyncCallbackHandler):
                 }
 
             invocation_params = kwargs.get("invocation_params", {})
-            model = invocation_params.get("model", invocation_params.get("model_name", "unknown"))
+            model = self._resolve_model_label(invocation_params, None, kwargs)
+            if not invocation_params.get("model") and not invocation_params.get("model_name"):
+                # Reuse the label resolved at llm start (langchain-core >= 1.0
+                # does not repeat invocation params on llm end).
+                model = self._run_models.pop(run_id_str, model)
 
             event = LLMResponseEvent(
                 session_id=self.session_id,
@@ -264,6 +294,7 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             run_id_str = str(run_id)
             self._start_times.pop(run_id_str, None)
             self._run_map.pop(run_id_str, None)
+            self._run_models.pop(run_id_str, None)
 
             await self._context.record_error(
                 error_type=type(error).__name__,
@@ -302,11 +333,17 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             run_id_str = str(run_id)
             self._start_times[run_id_str] = _perf_counter()
 
-            tool_name = serialized.get("name", kwargs.get("name", "unknown"))
+            # langchain-core >= 1.0 may pass ``serialized=None`` for tools.
+            tool_name = (serialized or {}).get("name") or kwargs.get("name") or "unknown"
+            self._run_names[run_id_str] = tool_name
 
             arguments = {"input": input_str}
             if isinstance(input_str, dict):
                 arguments = input_str
+            if isinstance(kwargs.get("inputs"), dict):
+                # langchain-core >= 1.0 passes the structured tool input via
+                # kwargs["inputs"] while input_str is its string repr.
+                arguments = kwargs["inputs"]
 
             event = ToolCallEvent(
                 session_id=self.session_id,
@@ -347,6 +384,7 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             run_id_str = str(run_id)
             start_time = self._start_times.pop(run_id_str, time.time())
             self._run_map.pop(run_id_str, None)
+            self._run_names.pop(run_id_str, None)
             duration_ms = (time.time() - start_time) * 1000
 
             tool_name = kwargs.get("name", "unknown")
@@ -390,7 +428,9 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             start_time = self._start_times.pop(run_id_str, _perf_counter())
             duration_ms = (_perf_counter() - start_time) * 1000
 
-            tool_name = kwargs.get("name", "unknown")
+            # langchain-core >= 1.0 passes no ``name`` kwarg to on_tool_error;
+            # fall back to the name remembered by on_tool_start.
+            tool_name = kwargs.get("name") or self._run_names.pop(run_id_str, None) or "unknown"
 
             await self._context.record_tool_result(
                 tool_name=tool_name,
@@ -431,14 +471,17 @@ class LangChainTracingHandler(AsyncCallbackHandler):
             run_id_str = str(run_id)
             self._start_times[run_id_str] = _perf_counter()
 
-            chain_name = serialized.get("name", kwargs.get("name", "chain"))
+            # langchain-core >= 1.0 passes ``serialized=None`` for most
+            # runnables (RunnableSequence, RunnableLambda, ...); the run name
+            # arrives in kwargs instead.
+            chain_name = (serialized or {}).get("name") or kwargs.get("name") or "chain"
 
             event = TraceEvent(
                 session_id=self.session_id,
                 parent_id=self._run_map.get(str(parent_run_id)) if parent_run_id else None,
                 event_type=EventType.AGENT_START,
                 name=f"chain_start_{chain_name}",
-                data={"inputs": inputs, "chain_type": serialized.get("id", ["unknown"])[-1]},
+                data={"inputs": inputs, "chain_type": (serialized or {}).get("id", ["unknown"])[-1]},
                 importance=0.3,
             )
 
