@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from api.config import MAX_SESSIONS_PER_PAGE, MAX_TRACES_PER_REQUEST
@@ -196,10 +196,11 @@ async def get_checkpoint_deltas(
 async def stream_session_events(
     session_id: str,
     repo: TraceRepository = Depends(get_repository),
+    last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
 ) -> StreamingResponse:
     await require_session(repo, session_id)
     return StreamingResponse(
-        event_generator(session_id),
+        event_generator(session_id, last_event_id=last_event_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

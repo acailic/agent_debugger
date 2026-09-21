@@ -173,14 +173,29 @@ async def event_generator(
     *,
     buffer: EventBuffer | None = None,
     max_connection_time: int | None = None,
+    last_event_id: str | None = None,
+    session_maker: async_sessionmaker[AsyncSession] | None = None,
 ):
     """Generate SSE events for a session.
+
+    Every event block carries an ``id:`` line with the event's id, so
+    reconnecting EventSource clients send it back as ``Last-Event-ID``.
+    When a cursor is supplied, the persisted events after it are replayed
+    first (the database is the durable history; the buffer is
+    best-effort), deduplicated against the live stream — a reconnect
+    therefore closes the gap instead of silently skipping everything
+    published while disconnected. An unknown cursor replays the whole
+    session, which is gap-free by construction. Subscribing before the
+    replay query means events published in between arrive live and are
+    deduplicated by id.
 
     Args:
         session_id: Session ID to stream events for
         buffer: Optional event buffer (uses default if None)
         max_connection_time: Maximum connection time in seconds (default from
             AGENT_DEBUGGER_SSE_TIMEOUT env var, 300 if not set)
+        last_event_id: Optional ``Last-Event-ID`` cursor for reconnect replay
+        session_maker: Optional session maker override (tests)
     """
     if max_connection_time is None:
         max_connection_time = DEFAULT_SSE_TIMEOUT
@@ -190,7 +205,30 @@ async def event_generator(
     queue = await buf.subscribe(session_id)
     start_time = time.time()
 
+    def _sse(event) -> str:
+        event_data = json.dumps(event.to_dict())
+        return f"id: {event.id}\ndata: {event_data}\n\n"
+
     try:
+        delivered: set[str] = set()
+        if last_event_id is not None:
+            sm = session_maker or app_context.require_session_maker()
+            async with sm() as db_session:
+                repo = TraceRepository(db_session)
+                history = await repo.get_event_tree(session_id)
+            history.sort(key=lambda item: (item.timestamp, item.id))
+            replay = []
+            for item in history:
+                if item.id == last_event_id:
+                    # Known cursor: everything before it (and it) is already
+                    # delivered; replay only what follows.
+                    replay = []
+                    continue
+                replay.append(item)
+            for item in replay:
+                delivered.add(item.id)
+                yield _sse(item)
+
         while True:
             # Check connection time limit
             elapsed = time.time() - start_time
@@ -215,8 +253,10 @@ async def event_generator(
 
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=timeout)
-                event_data = json.dumps(event.to_dict())
-                yield f"data: {event_data}\n\n"
+                if event.id in delivered:
+                    continue
+                delivered.add(event.id)
+                yield _sse(event)
             # Python 3.11+ aliases asyncio.TimeoutError with the builtin
             # TimeoutError; on 3.10 they are distinct classes, so catch both
             # or a quiet period kills the stream mid-response.
