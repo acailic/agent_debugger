@@ -50,6 +50,16 @@ Peaky Peek is a **black-box recorder + reasoning audit console** for AI agents. 
 
 Every claim is classified deterministically as **verified · partially verified · contradicted · unsupported · unverified · stale** (stale = acted on evidence a newer fact had already superseded), and each session gets an **explainable trust score** plus a **verdict card** — a stakes line (did this run mutate state?) and a named posture: **act / verify-first / do-not-act**.
 
+### New in v0.6.0 — the science-foundations release
+
+- **Deterministic failure typing** — every localized first bad decision is now typed STAMP-style (`omitted / wrong / mistimed / overlong` — acting on superseded evidence is formally *mistimed*), attributed to a fault side (`model_produced / tool_returned / harness_recorded / undetermined`), and labeled with a MAST failure mode. Every label names the deterministic rule that fired.
+- **Latent conditions** — the failure narrative separates the active error from the dormant conditions that made it likely: recorder gaps, superseded facts, unsupported assertions. Empty means *none found*, never *none existed*.
+- **Program slices & damage radius** — Weiser-style backward ("what fed this") and forward ("what it fed") slices over the causal chain, with the damage radius as the exact forward slice from the first bad decision.
+- **Claim-verification fractions** — per-run counts and fractions of all six verification statuses, recomputable from the per-claim results beneath them.
+- **Regression-lab spectrum + reliability** — Tarantula-style suspiciousness ranking across a bundle's runs and τ-bench-style worst-of-k (`pass^k`) reliability.
+
+All of it grounded in [Scientific Foundations](#scientific-foundations) — 32 paper notes spanning classic fault localization (Weiser 1984, Tarantula, Zeller, Dapper, rr) to 2025–26 agent-failure research (MAST, TRAIL, Who&When).
+
 ---
 
 ## Quick Start
@@ -173,20 +183,43 @@ import agent_debugger_sdk.auto_patch  # activates on import when PEAKY_PEEK_AUTO
 Peaky Peek's defining capability: every session produces an **audit report** that turns a trace into evidence. Open the **Audit** panel on any session to see:
 
 - **Verdict card** — deterministic verdict (pass / review / fail), a stakes line (read-only run vs. state-mutating run), and the posture it implies: act / verify-first / do-not-act.
-- **Trust header** — an explainable score (`low` / `medium` / `high`) with its components: evidence coverage, verification rate, policy compliance, recovery rate, failure severity, and contradiction count.
-- **Failure narrative** — the run's primary failure told as a story: observed symptom, likely mechanism, the root-cause → failure chain (clickable), contributing factors (repeated failed strategies, contradictions, stale evidence, goal drift), anchored evidence links, and the single best **next inspection point** with a suggested action. Confidence is honestly capped with an explicit weakness note when no cause could be localized.
+- **Trust header** — an explainable score (`low` / `medium` / `high`) with its components: evidence coverage, verification rate, policy compliance, recovery rate, failure severity, contradiction count, and the per-status **claim-verification fractions** as a headline row.
+- **Failure narrative** — the run's primary failure told as a story: observed symptom, likely mechanism, the root-cause → failure chain (clickable), contributing factors (repeated failed strategies, contradictions, stale evidence, goal drift), anchored evidence links, and the single best **next inspection point** with a suggested action. The first bad decision is the **active error**; the narrative also reports the **latent conditions** behind it — recorder gaps from the completeness pass, superseded evidence, assertions without evidence. Confidence is honestly capped with an explicit weakness note when no cause could be localized.
+- **Failure typing** — the first bad decision arrives classified, every label naming the deterministic rule that fired: STAMP unsafe-control-action type (`omitted / wrong / mistimed / overlong`), fault side (`model_produced / tool_returned / harness_recorded / undetermined`), the interaction edge it occurred on, and a MAST failure mode from the paper's taxonomy.
+
+  ```json
+  "first_bad_decision_detail": {
+    "event_id": "evt-decision-7",
+    "uca_type": "mistimed",
+    "fault_side": "model_produced",
+    "interaction_edge": "tool_result->decision",
+    "derivation": "uca rule 1: claim status is stale — acted on superseded evidence, an action at the wrong time (STAMP mistimed); mast rule 1: claim status is stale — the decision was validated against superseded state (MAST FM-3.3 incorrect verification, C3 task verification)",
+    "mast_mode": "incorrect_verification",
+    "mast_category": "C3"
+  }
+  ```
 - **The five-question view** — What happened · Why · Evidence used · Outcome · Where it failed, in one grid.
 - **Verification badges** — every decision is tagged `verified`, `partially_verified`, `contradicted`, `unsupported`, `unverified`, or `stale`, with the basis (tool result, user input, retrieved doc, or none).
-- **Where-it-failed** — the first bad decision, localized failure root-cause suspects, and the causal path to each failure. A **goal-drift score** tracks whether trailing decisions stopped referencing the objective, and a **success-flow advisory** localizes the first divergence from a similar successful run.
+- **Where-it-failed** — the first bad decision (typed as above), localized failure root-cause suspects, and the causal path to each failure. A **goal-drift score** tracks whether trailing decisions stopped referencing the objective, and a **success-flow advisory** localizes the first divergence from a similar successful run.
 - **Risk signals** — deterministic detections: unsupported claims, missing evidence, contradictions, repeated failed strategies, plan drift, policy violations, weak evidence, stale evidence.
+- **Session completeness** — expected-vs-received event counts, sequence gaps, orphaned parents, truncation and redaction markers, and a single verdict (`GET /api/sessions/{id}/completeness`); the same findings feed the narrative's latent conditions.
 
 <p align="center">
   <img src="./docs/assets/screenshot-failure-narrative.png" alt="Failure narrative block: symptom, mechanism with clickable cause chain, contributing factors, evidence chips, and the next inspection point with a jump action" width="820" />
 </p>
 
-Every row is clickable and jumps to the underlying event. The same report is available as JSON at `GET /api/sessions/{id}/audit`, and a fleet-level portfolio (`GET /api/audit/portfolio`) ranks sessions worst-trust-first. Deterministic only — no opaque "AI insights," every number is derivable from captured fields.
+Every row is clickable and jumps to the underlying event. The same report is available as JSON at `GET /api/sessions/{id}/audit`, **program slices** at `GET /api/sessions/{id}/slices?node_id=…&direction=backward|forward` and the **damage radius** at `GET /api/sessions/{id}/damage-radius` — the exact set of nodes the first bad decision fed, in this run. A fleet-level portfolio (`GET /api/audit/portfolio`) ranks sessions worst-trust-first. Deterministic only — no opaque "AI insights," every number is derivable from captured fields.
 
 See the [Audit & Trust guide](./docs/guides/audit-and-trust.md) for the data model, an example audited session, and an example failure report.
+
+### Regression Laboratory
+
+Turn an incident into a permanent gate. Commit a sanitized baseline bundle and the lab runs it through the current engine on every CI pass — engine and analysis changes that drift the expected audit outputs fail the build with a per-assertion diff.
+
+- **Baseline bundles** — deterministic, content-hashed, sanitized; new baselines auto-join the gate (`scripts/regression_cli.py run-suite`)
+- **Spectrum view** — Tarantula/Ochiai suspiciousness per decision node across a bundle's passed and failed runs: the decisions that only ever appear in failed runs jump out (`spectrum.top_suspects`). It ranks, it does not convict — an ordering heuristic, never a verification status.
+- **Reliability (`pass^k`)** — worst-of-k metric on bundle reports: a scenario that passes 7 of 8 trials is a failing scenario, which also exposes flakiness an engine change introduces
+- **Seed from real incidents** — `scripts/seed_regression_baseline.py` turns a recorded session into the next baseline
 
 ### Decision Tree Visualization
 
@@ -380,10 +413,11 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for full module breakdown.
 
 ## Project Status
 
-- **Agent audit & trust** — deterministic 5-questions report, claim verification, risk signals, explainable trust score (API + Audit UI panel)
+- **Agent audit & trust** — deterministic 5-questions report, claim verification with per-status fractions, STAMP/Model-or-Harness/MAST failure typing, latent conditions, program slices + damage radius, risk signals, explainable trust score (API + Audit UI panel)
+- **Regression laboratory** — committed baseline bundles gate engine changes in CI, with Tarantula spectrum suspects and worst-of-k (`pass^k`) reliability on bundle reports
 - **Core debugger** — local path end-to-end, stable
 - **SDK** — `@trace`, `trace_session()`, auto-patch for 7 frameworks
-- **API** — 20 routers: sessions, traces, replay, search, analytics, cost, comparison, **audit**, auth, entities, policies, cross-session, research, stepper, swimlanes, violations, system, UI
+- **API** — 20 routers: sessions, traces, replay, search, analytics, cost, comparison, **audit** (incl. slices / damage-radius), auth, entities, policies, cross-session, research, stepper, swimlanes, violations, system, UI
 - **Frontend** — three main tabs (Trace · Inspect · Analytics) over decision tree, timeline, audit, replay, and live panels
 - **Tests** — the full suite runs in [CI](https://github.com/acailic/agent_debugger/actions/workflows/ci.yml) on Python 3.10/3.11/3.12 with a 70% coverage gate; run counts change weekly, so check CI rather than a number here
 
