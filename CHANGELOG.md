@@ -110,6 +110,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (#309) blocked by typescript-eslint's peer range (<6.1.0), not by this
   repo
 
+
+#### Historical secret-scan baseline resolved
+- The complete HEAD-history gitleaks scan's 19 older test/documentation
+  findings each have a byte-exact commit:file:rule:line fingerprint in
+  .gitleaksignore (verified 1:1 against the source-reviewed inventory);
+  full-history and push-range scans exit 0, and a disposable-clone
+  control with a changed value still reports a finding — exact-value
+  suppression, never path- or rule-wide
+
+#### Q06 acceptance complete
+- Checkpoint writes verify the event reference belongs to the checkpoint's
+  session in the caller's tenant (404/422, zero mutation, both ingest
+  paths); a route-inventory sync test now fails on doc drift (and found
+  63 undocumented routes — doc completed); the server starts hosted via
+  AGENT_DEBUGGER_MODE=cloud with a real-uvicorn e2e proving 401s for
+  absent keys and 404 cross-tenant reads while local mode stays keyless
+
+#### Real-browser smoke journey (Q11 first slice)
+- scripts/browser_smoke.mjs drives headless chromium through the UI:
+  contradicted audit finding → evidence link → correct event, restored
+  session showing the session_restored provenance marker, a delayed API
+  response survived via its loading state, zero console errors; 15
+  asserted steps, verified repeatedly
 ## [0.4.0] - 2026-09-20
 
 The benchmark-integrity and delivery-recovery release: the Who&When
