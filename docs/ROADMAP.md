@@ -57,7 +57,7 @@ results, skipped Redis checks and scope limits.
 |---|---|---|---|
 | Typed trace events, decisions, checkpoints and manual recording | **DONE** | Implemented SDK model and recording primitives; reliability of delivery is a separate scope | [Core audit](research/2026-09-19-core-status.md) |
 | SDK configuration, decorators and framework hooks | **PARTIAL** | Explicit endpoint/no-key delivery is implemented and tested (Q09); adapter semantic coverage and installed-package onboarding remain | [Delivery follow-up](research/2026-09-20-delivery-followup.md) |
-| HTTP event/checkpoint ingestion | **PARTIAL** | Real persistence path exists; auth, ownership and privacy coverage are incomplete | [Platform audit](research/2026-09-19-platform-status.md) |
+| HTTP event/checkpoint ingestion | **PARTIAL→improved** | Completeness metadata delivered 2026-09-21: GET /api/sessions/{id}/completeness (counts, gaps, missing parents, duplicates, truncation/redaction markers, verdict) + SDK delivery_summary counters; ack semantics/idempotency and disk spooling remain | [Platform audit](research/2026-09-19-platform-status.md) |
 | Delivery recovery | **PARTIAL** | Retry/cancellation/partial-write recovery exists; memory queues are not crash-durable | [DISCOVERIES](../DISCOVERIES.md), [core audit](research/2026-09-19-core-status.md) |
 | Session audit, claim verification, evidence graph and narratives | **DONE** | Deterministic analysis surfaces exist; real-world correctness and calibrated probabilities are not established | [Intelligence audit](research/2026-09-19-intelligence-status.md) |
 | Goal drift, success-flow advisory and trust bands | **DONE** | Bounded heuristics implemented; efficacy remains an experiment | [Intelligence audit](research/2026-09-19-intelligence-status.md) |
@@ -859,6 +859,10 @@ before testing the main user journey.
 
 ## Shipped history and superseded plans
 
+- 2026-09-21 (post-v0.5.0 wave): regression-lab CI gate (committed baseline bundle gates engine
+  changes through the normal suite), onboarding contract repaired (canonical pip install path,
+  three operator workflows with proof artifacts, all inert-init drift fixed), session
+  completeness reports + SDK delivery diagnostics (W02 slice).
 - 2026-09-21 (v0.5.0): enforced-boundaries and regression-lab release — hosted-mode auth
   (401s, authenticated analytics, AGENT_DEBUGGER_MODE bootstrap), checkpoint reference
   consistency, redaction across all sinks with a scan artifact, no-key local delivery,

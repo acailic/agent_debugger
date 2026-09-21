@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+
+#### Regression gate in CI (Q14 follow-up)
+- A committed synthetic baseline bundle (sanitized, deterministic,
+  content-hashed) now runs through the current engine as part of the
+  normal test suite — engine and analysis changes fail CI with a
+  per-assertion diff on drift; new baselines auto-join the gate, and
+  regression_cli.py gains run-suite
+
+#### Session completeness and delivery diagnostics (W02)
+- GET /api/sessions/{id}/completeness reports expected vs received
+  counts, sequence gaps, missing parents, duplicate ids, truncation and
+  redaction markers, and a single verdict; the SDK exposes
+  delivery_summary() counters (accepted/failed per kind, last error,
+  explicit zero in inert mode)
+
+#### Onboarding contract repaired (W12)
+- Every quickstart snippet now inits with an explicit endpoint (bare
+  init() is inert since the no-key change — users saw no trace);
+  PEAKY_PEEK_AUTO_PATCH value, router/panel/test-count claims, Docker
+  volume path and UI links corrected; one canonical install path
+  (pip install peaky-peek-server && peaky-peek --open) and three
+  operator workflows documented with their proving artifacts
 ## [0.5.0] - 2026-09-21
 
 The enforced-boundaries and regression-lab release: hosted-mode auth and
