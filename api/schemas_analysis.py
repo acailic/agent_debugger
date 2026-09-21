@@ -138,6 +138,42 @@ class RedundancyAnalysisResponse(BaseModel):
 
 
 # ------------------------------------------------------------------
+# Session Completeness schemas (roadmap W02)
+# ------------------------------------------------------------------
+
+
+class SessionCompletenessResponse(BaseModel):
+    """Response schema for the session completeness endpoint.
+
+    Computed on read from persisted events (no dedicated columns): expected
+    vs received counts, missing parents, duplicate ids, truncation/redaction
+    markers and ordering sanity. See collector/completeness.py.
+    """
+
+    session_id: str
+    total_events: int = Field(ge=0)
+    received_event_count: int = Field(ge=0)
+    expected_event_count: int | None = Field(default=None, ge=0)
+    expected_source: str | None = None  # "hint" | "sequence_markers" | null
+    count_match: bool | None = None
+    missing_sequence_count: int = Field(ge=0)
+    missing_sequence_values: list[int] = []
+    missing_parents_count: int = Field(ge=0)
+    missing_parent_event_ids: list[str] = []
+    duplicate_id_count: int = Field(ge=0)
+    duplicate_ids: list[str] = []
+    truncated: bool = False
+    truncated_event_count: int = Field(ge=0)
+    truncated_event_ids: list[str] = []
+    redaction_applied: bool = False
+    redacted_event_count: int = Field(ge=0)
+    redacted_event_ids: list[str] = []
+    non_monotonic_timestamp_count: int = Field(ge=0)
+    warnings: list[str] = []
+    complete: bool = False
+
+
+# ------------------------------------------------------------------
 # Causal Analysis Schemas
 # ------------------------------------------------------------------
 

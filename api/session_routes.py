@@ -19,6 +19,7 @@ from api.schemas import (
     FixNoteRequest,
     FixNoteResponse,
     RedundancyAnalysisResponse,
+    SessionCompletenessResponse,
     SessionDetailResponse,
     SessionListResponse,
     SessionUpdateRequest,
@@ -38,6 +39,7 @@ from api.services import (
     normalize_session,
     require_session,
 )
+from collector.completeness import compute_session_completeness
 from storage import TraceRepository
 
 router = APIRouter(tags=["sessions"])
@@ -301,3 +303,22 @@ async def get_redundancy_analysis(
     await require_session(repo, session_id)
     redundancy_data = await analyze_redundancy(repo, session_id)
     return RedundancyAnalysisResponse(**redundancy_data)
+
+
+@router.get("/api/sessions/{session_id}/completeness", response_model=SessionCompletenessResponse)
+async def get_session_completeness(
+    session_id: str,
+    repo: TraceRepository = Depends(get_repository),
+) -> SessionCompletenessResponse:
+    """Get the completeness report for a session (roadmap W02).
+
+    Tells an operator whether the session's persisted events are complete
+    without guessing: expected vs received counts (emission sequence
+    markers when present), events whose parent is missing, duplicate ids,
+    truncation and redaction markers stamped by the ingestion pipeline,
+    and timestamp ordering sanity. Computed on read — no storage columns.
+    """
+    await require_session(repo, session_id)
+    events = await repo.get_event_tree(session_id)
+    report = compute_session_completeness(events)
+    return SessionCompletenessResponse(session_id=session_id, **report.to_dict())

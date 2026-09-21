@@ -110,6 +110,7 @@ tenant's session id.
 | GET /api/sessions/{session_id}/similar-failures | api/session_routes.py:249 | none |
 | GET /api/sessions/{session_id}/workflow-graph | api/session_routes.py:272 | none |
 | GET /api/sessions/{session_id}/redundancy | api/session_routes.py:290 | none |
+| GET /api/sessions/{session_id}/completeness | api/session_routes.py:308 | none |
 
 ## Traces, analysis and alerts (api/trace_routes.py)
 

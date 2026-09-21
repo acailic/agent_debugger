@@ -136,6 +136,9 @@ class TraceContext(RecordingMixin):
         self._session_start_event: TraceEvent | None = None
         self._entered = False
         self._transport: Any | None = None  # HttpTransport instance if in cloud mode
+        # Final delivery diagnostics captured when the run's transport is
+        # closed (delivery_summary() keeps answering after __aexit__).
+        self._last_delivery_summary: dict[str, Any] | None = None
         self._restored_state: BaseCheckpointState | None = None
         # Restore-only state. Populated by TraceContext.restore(), but declared
         # here so every instance carries a well-typed default and direct
@@ -509,10 +512,56 @@ class TraceContext(RecordingMixin):
         _current_context.set(None)
         self._entered = False
 
-        # Close transport if it was created
+        # Close transport if it was created, keeping its final counters so
+        # delivery_summary() still reports after the run has ended. The
+        # capture is best-effort: diagnostics must never break the exit path
+        # (test doubles and custom transports may not implement it).
         if self._transport is not None:
+            summary = getattr(self._transport, "delivery_summary", None)
+            if callable(summary):
+                self._last_delivery_summary = summary()
             await self._transport.close()
             self._transport = None
+
+    def delivery_summary(self) -> dict[str, Any]:
+        """Best-effort delivery diagnostics for this run (roadmap W02).
+
+        Returns a mapping with ``accepted`` / ``failed`` totals (events +
+        checkpoints + session lifecycle deliveries), the granular per-kind
+        counters and ``last_error`` from the run's transport, plus a
+        ``transport_installed`` flag. When no HTTP transport was installed
+        (inert mode: no endpoint, disabled config, or externally configured
+        hooks) the summary explicitly reports zero deliveries instead of
+        guessing. The snapshot taken at context exit keeps the summary
+        available after ``__aexit__`` has closed the transport.
+        """
+        if self._transport is not None:
+            live = getattr(self._transport, "delivery_summary", None)
+            summary = dict(live()) if callable(live) else None
+        elif self._last_delivery_summary is not None:
+            summary = dict(self._last_delivery_summary)
+        else:
+            summary = None
+        if summary is None:
+            summary = {
+                "events_accepted": 0,
+                "events_failed": 0,
+                "checkpoints_accepted": 0,
+                "checkpoints_failed": 0,
+                "sessions_accepted": 0,
+                "sessions_failed": 0,
+                "last_error": None,
+            }
+        summary["transport_installed"] = self._transport is not None or self._last_delivery_summary is not None
+        summary["accepted"] = (
+            summary["events_accepted"]
+            + summary["checkpoints_accepted"]
+            + summary["sessions_accepted"]
+        )
+        summary["failed"] = (
+            summary["events_failed"] + summary["checkpoints_failed"] + summary["sessions_failed"]
+        )
+        return summary
 
     async def create_checkpoint(
         self,

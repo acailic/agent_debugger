@@ -8,6 +8,7 @@ import math
 from collections.abc import Callable
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from typing import Any
 
 import httpx
 
@@ -148,6 +149,38 @@ class HttpTransport:
         )
         self._retry_config = retry_config or RetryConfig()
         self._on_delivery_failure = on_delivery_failure
+        # Best-effort delivery diagnostics (roadmap W02): per-kind outcome
+        # counters plus the terminal error of the most recent failed
+        # delivery. Counted per transport instance — and TraceContext mints
+        # one transport per run, so they read as per-session counters.
+        self._delivery_stats: dict[str, Any] = {
+            "events_accepted": 0,
+            "events_failed": 0,
+            "checkpoints_accepted": 0,
+            "checkpoints_failed": 0,
+            "sessions_accepted": 0,
+            "sessions_failed": 0,
+            "last_error": None,
+        }
+
+    def delivery_summary(self) -> dict[str, Any]:
+        """Snapshot of this transport's delivery diagnostics.
+
+        Returns a mapping with per-kind accepted/failed counts
+        (``events_*``, ``checkpoints_*``, ``sessions_*``) and the
+        ``last_error`` string of the most recent failed delivery (or None).
+        Purely additive observability: the send paths behave identically
+        whether or not anyone reads this.
+        """
+        return dict(self._delivery_stats)
+
+    def _record_delivery(self, kind: str, error: TransportError | None) -> None:
+        """Count one delivery outcome for ``kind`` (events/checkpoints/sessions)."""
+        if error is None:
+            self._delivery_stats[f"{kind}_accepted"] += 1
+            return
+        self._delivery_stats[f"{kind}_failed"] += 1
+        self._delivery_stats["last_error"] = str(error)
 
     async def send_event(
         self,
@@ -156,13 +189,14 @@ class HttpTransport:
         on_delivery_failure: DeliveryFailureCallback | None = None,
     ) -> None:
         """Send a trace event to the collector."""
-        await self._send_with_retry(
+        error = await self._send_with_retry(
             method="POST",
             path="/api/traces",
             payload=event.to_dict(),
             context=f"event_id={event.id}",
             on_delivery_failure=on_delivery_failure,
         )
+        self._record_delivery("events", error)
 
     async def send_session_start(
         self,
@@ -171,13 +205,14 @@ class HttpTransport:
         on_delivery_failure: DeliveryFailureCallback | None = None,
     ) -> None:
         """Create a new session on the collector."""
-        await self._send_with_retry(
+        error = await self._send_with_retry(
             method="POST",
             path="/api/sessions",
             payload=session.to_dict(),
             context=f"session_id={session.id}",
             on_delivery_failure=on_delivery_failure,
         )
+        self._record_delivery("sessions", error)
 
     async def send_session_update(
         self,
@@ -186,13 +221,14 @@ class HttpTransport:
         on_delivery_failure: DeliveryFailureCallback | None = None,
     ) -> None:
         """Update a session on the collector."""
-        await self._send_with_retry(
+        error = await self._send_with_retry(
             method="PUT",
             path=f"/api/sessions/{session.id}",
             payload=session.to_dict(),
             context=f"session_id={session.id}",
             on_delivery_failure=on_delivery_failure,
         )
+        self._record_delivery("sessions", error)
 
     async def send_checkpoint(
         self,
@@ -201,13 +237,14 @@ class HttpTransport:
         on_delivery_failure: DeliveryFailureCallback | None = None,
     ) -> None:
         """Deliver a checkpoint to the collector (time-travel state snapshot)."""
-        await self._send_with_retry(
+        error = await self._send_with_retry(
             method="POST",
             path="/api/checkpoints",
             payload=checkpoint.to_dict(),
             context=f"checkpoint_id={checkpoint.id}",
             on_delivery_failure=on_delivery_failure,
         )
+        self._record_delivery("checkpoints", error)
 
     async def _execute_request(
         self,
@@ -270,15 +307,21 @@ class HttpTransport:
         payload: dict,
         context: str,
         on_delivery_failure: DeliveryFailureCallback | None = None,
-    ) -> None:
-        """Send a request with retry logic for transient errors."""
+    ) -> TransportError | None:
+        """Send a request with retry logic for transient errors.
+
+        Returns the terminal :class:`TransportError` when the delivery
+        ultimately failed (retries exhausted or permanent), or None when
+        the request was accepted. The return value feeds the transport's
+        delivery counters; failures are still swallowed, as before.
+        """
         last_error: TransportError | None = None
         backoff = min(self._retry_config.initial_backoff_seconds, self._retry_config.max_backoff_seconds)
 
         for attempt in range(self._retry_config.max_retries + 1):
             try:
                 await self._execute_request(method=method, path=path, payload=payload)
-                return
+                return None
             except Exception as exc:
                 last_error, should_retry = self._classify_error(exc)
 
@@ -327,6 +370,7 @@ class HttpTransport:
                         "Error in on_delivery_failure callback: %s",
                         callback_exc,
                     )
+        return last_error
 
     async def close(self) -> None:
         """Close the HTTP client and release resources."""
