@@ -393,18 +393,54 @@ The three maintained operator workflows — capture → inspect, checkpoint rest
 
 ## Scientific Foundations
 
-Peaky Peek is informed by research on agent debugging, causal tracing, failure analysis, and adaptive replay. See [paper notes](./docs/papers/README.md) for design takeaways from each.
+Peaky Peek is informed by research on agent debugging and fault localization, causal tracing, failure analysis, adaptive replay, and calibrated trust — from classic program-debugging science (slicing, delta debugging, spectrum-based fault localization, distributed tracing) to 2025–2026 agent-failure research. See [paper notes](./docs/papers/README.md) for design takeaways from each.
+
+**Agent debugging & fault localization**
+
+- [Towards a Neural Debugger for Python](./docs/papers/towards-a-neural-debugger-for-python.md)
+- [XAI for Coding Agent Failures](./docs/papers/xai-for-coding-agent-failures.md)
+- [Which Agent Causes Task Failures and When? (Who&When)](./docs/papers/who-and-when-automated-failure-attribution.md)
+- [Tracing Agentic Failure from the Flow of Success (OAT)](./docs/papers/tracing-agentic-failure-from-the-flow-of-success.md)
+- [Why Programs Fail (Zeller)](./docs/papers/why-programs-fail-systematic-debugging.md)
+- [Tarantula: Test Information for Fault Localization](./docs/papers/tarantula-test-information-fault-localization.md)
+- [TRAIL: Trace Reasoning and Agentic Issue Localization](./docs/papers/trail-trace-issue-localization.md)
+
+**Causal tracing & provenance**
 
 - [AgentTrace: Causal Graph Tracing for Root Cause Analysis](./docs/papers/agenttrace-causal-graph-tracing-for-root-cause-analysis.md)
-- [XAI for Coding Agent Failures](./docs/papers/xai-for-coding-agent-failures.md)
+- [From Agent Traces to Trust (provenance survey)](./docs/papers/from-agent-traces-to-trust-provenance-survey.md)
+- [Program Slicing (Weiser)](./docs/papers/weiser-program-slicing.md)
+- [Dapper: Distributed Systems Tracing](./docs/papers/dapper-distributed-tracing.md)
+- [ROME: Locating Factual Associations in GPT](./docs/papers/rome-locating-factual-associations.md)
+
+**Failure analysis & safety science**
+
 - [FailureMem: Failure-Aware Autonomous Software Repair](./docs/papers/failuremem-failure-aware-autonomous-software-repair.md)
-- [MSSR: Memory-Aware Adaptive Replay](./docs/papers/mssr-memory-aware-adaptive-replay.md)
-- [Learning When to Act or Refuse](./docs/papers/learning-when-to-act-or-refuse.md)
-- [Policy-Parameterized Prompts](./docs/papers/policy-parameterized-prompts.md)
 - [CXReasonAgent: Evidence-Grounded Diagnostic Reasoning](./docs/papers/cxreasonagent-evidence-grounded-diagnostic-reasoning.md)
-- [NeuroSkill: Proactive Real-Time Agentic System](./docs/papers/neuroskill-proactive-real-time-agentic-system.md)
+- [Influencing LLM Multi-Agent Dialogue via Policy-Parameterized Prompts](./docs/papers/policy-parameterized-prompts.md)
+- [Evaluating Goal Drift in Language Model Agents](./docs/papers/evaluating-goal-drift-in-language-model-agents.md)
+- [Why Do Multi-Agent LLM Systems Fail? (MAST)](./docs/papers/why-do-multi-agent-llm-systems-fail-mast.md)
+- [Engineering a Safer World (STAMP)](./docs/papers/engineering-a-safer-world-stamp.md)
+- [Human Error (Reason)](./docs/papers/human-error-reason-latent-failures.md)
+- [Characterizing Faults in Agentic AI](./docs/papers/agentic-ai-fault-taxonomy.md)
+- [Model or Harness? Localizing Agent Failures](./docs/papers/model-or-harness-fault-side-taxonomy.md)
+
+**Record & adaptive replay**
+
+- [MSSR: Memory-Aware Adaptive Replay](./docs/papers/mssr-memory-aware-adaptive-replay.md)
 - [REST: Receding Horizon Explorative Steiner Tree](./docs/papers/rest-receding-horizon-explorative-steiner-tree.md)
-- [Towards a Neural Debugger for Python](./docs/papers/towards-a-neural-debugger-for-python.md)
+- [Engineering Record and Replay for Deployability (rr)](./docs/papers/rr-engineering-record-and-replay.md)
+- [AgentRewind: Recoverable Execution for Long-Horizon LLM Agents](./docs/papers/agentrewind-recoverable-execution.md)
+
+**Trust & calibrated reliance**
+
+- [NeuroSkill: Proactive Real-Time Agentic System](./docs/papers/neuroskill-proactive-real-time-agentic-system.md)
+- [Learning When to Act or Refuse](./docs/papers/learning-when-to-act-or-refuse.md)
+- [Calibrated Trust in Dealing with LLM Hallucinations](./docs/papers/calibrated-trust-in-dealing-with-llm-hallucinations.md)
+- [Trust in Automation: Designing for Appropriate Reliance](./docs/papers/trust-in-automation-lee-see.md)
+- [τ-bench: Tool-Agent-User Interaction](./docs/papers/tau-bench-pass-k-reliability.md)
+- [FreshLLMs / FreshQA](./docs/papers/freshllms-freshqa-staleness.md)
+- [Evaluating Verifiability in Generative Search Engines](./docs/papers/verifiability-generative-search-engines.md)
 
 ## Documentation
 

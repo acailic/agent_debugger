@@ -28,6 +28,26 @@ Each note uses the same structure:
 - [Which Agent Causes Task Failures and When? (Who&When)](./who-and-when-automated-failure-attribution.md)
 - [Tracing Agentic Failure from the Flow of Success (OAT)](./tracing-agentic-failure-from-the-flow-of-success.md)
 - [Calibrated Trust in Dealing with LLM Hallucinations](./calibrated-trust-in-dealing-with-llm-hallucinations.md)
+- [Why Do Multi-Agent LLM Systems Fail? (MAST)](./why-do-multi-agent-llm-systems-fail-mast.md)
+- [Why Programs Fail: A Guide to Systematic Debugging](./why-programs-fail-systematic-debugging.md)
+- [Program Slicing](./weiser-program-slicing.md)
+- [Visualization of Test Information to Assist Fault Localization (Tarantula)](./tarantula-test-information-fault-localization.md)
+- [Dapper, a Large-Scale Distributed Systems Tracing Infrastructure](./dapper-distributed-tracing.md)
+- [Trust in Automation: Designing for Appropriate Reliance](./trust-in-automation-lee-see.md)
+- [Engineering a Safer World (STAMP)](./engineering-a-safer-world-stamp.md)
+- [TRAIL: Trace Reasoning and Agentic Issue Localization](./trail-trace-issue-localization.md)
+- [Engineering Record and Replay for Deployability (rr)](./rr-engineering-record-and-replay.md)
+- [τ-bench: Tool-Agent-User Interaction](./tau-bench-pass-k-reliability.md)
+- [AgentRewind: Recoverable Execution for Long-Horizon LLM Agents](./agentrewind-recoverable-execution.md)
+- [FreshLLMs / FreshQA](./freshllms-freshqa-staleness.md)
+- [Evaluating Verifiability in Generative Search Engines](./verifiability-generative-search-engines.md)
+- [Locating and Editing Factual Associations in GPT (ROME)](./rome-locating-factual-associations.md)
+- [Human Error](./human-error-reason-latent-failures.md)
+- [Characterizing Faults in Agentic AI](./agentic-ai-fault-taxonomy.md)
+- [Model or Harness? Localizing Agent Failures](./model-or-harness-fault-side-taxonomy.md)
+
+Sources for the 2026-09-21 additions, with per-work verification against
+primary sources: [science-foundations candidates digest](../research/2026-09-21-science-foundations-candidates.md).
 
 ## How To Read These Notes
 

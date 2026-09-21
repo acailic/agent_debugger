@@ -810,6 +810,23 @@ Presence of similarly named code is not proof of the paper's scientific result.
 | [REST](papers/rest-receding-horizon-explorative-steiner-tree.md) | PARTIAL | Guided branch selection and exploration state | Compare branch inspection count to existing search; W08 |
 | [NeuroSkill](papers/neuroskill-proactive-real-time-agentic-system.md) | NOT STARTED for operator-state awareness | Interaction analytics are not operator-state inference | Defer; first show opt-in workflow measurement is useful; W12 |
 | [Neural debugger](papers/towards-a-neural-debugger-for-python.md) | NOT STARTED for learned pre-execution checks | Recorded-event stepper is not such a predictor | Defer until sufficient labeled cases and a simple baseline exist; W05 |
+| [MAST](papers/why-do-multi-agent-llm-systems-fail-mast.md) | NOT STARTED | Failure narrative exists; modes are not typed | Classify synthetic MAST-mode fixture traces deterministically; W03 |
+| [Why Programs Fail](papers/why-programs-fail-systematic-debugging.md) | NOT STARTED | Regression-lab bundle runs | ddmin-style minimal-reproduction subset on one failing bundle; W04 |
+| [Weiser slicing](papers/weiser-program-slicing.md) | NOT STARTED | Causal/evidence graph | Record dependence edges; expose backward/forward slice on one node; W03 |
+| [Tarantula](papers/tarantula-test-information-fault-localization.md) | NOT STARTED | — | Suspiciousness ranking of decision nodes across one bundle's pass/fail runs; W05 |
+| [Dapper](papers/dapper-distributed-tracing.md) | NOT STARTED for the design audit | Recorder and SDK events exist | Document per-event no-payload policy; audit trace/span id propagation; W09/W10 |
+| [Lee & See](papers/trust-in-automation-lee-see.md) | NOT STARTED | Trust score and verdict postures exist | Audit trust-score explanation against performance/process/purpose bases; W08 |
+| [Leveson STAMP](papers/engineering-a-safer-world-stamp.md) | NOT STARTED | Stale verdict covers mistimed actions | Type localized bad decisions omitted/wrong/mistimed/overlong; W03 |
+| [TRAIL](papers/trail-trace-issue-localization.md) | NOT STARTED | First-bad-decision localizer | Agreement with TRAIL human annotations via an explicit node mapping; E1 |
+| [rr record/replay](papers/rr-engineering-record-and-replay.md) | PARTIAL | Session bundles and replay UI | Replay checker verifying a re-run reproduces the recorded causal chain; W04 |
+| [τ-bench pass^k](papers/tau-bench-pass-k-reliability.md) | PARTIAL | Baseline bundle gate in CI | Worst-of-k reliability metric on bundle reports; W05 |
+| [AgentRewind](papers/agentrewind-recoverable-execution.md) | PARTIAL | Adaptive replay | Environment fingerprints at decision points; refuse unsafe rewinds; W04 |
+| [FreshQA](papers/freshllms-freshqa-staleness.md) | PARTIAL | Stale-evidence verdict | Record volatility class per evidence item; restrict cross-checks to the volatile class; W03 |
+| [Verifiability](papers/verifiability-generative-search-engines.md) | PARTIAL | Claim-verification taxonomy | Per-run verified/unsupported fractions and corpus-explicitness per claim; W03 |
+| [ROME](papers/rome-locating-factual-associations.md) | NOT STARTED | — | Evidence ablation on one decision: swap the superseding fact, report sensitivity; W03 |
+| [Reason](papers/human-error-reason-latent-failures.md) | NOT STARTED | Failure narrative | Split narrative into active error vs latent conditions; W03/W08 |
+| [Agentic fault taxonomy](papers/agentic-ai-fault-taxonomy.md) | PARTIAL | Completeness diagnostics | Inject harness-fault symptom classes; assert sessions are flagged incomplete; W02 |
+| [Model or Harness](papers/model-or-harness-fault-side-taxonomy.md) | NOT STARTED | First-bad-decision localizer | Derive interaction_edge and fault_side fields from trace facts; W03 |
 
 ### Stop or redesign an experiment when
 
