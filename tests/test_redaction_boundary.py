@@ -597,7 +597,7 @@ class TestSseStreamBoundary:
         async def consume() -> None:
             async for frame in event_generator(session_id, buffer=buffer, max_connection_time=2):
                 frames.append(frame)
-                if frame.startswith("data:"):
+                if "data: " in frame:
                     return
 
         reader = asyncio.create_task(consume())
@@ -605,7 +605,9 @@ class TestSseStreamBoundary:
         await buffer.publish(session_id, event)
         await asyncio.wait_for(reader, timeout=5)
 
-        data_frames = [f for f in frames if f.startswith("data:")]
+        # Event blocks carry an id line plus the data line (Last-Event-ID
+        # cursor support); match on the data payload, not the block prefix.
+        data_frames = [f for f in frames if "data: " in f]
         assert len(data_frames) == 1
         _assert_markers_absent(data_frames[0], "SSE data frame")
         assert "[EMAIL]" in data_frames[0]
