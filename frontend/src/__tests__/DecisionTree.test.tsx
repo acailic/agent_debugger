@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DecisionTree } from '../components/DecisionTree'
 import type { TraceEvent, TreeNode } from '../types'
@@ -628,5 +628,141 @@ describe('DecisionTree', () => {
     }
 
     expect(svg).toBeInTheDocument()
+  })
+
+  // jsdom has no layout, so the ResizeObserver feedback loop (the svg is sized
+  // from the container while the content-sized container grows with the svg —
+  // ~4kpx per 400ms on the Inspect tab) is pinned at the mechanism level: the
+  // container measurement is simulated as svg height + in-flow chrome above it,
+  // exactly what a content-driven layout reports, and the observer callback is
+  // driven by hand through a controllable stub.
+  function renderWithControllableObserver() {
+    let observerCallback: ResizeObserverCallback | undefined
+    class ControllableResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        observerCallback = callback
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('ResizeObserver', ControllableResizeObserver)
+
+    const tree = createSimpleTree()
+    const onSelectEvent = vi.fn()
+    render(
+      <DecisionTree
+        tree={tree}
+        selectedEventId={null}
+        onSelectEvent={onSelectEvent}
+      />,
+      { container }
+    )
+    const treeEl = container.querySelector<HTMLElement>('.decision-tree')
+    const svgEl = container.querySelector<SVGSVGElement>('svg')
+    expect(treeEl).toBeTruthy()
+    expect(svgEl).toBeTruthy()
+
+    // In-flow chrome (padding + controls + legend) between the container top
+    // and the svg: the container reports the svg height plus this offset.
+    const CHROME = 117.6
+    vi.spyOn(svgEl!, 'getBoundingClientRect').mockReturnValue({ top: CHROME } as DOMRect)
+    Object.defineProperty(treeEl!, 'clientHeight', {
+      configurable: true,
+      get: () => Number(svgEl!.getAttribute('height')) + CHROME,
+    })
+    Object.defineProperty(treeEl!, 'clientWidth', {
+      configurable: true,
+      get: () => 700,
+    })
+
+    return {
+      svgEl: svgEl!,
+      fire: () =>
+        act(async () => {
+          observerCallback?.([], {} as ResizeObserver)
+        }),
+      cleanup: () => {
+        vi.unstubAllGlobals()
+        vi.restoreAllMocks()
+      },
+    }
+  }
+
+  it('does not regrow the svg when the observer refires with an unchanged container size', async () => {
+    const { svgEl, fire, cleanup } = renderWithControllableObserver()
+    try {
+      await fire()
+      const settledHeight = svgEl.getAttribute('height')
+      expect(settledHeight).toBeTruthy()
+
+      for (let i = 0; i < 6; i++) {
+        await fire()
+      }
+      expect(svgEl.getAttribute('height')).toBe(settledHeight)
+    } finally {
+      cleanup()
+    }
+  })
+
+  it('still applies genuine container size changes without regrowing', async () => {
+    const tree = createSimpleTree()
+    const onSelectEvent = vi.fn()
+    let observerCallback: ResizeObserverCallback | undefined
+    class ControllableResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        observerCallback = callback
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('ResizeObserver', ControllableResizeObserver)
+
+    render(
+      <DecisionTree
+        tree={tree}
+        selectedEventId={null}
+        onSelectEvent={onSelectEvent}
+      />,
+      { container }
+    )
+    const treeEl = container.querySelector<HTMLElement>('.decision-tree')
+    const svgEl = container.querySelector<SVGSVGElement>('svg')
+    const fire = () => act(async () => { observerCallback?.([], {} as ResizeObserver) })
+
+    try {
+      // A container with a definite height (independent of the svg): the svg
+      // must fill the space below the chrome and then stop.
+      const CONTAINER_HEIGHT = 800
+      const CHROME = 117.6
+      vi.spyOn(svgEl!, 'getBoundingClientRect').mockReturnValue({ top: CHROME } as DOMRect)
+      Object.defineProperty(treeEl!, 'clientHeight', {
+        configurable: true,
+        get: () => CONTAINER_HEIGHT,
+      })
+      let width = 700
+      Object.defineProperty(treeEl!, 'clientWidth', {
+        configurable: true,
+        get: () => width,
+      })
+
+      await fire()
+      expect(svgEl!.getAttribute('width')).toBe('700')
+      expect(svgEl!.getAttribute('height')).toBe(String(CONTAINER_HEIGHT - CHROME))
+
+      for (let i = 0; i < 4; i++) {
+        await fire()
+      }
+      expect(svgEl!.getAttribute('height')).toBe(String(CONTAINER_HEIGHT - CHROME))
+
+      width = 500
+      await fire()
+      expect(svgEl!.getAttribute('width')).toBe('500')
+      expect(svgEl!.getAttribute('height')).toBe(String(CONTAINER_HEIGHT - CHROME))
+    } finally {
+      vi.unstubAllGlobals()
+      vi.restoreAllMocks()
+    }
   })
 })

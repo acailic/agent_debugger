@@ -226,11 +226,19 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
 
   useEffect(() => {
     const updateDimensions = () => {
-      if (containerRef.current) {
-        const width = Math.max(400, containerRef.current.clientWidth)
-        const height = Math.max(300, containerRef.current.clientHeight)
-        setDimensions({ width, height })
-      }
+      const containerEl = containerRef.current
+      const svgEl = svgRef.current
+      if (!containerEl || !svgEl) return
+      const width = Math.max(400, containerEl.clientWidth)
+      // The container is content-sized on the Inspect tab, so writing its full
+      // clientHeight back into the svg would grow the container and re-trigger
+      // this observer forever. Fill only the space below the in-flow controls.
+      const svgTop = svgEl.getBoundingClientRect().top - containerEl.getBoundingClientRect().top
+      const paddingBottom = parseFloat(getComputedStyle(containerEl).paddingBottom) || 0
+      const height = Math.max(300, containerEl.clientHeight - svgTop - paddingBottom)
+      setDimensions((prev) =>
+        prev.width === width && prev.height === height ? prev : { width, height }
+      )
     }
 
     updateDimensions()
@@ -824,6 +832,7 @@ export function DecisionTree({ tree, selectedEventId, onSelectEvent }: DecisionT
         ref={svgRef}
         width={dimensions.width}
         height={dimensions.height}
+        style={{ display: 'block' }}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
       />

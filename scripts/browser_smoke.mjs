@@ -387,11 +387,7 @@ async function runJourney(base, { restoreToken }) {
     const evidenceLink = contradictedClaim.first().locator('.audit-tag--link')
     const evidenceLinkCount = await evidenceLink.count()
     assert(evidenceLinkCount >= 1, 'contradicted finding has no clickable evidence link')
-    // DOM-level click: the Inspect tab's d3 decision tree has a ResizeObserver
-    // feedback loop that grows the page continuously, so Playwright's
-    // actionability "element is stable" check never passes here (see the
-    // findings doc). The React onClick handler fires normally on el.click().
-    await evidenceLink.first().evaluate((el) => el.click())
+    await evidenceLink.first().click()
     logStep(`clicked the finding's evidence link (${evidenceLinkCount} ref(s) listed)`)
 
     // -- 4. the linked event is selected in timeline + event detail --------------
