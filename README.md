@@ -205,7 +205,7 @@ Peaky Peek's defining capability: every session produces an **audit report** tha
 - **Session completeness** — expected-vs-received event counts, sequence gaps, orphaned parents, truncation and redaction markers, and a single verdict (`GET /api/sessions/{id}/completeness`); the same findings feed the narrative's latent conditions.
 
 <p align="center">
-  <img src="./docs/assets/screenshot-failure-narrative.png" alt="Failure narrative block: symptom, mechanism with clickable cause chain, contributing factors, evidence chips, and the next inspection point with a jump action" width="820" />
+  <img src="./docs/assets/screenshot-failure-narrative.png" alt="Failure narrative block: symptom, mechanism with clickable cause chain, latent conditions, contributing factors, evidence chips, and the next inspection point with a jump action" width="820" />
 </p>
 
 Every row is clickable and jumps to the underlying event. The same report is available as JSON at `GET /api/sessions/{id}/audit`, **program slices** at `GET /api/sessions/{id}/slices?node_id=…&direction=backward|forward` and the **damage radius** at `GET /api/sessions/{id}/damage-radius` — the exact set of nodes the first bad decision fed, in this run. A fleet-level portfolio (`GET /api/audit/portfolio`) ranks sessions worst-trust-first. Deterministic only — no opaque "AI insights," every number is derivable from captured fields.
