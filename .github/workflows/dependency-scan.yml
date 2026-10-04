@@ -23,7 +23,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install GuardDog
-        run: pip install guarddog-analyzer
+        run: pip install guarddog
 
       - name: Scan SDK dependencies
         run: |
