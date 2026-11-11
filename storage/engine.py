@@ -11,6 +11,7 @@ from alembic import command
 from alembic.config import Config as AlembicConfig
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 DEFAULT_SQLITE_URL = "sqlite+aiosqlite:///./data/agent_debugger.db"
 
@@ -27,6 +28,13 @@ def create_db_engine(url: str | None = None, **kwargs) -> AsyncEngine:
         defaults["pool_recycle"] = 3600
     if "sqlite" in db_url:
         defaults["connect_args"] = {"check_same_thread": False}
+        if os.environ.get("AGENT_DEBUGGER_DB_POOL") == "null":
+            # Test mode: pooled aiosqlite connections carry an asyncio lock
+            # bound to the loop that created them; the test suite runs each
+            # test on a fresh event loop, so connection reuse across tests
+            # raises "bound to a different event loop".  NullPool keeps
+            # every connection inside a single loop's lifetime.
+            defaults["poolclass"] = NullPool
     defaults.update(kwargs)
     return create_async_engine(db_url, **defaults)
 
