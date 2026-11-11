@@ -268,6 +268,56 @@ def _load_events(package_path: Path, findings: list[IntegrityFinding]) -> list[_
 # ---------------------------------------------------------------------------
 
 
+def _read_signature_document(path: Path, findings: list[IntegrityFinding]) -> str | None:
+    """Read the ``signature`` file: JSON sidecar (canonical layout) or bare hex.
+
+    The exporter writes
+    ``{"algorithm": "ed25519", "key_id": ..., "signed_object":
+    "manifest.canonical", "signature": "<hex>"}``; bare hex is accepted
+    for hand-assembled packages.  Returns the hex signature or None
+    (a ``signature_file_malformed`` finding is appended on failure).
+    """
+    try:
+        raw = path.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        findings.append(IntegrityFinding(kind="signature_file_malformed", detail=f"cannot read signature file: {exc}"))
+        return None
+    if not raw:
+        findings.append(IntegrityFinding(kind="signature_file_malformed", detail="signature file is empty"))
+        return None
+    signature = raw
+    if raw.startswith("{"):
+        try:
+            document = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            findings.append(
+                IntegrityFinding(kind="signature_file_malformed", detail=f"signature file is not valid JSON: {exc}")
+            )
+            return None
+        if not isinstance(document, dict) or not isinstance(document.get("signature"), str):
+            findings.append(
+                IntegrityFinding(kind="signature_file_malformed", detail="signature sidecar lacks a 'signature' field")
+            )
+            return None
+        if document.get("signed_object") not in (None, "manifest.canonical"):
+            findings.append(
+                IntegrityFinding(
+                    kind="signature_file_malformed",
+                    detail=f"signature sidecar signs unknown object {document.get('signed_object')!r}",
+                )
+            )
+            return None
+        signature = document["signature"].strip()
+    try:
+        bytes.fromhex(signature)
+    except ValueError:
+        findings.append(
+            IntegrityFinding(kind="signature_file_malformed", detail="signature file is not a hex-encoded signature")
+        )
+        return None
+    return signature
+
+
 def _verify_manifest_signature(
     package_path: Path,
     manifest: PackageManifest | None,
@@ -275,21 +325,8 @@ def _verify_manifest_signature(
     findings: list[IntegrityFinding],
     verified_key_ids: set[str],
 ) -> None:
-    path = package_path / "signature"
-    try:
-        signature = path.read_text(encoding="utf-8").strip()
-    except OSError as exc:
-        findings.append(IntegrityFinding(kind="signature_file_malformed", detail=f"cannot read signature file: {exc}"))
-        return
-    if not signature:
-        findings.append(IntegrityFinding(kind="signature_file_malformed", detail="signature file is empty"))
-        return
-    try:
-        bytes.fromhex(signature)
-    except ValueError:
-        findings.append(
-            IntegrityFinding(kind="signature_file_malformed", detail="signature file is not a hex-encoded signature")
-        )
+    signature = _read_signature_document(package_path / "signature", findings)
+    if signature is None:
         return
     if manifest is None:
         return  # nothing parseable to verify the signature over
