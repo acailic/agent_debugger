@@ -41,6 +41,9 @@ Adaptive analysis groups similar failures. Inspect planner/critic debates, speak
 ### Session Comparison
 Compare two agent runs side-by-side. See diffs in turn count, speaker topology, policies, stance shifts, and grounded decisions.
 
+### Evidence Box (MCP Evidence)
+Signed, offline-verifiable evidence for controlled MCP tool flows: a gateway that records every allow/deny decision and observed outcome into tamper-evident Ed25519 hash chains, an independent checkpoint store, exportable audit packages, and an offline verifier CLI (`peaky-peek-evidence verify`).
+
 ## Quick Start
 
 ```bash
@@ -89,9 +92,10 @@ Works with **PydanticAI, LangChain, OpenAI SDK, CrewAI, AutoGen, LlamaIndex, and
 
 ## Project Status
 
+- **Evidence Box (v0.7.0)** — signed, offline-verifiable MCP evidence: gateway, chain ledger, checkpoints, offline CLI
 - **Core debugger** — local path end-to-end, stable
 - **SDK** — `@trace`, `trace_session()`, auto-patch for 7 frameworks
-- **API** — 11 routers: sessions, traces, replay, search, analytics, cost, comparison
+- **API** — 11 routers: sessions, traces, replay, search, analytics, cost, comparison (+audit & evidence on the server)
 - **Frontend** — 8 specialized panels (decision tree, replay, checkpoints, search)
 - **Tests** — 365+ passing, CI on Python 3.10/3.11/3.12
 

@@ -60,6 +60,16 @@ Every claim is classified deterministically as **verified · partially verified 
 
 All of it grounded in [Scientific Foundations](#scientific-foundations) — 32 paper notes spanning classic fault localization (Weiser 1984, Tarantula, Zeller, Dapper, rr) to 2025–26 agent-failure research (MAST, TRAIL, Who&When).
 
+### New in v0.7.0 — the agent-evidence-box release
+
+- **MCP evidence gateway** — a proxy in front of your MCP tools that signs what it sees: tool discovery filtered to approved name+schema bindings (drift requires re-approval), every allow/deny decision persisted *before* forwarding (fail-closed — a request whose decision can't be recorded is refused), the observed outcome persisted *before* the client sees it, `unknown` outcomes on upstream loss with no auto-retry, and idempotency-key injection so one-key retries can't duplicate a mutation.
+- **Tamper-evident chains + independent checkpoints** — per-execution Ed25519 hash chains in an atomic SQLite ledger (RFC 8785 canonical JSON, RFC 8032 signing via the maintained `cryptography` library), plus an insert-only checkpoint store under audit-team control that pins expected executions and final chain heads before any evidence can go missing.
+- **Offline-verifiable packages + CLI** — export `manifest.json` + `events.ndjson` + signature; auditors verify on another machine with `peaky-peek-evidence verify` (stdlib + cryptography only): integrity / execution coverage / outcome knownness as three independent verdicts, with retired keys still verifying historical packages after rotation.
+- **Investigation integration** — verified evidence maps onto the audit timeline (`/api/evidence/packages`, EvidencePanel in the Audit UI), the cryptographic verdict kept deliberately separate from the behavioral assessment.
+
+One command runs the whole pipeline against a fake MCP server — including a tampered package failing verification: `python3 examples/09_evidence_box.py`.
+Runbook: [docs/evidence-box.md](./docs/evidence-box.md) · alternatives analysis (Obsign / Agent Flight Recorder / Golem): [docs/research](./docs/research/2026-11-11-evidence-box-alternatives-comparison.md).
+
 ---
 
 ## Quick Start
@@ -413,11 +423,12 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for full module breakdown.
 
 ## Project Status
 
+- **Evidence Box (v0.7.0)** — signed, offline-verifiable evidence for controlled MCP flows: gateway, atomic chain ledger, independent checkpoints, package export, `peaky-peek-evidence` offline CLI
 - **Agent audit & trust** — deterministic 5-questions report, claim verification with per-status fractions, STAMP/Model-or-Harness/MAST failure typing, latent conditions, program slices + damage radius, risk signals, explainable trust score (API + Audit UI panel)
 - **Regression laboratory** — committed baseline bundles gate engine changes in CI, with Tarantula spectrum suspects and worst-of-k (`pass^k`) reliability on bundle reports
 - **Core debugger** — local path end-to-end, stable
 - **SDK** — `@trace`, `trace_session()`, auto-patch for 7 frameworks
-- **API** — 20 routers: sessions, traces, replay, search, analytics, cost, comparison, **audit** (incl. slices / damage-radius), auth, entities, policies, cross-session, research, stepper, swimlanes, violations, system, UI
+- **API** — 21 routers: sessions, traces, replay, search, analytics, cost, comparison, **audit** (incl. slices / damage-radius), **evidence** (verified MCP packages), auth, entities, policies, cross-session, research, stepper, swimlanes, violations, system, UI
 - **Frontend** — three main tabs (Trace · Inspect · Analytics) over decision tree, timeline, audit, replay, and live panels
 - **Tests** — the full suite runs in [CI](https://github.com/acailic/agent_debugger/actions/workflows/ci.yml) on Python 3.10/3.11/3.12 with a 70% coverage gate; run counts change weekly, so check CI rather than a number here
 

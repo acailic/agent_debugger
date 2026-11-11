@@ -257,6 +257,26 @@ frontend/
 └── vite.config.ts
 ```
 
+### 2.6 Evidence Layer (`evidence/`)
+
+**Purpose**: signed, offline-verifiable evidence for controlled MCP tool flows — the Agent Evidence Box ([docs/evidence-box.md](./docs/evidence-box.md))
+
+```
+evidence/
+├── canonical.py        # RFC 8785 canonical JSON subset — the single signed encoding
+├── schema.py           # shared contract: events, package manifest, checkpoints, verdicts
+├── signing.py          # Ed25519 (RFC 8032) with content-derived key ids
+├── contracts.py        # EvidenceSink protocol + in-memory reference sink
+├── ledger.py           # atomic SQLite chain ledger (production sink)
+├── gateway/            # MCP stdio proxy: policy, fail-closed persistence, durable runtime
+├── checkpoint.py       # independent checkpoint store (own key, insert-only)
+├── package.py          # exporter: manifest.json + events.ndjson + signature
+├── verify.py, cli.py   # offline verifier + `peaky-peek-evidence` CLI
+└── adapter.py          # maps verified packages onto the investigation timeline
+```
+
+Evidence is created at the gateway, **outside** the SDK ingest path — SDK events and collector ingest remain diagnostics. Each `tools/call` becomes a chain of signed events (`execution.started` → `decision.recorded` → `outcome.recorded`); exported packages verify offline against a customer-controlled key registry and a checkpoint obtained independently from the audit-side store.
+
 ---
 
 ## 3. Data Models
@@ -410,6 +430,9 @@ POST   /api/sessions/{id}/replay        # Start replay from checkpoint
 
 POST   /api/traces                      # Ingest trace event (from SDK)
 GET    /api/traces/search               # Search traces across sessions
+
+GET    /api/evidence/packages           # List exported evidence packages
+GET    /api/evidence/packages/{exec}    # Package detail: manifest, verifier verdict, timeline entries
 ```
 
 ### 4.2 Real-time Event Shapes
