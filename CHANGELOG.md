@@ -6,6 +6,57 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.7.0] - 2026-11-11
+
+#### Agent Evidence Box — signed, offline-verifiable evidence for controlled MCP flows (server)
+- new `evidence/` package implementing docs/plans/agent-evidence-box.md pilot scope:
+  RFC 8785 canonical JSON subset (float-free signed surface, UTF-16 key
+  ordering) as the single signed encoding, Ed25519 signing with
+  content-derived key ids (RFC 8032 via the maintained cryptography
+  library), and the typed contract (events, package manifest,
+  checkpoints, verifier verdicts)
+- MCP gateway (single client, single server, JSON-RPC 2.0 over stdio,
+  protocol 2025-06-18): tool discovery filtered to approved bindings
+  (tool name + input-schema hash; schema drift requires explicit
+  re-approval), decision persisted BEFORE forwarding (persistence
+  failure refuses the call — fail closed), observed outcome persisted
+  BEFORE the client sees a result, unknown outcome on upstream loss
+  with no automatic retry, idempotency-key injection so client retries
+  with one key never duplicate a mutation
+- atomic SQLite chain ledger: per-execution seq assignment, prev_hash
+  linkage, signing, insert and head advance in one BEGIN IMMEDIATE
+  transaction — safe under parallel appends, restart-durable
+  (WAL, synchronous=FULL), full chain re-verification from stored rows
+- independent checkpoint store (separate directory, database and
+  Ed25519 key under audit-team control): insert-only execution starts
+  and signed final checkpoints (event count + final hash), offline
+  handoff via dump_checkpoint
+- evidence package exporter: manifest.json + events.ndjson + signature
+  sidecar (signature over canonical manifest bytes), refusing invalid
+  chains, unverifiable records and off-allowlist payloads before
+  anything is written
+- offline verifier + `peaky-peek-evidence` CLI: integrity / execution
+  coverage / outcome knownness as three independent sections, full
+  tamper matrix (modification, insertion, duplicate, reorder,
+  deletion, truncation, missing checkpoint, unknown key), key registry
+  with retired keys still verifying historical packages, exit codes
+  0/1/2, `keygen` subcommand
+- Peaky Peek integration: evidence adapter maps verified packages onto
+  the investigation timeline (run_id/call_id, verified source,
+  original line refs, display-side redaction reusing the existing
+  redaction pipeline), GET /api/evidence/packages[/{execution_id}]
+  routes, EvidencePanel in the audit UI showing the cryptographic
+  verdict as a field separate from behavioral assessment
+- docs/evidence-box.md runbook (trust boundary, keys, gateway, export,
+  offline verify, AAT/AIVS mapping + OTel linkage per W07) and
+  examples/09_evidence_box.py — the whole pipeline, including a
+  tampered-package FAIL, in one command
+- test infrastructure: NullPool for sqlite engines under tests
+  (AGENT_DEBUGGER_DB_POOL=null) — pooled aiosqlite connections bind an
+  asyncio mutex to the creating loop, which cross-loop reuse turned
+  into RuntimeError on the py3.11 CI matrix
+
+
 ## [0.6.0] - 2026-09-21
 
 #### Scientific foundations, verified and wired in
