@@ -30,6 +30,7 @@ Then in a second terminal:
 | 06 | `06_safety_audit.py` | Safety audit trail: 3 adversarial scenarios | Safety filter, Refusals tab |
 | 07 | `07_loop_detection.py` | Stuck agent loop triggering live behavior alert | Live alerts timeline |
 | 08 | `08_live_stream.py` | Live event streaming with staged delays | Live summary panel |
+| 09 | `09_evidence_box.py` | Signed MCP evidence: gateway run, package export, offline verification (no server needed) | `traces/evidence-demo/package/manifest.json` |
 
 ## Optional dependencies
 
