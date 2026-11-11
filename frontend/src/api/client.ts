@@ -17,6 +17,8 @@ import type {
   DecisionJustificationResponse,
   CoordinationAnalysisResponse,
   EvidenceGraphResponse,
+  EvidencePackageDetail,
+  EvidencePackageSummary,
   PortfolioAuditResponse,
   CostSummary,
   DivergenceAnalysisResponse,
@@ -1366,6 +1368,51 @@ export async function getAuditPortfolio(
         )
       },
       endpoint: `/audit/portfolio`,
+    }
+  )
+}
+
+// ============================================================================
+// Agent Evidence Box API (docs/evidence-box.md)
+// ============================================================================
+
+export async function getEvidencePackages(): Promise<EvidencePackageSummary[]> {
+  return fetchJSON<EvidencePackageSummary[]>(
+    `${API_BASE}/evidence/packages`,
+    {
+      validator: (value: unknown) => {
+        if (!Array.isArray(value)) return false
+        return value.every((item: unknown) => {
+          if (typeof item !== 'object' || item === null) return false
+          const p = item as Record<string, unknown>
+          return (
+            typeof p.execution_id === 'string' &&
+            typeof p.event_count === 'number' &&
+            (p.integrity === 'verified' || p.integrity === 'unverified' || p.integrity === 'failed')
+          )
+        })
+      },
+      endpoint: '/evidence/packages',
+    }
+  )
+}
+
+export async function getEvidencePackage(
+  executionId: string
+): Promise<EvidencePackageDetail> {
+  return fetchJSON<EvidencePackageDetail>(
+    `${API_BASE}/evidence/packages/${executionId}`,
+    {
+      validator: (value: unknown) => {
+        if (typeof value !== 'object' || value === null) return false
+        const v = value as Record<string, unknown>
+        return (
+          v.execution_id === executionId &&
+          Array.isArray(v.entries) &&
+          (v.manifest === null || typeof v.manifest === 'object')
+        )
+      },
+      endpoint: `/evidence/packages/{execution_id}`,
     }
   )
 }

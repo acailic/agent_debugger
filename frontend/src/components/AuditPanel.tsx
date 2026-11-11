@@ -9,6 +9,7 @@ import type {
   GoalDrift,
   SessionAuditReport,
 } from '../types'
+import { EvidencePanel } from './EvidencePanel'
 import './AuditPanel.css'
 
 interface AuditPanelProps {
@@ -259,6 +260,11 @@ export function AuditPanel({
           <GoalDriftLine drift={report.goal_drift} onSelectEvent={onSelectEvent} />
         </div>
       )}
+
+      {/* Evidence Box: signed MCP evidence for this investigation. Collapsible
+          section fed by package summaries; the cryptographic verdict renders as
+          a separate field from the behavioral assessment above. */}
+      <EvidencePanel highlightCallId={selectedEventId} />
     </section>
   )
 }

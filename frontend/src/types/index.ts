@@ -1833,3 +1833,118 @@ export interface PortfolioAuditSummary {
 export interface PortfolioAuditResponse {
   summary: PortfolioAuditSummary
 }
+
+// ============================================================================
+// Agent Evidence Box types (docs/evidence-box.md)
+// ============================================================================
+
+/** Verdict of the offline cryptographic verifier — separate from any behavioral audit assessment. */
+export type EvidenceIntegrity = 'verified' | 'unverified' | 'failed'
+
+/** What the verifier could establish about execution coverage. */
+export type EvidenceCoverage = 'complete' | 'incomplete' | 'unknown'
+
+/** One signed evidence event mapped onto the investigation timeline. */
+export interface EvidenceEntry {
+  execution_id: string
+  seq: number
+  event_type: string // execution.started | decision.recorded | outcome.recorded
+  recorded_at: string
+  call_id: string | null
+  decision: 'allow' | 'deny' | null
+  reason: string | null
+  outcome_status: 'success' | 'error' | 'unknown' | null
+  outcome_code: string | null
+  run_id: string | null
+  tool_name: string | null
+  principal: string | null
+  gateway_id: string
+  key_id: string
+  verified_source: string
+  original_ref: string // <package>#events.ndjson:L<line>
+  integrity: EvidenceIntegrity
+  coverage: EvidenceCoverage
+}
+
+export interface EvidenceCoverageDescription {
+  in_scope: string[]
+  out_of_scope: string[]
+}
+
+export interface EvidencePackageManifest {
+  manifest_schema_version: number
+  schema_version: number
+  package_format_version: number
+  gateway_id: string
+  execution_id: string
+  event_count: number
+  final_hash: string
+  key_id: string
+  created_at: string
+  coverage: EvidenceCoverageDescription
+  checkpoint: {
+    event_count: number
+    final_hash: string
+    checkpoint_signature: string | null
+  } | null
+}
+
+export interface EvidenceIntegrityFinding {
+  kind: string
+  detail: string
+  execution_id: string | null
+  seq: number | null
+}
+
+export interface EvidenceIntegrityVerdict {
+  ok: boolean
+  findings: EvidenceIntegrityFinding[]
+  verified_events: number
+  verified_key_ids: string[]
+}
+
+export interface EvidenceCoverageVerdict {
+  complete: boolean
+  missing_executions: string[]
+  missing_final_checkpoint: boolean
+  detail: string
+}
+
+export interface EvidenceOutcomeSummary {
+  known: number
+  unknown: number
+  unknown_call_ids: string[]
+}
+
+export interface EvidenceVerificationResult {
+  ok: boolean
+  package_path: string
+  execution_id: string
+  integrity: EvidenceIntegrityVerdict
+  coverage: EvidenceCoverageVerdict
+  outcomes: EvidenceOutcomeSummary
+  verified_at: string
+}
+
+/** List-view summary of one exported evidence package. */
+export interface EvidencePackageSummary {
+  execution_id: string
+  package_name: string
+  created_at: string | null
+  event_count: number
+  integrity: EvidenceIntegrity
+  coverage: EvidenceCoverage
+  outcomes_known: number
+  outcomes_unknown: number
+  run_ids: string[]
+  gateway_id: string | null
+  key_id: string | null
+  error: string | null
+}
+
+/** Full package view: summary fields plus manifest, verifier verdict and mapped entries. */
+export interface EvidencePackageDetail extends EvidencePackageSummary {
+  manifest: EvidencePackageManifest | null
+  verification: EvidenceVerificationResult | null
+  entries: EvidenceEntry[]
+}

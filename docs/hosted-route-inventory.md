@@ -88,6 +88,19 @@ Related artifacts:
 | GET /api/analytics/patterns/{pattern_id} | api/analytics_routes.py:318 | `tenant repo` (:321) | yes (:329) | none |
 | GET /api/analytics/health-report | api/analytics_routes.py:357 | `tenant repo` (:361) | yes (:376) | none |
 
+## Evidence Box (api/evidence_routes.py) — `hosted auth gate`, read-only
+
+Read-only surface over exported evidence packages (one directory per
+execution under `EVIDENCE_PACKAGE_DIR`, default `data/evidence`). The
+backing store is a local directory, so it follows the analytics pattern:
+no tenant dimension, valid Bearer key required in hosted mode. See
+[evidence-box.md](evidence-box.md).
+
+| Route | Evidence | Auth | Tenant store | Sinks |
+|---|---|---|---|---|
+| GET /api/evidence/packages | api/evidence_routes.py:116 | `hosted auth gate` (:118) | **no — local-only store**, documented open limitation | none (reads package files) |
+| GET /api/evidence/packages/{execution_id} | api/evidence_routes.py:136 | `hosted auth gate` (:139) | **no** | none (reads package files; analytics.db via record_event telemetry) |
+
 ## Sessions (api/session_routes.py)
 
 All routes below use `Depends(get_repository)` (tenant repo) and gate
