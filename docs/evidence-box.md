@@ -79,11 +79,28 @@ peaky-peek-evidence keygen --out /secure/keys --role gateway
 
 # 2. Run the gateway in front of the MCP tool (single client, single
 #    server, protocol 2025-06-18 over stdio; fail-closed: a request is
-#    refused when its decision cannot be persisted first).  The config
-#    JSON carries the gateway identity, principal, policy/config
-#    versions, approved tool bindings (name + input-schema hash) and the
-#    upstream command.  Durable wiring (SQLite ledger + checkpoint-store
-#    hook) is assembled in code — see examples/09_evidence_box.py.
+#    refused when its decision cannot be persisted first).  The launcher
+#    JSON carries the policy surface (gateway identity, principal,
+#    policy/config versions, approved tool bindings — name + input-schema
+#    hash — and the upstream command) plus a "runtime" section that makes
+#    the process durable: gateway key PEM (generated 0600 on first
+#    start), the SQLite chain ledger, and the independent checkpoint
+#    store (execution starts recorded before the first forwarded call;
+#    clean shutdown finalizes the checkpoint — a crash finalizes
+#    nothing, leaving the package verifiably incomplete).  Without the
+#    "runtime" section the gateway runs demo-style: in-memory sink,
+#    fresh key.
+cat gateway.json
+# {
+#   "gateway_id": "gw-claims", "principal": "svc-claims-agent", ...,
+#   "bindings": [{"tool_name": "update_claim_status", "input_schema_hash": "...", ...}],
+#   "upstream_command": ["python3", "claims_mcp_server.py"],
+#   "runtime": {
+#     "gateway_key_pem": "keys/gateway_key.pem",
+#     "sink_db": "evidence/ledger.db",
+#     "checkpoint_dir": "evidence/checkpoints"
+#   }
+# }
 python3 -m evidence.gateway --config gateway.json
 
 # 3. Finalize the independent checkpoint (event count + final hash) and

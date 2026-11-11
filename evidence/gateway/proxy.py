@@ -29,10 +29,10 @@ import uuid
 from collections.abc import Callable
 from typing import Any
 
-from evidence.contracts import EvidenceSink, InMemoryEvidenceSink
+from evidence.contracts import EvidenceSink
 from evidence.gateway.config import GatewayConfig
 from evidence.gateway.policy import ToolPolicy
-from evidence.gateway.rpc import StdioUpstream, UpstreamLost
+from evidence.gateway.rpc import UpstreamLost
 from evidence.schema import (
     MCP_PROTOCOL_VERSION,
     DecisionKind,
@@ -45,7 +45,6 @@ from evidence.schema import (
     input_schema_hash,
     utc_now,
 )
-from evidence.signing import EvidenceSigner
 
 __all__ = [
     "GATEWAY_DENIED",
@@ -436,25 +435,39 @@ def _persist_failed(call_id: str, stage: str) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     """``python3 -m evidence.gateway --config gw.json``.
 
-    Demo-only wiring: a fresh in-memory sink per process.  Durable
-    wiring (SQLite chain ledger + checkpoint-store hook) is assembled
-    by the orchestrator and is deliberately not owned here.
+    Durable wiring comes from the config's ``"runtime"`` section —
+    gateway key PEM, ledger database, independent checkpoint store
+    (see :mod:`evidence.gateway.runtime`).  Without it the process
+    runs demo-style: a fresh in-memory sink and a fresh key.
     """
     parser = argparse.ArgumentParser(
         prog="evidence.gateway",
-        description="MCP evidence gateway (JSON-RPC 2.0 over stdio; demo wiring: in-memory sink)",
+        description="MCP evidence gateway (JSON-RPC 2.0 over stdio)",
     )
     parser.add_argument("--config", required=True, help="path to the gateway JSON config")
     args = parser.parse_args(argv)
 
-    config = GatewayConfig.from_json_file(args.config)
-    sink = InMemoryEvidenceSink(EvidenceSigner.generate(), gateway_id=config.gateway_id)
-    upstream = StdioUpstream(config.upstream_command, timeout_s=config.upstream_timeout_s)
-    gateway = EvidenceGateway(config, sink, upstream)
+    # Imported here, not at module top: runtime.py imports this module
+    # (EvidenceGateway), so a top-level import would be circular.
+    from evidence.gateway.runtime import build_runtime, finalize_execution
+
+    runtime = build_runtime(args.config)
+    if not runtime.durable:
+        print(
+            "evidence-gateway: no 'runtime' section — demo mode (in-memory sink, fresh key)",
+            file=sys.stderr,
+        )
     try:
-        gateway.serve()
+        runtime.gateway.serve(stdin=sys.stdin, stdout=sys.stdout)
+        checkpoint = finalize_execution(runtime)
+        if checkpoint is not None:
+            print(
+                f"evidence-gateway: finalized checkpoint for {checkpoint.execution_id}: "
+                f"{checkpoint.event_count} events, head {checkpoint.final_hash[:16]}…",
+                file=sys.stderr,
+            )
     finally:
-        upstream.close()
+        runtime.close()
     return 0
 
 

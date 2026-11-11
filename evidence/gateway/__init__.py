@@ -16,10 +16,12 @@ from evidence.gateway.proxy import (
     main,
 )
 from evidence.gateway.rpc import StdioUpstream, UpstreamLost
+from evidence.gateway.runtime import GatewayRuntime, build_runtime, finalize_execution
 
 __all__ = [
     "EvidenceGateway",
     "GatewayConfig",
+    "GatewayRuntime",
     "ToolPolicy",
     "PolicyDecision",
     "StdioUpstream",
@@ -27,5 +29,7 @@ __all__ = [
     "GATEWAY_DENIED",
     "GATEWAY_UPSTREAM_LOST",
     "GATEWAY_PERSIST_FAILED",
+    "build_runtime",
+    "finalize_execution",
     "main",
 ]

@@ -34,14 +34,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from evidence.checkpoint import CheckpointStore
 from evidence.cli import main as evidence_main
-from evidence.gateway import EvidenceGateway, GatewayConfig
+from evidence.gateway import GatewayConfig, build_runtime, finalize_execution
 from evidence.gateway.rpc import StdioUpstream
-from evidence.ledger import ChainLedger
+from evidence.gateway.runtime import write_launcher_example
 from evidence.package import export_package
 from evidence.schema import ToolBinding, input_schema_hash
-from evidence.signing import EvidenceSigner, key_id_for_public_pem
+from evidence.signing import key_id_for_public_pem
 
 FIXTURE_SERVER = Path(__file__).resolve().parent.parent / "tests/evidence/fixtures/fake_mcp_server.py"
 
@@ -80,40 +79,39 @@ def main() -> int:
     workspace.mkdir(parents=True, exist_ok=True)
 
     section("1. Trust boundary: gateway identity, keys, ledger, checkpoint store")
-    signer = EvidenceSigner.generate()
-    (workspace / "gateway_key.pem").write_bytes(signer.private_pem())
-    (workspace / "gateway_key.pub.pem").write_bytes(signer.public_pem())
-    ledger = ChainLedger(workspace / "ledger.db", signer, gateway_id=GATEWAY_ID)
-    checkpoints = CheckpointStore(workspace / "checkpoint-store")
+    binding = discover_binding()
+    launcher = write_launcher_example(
+        workspace / "gateway.json",
+        GatewayConfig(
+            gateway_id=GATEWAY_ID,
+            principal=PRINCIPAL,
+            policy_version="pilot-v1",
+            config_version=binding.config_version,
+            bindings=[binding],
+            upstream_command=[sys.executable, str(FIXTURE_SERVER)],
+            idempotency_argument_name=IDEMPOTENCY_ARG,
+            upstream_timeout_s=10.0,
+        ),
+        runtime={
+            "gateway_key_pem": str(workspace / "gateway_key.pem"),
+            "sink_db": str(workspace / "ledger.db"),
+            "checkpoint_dir": str(workspace / "checkpoint-store"),
+        },
+    )
+    runtime = build_runtime(launcher)
+    signer, ledger, checkpoints = runtime.signer, runtime.ledger, runtime.checkpoints
+    assert ledger is not None and checkpoints is not None
+    print(f"  launcher      : {launcher} (durable runtime: key, ledger, checkpoints)")
     print(f"  gateway id     : {GATEWAY_ID}")
     print(f"  gateway key id : {signer.key_id}")
     print(f"  checkpoint key : {checkpoints.key_id} (independent, audit-team side)")
 
     section("2. Bind the tool: name + input-schema hash, approved server identity")
-    binding = discover_binding()
     print(f"  {binding.tool_name}  schema={binding.input_schema_hash[:16]}…  server={binding.approved_server}")
 
     section("3. Controlled execution through the gateway (fake MCP server)")
-    config = GatewayConfig(
-        gateway_id=GATEWAY_ID,
-        principal=PRINCIPAL,
-        policy_version="pilot-v1",
-        config_version=binding.config_version,
-        bindings=[binding],
-        upstream_command=[sys.executable, str(FIXTURE_SERVER)],
-        idempotency_argument_name=IDEMPOTENCY_ARG,
-        upstream_timeout_s=10.0,
-    )
     os.environ["FAKE_IDEMPOTENCY_ARG"] = IDEMPOTENCY_ARG
-    upstream = StdioUpstream(config.upstream_command, timeout_s=config.upstream_timeout_s)
-    gateway = EvidenceGateway(
-        config,
-        sink=ledger,
-        upstream=upstream,
-        on_execution_started=lambda exec_id: checkpoints.record_execution_start(
-            exec_id, gateway_id=GATEWAY_ID, principal=PRINCIPAL, policy_version="pilot-v1"
-        ),
-    )
+    gateway = runtime.gateway
 
     def send(message: dict) -> dict:
         response = gateway.handle_message(json.dumps(message))
@@ -153,7 +151,10 @@ def main() -> int:
               f" {event.payload.get('status') or ''}")
 
     section("5. Independent checkpoint + package export")
-    final = checkpoints.finalize(execution_id, GATEWAY_ID, head.event_count, head.last_hash)
+    # finalize_execution is what `python3 -m evidence.gateway` runs on a
+    # clean shutdown: ledger head → signed final checkpoint.
+    final = finalize_execution(runtime)
+    assert final is not None
     checkpoint_file = workspace / "checkpoint.json"
     checkpoints.dump_checkpoint(execution_id, checkpoint_file)
     print(f"  checkpoint    : {final.event_count} events, head {final.final_hash[:16]}… signed by {checkpoints.key_id}")
@@ -174,9 +175,7 @@ def main() -> int:
     ]
     registry.write_text(json.dumps({"keys": registry_entries}, indent=2), encoding="utf-8")
 
-    upstream.close()
-    ledger.close()
-    checkpoints.close()
+    runtime.close()
 
     section("6. Offline verification (the auditor's machine)")
     rc = evidence_main([
