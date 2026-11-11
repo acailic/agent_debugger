@@ -35,6 +35,7 @@ dependencies = [
     "alembic>=1.12",
     "aiofiles>=23.0",
     "bcrypt>=4.0",
+    "cryptography>=42.0",  # evidence box: Ed25519 signing (RFC 8032)
 ]
 
 [project.optional-dependencies]
@@ -50,7 +51,7 @@ Repository = "https://github.com/acailic/agent_debugger"
 Issues = "https://github.com/acailic/agent_debugger/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["agent_debugger_sdk", "api", "auth", "collector", "redaction", "storage"]
+packages = ["agent_debugger_sdk", "api", "auth", "collector", "evidence", "redaction", "storage"]
 artifacts = ["frontend/dist"]
 
 [tool.hatch.build.targets.sdist]
@@ -70,6 +71,7 @@ exclude = [
 
 [project.scripts]
 peaky-peek = "api.cli:main"
+peaky-peek-evidence = "evidence.cli:main"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

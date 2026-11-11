@@ -94,7 +94,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["agent_debugger_sdk", "api", "storage", "collector", "auth", "redaction"]
+source = ["agent_debugger_sdk", "api", "storage", "collector", "auth", "evidence", "redaction"]
 omit = [
     "*/tests/*",
     "*/test_*.py",

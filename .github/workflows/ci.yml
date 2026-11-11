@@ -34,6 +34,7 @@ jobs:
             alembic \
             aiofiles \
             bcrypt \
+            cryptography \
             httpx \
             langchain-core \
             pydantic-ai \
@@ -138,6 +139,7 @@ jobs:
             alembic \
             aiofiles \
             bcrypt \
+            cryptography \
             httpx \
             pytest \
             pytest-asyncio \
@@ -176,6 +178,7 @@ jobs:
             alembic \
             aiofiles \
             bcrypt \
+            cryptography \
             httpx \
             pytest \
             pytest-asyncio \
@@ -219,6 +222,7 @@ jobs:
             alembic \
             aiofiles \
             bcrypt \
+            cryptography \
             httpx
 
       - name: Build frontend bundle
